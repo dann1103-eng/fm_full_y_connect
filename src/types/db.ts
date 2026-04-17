@@ -5,6 +5,7 @@ export type ContentType =
   | 'reel'
   | 'short'
   | 'produccion'
+  | 'reunion'
 
 export type Phase =
   | 'pendiente'
@@ -26,6 +27,8 @@ export interface PlanLimits {
   reels: number
   shorts: number
   producciones: number
+  reuniones?: number              // opcional: ciclos anteriores a la migración no lo tienen
+  reunion_duracion_horas?: number // opcional: ídem
 }
 
 export interface Database {
