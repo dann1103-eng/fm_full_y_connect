@@ -26,7 +26,16 @@ export default function LoginPage() {
     })
 
     if (authError) {
-      setError('Correo o contraseña incorrectos.')
+      // Show specific message for network/DNS errors so they're easier to diagnose
+      if (authError.message.toLowerCase().includes('fetch') ||
+          authError.message.toLowerCase().includes('network') ||
+          authError.message.toLowerCase().includes('failed')) {
+        setError('No se pudo conectar al servidor. Revisa tu conexión a internet o intenta desde otra red.')
+      } else if (authError.message.toLowerCase().includes('email not confirmed')) {
+        setError('Tu correo aún no está confirmado. Contacta al administrador.')
+      } else {
+        setError('Correo o contraseña incorrectos.')
+      }
       setLoading(false)
       return
     }
