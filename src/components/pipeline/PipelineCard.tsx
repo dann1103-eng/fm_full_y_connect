@@ -66,6 +66,11 @@ export function PipelineCard({ item, logs, currentUserId, showClient = true }: P
         >
           {CONTENT_TYPE_LABELS[item.content_type]}
         </span>
+        {item.carried_over && (
+          <span className="inline-block text-xs font-medium px-2 py-0.5 rounded-full mb-2 bg-amber-100 text-amber-700 ml-1">
+            Traslado
+          </span>
+        )}
 
         {item.notes && (
           <p className="text-xs text-[#595c5e] line-clamp-2 mb-2">{item.notes}</p>
