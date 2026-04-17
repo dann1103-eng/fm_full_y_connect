@@ -9,6 +9,7 @@ export function computeTotals(consumptions: Consumption[]): ConsumptionTotals {
     reel: 0,
     short: 0,
     produccion: 0,
+    reunion: 0,
   }
 
   for (const c of consumptions) {
@@ -60,7 +61,7 @@ export function computeRollover(
   limits: Record<ContentType, number>
 ): Partial<Record<ContentType, number>> {
   const rollover: Partial<Record<ContentType, number>> = {}
-  const types: ContentType[] = ['historia', 'estatico', 'video_corto', 'reel', 'short', 'produccion']
+  const types: ContentType[] = ['historia', 'estatico', 'video_corto', 'reel', 'short', 'produccion', 'reunion']
 
   for (const type of types) {
     const unused = limits[type] - totals[type]

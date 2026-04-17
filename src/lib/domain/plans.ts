@@ -8,6 +8,7 @@ export const CONTENT_TYPE_LABELS: Record<ContentType, string> = {
   reel: 'Video Largo',
   short: 'Shorts',
   produccion: 'Producciones',
+  reunion: 'Reuniones',
 }
 
 /** Ordered list for display */
@@ -18,6 +19,7 @@ export const CONTENT_TYPES: ContentType[] = [
   'reel',
   'short',
   'produccion',
+  'reunion',
 ]
 
 /** Convert PlanLimits JSON to ContentType-keyed record */
@@ -29,6 +31,7 @@ export function limitsToRecord(limits: PlanLimits): Record<ContentType, number> 
     reel: limits.reels,
     short: limits.shorts,
     produccion: limits.producciones,
+    reunion: limits.reuniones ?? 0,  // ?? 0: ciclos antiguos sin este campo devuelven 0
   }
 }
 
@@ -47,6 +50,7 @@ export function effectiveLimits(
     reel: rollover.reels ?? 0,
     short: rollover.shorts ?? 0,
     produccion: rollover.producciones ?? 0,
+    reunion: rollover.reuniones ?? 0,
   }
 
   return {
@@ -56,5 +60,6 @@ export function effectiveLimits(
     reel: base.reel + (roll.reel ?? 0),
     short: base.short + (roll.short ?? 0),
     produccion: base.produccion + (roll.produccion ?? 0),
+    reunion: base.reunion + (roll.reunion ?? 0),
   }
 }
