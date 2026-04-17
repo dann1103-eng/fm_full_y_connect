@@ -82,7 +82,7 @@ export default async function ClientDetailPage({
   if (currentCycle) {
     const { data: pipelineCons } = await supabase
       .from('consumptions')
-      .select('id, content_type, phase, billing_cycle_id, registered_at, notes')
+      .select('id, content_type, phase, carried_over, billing_cycle_id, registered_at, notes')
       .eq('billing_cycle_id', currentCycle.id)
       .eq('voided', false)
       .in('content_type', PIPELINE_CONTENT_TYPES)
@@ -100,7 +100,7 @@ export default async function ClientDetailPage({
         last_moved_at: c.registered_at,
         registered_at: c.registered_at,
         notes: c.notes,
-        carried_over: false,
+        carried_over: c.carried_over,
       })
     }
 
