@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { createClient } from '@/lib/supabase/client'
-import { firstCycleDates } from '@/lib/domain/cycles'
+import { currentCycleDates, firstCycleDates } from '@/lib/domain/cycles'
 import type { Client } from '@/types/db'
 
 interface Plan {
@@ -33,6 +33,11 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Default cycle start: the most recent occurrence of billing_day (not necessarily today)
+  const initialBillingDay = parseInt(existing?.billing_day?.toString() ?? '1', 10)
+  const defaultCycleStart = existing?.start_date
+    ?? currentCycleDates(initialBillingDay).periodStart
+
   const [form, setForm] = useState({
     name: existing?.name ?? '',
     contact_email: existing?.contact_email ?? '',
@@ -43,7 +48,7 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
     notes: existing?.notes ?? '',
     current_plan_id: existing?.current_plan_id ?? (plans[0]?.id ?? ''),
     billing_day: existing?.billing_day?.toString() ?? '1',
-    start_date: existing?.start_date ?? new Date().toISOString().split('T')[0],
+    start_date: defaultCycleStart,
   })
 
   function set(key: string, value: string) {
@@ -195,8 +200,8 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
             </div>
 
             {!existing && (
-              <div className="space-y-1.5">
-                <Label>Fecha de inicio *</Label>
+              <div className="col-span-2 space-y-1.5">
+                <Label>Inicio del primer ciclo *</Label>
                 <Input
                   required
                   type="date"
@@ -204,6 +209,25 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
                   onChange={(e) => set('start_date', e.target.value)}
                   className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
                 />
+                {form.start_date && (() => {
+                  const bd = parseInt(form.billing_day, 10)
+                  if (!bd || bd < 1 || bd > 31) return null
+                  const { periodEnd } = firstCycleDates(form.start_date, bd)
+                  const fmt = (d: string) =>
+                    new Date(d + 'T12:00:00').toLocaleDateString('es-ES', {
+                      day: 'numeric', month: 'long', year: 'numeric',
+                    })
+                  return (
+                    <p className="text-xs text-[#595c5e] flex items-center gap-1 mt-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-[#00675c] flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/>
+                      </svg>
+                      Primer ciclo: <span className="font-medium text-[#2c2f31]">{fmt(form.start_date)}</span>
+                      <span className="text-[#abadaf]">→</span>
+                      <span className="font-medium text-[#2c2f31]">{fmt(periodEnd)}</span>
+                    </p>
+                  )
+                })()}
               </div>
             )}
 
