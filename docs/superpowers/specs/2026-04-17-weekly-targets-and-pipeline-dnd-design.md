@@ -30,24 +30,52 @@ ALTER TABLE public.clients
 ```
 
 **Structure of `weekly_targets_json`:**  
-A partial record of `ContentType → number` (same keys as `limits_json` but optional per type). `null` means "use default for all types."
+A partial record of `ContentType → number` (same keys as ContentType). `null` means "use default for all types."
 
 ```ts
-// Example stored value (only types the user customised)
+// Example: only types the user customised are stored
 { "historia": 3, "reel": 1 }
 ```
 
-**Default computation (no DB change needed):**
+**Default computation:**
 ```ts
-weeklyTarget(type) = client.weekly_targets_json?.[type] ?? Math.ceil(monthlyLimit[type] / 4)
+weeklyTarget(type, limit) = Math.ceil(limit / 4)
+// If limit === 0 the type is inactive and is never shown — this value is never used.
+client.effectiveWeeklyTarget(type) = client.weekly_targets_json?.[type] ?? weeklyTarget(type, monthlyLimit[type])
 ```
 
+**RLS posture:** The existing UPDATE policy on `clients` allows any authenticated agency user to update any column. The edit page (`/clients/[id]/edit`) enforces admin-only at the application layer (server-side redirect at load time). This posture is **accepted as-is** — column-level RLS is not added for `weekly_targets_json`.
+
 **Type update (`src/types/db.ts`):**
-- Add `weekly_targets_json: Partial<Record<ContentType, number>> | null` to `Client` Row, Insert, Update.
+- Add `weekly_targets_json: Partial<Record<ContentType, number>> | null` to Client `Row`, `Insert`, `Update`.
+
+### Shared utility function
+
+Add `weeklyTarget(type: ContentType, limit: number): number` to **`src/lib/domain/consumption.ts`**:
+
+```ts
+/** Default weekly target for a content type: monthly limit ÷ 4, rounded up. */
+export function weeklyTarget(type: ContentType, limit: number): number {
+  return Math.ceil(limit / 4)
+}
+
+/** Resolve the effective weekly target for a client, falling back to the default. */
+export function effectiveWeeklyTarget(
+  type: ContentType,
+  monthlyLimit: number,
+  clientTargets: Partial<Record<ContentType, number>> | null
+): number {
+  return clientTargets?.[type] ?? weeklyTarget(type, monthlyLimit)
+}
+```
+
+Both `ConsumptionPanel` and the edit page import from here. No duplication.
 
 ### Display — ConsumptionPanel weekly breakdown
 
-Each of the four week cards (`S1–S4`) replaces the plain count list with a progress bar row per active content type:
+**Semantics:** Weekly counts must match `computeTotals` semantics — voided and `carried_over` consumptions are **excluded** from the count used in progress bars, consistent with the monthly totals shown above.
+
+Each of the four week cards (`S1–S4`) replaces the plain count list with a progress bar row per **active** content type (i.e. `limits[type] > 0` — same filter already used by `ConsumptionPanel`):
 
 ```
 📖 Historias    [████░░] 3 / 4
@@ -56,27 +84,18 @@ Each of the four week cards (`S1–S4`) replaces the plain count list with a pro
 ```
 
 Bar colour:
-- **Green (#00675c)** — consumed ≥ weekly target
-- **Amber (#f59e0b)** — consumed < weekly target (only shown for past/current weeks; future weeks are always grey)
-- **Grey (#e5e9eb)** — empty bar (future week or zero consumed)
-
-Past weeks that ended below target remain amber as a historical record.
+- **Green (`#00675c`)** — consumed ≥ weekly target, or week is in the future (full empty bar = grey)
+- **Amber (`#f59e0b`)** — consumed < weekly target on past or current weeks
+- **Grey (`#e5e9eb`)** — future week (bar always empty/grey regardless of count)
 
 ### Edit UI — `/clients/[id]/edit`
 
-New collapsible section **"Objetivos semanales"** added below the social fields section.
+New section **"Objetivos semanales"** added below the social fields section. Only shown for active content types (`limits[type] > 0` from the client's current plan snapshot — fetched alongside plans in the existing `load()` call).
 
-- One numeric `<Input>` per active content type of the client's current plan
-- Placeholder shows the computed default (`Math.ceil(limit / 4)`)
-- Leaving a field blank = use the default (stored as `null` / omitted key in JSON)
-- On submit, only fields with values different from the default are written; the rest are omitted from `weekly_targets_json`
-- If all fields match the default, `weekly_targets_json` is saved as `null`
-
-### Scope boundaries
-
-- Targets are **informational only** — no hard blocks, no warnings that prevent consumption registration
-- Targets apply to the **same content types** shown in the consumption panel (all types with `limit > 0`)
-- Reuniones and producciones follow the same logic (weekly target = monthly limit ÷ 4, rounded up)
+- One numeric `<Input min={1}>` per active type
+- Placeholder = `effectiveWeeklyTarget(type, limit, null)` (the default, shown as placeholder text)
+- Leaving a field blank = use the default (field not written to JSON)
+- On submit: build `weekly_targets_json` with only keys where the user entered a value. If all fields are blank (or all match the default), save `null`.
 
 ---
 
@@ -84,12 +103,11 @@ New collapsible section **"Objetivos semanales"** added below the social fields 
 
 ### Goal
 
-Let operators move pipeline cards between phases by dragging, instead of the current click → dropdown → save flow. A modal appears on drop for optional notes before confirming.
+Let operators move pipeline cards between phases by dragging, instead of the current click-to-move flow. A modal appears on drop for optional notes before confirming.
 
 ### Library
 
-**`@dnd-kit/core`** + **`@dnd-kit/utilities`**  
-Modern, lightweight, accessible, no legacy dependencies.
+**`@dnd-kit/core`** + **`@dnd-kit/utilities`**
 
 ```bash
 npm install @dnd-kit/core @dnd-kit/utilities
@@ -99,66 +117,97 @@ npm install @dnd-kit/core @dnd-kit/utilities
 
 | Component | Change | Responsibility |
 |---|---|---|
-| `KanbanColumn` | Add `useDroppable` | Becomes a drop target; highlights when a card hovers over it |
-| `PipelineCard` | Add `useDraggable` | Becomes draggable; shows grab cursor |
-| `KanbanBoard` (new) | Wraps everything in `DndContext` | Owns `onDragStart`, `onDragOver`, `onDragEnd` handlers and drag state |
-| `DragOverlay` (new) | Floating copy of dragged card | Rendered at root of `DndContext`, follows cursor |
-| `MovePhaseModal` (new) | Modal on drop | Shows from→to phase, optional notes textarea, Cancelar/Confirmar |
+| `KanbanBoard` (new) | Wraps in `DndContext` | Owns drag state, `onDragStart`/`onDragEnd`, renders `DragOverlay` |
+| `KanbanColumn` | Add `useDroppable` | Drop target; highlights when hovered |
+| `PipelineCard` | Add `useDraggable` prop-gated | Draggable only when `draggable` prop is `true` |
+| `MovePhaseModal` (new) | Drop confirmation modal | `fromPhase → toPhase`, optional notes, calls `movePhase()` |
+| `DragOverlay` | Floating card clone | Rendered inside `DndContext`, follows cursor |
+
+### Dual-context PipelineCard
+
+`PipelineCard` is used in two contexts:
+1. **Main `/pipeline` page** — inside `KanbanBoard` with drag & drop enabled. The existing click-to-move PhaseSheet is removed here.
+2. **`ClientPipelineTab`** — keeps the existing click-to-move PhaseSheet. No drag & drop.
+
+**Implementation:** Add `draggable?: boolean` prop to `PipelineCard` (default `false`).
+
+```tsx
+// Main pipeline — draggable
+<PipelineCard item={item} draggable logs={...} currentUserId={...} showClient />
+
+// ClientPipelineTab — keeps PhaseSheet
+<PipelineCard item={item} logs={...} currentUserId={...} showClient={false} />
+```
+
+When `draggable === true`: attach `useDraggable`, hide PhaseSheet, show grab cursor.  
+When `draggable === false` (default): existing PhaseSheet behaviour unchanged.
 
 ### Drag ID convention
 
-Each draggable card uses `id = consumption.id` (UUID). Each droppable column uses `id = phase` string (e.g., `"revision_interna"`).
+- Draggable id = `consumption.id` (UUID)
+- Droppable id = `phase` string (e.g. `"revision_interna"`)
 
-### Interaction flow
-
-```
-User grabs card
-  → DragOverlay appears (floating card clone)
-  → Target column highlights (dashed green border)
-
-User drops on SAME column → nothing happens
-
-User drops on DIFFERENT column
-  → MovePhaseModal opens:
-      [Cliente] · [Tipo]
-      En Producción  →  Revisión Interna
-      [ Nota opcional... textarea ]
-      [ Cancelar ]  [ Confirmar ]
-
-  → Cancelar: modal closes, no state change
-  → Confirmar (loading state):
-      calls movePhase(consumptionId, currentPhase, toPhase, movedBy, notes)
-      on success: modal closes, router.refresh()
-      on error: shows error message inside modal
-```
-
-### KanbanBoard — state
+### KanbanBoard drag state
 
 ```ts
-interface DragState {
-  activeItem: PipelineItem | null   // the card being dragged
+interface ActiveDrag {
+  item: PipelineItem
+}
+// Plus pending modal state:
+interface PendingMove {
+  item: PipelineItem
+  fromPhase: Phase   // = item.phase at drag start
+  toPhase: Phase
 }
 ```
 
-`onDragEnd` receives `{ active, over }`:
-- If `over === null` or `over.id === activeItem.phase` → do nothing
-- Else → open `MovePhaseModal` with `{ item: activeItem, toPhase: over.id as Phase }`
+`onDragEnd({ active, over })`:
+- `over === null` or `over.id === item.phase` → do nothing
+- else → set `pendingMove = { item, fromPhase: item.phase, toPhase: over.id as Phase }` → opens `MovePhaseModal`
+
+### MovePhaseModal props and call
+
+```ts
+interface MovePhaseModalProps {
+  open: boolean
+  item: PipelineItem
+  fromPhase: Phase
+  toPhase: Phase
+  currentUserId: string
+  onClose: () => void        // Cancelar or after success
+}
+```
+
+On Confirmar:
+```ts
+await movePhase(supabase, {
+  consumptionId: item.id,
+  currentPhase: fromPhase,   // ← from PendingMove.fromPhase, not re-derived
+  contentType: item.content_type,
+  toPhase,
+  movedBy: currentUserId,
+  notes: notes.trim() || undefined,
+})
+```
+
+On success → `onClose()` → `router.refresh()`  
+On error → display error inside modal, keep modal open.
 
 ### Visual states
 
 | State | Visual |
 |---|---|
-| Card being dragged | Original card dims to 30% opacity; floating overlay renders at full opacity |
-| Column being hovered | Dashed green border (`border-[#00675c] border-dashed`) + very light green tint |
-| Modal loading (confirming) | Button shows spinner, textarea and cancel disabled |
-| Move error | Red error message inside modal, stays open |
+| Dragging | Original card 30% opacity; floating overlay full opacity |
+| Column hovered | Dashed green border + light green tint |
+| Modal confirming | Spinner on button, textarea + cancel disabled |
+| Move error | Red error text inside modal |
 
 ### Scope boundaries
 
-- **No reordering within the same column** — drag between columns only
-- **No touch/mobile optimisation** — desktop-only for now
-- The existing click-to-move flow (current `PipelineCard` phase selector) is **removed** and replaced entirely by drag & drop + modal
-- `movePhase()` domain function in `pipeline.ts` is unchanged — only the UI layer changes
+- **No reordering within the same column** — between-column only
+- **No touch/mobile** — desktop only
+- **`ClientPipelineTab` keeps the existing click-to-move flow** — `PhaseSheet` is preserved there
+- `movePhase()` in `pipeline.ts` is unchanged — only UI layer changes
 
 ---
 
@@ -169,17 +218,18 @@ interface DragState {
 |---|---|
 | `supabase/migrations/0006_client_weekly_targets.sql` | New — ADD COLUMN |
 | `src/types/db.ts` | Add `weekly_targets_json` to Client |
-| `src/components/clients/ConsumptionPanel.tsx` | Weekly cards → progress bar rows |
+| `src/lib/domain/consumption.ts` | New `weeklyTarget()` and `effectiveWeeklyTarget()` helpers |
+| `src/components/clients/ConsumptionPanel.tsx` | Weekly cards → progress bar rows (imports helpers) |
 | `src/app/(app)/clients/[id]/edit/page.tsx` | New "Objetivos semanales" section |
 
 ### Pipeline drag & drop
 | File | Change |
 |---|---|
 | `package.json` | Add `@dnd-kit/core`, `@dnd-kit/utilities` |
-| `src/app/(app)/pipeline/page.tsx` | Pass items to new KanbanBoard instead of KanbanColumn directly |
-| `src/components/pipeline/KanbanBoard.tsx` | New — DndContext wrapper + drag state |
+| `src/app/(app)/pipeline/page.tsx` | Replace `KanbanColumn` usage with `KanbanBoard` |
+| `src/components/pipeline/KanbanBoard.tsx` | New — `DndContext` wrapper, drag state, `DragOverlay` |
 | `src/components/pipeline/KanbanColumn.tsx` | Add `useDroppable` |
-| `src/components/pipeline/PipelineCard.tsx` | Add `useDraggable`, remove existing phase-change UI |
+| `src/components/pipeline/PipelineCard.tsx` | Add `draggable` prop; gate `useDraggable` and PhaseSheet on it |
 | `src/components/pipeline/MovePhaseModal.tsx` | New — drop confirmation modal |
 
 ---
@@ -187,6 +237,6 @@ interface DragState {
 ## Out of Scope
 
 - Rollover/accumulation of unused weekly targets to the next week
-- Weekly target notifications or alerts
+- Weekly target notifications or alerts  
 - Touch drag support
-- Drag & drop in the per-client pipeline tab (`ClientPipelineTab`) — only the main `/pipeline` page for now
+- Drag & drop in `ClientPipelineTab` — only main `/pipeline` page
