@@ -48,6 +48,11 @@ const CONTENT_ICONS: Record<ContentType, React.ReactNode> = {
       <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/>
     </svg>
   ),
+  reunion: (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+    </svg>
+  ),
 }
 
 interface ConsumptionModalProps {
@@ -124,8 +129,8 @@ export function ConsumptionModal({
       return
     }
 
-    // Crear log inicial del pipeline (solo tipos que tienen fases)
-    if (selectedType !== 'produccion' && newConsumption?.id) {
+    // Crear log inicial del pipeline (solo tipos que tienen fases; excluye produccion y reunion)
+    if (selectedType !== 'produccion' && selectedType !== 'reunion' && newConsumption?.id) {
       await insertInitialPhaseLog(supabase, {
         consumptionId: newConsumption.id,
         movedBy: user.id,
@@ -234,14 +239,21 @@ export function ConsumptionModal({
 
           {/* Impact preview */}
           {selectedType && (
-            <div className="bg-[#f5f7f9] rounded-xl p-3 flex items-center justify-between">
-              <span className="text-sm text-[#595c5e]">
-                {CONTENT_TYPE_LABELS[selectedType]}
-              </span>
-              <span className="text-sm font-semibold text-[#2c2f31]">
-                {totals[selectedType]} → <span className="text-[#00675c]">{totals[selectedType] + 1}</span>
-                <span className="text-[#595c5e] font-normal"> /{limits[selectedType]}</span>
-              </span>
+            <div className="bg-[#f5f7f9] rounded-xl p-3 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-[#595c5e]">
+                  {CONTENT_TYPE_LABELS[selectedType]}
+                </span>
+                <span className="text-sm font-semibold text-[#2c2f31]">
+                  {totals[selectedType]} → <span className="text-[#00675c]">{totals[selectedType] + 1}</span>
+                  <span className="text-[#595c5e] font-normal"> /{limits[selectedType]}</span>
+                </span>
+              </div>
+              {selectedType === 'reunion' && cycle.limits_snapshot_json.reunion_duracion_horas && (
+                <p className="text-xs text-[#747779]">
+                  Duración por reunión: <span className="font-semibold">{cycle.limits_snapshot_json.reunion_duracion_horas}h</span>
+                </p>
+              )}
             </div>
           )}
 

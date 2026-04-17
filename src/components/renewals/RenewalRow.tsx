@@ -43,6 +43,7 @@ const CONTENT_TO_PLAN_KEY: Record<ContentType, keyof PlanLimits> = {
   reel: 'reels',
   short: 'shorts',
   produccion: 'producciones',
+  reunion: 'reuniones',
 }
 
 export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: RenewalRowProps) {
