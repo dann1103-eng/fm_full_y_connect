@@ -44,6 +44,12 @@ export default function ClientEditPage() {
   })
 
   useEffect(() => {
+    const selected = plans.find((p) => p.id === form.current_plan_id)
+    setLimits(selected ? limitsToRecord(selected.limits_json) : null)
+    setWeeklyTargets({})
+  }, [form.current_plan_id, plans])
+
+  useEffect(() => {
     async function load() {
       const supabase = createClient()
 
@@ -283,10 +289,15 @@ export default function ClientEditPage() {
                                 placeholder={String(defaultVal)}
                                 value={weeklyTargets[type] ?? ''}
                                 onChange={(e) =>
-                                  setWeeklyTargets((prev) => ({
-                                    ...prev,
-                                    [type]: e.target.value === '' ? undefined : Number(e.target.value),
-                                  }))
+                                  setWeeklyTargets((prev) => {
+                                    const next = { ...prev }
+                                    if (e.target.value === '') {
+                                      delete next[type]
+                                    } else {
+                                      next[type] = Math.max(0, Number(e.target.value))
+                                    }
+                                    return next
+                                  })
                                 }
                                 className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
                               />
