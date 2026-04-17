@@ -100,6 +100,7 @@ export default async function ClientDetailPage({
         last_moved_at: c.registered_at,
         registered_at: c.registered_at,
         notes: c.notes,
+        carried_over: false,
       })
     }
 

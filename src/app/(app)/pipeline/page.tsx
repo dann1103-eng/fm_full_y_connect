@@ -74,6 +74,7 @@ export default async function PipelinePage({
         last_moved_at: c.registered_at,
         registered_at: c.registered_at,
         notes: c.notes,
+        carried_over: false,
       })
     }
 
