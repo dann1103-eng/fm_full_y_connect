@@ -6,14 +6,16 @@ import { CSS } from '@dnd-kit/utilities'
 import { PhaseSheet } from './PhaseSheet'
 import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import type { PipelineItem } from '@/lib/domain/pipeline'
-import type { ConsumptionPhaseLog, Phase } from '@/types/db'
+import type { ConsumptionPhaseLog, ContentType, Phase } from '@/types/db'
 
-const CONTENT_TYPE_COLORS: Record<string, string> = {
-  historia: 'bg-purple-100 text-purple-700',
-  estatico: 'bg-blue-100 text-blue-700',
+const CONTENT_TYPE_COLORS: Record<ContentType, string> = {
+  historia:    'bg-purple-100 text-purple-700',
+  estatico:    'bg-blue-100 text-blue-700',
   video_corto: 'bg-orange-100 text-orange-700',
-  reel: 'bg-pink-100 text-pink-700',
-  short: 'bg-yellow-100 text-yellow-700',
+  reel:        'bg-pink-100 text-pink-700',
+  short:       'bg-yellow-100 text-yellow-700',
+  produccion:  'bg-teal-100 text-teal-700',
+  reunion:     'bg-indigo-100 text-indigo-700',
 }
 
 interface PipelineCardProps {
@@ -31,14 +33,12 @@ interface PipelineCardProps {
 export function CardBody({
   item,
   showClient,
-  style,
   dragHandleProps,
   isDragging,
   onClick,
 }: {
   item: PipelineItem
   showClient: boolean
-  style?: React.CSSProperties
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>
   isDragging?: boolean
   onClick?: () => void
@@ -50,16 +50,13 @@ export function CardBody({
     return `hace ${diff} días`
   }
 
-  return (
-    <div
-      {...dragHandleProps}
-      onClick={onClick}
-      style={style}
-      className={`w-full text-left bg-white rounded-2xl border border-[#dfe3e6] p-3 shadow-sm transition-all
-        ${isDragging ? 'opacity-30' : 'hover:shadow-md hover:border-[#00675c]/30'}
-        ${dragHandleProps ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}
-      `}
-    >
+  const sharedClassName = `w-full text-left bg-white rounded-2xl border border-[#dfe3e6] p-3 shadow-sm transition-all
+    ${isDragging ? 'opacity-30' : 'hover:shadow-md hover:border-[#00675c]/30'}
+    ${dragHandleProps ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}
+  `
+
+  const children = (
+    <>
       {showClient && (
         <div className="flex items-center gap-2 mb-2">
           {item.client_logo_url ? (
@@ -83,7 +80,7 @@ export function CardBody({
 
       <span
         className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full mb-2 ${
-          CONTENT_TYPE_COLORS[item.content_type] ?? 'bg-gray-100 text-gray-700'
+          CONTENT_TYPE_COLORS[item.content_type]
         }`}
       >
         {CONTENT_TYPE_LABELS[item.content_type]}
@@ -99,6 +96,19 @@ export function CardBody({
       )}
 
       <p className="text-xs text-[#abadaf]">{relativeDate(item.last_moved_at)}</p>
+    </>
+  )
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={sharedClassName}>
+        {children}
+      </button>
+    )
+  }
+  return (
+    <div {...dragHandleProps} className={sharedClassName}>
+      {children}
     </div>
   )
 }
