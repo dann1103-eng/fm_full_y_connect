@@ -82,6 +82,8 @@ export function ConsumptionPanel({
   const [savingNotes, setSavingNotes] = useState(false)
   const router = useRouter()
 
+  const isOverdue = daysLeft !== null && daysLeft < 0 && cycle.payment_status === 'unpaid'
+
   async function handleMarkPaid() {
     setMarkingPaid(true)
     const supabase = createClient()
@@ -221,15 +223,30 @@ export function ConsumptionPanel({
             Editar cliente
           </Link>
           <button
-            onClick={() => setModalOpen(true)}
-            className="flex-1 md:flex-none px-5 py-2.5 text-white font-bold rounded-full flex items-center justify-center gap-2 shadow-lg hover:brightness-110 transition-all active:scale-95 text-sm"
-            style={{ background: 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)', boxShadow: '0 4px 15px rgba(0,103,92,0.25)' }}
+            onClick={() => !isOverdue && setModalOpen(true)}
+            disabled={isOverdue}
+            className={`flex-1 md:flex-none px-5 py-2.5 text-white font-bold rounded-full flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 text-sm ${isOverdue ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-110'}`}
+            style={{ background: isOverdue ? '#b31b25' : 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)', boxShadow: '0 4px 15px rgba(0,103,92,0.25)' }}
           >
-            <span className="material-symbols-outlined text-base">add</span>
-            Registrar consumo
+            <span className="material-symbols-outlined text-base">{isOverdue ? 'block' : 'add'}</span>
+            {isOverdue ? 'Cuenta vencida' : 'Registrar consumo'}
           </button>
         </div>
       </section>
+
+      {/* ── Overdue warning ── */}
+      {isOverdue && (
+        <div className="bg-[#b31b25]/5 border border-[#b31b25]/20 rounded-2xl px-5 py-4 flex items-center gap-3">
+          <span className="material-symbols-outlined text-[#b31b25] text-xl flex-shrink-0">warning</span>
+          <div>
+            <p className="text-sm font-semibold text-[#b31b25]">Cuenta vencida — registro de consumos bloqueado</p>
+            <p className="text-xs text-[#b31b25]/80 mt-0.5">
+              El ciclo venció y el pago está pendiente.
+              {isAdmin ? ' Marca el pago como recibido para desbloquear.' : ' Contacta al administrador para regularizar el pago.'}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ── Consumption section ── */}
       <section className="space-y-5">
