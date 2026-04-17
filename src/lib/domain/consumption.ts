@@ -73,7 +73,10 @@ export function computeRollover(
 
 /**
  * Default weekly target for a content type: monthly limit ÷ 4, rounded up.
- * Returns 0 when limit is 0 (inactive type — caller must guard with limit > 0).
+ * Returns 0 when limit is 0 — callers can treat that as the type being inactive.
+ *
+ * `_type` is accepted for API symmetry with `effectiveWeeklyTarget` and reserved
+ * for future per-type overrides.
  */
 export function weeklyTarget(_type: ContentType, limit: number): number {
   return Math.ceil(limit / 4)
