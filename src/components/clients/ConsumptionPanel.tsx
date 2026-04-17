@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { ClientWithPlan, BillingCycle, Consumption, ContentType } from '@/types/db'
 import { CONTENT_TYPES, CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
-import { groupByWeek } from '@/lib/domain/consumption'
+import { groupByWeek, effectiveWeeklyTarget } from '@/lib/domain/consumption'
 import { ConsumptionModal } from './ConsumptionModal'
 import { ConsumptionHistory } from './ConsumptionHistory'
 
@@ -400,14 +400,6 @@ export function ConsumptionPanel({
             const isCurrent = weekIdx === currentWeek
             const isFuture = weekIdx > currentWeek
 
-            // Per-type counts
-            const countByType = items.reduce<Partial<Record<ContentType, number>>>((acc, c) => {
-              const t = c.content_type as ContentType
-              acc[t] = (acc[t] ?? 0) + 1
-              return acc
-            }, {})
-            const presentTypes = Object.entries(countByType) as [ContentType, number][]
-
             // Future week with no consumptions → hourglass
             if (isFuture && items.length === 0) {
               return (
@@ -453,22 +445,45 @@ export function ConsumptionPanel({
                   )}
                 </div>
 
-                {/* Per-type rows */}
-                {presentTypes.length === 0 ? (
+                {/* Per-type progress bars */}
+                {activeTypes.length === 0 ? (
                   <p className="text-xs text-[#abadaf]">Sin consumos</p>
                 ) : (
-                  <div className="space-y-2.5">
-                    {presentTypes.map(([type, count]) => (
-                      <div key={type} className="flex justify-between items-center text-sm">
-                        <span className="flex items-center gap-1.5 text-[#595c5e] font-medium">
-                          <span className="material-symbols-outlined text-base">
-                            {CONTENT_ICONS[type]}
-                          </span>
-                          {CONTENT_TYPE_LABELS[type]}
-                        </span>
-                        <span className="font-extrabold text-[#2c2f31]">{count}</span>
-                      </div>
-                    ))}
+                  <div className="space-y-3">
+                    {activeTypes.map((type) => {
+                      const consumed = items.filter(
+                        (c) => c.content_type === type && !c.voided && !c.carried_over
+                      ).length
+                      const target = effectiveWeeklyTarget(type, limits[type], client.weekly_targets_json ?? null)
+                      const pct = target > 0 ? Math.min(100, Math.round((consumed / target) * 100)) : 0
+                      const barColor =
+                        isFuture
+                          ? '#e5e9eb'
+                          : consumed >= target
+                          ? '#00675c'
+                          : '#f59e0b'
+
+                      return (
+                        <div key={type}>
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="flex items-center gap-1 text-[11px] text-[#595c5e] font-medium">
+                              <span className="material-symbols-outlined text-sm">{CONTENT_ICONS[type]}</span>
+                              {CONTENT_TYPE_LABELS[type]}
+                            </span>
+                            <span className="text-[11px] font-bold text-[#2c2f31]">
+                              {consumed}
+                              <span className="font-normal text-[#abadaf]">/{target}</span>
+                            </span>
+                          </div>
+                          <div className="w-full bg-[#e5e9eb] rounded-full h-1.5 overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-500"
+                              style={{ width: `${pct}%`, backgroundColor: barColor }}
+                            />
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>
