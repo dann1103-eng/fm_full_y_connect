@@ -70,3 +70,23 @@ export function computeRollover(
 
   return rollover
 }
+
+/**
+ * Default weekly target for a content type: monthly limit ÷ 4, rounded up.
+ * Returns 0 when limit is 0 (inactive type — caller must guard with limit > 0).
+ */
+export function weeklyTarget(_type: ContentType, limit: number): number {
+  return Math.ceil(limit / 4)
+}
+
+/**
+ * Resolve the effective weekly target for a client, falling back to the default.
+ * Use for both display (ConsumptionPanel) and edit-form placeholder.
+ */
+export function effectiveWeeklyTarget(
+  type: ContentType,
+  monthlyLimit: number,
+  clientTargets: Partial<Record<ContentType, number>> | null | undefined
+): number {
+  return clientTargets?.[type] ?? weeklyTarget(type, monthlyLimit)
+}
