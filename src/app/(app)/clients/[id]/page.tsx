@@ -1,0 +1,202 @@
+import { notFound } from 'next/navigation'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/server'
+import { TopNav } from '@/components/layout/TopNav'
+import { ConsumptionPanel } from '@/components/clients/ConsumptionPanel'
+import { CycleHistory } from '@/components/clients/CycleHistory'
+import { ReactivatePanel } from '@/components/clients/ReactivatePanel'
+import type { ClientWithPlan, BillingCycle, Consumption, Plan } from '@/types/db'
+import { computeTotals } from '@/lib/domain/consumption'
+import { effectiveLimits } from '@/lib/domain/plans'
+import { daysUntilEnd } from '@/lib/domain/cycles'
+import { ClientPipelineTab } from '@/components/pipeline/ClientPipelineTab'
+import { PIPELINE_CONTENT_TYPES } from '@/lib/domain/pipeline'
+import type { PipelineItem } from '@/lib/domain/pipeline'
+import type { ConsumptionPhaseLog } from '@/types/db'
+
+export const dynamic = 'force-dynamic'
+
+export default async function ClientDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+  const supabase = await createClient()
+
+  const { data: clientRaw } = await supabase
+    .from('clients')
+    .select('*, plan:plans(*)')
+    .eq('id', id)
+    .single()
+
+  if (!clientRaw) notFound()
+  const client = clientRaw as ClientWithPlan
+
+  // Current cycle
+  const { data: currentCycle } = await supabase
+    .from('billing_cycles')
+    .select('*')
+    .eq('client_id', id)
+    .eq('status', 'current')
+    .maybeSingle()
+
+  // All past cycles
+  const { data: pastCycles } = await supabase
+    .from('billing_cycles')
+    .select('*')
+    .eq('client_id', id)
+    .in('status', ['archived', 'pending_renewal'])
+    .order('period_start', { ascending: false })
+
+  // Plans (for reactivation panel)
+  const { data: plans } = await supabase
+    .from('plans')
+    .select('*')
+    .eq('active', true)
+    .order('price_usd')
+
+  // Consumptions for current cycle
+  const { data: consumptions } = currentCycle
+    ? await supabase
+        .from('consumptions')
+        .select('*')
+        .eq('billing_cycle_id', currentCycle.id)
+        .order('registered_at', { ascending: false })
+    : { data: [] }
+
+  // Internal users (for "registered by" display in history)
+  const { data: users } = await supabase
+    .from('users')
+    .select('id, full_name, role')
+
+  const userMap: Record<string, string> = {}
+  ;(users ?? []).forEach((u) => {
+    userMap[u.id] = u.full_name || (u.role === 'admin' ? 'Admin' : 'Operador')
+  })
+
+  // Pipeline items del ciclo actual
+  const pipelineItems: PipelineItem[] = []
+  const pipelineLogsMap: Record<string, ConsumptionPhaseLog[]> = {}
+
+  if (currentCycle) {
+    const { data: pipelineCons } = await supabase
+      .from('consumptions')
+      .select('id, content_type, phase, billing_cycle_id, registered_at, notes')
+      .eq('billing_cycle_id', currentCycle.id)
+      .eq('voided', false)
+      .in('content_type', PIPELINE_CONTENT_TYPES)
+      .order('registered_at', { ascending: false })
+
+    for (const c of pipelineCons ?? []) {
+      pipelineItems.push({
+        id: c.id,
+        content_type: c.content_type,
+        phase: c.phase,
+        billing_cycle_id: c.billing_cycle_id,
+        client_id: id,
+        client_name: client.name,
+        client_logo_url: client.logo_url,
+        last_moved_at: c.registered_at,
+        registered_at: c.registered_at,
+        notes: c.notes,
+      })
+    }
+
+    if (pipelineItems.length > 0) {
+      const { data: logsRaw } = await supabase
+        .from('consumption_phase_logs')
+        .select('*')
+        .in('consumption_id', pipelineItems.map((i) => i.id))
+        .order('created_at', { ascending: true })
+
+      for (const log of logsRaw ?? []) {
+        if (!pipelineLogsMap[log.consumption_id]) pipelineLogsMap[log.consumption_id] = []
+        pipelineLogsMap[log.consumption_id].push(log as ConsumptionPhaseLog)
+      }
+
+      for (const item of pipelineItems) {
+        const logs = pipelineLogsMap[item.id] ?? []
+        if (logs.length > 0) item.last_moved_at = logs[logs.length - 1].created_at
+      }
+    }
+  }
+
+  const cycle = currentCycle as BillingCycle | null
+  const cons = (consumptions ?? []) as Consumption[]
+  const totals = computeTotals(cons)
+  const limits = cycle
+    ? effectiveLimits(cycle.limits_snapshot_json, cycle.rollover_from_previous_json)
+    : null
+  const daysLeft = cycle ? daysUntilEnd(cycle.period_end) : null
+
+  // Get current user role for permissions
+  const { data: { user: authUser } } = await supabase.auth.getUser()
+  const { data: appUser } = authUser
+    ? await supabase.from('users').select('role').eq('id', authUser.id).single()
+    : { data: null }
+  const isAdmin = appUser?.role === 'admin'
+
+  return (
+    <div className="flex flex-col h-full">
+      <TopNav title={client.name} />
+
+      <div className="flex-1 p-6 space-y-8">
+        {/* Breadcrumb */}
+        <nav className="flex items-center gap-2 text-sm pt-2">
+          <Link
+            href="/clients"
+            className="text-[#595c5e] flex items-center gap-1 hover:text-[#00675c] transition-colors"
+          >
+            <span className="material-symbols-outlined text-base">arrow_back</span>
+            Clientes
+          </Link>
+          <span className="text-[#abadaf]">/</span>
+          <span className="font-semibold text-[#2c2f31]">{client.name}</span>
+        </nav>
+
+        {/* Current cycle consumption panel (includes client header card) */}
+        {cycle && limits ? (
+          <ConsumptionPanel
+            client={client}
+            cycle={cycle}
+            consumptions={cons}
+            totals={totals}
+            limits={limits}
+            daysLeft={daysLeft}
+            isAdmin={isAdmin}
+            userMap={userMap}
+          />
+        ) : client.status === 'paused' && isAdmin ? (
+          <ReactivatePanel client={client} plans={(plans ?? []) as Plan[]} />
+        ) : (
+          <div className="glass-panel rounded-[2rem] p-8 text-center">
+            <p className="text-[#595c5e] text-sm">No hay ciclo activo para este cliente.</p>
+          </div>
+        )}
+
+        {/* Past cycles */}
+        {pastCycles && pastCycles.length > 0 && (
+          <CycleHistory
+            cycles={pastCycles as BillingCycle[]}
+            clientId={id}
+            supabase={null}
+            plansMap={Object.fromEntries((plans ?? []).map((p) => [p.id, p.name]))}
+          />
+        )}
+
+        {/* Pipeline del ciclo actual */}
+        {cycle && (
+          <div className="glass-panel rounded-[2rem] p-6 space-y-4">
+            <h3 className="text-base font-semibold text-[#2c2f31]">Pipeline</h3>
+            <ClientPipelineTab
+              items={pipelineItems}
+              logsMap={pipelineLogsMap}
+              currentUserId={authUser?.id ?? ''}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
