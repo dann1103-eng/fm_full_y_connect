@@ -1,0 +1,194 @@
+import Link from 'next/link'
+import { Badge } from '@/components/ui/badge'
+import type { ClientDashboardItem } from '@/app/(app)/dashboard/page'
+import { CONTENT_TYPES, CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
+
+const STATUS_LABELS: Record<string, string> = {
+  active: 'Activo',
+  paused: 'Pausado',
+  overdue: 'Moroso',
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  active: 'bg-[#00675c]/10 text-[#00675c] border-[#00675c]/20',
+  paused: 'bg-[#595c5e]/10 text-[#595c5e] border-[#595c5e]/20',
+  overdue: 'bg-[#b31b25]/10 text-[#b31b25] border-[#b31b25]/20',
+}
+
+const CONTENT_ICONS: Record<string, string> = {
+  historia: 'auto_stories',
+  estatico: 'photo_camera',
+  video_corto: 'movie',
+  reel: 'videocam',
+  short: 'slideshow',
+  produccion: 'video_camera_front',
+}
+
+// Amber-toned types share a different accent color from the rest
+const AMBER_TYPES = new Set(['estatico', 'video_corto'])
+
+function progressColor(consumed: number, limit: number): string {
+  if (limit === 0) return 'bg-[#abadaf]'
+  const pct = (consumed / limit) * 100
+  if (pct >= 90) return 'bg-[#b31b25]'
+  if (pct >= 70) return 'bg-amber-400'
+  return 'bg-[#00675c]'
+}
+
+function overallProgress(
+  totals: Record<string, number>,
+  limits: Record<string, number>
+): number {
+  let totalConsumed = 0
+  let totalLimit = 0
+  for (const type of CONTENT_TYPES) {
+    totalConsumed += totals[type] ?? 0
+    totalLimit += limits[type] ?? 0
+  }
+  if (totalLimit === 0) return 0
+  return Math.min(100, Math.round((totalConsumed / totalLimit) * 100))
+}
+
+function getAvatarText(name: string): string {
+  return name
+    .split(' ')
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
+}
+
+const avatarGradients = [
+  'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)',
+  'linear-gradient(135deg, #4a6319 0%, #ceee93 100%)',
+  'linear-gradient(135deg, #006385 0%, #1dc0fe 100%)',
+  'linear-gradient(135deg, #5c4a8a 0%, #b89cff 100%)',
+  'linear-gradient(135deg, #7a4f00 0%, #ffcc5c 100%)',
+]
+
+function clientGradient(name: string): string {
+  const idx = name.charCodeAt(0) % avatarGradients.length
+  return avatarGradients[idx]
+}
+
+export function ClientCard({ item }: { item: ClientDashboardItem }) {
+  const { client, cycle, totals, limits, daysLeft } = item
+  const pct = overallProgress(totals, limits)
+  const barColor =
+    pct >= 90 ? 'bg-[#b31b25]' : pct >= 70 ? 'bg-amber-400' : 'bg-[#00675c]'
+
+  // Show only non-zero limit content types (max 4)
+  const visibleTypes = CONTENT_TYPES.filter((t) => (limits[t] ?? 0) > 0).slice(0, 4)
+
+  return (
+    <Link
+      href={`/clients/${client.id}`}
+      className="block bg-white rounded-2xl border border-[#abadaf]/20 hover:border-[#00675c]/40 hover:shadow-md transition-all duration-200 overflow-hidden group"
+    >
+      {/* Card header */}
+      <div className="p-5 pb-3">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="flex items-center gap-3 min-w-0">
+            {client.logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={client.logo_url}
+                alt={client.name}
+                className="w-10 h-10 rounded-xl object-cover flex-shrink-0"
+              />
+            ) : (
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white font-bold text-sm"
+                style={{ background: clientGradient(client.name) }}
+              >
+                {getAvatarText(client.name)}
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="font-semibold text-[#2c2f31] truncate group-hover:text-[#00675c] transition-colors">
+                {client.name}
+              </p>
+              <p className="text-xs text-[#595c5e]">{client.plan.name}</p>
+            </div>
+          </div>
+          <span
+            className={`flex-shrink-0 text-xs font-medium px-2 py-0.5 rounded-full border ${STATUS_COLORS[client.status]}`}
+          >
+            {STATUS_LABELS[client.status]}
+          </span>
+        </div>
+
+        {/* Overall progress */}
+        {cycle && (
+          <>
+            <div className="flex items-center justify-between text-xs text-[#595c5e] mb-1.5">
+              <span>Consumo del ciclo</span>
+              <span className="font-semibold text-[#2c2f31]">{pct}%</span>
+            </div>
+            <div className="w-full h-1.5 bg-[#eef1f3] rounded-full overflow-hidden mb-3">
+              <div
+                className={`h-full rounded-full transition-all ${barColor}`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Content type mini-counters */}
+      {visibleTypes.length > 0 && (
+        <div className="px-5 pb-3 grid grid-cols-4 gap-2">
+          {visibleTypes.map((type) => {
+            const consumed = totals[type] ?? 0
+            const limit = limits[type] ?? 0
+            const col = progressColor(consumed, limit)
+            const isAmber = AMBER_TYPES.has(type)
+            const iconColor = isAmber ? '#d97706' : '#00675c'
+            return (
+              <div key={type} className="flex flex-col items-center gap-1">
+                <span
+                  className="material-symbols-outlined text-[18px]"
+                  style={{ color: iconColor }}
+                >
+                  {CONTENT_ICONS[type]}
+                </span>
+                <span className="text-xs font-medium text-[#2c2f31]">
+                  {consumed}/{limit}
+                </span>
+                <div className="w-full h-1 bg-[#eef1f3] rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${col}`}
+                    style={{ width: `${limit > 0 ? Math.min(100, (consumed / limit) * 100) : 0}%` }}
+                  />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Footer */}
+      <div className="px-5 py-3 bg-[#f5f7f9] border-t border-[#abadaf]/10 flex items-center justify-between">
+        {daysLeft !== null ? (
+          <span
+            className={`text-xs font-medium ${daysLeft <= 3 ? 'text-[#b31b25]' : daysLeft <= 7 ? 'text-amber-600' : 'text-[#595c5e]'}`}
+          >
+            {daysLeft < 0
+              ? 'Ciclo vencido'
+              : daysLeft === 0
+              ? 'Vence hoy'
+              : `${daysLeft} día${daysLeft !== 1 ? 's' : ''} restante${daysLeft !== 1 ? 's' : ''}`}
+          </span>
+        ) : (
+          <span className="text-xs text-[#595c5e]">Sin ciclo activo</span>
+        )}
+        <span className="text-xs text-[#747779] group-hover:text-[#00675c] transition-colors flex items-center gap-1">
+          Ver ficha
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+          </svg>
+        </span>
+      </div>
+    </Link>
+  )
+}

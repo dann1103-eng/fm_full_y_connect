@@ -1,0 +1,219 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter, useParams } from 'next/navigation'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
+import { TopNav } from '@/components/layout/TopNav'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import type { Client, Plan } from '@/types/db'
+
+export default function ClientEditPage() {
+  const router = useRouter()
+  const params = useParams<{ id: string }>()
+  const id = params.id
+
+  const [client, setClient] = useState<Client | null>(null)
+  const [plans, setPlans] = useState<Plan[]>([])
+  const [loading, setLoading] = useState(false)
+  const [fetching, setFetching] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const [form, setForm] = useState({
+    name: '',
+    contact_email: '',
+    contact_phone: '',
+    ig_handle: '',
+    fb_handle: '',
+    tiktok_handle: '',
+    notes: '',
+    current_plan_id: '',
+    billing_day: '1',
+  })
+
+  useEffect(() => {
+    async function load() {
+      const supabase = createClient()
+
+      // Check admin
+      const { data: { user } } = await supabase.auth.getUser()
+      const { data: appUser } = user
+        ? await supabase.from('users').select('role').eq('id', user.id).single()
+        : { data: null }
+      if (appUser?.role !== 'admin') {
+        router.replace(`/clients/${id}`)
+        return
+      }
+
+      const [{ data: clientData }, { data: plansData }] = await Promise.all([
+        supabase.from('clients').select('*').eq('id', id).single(),
+        supabase.from('plans').select('*').eq('active', true).order('price_usd'),
+      ])
+
+      if (!clientData) { router.replace('/clients'); return }
+
+      setClient(clientData)
+      setPlans(plansData ?? [])
+      setForm({
+        name: clientData.name,
+        contact_email: clientData.contact_email ?? '',
+        contact_phone: clientData.contact_phone ?? '',
+        ig_handle: clientData.ig_handle ?? '',
+        fb_handle: clientData.fb_handle ?? '',
+        tiktok_handle: clientData.tiktok_handle ?? '',
+        notes: clientData.notes ?? '',
+        current_plan_id: clientData.current_plan_id,
+        billing_day: clientData.billing_day.toString(),
+      })
+      setFetching(false)
+    }
+    load()
+  }, [id, router])
+
+  function set(key: string, value: string) {
+    setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+
+    const supabase = createClient()
+    const { error: updateError } = await supabase
+      .from('clients')
+      .update({
+        name: form.name,
+        contact_email: form.contact_email || null,
+        contact_phone: form.contact_phone || null,
+        ig_handle: form.ig_handle || null,
+        fb_handle: form.fb_handle || null,
+        tiktok_handle: form.tiktok_handle || null,
+        notes: form.notes || null,
+        current_plan_id: form.current_plan_id,
+        billing_day: parseInt(form.billing_day, 10),
+      })
+      .eq('id', id)
+
+    if (updateError) {
+      setError('Error al guardar los cambios.')
+      setLoading(false)
+      return
+    }
+
+    router.push(`/clients/${id}`)
+    router.refresh()
+  }
+
+  if (fetching) {
+    return (
+      <div className="flex flex-col h-full">
+        <TopNav title="Editar cliente" />
+        <div className="flex-1 flex items-center justify-center text-[#595c5e] text-sm">
+          Cargando...
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <TopNav title="Editar cliente" />
+
+      <div className="flex-1 p-6">
+        <div className="max-w-xl">
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-2 text-sm text-[#595c5e] mb-5">
+            <Link href="/clients" className="hover:text-[#00675c] transition-colors">Clientes</Link>
+            <span>/</span>
+            <Link href={`/clients/${id}`} className="hover:text-[#00675c] transition-colors">{client?.name}</Link>
+            <span>/</span>
+            <span className="text-[#2c2f31] font-medium">Editar</span>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-[#abadaf]/20 p-6">
+            <h2 className="text-lg font-semibold text-[#2c2f31] mb-5">Editar datos del cliente</h2>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2 space-y-1.5">
+                  <Label>Nombre *</Label>
+                  <Input required value={form.name} onChange={(e) => set('name', e.target.value)}
+                    className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Plan *</Label>
+                  <select required value={form.current_plan_id} onChange={(e) => set('current_plan_id', e.target.value)}
+                    className="w-full py-2 px-3 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl text-[#2c2f31] focus:outline-none focus:border-[#00675c]">
+                    {plans.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name} — ${p.price_usd}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-[#747779]">El cambio de plan aplica al siguiente ciclo de facturación.</p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Día de facturación *</Label>
+                  <Input required type="number" min={1} max={31} value={form.billing_day}
+                    onChange={(e) => set('billing_day', e.target.value)}
+                    className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Correo de contacto</Label>
+                  <Input type="email" value={form.contact_email} onChange={(e) => set('contact_email', e.target.value)}
+                    placeholder="cliente@email.com" className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Teléfono</Label>
+                  <Input value={form.contact_phone} onChange={(e) => set('contact_phone', e.target.value)}
+                    placeholder="+503 7000 0000" className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Instagram</Label>
+                  <Input value={form.ig_handle} onChange={(e) => set('ig_handle', e.target.value)}
+                    placeholder="@handle" className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>TikTok</Label>
+                  <Input value={form.tiktok_handle} onChange={(e) => set('tiktok_handle', e.target.value)}
+                    placeholder="@handle" className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                </div>
+
+                <div className="col-span-2 space-y-1.5">
+                  <Label>Notas internas</Label>
+                  <Textarea value={form.notes} onChange={(e) => set('notes', e.target.value)}
+                    placeholder="Detalles adicionales sobre el cliente..."
+                    className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6] resize-none" rows={3} />
+                </div>
+              </div>
+
+              {error && (
+                <p className="text-sm text-[#b31b25] bg-[#b31b25]/5 rounded-xl px-3 py-2 border border-[#b31b25]/20">
+                  {error}
+                </p>
+              )}
+
+              <div className="flex gap-3 pt-1">
+                <Button type="button" variant="outline" onClick={() => router.back()} className="flex-1 rounded-xl">
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={loading} className="flex-1 rounded-xl text-white font-semibold"
+                  style={{ background: 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)' }}>
+                  {loading ? 'Guardando...' : 'Guardar cambios'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

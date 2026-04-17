@@ -4,25 +4,13 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ── FM Communication Solutions — Design Tokens ── */
 @theme inline {
+  /* shadcn base tokens */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -46,75 +34,87 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* FM palette — Material Design inspired */
+  --color-fm-primary:                  #00675c;
+  --color-fm-primary-dim:              #005a50;
+  --color-fm-primary-container:        #5bf4de;
+  --color-fm-primary-fixed:            #5bf4de;
+  --color-fm-primary-fixed-dim:        #48e5d0;
+  --color-fm-on-primary:               #c1fff2;
+  --color-fm-on-primary-container:     #00594f;
+  --color-fm-on-primary-fixed:         #00443c;
+  --color-fm-on-primary-fixed-variant: #006358;
+
+  --color-fm-secondary:                #4a6319;
+  --color-fm-secondary-dim:            #3f570c;
+  --color-fm-secondary-container:      #ceee93;
+  --color-fm-secondary-fixed:          #ceee93;
+  --color-fm-secondary-fixed-dim:      #c0df86;
+  --color-fm-on-secondary:             #defea2;
+  --color-fm-on-secondary-container:   #41590f;
+  --color-fm-on-secondary-fixed:       #304600;
+  --color-fm-on-secondary-fixed-variant: #4a6319;
+
+  --color-fm-tertiary:                 #006385;
+  --color-fm-tertiary-dim:             #005675;
+  --color-fm-tertiary-container:       #1dc0fe;
+  --color-fm-tertiary-fixed:           #1dc0fe;
+  --color-fm-tertiary-fixed-dim:       #00b2ed;
+  --color-fm-on-tertiary:              #e7f5ff;
+  --color-fm-on-tertiary-container:    #00374c;
+  --color-fm-on-tertiary-fixed:        #001e2b;
+  --color-fm-on-tertiary-fixed-variant: #004058;
+
+  --color-fm-error:                    #b31b25;
+  --color-fm-error-dim:                #9f0519;
+  --color-fm-error-container:          #fb5151;
+  --color-fm-on-error:                 #ffefee;
+  --color-fm-on-error-container:       #570008;
+
+  --color-fm-surface:                  #f5f7f9;
+  --color-fm-surface-dim:              #d0d5d8;
+  --color-fm-surface-bright:           #f5f7f9;
+  --color-fm-surface-variant:          #d9dde0;
+  --color-fm-surface-tint:             #00675c;
+  --color-fm-surface-container-lowest: #ffffff;
+  --color-fm-surface-container-low:    #eef1f3;
+  --color-fm-surface-container:        #e5e9eb;
+  --color-fm-surface-container-high:   #dfe3e6;
+  --color-fm-surface-container-highest:#d9dde0;
+  --color-fm-on-surface:               #2c2f31;
+  --color-fm-on-surface-variant:       #595c5e;
+  --color-fm-on-background:            #2c2f31;
+  --color-fm-background:               #f5f7f9;
+
+  --color-fm-outline:                  #747779;
+  --color-fm-outline-variant:          #abadaf;
+  --color-fm-inverse-surface:          #0b0f10;
+  --color-fm-inverse-on-surface:       #9a9d9f;
+  --color-fm-inverse-primary:          #65fde6;
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* shadcn tokens mapped to FM palette */
+  --background: #f5f7f9;
+  --foreground: #2c2f31;
+  --card: #ffffff;
+  --card-foreground: #2c2f31;
+  --popover: #ffffff;
+  --popover-foreground: #2c2f31;
+  --primary: #00675c;
+  --primary-foreground: #c1fff2;
+  --secondary: #ceee93;
+  --secondary-foreground: #41590f;
+  --muted: #eef1f3;
+  --muted-foreground: #595c5e;
+  --accent: #5bf4de;
+  --accent-foreground: #00594f;
+  --destructive: #b31b25;
+  --border: #abadaf;
+  --input: #dfe3e6;
+  --ring: #48e5d0;
+  --radius: 0.75rem;
 }
 
 @layer base {
@@ -122,9 +122,31 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-[#f5f7f9] text-[#2c2f31] font-sans antialiased;
   }
-  html {
-    @apply font-sans;
+}
+
+/* ── Shared utility classes (used across components) ── */
+@layer utilities {
+  .signature-gradient {
+    background: linear-gradient(135deg, #00675c 0%, #5bf4de 100%);
+  }
+  .secondary-gradient {
+    background: linear-gradient(135deg, #4a6319 0%, #ceee93 100%);
+  }
+  .tertiary-gradient {
+    background: linear-gradient(135deg, #006385 0%, #1dc0fe 100%);
+  }
+  .avatar-purple {
+    background: linear-gradient(135deg, #5c4a8a 0%, #b89cff 100%);
+  }
+  .avatar-amber {
+    background: linear-gradient(135deg, #7a4f00 0%, #ffcc5c 100%);
+  }
+  .glass-panel {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.4);
   }
 }
