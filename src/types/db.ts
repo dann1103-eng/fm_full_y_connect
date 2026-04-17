@@ -100,6 +100,7 @@ export interface Database {
           status: ClientStatus
           created_at: string
           updated_at: string
+          weekly_targets_json: Partial<Record<ContentType, number>> | null
         }
         Insert: {
           id?: string
@@ -119,6 +120,7 @@ export interface Database {
           billing_day: number
           start_date: string
           status?: ClientStatus
+          weekly_targets_json?: Partial<Record<ContentType, number>> | null
         }
         Update: {
           name?: string
@@ -137,6 +139,7 @@ export interface Database {
           billing_day?: number
           start_date?: string
           status?: ClientStatus
+          weekly_targets_json?: Partial<Record<ContentType, number>> | null
         }
         Relationships: [
           {
