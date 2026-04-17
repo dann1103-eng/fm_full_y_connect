@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { TopNav } from '@/components/layout/TopNav'
-import { KanbanColumn } from '@/components/pipeline/KanbanColumn'
-import { PHASES, PIPELINE_CONTENT_TYPES } from '@/lib/domain/pipeline'
+import { KanbanBoard } from '@/components/pipeline/KanbanBoard'
+import { PIPELINE_CONTENT_TYPES } from '@/lib/domain/pipeline'
 import type { PipelineItem } from '@/lib/domain/pipeline'
 import type { Phase, ConsumptionPhaseLog, Client } from '@/types/db'
 
@@ -153,17 +153,11 @@ export default async function PipelinePage({
 
         {/* Kanban */}
         <div className="flex-1 overflow-x-auto">
-          <div className="flex gap-4 min-w-max h-full">
-            {PHASES.map((phase) => (
-              <KanbanColumn
-                key={phase}
-                phase={phase}
-                items={byPhase[phase]}
-                logsMap={logsMap}
-                currentUserId={authUser.id}
-              />
-            ))}
-          </div>
+          <KanbanBoard
+            byPhase={byPhase}
+            logsMap={logsMap}
+            currentUserId={authUser.id}
+          />
         </div>
       </div>
     </div>
