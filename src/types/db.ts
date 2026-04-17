@@ -193,6 +193,7 @@ export interface Database {
           voided_at: string | null
           over_limit: boolean
           phase: Phase
+          carried_over: boolean
         }
         Insert: {
           id?: string
@@ -206,6 +207,7 @@ export interface Database {
           voided_at?: string | null
           over_limit?: boolean
           phase?: Phase
+          carried_over?: boolean
         }
         Update: {
           billing_cycle_id?: string
@@ -217,6 +219,7 @@ export interface Database {
           voided_at?: string | null
           over_limit?: boolean
           phase?: Phase
+          carried_over?: boolean
         }
         Relationships: [
           {
@@ -245,6 +248,7 @@ export interface Database {
           to_phase: Phase
           moved_by?: string | null
           notes?: string | null
+          created_at?: string
         }
         Update: Record<string, never>
         Relationships: [
