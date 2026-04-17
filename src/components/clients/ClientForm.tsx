@@ -162,13 +162,14 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-lg rounded-2xl p-0 overflow-hidden border border-[#abadaf]/20">
-        <DialogHeader className="px-6 pt-6 pb-0">
+      <DialogContent className="max-w-lg rounded-2xl p-0 border border-[#abadaf]/20 flex flex-col max-h-[90vh]">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-[#abadaf]/10 flex-shrink-0">
           <DialogTitle className="text-lg font-semibold text-[#2c2f31]">
             {existing ? 'Editar cliente' : 'Nuevo cliente'}
           </DialogTitle>
         </DialogHeader>
 
+        <div className="overflow-y-auto flex-1">
         <form onSubmit={handleSubmit} className="px-6 pb-6 pt-4 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2 space-y-1.5">
@@ -373,6 +374,7 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
             </Button>
           </div>
         </form>
+        </div>
       </DialogContent>
       </Dialog>
     </>

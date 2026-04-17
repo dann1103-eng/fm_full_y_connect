@@ -29,6 +29,10 @@ export default function ClientEditPage() {
     ig_handle: '',
     fb_handle: '',
     tiktok_handle: '',
+    yt_handle: '',
+    linkedin_handle: '',
+    website_url: '',
+    other_contact: '',
     notes: '',
     current_plan_id: '',
     billing_day: '1',
@@ -38,7 +42,6 @@ export default function ClientEditPage() {
     async function load() {
       const supabase = createClient()
 
-      // Check admin
       const { data: { user } } = await supabase.auth.getUser()
       const { data: appUser } = user
         ? await supabase.from('users').select('role').eq('id', user.id).single()
@@ -64,6 +67,10 @@ export default function ClientEditPage() {
         ig_handle: clientData.ig_handle ?? '',
         fb_handle: clientData.fb_handle ?? '',
         tiktok_handle: clientData.tiktok_handle ?? '',
+        yt_handle: clientData.yt_handle ?? '',
+        linkedin_handle: clientData.linkedin_handle ?? '',
+        website_url: clientData.website_url ?? '',
+        other_contact: clientData.other_contact ?? '',
         notes: clientData.notes ?? '',
         current_plan_id: clientData.current_plan_id,
         billing_day: clientData.billing_day.toString(),
@@ -92,6 +99,10 @@ export default function ClientEditPage() {
         ig_handle: form.ig_handle || null,
         fb_handle: form.fb_handle || null,
         tiktok_handle: form.tiktok_handle || null,
+        yt_handle: form.yt_handle || null,
+        linkedin_handle: form.linkedin_handle || null,
+        website_url: form.website_url || null,
+        other_contact: form.other_contact || null,
         notes: form.notes || null,
         current_plan_id: form.current_plan_id,
         billing_day: parseInt(form.billing_day, 10),
@@ -123,7 +134,7 @@ export default function ClientEditPage() {
     <div className="flex flex-col h-full">
       <TopNav title="Editar cliente" />
 
-      <div className="flex-1 p-6">
+      <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-xl">
           {/* Breadcrumb */}
           <div className="flex items-center gap-2 text-sm text-[#595c5e] mb-5">
@@ -139,6 +150,7 @@ export default function ClientEditPage() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
+
                 <div className="col-span-2 space-y-1.5">
                   <Label>Nombre *</Label>
                   <Input required value={form.name} onChange={(e) => set('name', e.target.value)}
@@ -153,7 +165,7 @@ export default function ClientEditPage() {
                       <option key={p.id} value={p.id}>{p.name} — ${p.price_usd}</option>
                     ))}
                   </select>
-                  <p className="text-xs text-[#747779]">El cambio de plan aplica al siguiente ciclo de facturación.</p>
+                  <p className="text-xs text-[#747779]">El cambio aplica al siguiente ciclo.</p>
                 </div>
 
                 <div className="space-y-1.5">
@@ -175,16 +187,48 @@ export default function ClientEditPage() {
                     placeholder="+503 7000 0000" className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label>Instagram</Label>
-                  <Input value={form.ig_handle} onChange={(e) => set('ig_handle', e.target.value)}
-                    placeholder="@handle" className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label>TikTok</Label>
-                  <Input value={form.tiktok_handle} onChange={(e) => set('tiktok_handle', e.target.value)}
-                    placeholder="@handle" className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                {/* ── Redes sociales ── */}
+                <div className="col-span-2 pt-1">
+                  <p className="text-xs font-semibold text-[#abadaf] uppercase tracking-widest mb-3">
+                    Redes sociales y contacto digital
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>Instagram</Label>
+                      <Input value={form.ig_handle} onChange={(e) => set('ig_handle', e.target.value)}
+                        placeholder="@handle" className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Facebook</Label>
+                      <Input value={form.fb_handle} onChange={(e) => set('fb_handle', e.target.value)}
+                        placeholder="nombre de página o URL" className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>TikTok</Label>
+                      <Input value={form.tiktok_handle} onChange={(e) => set('tiktok_handle', e.target.value)}
+                        placeholder="@handle" className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>YouTube</Label>
+                      <Input value={form.yt_handle} onChange={(e) => set('yt_handle', e.target.value)}
+                        placeholder="@canal o nombre" className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>LinkedIn</Label>
+                      <Input value={form.linkedin_handle} onChange={(e) => set('linkedin_handle', e.target.value)}
+                        placeholder="nombre de empresa o URL" className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Sitio web</Label>
+                      <Input value={form.website_url} onChange={(e) => set('website_url', e.target.value)}
+                        placeholder="https://ejemplo.com" className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                    </div>
+                    <div className="col-span-2 space-y-1.5">
+                      <Label>Otro <span className="text-[#abadaf] font-normal">(WhatsApp, Threads, etc.)</span></Label>
+                      <Input value={form.other_contact} onChange={(e) => set('other_contact', e.target.value)}
+                        placeholder="descripción y enlace o handle" className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="col-span-2 space-y-1.5">
