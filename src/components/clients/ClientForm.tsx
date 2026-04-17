@@ -45,6 +45,10 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
     ig_handle: existing?.ig_handle ?? '',
     fb_handle: existing?.fb_handle ?? '',
     tiktok_handle: existing?.tiktok_handle ?? '',
+    yt_handle: existing?.yt_handle ?? '',
+    linkedin_handle: existing?.linkedin_handle ?? '',
+    website_url: existing?.website_url ?? '',
+    other_contact: existing?.other_contact ?? '',
     notes: existing?.notes ?? '',
     current_plan_id: existing?.current_plan_id ?? (plans[0]?.id ?? ''),
     billing_day: existing?.billing_day?.toString() ?? '1',
@@ -74,6 +78,10 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
           ig_handle: form.ig_handle || null,
           fb_handle: form.fb_handle || null,
           tiktok_handle: form.tiktok_handle || null,
+          yt_handle: form.yt_handle || null,
+          linkedin_handle: form.linkedin_handle || null,
+          website_url: form.website_url || null,
+          other_contact: form.other_contact || null,
           notes: form.notes || null,
           current_plan_id: form.current_plan_id,
           billing_day: billingDay,
@@ -96,6 +104,10 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
           ig_handle: form.ig_handle || null,
           fb_handle: form.fb_handle || null,
           tiktok_handle: form.tiktok_handle || null,
+          yt_handle: form.yt_handle || null,
+          linkedin_handle: form.linkedin_handle || null,
+          website_url: form.website_url || null,
+          other_contact: form.other_contact || null,
           notes: form.notes || null,
           current_plan_id: form.current_plan_id,
           billing_day: billingDay,
@@ -252,24 +264,76 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label>Instagram</Label>
-              <Input
-                value={form.ig_handle}
-                onChange={(e) => set('ig_handle', e.target.value)}
-                placeholder="@handle"
-                className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>TikTok</Label>
-              <Input
-                value={form.tiktok_handle}
-                onChange={(e) => set('tiktok_handle', e.target.value)}
-                placeholder="@handle"
-                className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
-              />
+            {/* ── Redes sociales ── */}
+            <div className="col-span-2 pt-1">
+              <p className="text-xs font-semibold text-[#abadaf] uppercase tracking-widest mb-3">
+                Redes sociales y contacto digital
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Instagram</Label>
+                  <Input
+                    value={form.ig_handle}
+                    onChange={(e) => set('ig_handle', e.target.value)}
+                    placeholder="@handle"
+                    className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Facebook</Label>
+                  <Input
+                    value={form.fb_handle}
+                    onChange={(e) => set('fb_handle', e.target.value)}
+                    placeholder="nombre de página o URL"
+                    className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>TikTok</Label>
+                  <Input
+                    value={form.tiktok_handle}
+                    onChange={(e) => set('tiktok_handle', e.target.value)}
+                    placeholder="@handle"
+                    className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>YouTube</Label>
+                  <Input
+                    value={form.yt_handle}
+                    onChange={(e) => set('yt_handle', e.target.value)}
+                    placeholder="@canal o nombre"
+                    className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>LinkedIn</Label>
+                  <Input
+                    value={form.linkedin_handle}
+                    onChange={(e) => set('linkedin_handle', e.target.value)}
+                    placeholder="nombre de empresa o URL"
+                    className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Sitio web</Label>
+                  <Input
+                    value={form.website_url}
+                    onChange={(e) => set('website_url', e.target.value)}
+                    placeholder="https://ejemplo.com"
+                    className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                  />
+                </div>
+                <div className="col-span-2 space-y-1.5">
+                  <Label>Otro <span className="text-[#abadaf] font-normal">(WhatsApp, Threads, etc.)</span></Label>
+                  <Input
+                    value={form.other_contact}
+                    onChange={(e) => set('other_contact', e.target.value)}
+                    placeholder="descripción y enlace o handle"
+                    className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="col-span-2 space-y-1.5">

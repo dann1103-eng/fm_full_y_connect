@@ -189,7 +189,8 @@ export function ConsumptionPanel({
             </p>
 
             {/* Social handles */}
-            {(client.ig_handle || client.fb_handle || client.tiktok_handle) && (
+            {(client.ig_handle || client.fb_handle || client.tiktok_handle ||
+              client.yt_handle || client.linkedin_handle || client.website_url || client.other_contact) && (
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 pt-1">
                 {client.ig_handle && (
                   <span className="flex items-center gap-1.5 px-3 py-1 bg-[#eef1f3] text-[#595c5e] text-[11px] font-bold rounded-full border border-[#abadaf]/20">
@@ -207,6 +208,35 @@ export function ConsumptionPanel({
                   <span className="flex items-center gap-1.5 px-3 py-1 bg-[#eef1f3] text-[#595c5e] text-[11px] font-bold rounded-full border border-[#abadaf]/20">
                     <span className="material-symbols-outlined text-sm">music_note</span>
                     @{client.tiktok_handle.replace('@', '')}
+                  </span>
+                )}
+                {client.yt_handle && (
+                  <span className="flex items-center gap-1.5 px-3 py-1 bg-[#eef1f3] text-[#595c5e] text-[11px] font-bold rounded-full border border-[#abadaf]/20">
+                    <span className="material-symbols-outlined text-sm">play_circle</span>
+                    {client.yt_handle}
+                  </span>
+                )}
+                {client.linkedin_handle && (
+                  <span className="flex items-center gap-1.5 px-3 py-1 bg-[#eef1f3] text-[#595c5e] text-[11px] font-bold rounded-full border border-[#abadaf]/20">
+                    <span className="material-symbols-outlined text-sm">work</span>
+                    {client.linkedin_handle}
+                  </span>
+                )}
+                {client.website_url && (
+                  <a
+                    href={client.website_url.startsWith('http') ? client.website_url : `https://${client.website_url}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1 bg-[#eef1f3] text-[#595c5e] text-[11px] font-bold rounded-full border border-[#abadaf]/20 hover:bg-[#00675c]/10 transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-sm">language</span>
+                    {client.website_url.replace(/^https?:\/\//, '')}
+                  </a>
+                )}
+                {client.other_contact && (
+                  <span className="flex items-center gap-1.5 px-3 py-1 bg-[#eef1f3] text-[#595c5e] text-[11px] font-bold rounded-full border border-[#abadaf]/20">
+                    <span className="material-symbols-outlined text-sm">alternate_email</span>
+                    {client.other_contact}
                   </span>
                 )}
               </div>

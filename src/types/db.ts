@@ -89,6 +89,10 @@ export interface Database {
           ig_handle: string | null
           fb_handle: string | null
           tiktok_handle: string | null
+          yt_handle: string | null
+          linkedin_handle: string | null
+          website_url: string | null
+          other_contact: string | null
           notes: string | null
           current_plan_id: string
           billing_day: number
@@ -106,6 +110,10 @@ export interface Database {
           ig_handle?: string | null
           fb_handle?: string | null
           tiktok_handle?: string | null
+          yt_handle?: string | null
+          linkedin_handle?: string | null
+          website_url?: string | null
+          other_contact?: string | null
           notes?: string | null
           current_plan_id: string
           billing_day: number
@@ -120,6 +128,10 @@ export interface Database {
           ig_handle?: string | null
           fb_handle?: string | null
           tiktok_handle?: string | null
+          yt_handle?: string | null
+          linkedin_handle?: string | null
+          website_url?: string | null
+          other_contact?: string | null
           notes?: string | null
           current_plan_id?: string
           billing_day?: number

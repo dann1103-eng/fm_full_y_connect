@@ -56,7 +56,7 @@ export default async function PlansPage() {
                 </div>
 
                 <div className="space-y-2 border-t border-[#abadaf]/10 pt-4">
-                  {CONTENT_TYPES.map((type) => (
+                  {CONTENT_TYPES.filter((t) => t !== 'reunion' && t !== 'produccion').map((type) => (
                     <div key={type} className="flex items-center justify-between">
                       <span className="text-sm text-[#595c5e]">{CONTENT_TYPE_LABELS[type]}</span>
                       <span
@@ -68,6 +68,40 @@ export default async function PlansPage() {
                       </span>
                     </div>
                   ))}
+
+                  {/* Producciones — solo conteo, sin pipeline de fases */}
+                  {limits['produccion'] > 0 && (
+                    <div className="flex items-center justify-between pt-1 border-t border-[#abadaf]/10 mt-1">
+                      <span className="text-sm text-[#595c5e] flex items-center gap-1.5">
+                        Producciones
+                        <span className="text-[10px] font-semibold bg-[#abadaf]/15 text-[#747779] px-1.5 py-0.5 rounded-full">
+                          solo conteo
+                        </span>
+                      </span>
+                      <span className="text-sm font-semibold text-[#2c2f31]">
+                        {limits['produccion']}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Reuniones — con duración desglosada */}
+                  {limits['reunion'] > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-[#595c5e]">Reuniones</span>
+                      <span className="text-sm font-semibold text-[#2c2f31]">
+                        {limits['reunion']}
+                        {plan.limits_json.reunion_duracion_horas
+                          ? <span className="text-xs font-normal text-[#595c5e]"> × {plan.limits_json.reunion_duracion_horas}h</span>
+                          : null}
+                      </span>
+                    </div>
+                  )}
+                  {limits['reunion'] === 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-[#595c5e]">Reuniones</span>
+                      <span className="text-sm font-semibold text-[#abadaf]">—</span>
+                    </div>
+                  )}
                 </div>
 
                 <p className="text-xs text-[#747779] mt-4 bg-[#f5f7f9] rounded-lg px-3 py-2">
