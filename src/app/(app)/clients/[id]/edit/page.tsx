@@ -9,7 +9,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import type { Client, Plan } from '@/types/db'
+import type { Client, Plan, ContentType } from '@/types/db'
+import { effectiveWeeklyTarget } from '@/lib/domain/consumption'
+import { limitsToRecord, CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 
 export default function ClientEditPage() {
   const router = useRouter()
@@ -21,6 +23,9 @@ export default function ClientEditPage() {
   const [loading, setLoading] = useState(false)
   const [fetching, setFetching] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const [weeklyTargets, setWeeklyTargets] = useState<Partial<Record<ContentType, number>>>({})
+  const [limits, setLimits] = useState<Record<ContentType, number> | null>(null)
 
   const [form, setForm] = useState({
     name: '',
@@ -75,6 +80,10 @@ export default function ClientEditPage() {
         current_plan_id: clientData.current_plan_id,
         billing_day: clientData.billing_day.toString(),
       })
+      setWeeklyTargets(clientData.weekly_targets_json ?? {})
+      const activePlan = (plansData ?? []).find((p) => p.id === clientData.current_plan_id)
+      const activeLimits = activePlan ? limitsToRecord(activePlan.limits_json) : null
+      setLimits(activeLimits)
       setFetching(false)
     }
     load()
@@ -82,6 +91,20 @@ export default function ClientEditPage() {
 
   function set(key: string, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  function buildWeeklyTargetsJson(
+    targets: Partial<Record<ContentType, number | undefined>>,
+    activeLimits: Record<ContentType, number> | null
+  ): Partial<Record<ContentType, number>> | null {
+    if (!activeLimits) return null
+    const result: Partial<Record<ContentType, number>> = {}
+    for (const [type, val] of Object.entries(targets) as [ContentType, number | undefined][]) {
+      if (val !== undefined && val !== effectiveWeeklyTarget(type, activeLimits[type] ?? 0, null)) {
+        result[type] = val
+      }
+    }
+    return Object.keys(result).length > 0 ? result : null
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -106,6 +129,7 @@ export default function ClientEditPage() {
         notes: form.notes || null,
         current_plan_id: form.current_plan_id,
         billing_day: parseInt(form.billing_day, 10),
+        weekly_targets_json: buildWeeklyTargetsJson(weeklyTargets, limits),
       })
       .eq('id', id)
 
@@ -230,6 +254,48 @@ export default function ClientEditPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* ── Objetivos semanales ── */}
+                {limits && (
+                  <div className="col-span-2 pt-1">
+                    <p className="text-xs font-semibold text-[#abadaf] uppercase tracking-widest mb-3">
+                      Objetivos semanales{' '}
+                      <span className="normal-case font-normal text-[#747779]">
+                        (descriptivo, no restringe — default: límite ÷ 4)
+                      </span>
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {(Object.entries(limits) as [ContentType, number][])
+                        .filter(([, lim]) => lim > 0)
+                        .map(([type, lim]) => {
+                          const defaultVal = effectiveWeeklyTarget(type, lim, null)
+                          return (
+                            <div key={type} className="space-y-1.5">
+                              <Label>
+                                {CONTENT_TYPE_LABELS[type]}{' '}
+                                <span className="text-[#abadaf] font-normal text-xs">
+                                  (def. {defaultVal}/sem)
+                                </span>
+                              </Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                placeholder={String(defaultVal)}
+                                value={weeklyTargets[type] ?? ''}
+                                onChange={(e) =>
+                                  setWeeklyTargets((prev) => ({
+                                    ...prev,
+                                    [type]: e.target.value === '' ? undefined : Number(e.target.value),
+                                  }))
+                                }
+                                className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                              />
+                            </div>
+                          )
+                        })}
+                    </div>
+                  </div>
+                )}
 
                 <div className="col-span-2 space-y-1.5">
                   <Label>Notas internas</Label>
