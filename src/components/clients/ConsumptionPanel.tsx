@@ -446,7 +446,7 @@ export function ConsumptionPanel({
                 </div>
 
                 {/* Per-type progress bars */}
-                {activeTypes.length === 0 ? (
+                {items.length === 0 ? (
                   <p className="text-xs text-[#abadaf]">Sin consumos</p>
                 ) : (
                   <div className="space-y-3">
@@ -456,7 +456,7 @@ export function ConsumptionPanel({
                       ).length
                       const target = effectiveWeeklyTarget(type, limits[type], client.weekly_targets_json ?? null)
                       const pct = target > 0 ? Math.min(100, Math.round((consumed / target) * 100)) : 0
-                      const barColor =
+                      const weekBarColor =
                         isFuture
                           ? '#e5e9eb'
                           : consumed >= target
@@ -478,7 +478,7 @@ export function ConsumptionPanel({
                           <div className="w-full bg-[#e5e9eb] rounded-full h-1.5 overflow-hidden">
                             <div
                               className="h-full rounded-full transition-all duration-500"
-                              style={{ width: `${pct}%`, backgroundColor: barColor }}
+                              style={{ width: `${pct}%`, backgroundColor: weekBarColor }}
                             />
                           </div>
                         </div>
