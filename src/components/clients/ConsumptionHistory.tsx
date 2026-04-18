@@ -48,15 +48,18 @@ interface ConsumptionHistoryProps {
   isAdmin: boolean
   cycleId: string
   userMap: Record<string, string>
+  maxCambios: number
 }
 
 export function ConsumptionHistory({
   consumptions,
   isAdmin,
   userMap,
+  maxCambios,
 }: ConsumptionHistoryProps) {
   const router = useRouter()
   const [voidingId, setVoidingId] = useState<string | null>(null)
+  const [incrementingId, setIncrementingId] = useState<string | null>(null)
 
   async function handleVoid(consumptionId: string) {
     setVoidingId(consumptionId)
@@ -68,6 +71,17 @@ export function ConsumptionHistory({
       voided_at: new Date().toISOString(),
     }).eq('id', consumptionId)
     setVoidingId(null)
+    router.refresh()
+  }
+
+  async function handleAddCambio(consumptionId: string) {
+    setIncrementingId(consumptionId)
+    const supabase = createClient()
+    await supabase
+      .from('consumptions')
+      .update({ cambios_count: (consumptions.find(c => c.id === consumptionId)?.cambios_count ?? 0) + 1 })
+      .eq('id', consumptionId)
+    setIncrementingId(null)
     router.refresh()
   }
 
@@ -107,7 +121,7 @@ export function ConsumptionHistory({
                 {/* Text */}
                 <div>
                   <p className="text-sm font-bold text-[#2c2f31]">
-                    {TYPE_ACTION[type] ?? CONTENT_TYPE_LABELS[type]}
+                    {c.title || TYPE_ACTION[type] || CONTENT_TYPE_LABELS[type]}
                     {c.voided && (
                       <span className="ml-2 text-xs font-medium text-[#747779] bg-[#abadaf]/20 px-1.5 py-0.5 rounded">
                         Anulado
@@ -118,11 +132,23 @@ export function ConsumptionHistory({
                         Excedente
                       </span>
                     )}
-                    {c.notes && (
-                      <span className="ml-1 text-[#595c5e] font-normal text-xs">
-                        — {c.notes}
-                      </span>
-                    )}
+                    {/* Cambios badge */}
+                    {!c.voided && (() => {
+                      const isOver = c.cambios_count >= maxCambios
+                      return (
+                        <span className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded ${
+                          isOver
+                            ? 'text-[#b31b25] bg-[#b31b25]/10'
+                            : 'text-[#595c5e] bg-[#abadaf]/20'
+                        }`}>
+                          {c.cambios_count}/{maxCambios} cambios
+                        </span>
+                      )
+                    })()}
+                  </p>
+                  <p className="text-xs text-[#595c5e] mt-0.5">
+                    <span className="text-[#abadaf]">{CONTENT_TYPE_LABELS[type]}</span>
+                    {c.notes && <span> — {c.notes}</span>}
                   </p>
                   <p className="text-xs text-[#595c5e] mt-0.5">
                     {daysAgo(c.registered_at)}&nbsp;·&nbsp;por{' '}
@@ -131,16 +157,33 @@ export function ConsumptionHistory({
                 </div>
               </div>
 
-              {/* Void button */}
-              {!c.voided && (
-                <button
-                  onClick={() => handleVoid(c.id)}
-                  disabled={voidingId === c.id || !isAdmin}
-                  className="text-[#b31b25] text-xs font-bold hover:underline transition-colors disabled:opacity-30 flex-shrink-0 ml-4"
-                >
-                  {voidingId === c.id ? '...' : 'Anular'}
-                </button>
-              )}
+              {/* Action buttons */}
+              <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+                {/* +1 cambio */}
+                {!c.voided && (
+                  <button
+                    onClick={() => handleAddCambio(c.id)}
+                    disabled={incrementingId === c.id}
+                    className={`text-xs font-bold transition-colors disabled:opacity-30 ${
+                      c.cambios_count >= maxCambios
+                        ? 'text-[#b31b25] hover:underline'
+                        : 'text-[#00675c] hover:underline'
+                    }`}
+                  >
+                    {incrementingId === c.id ? '...' : '+1 cambio'}
+                  </button>
+                )}
+                {/* Void button */}
+                {!c.voided && (
+                  <button
+                    onClick={() => handleVoid(c.id)}
+                    disabled={voidingId === c.id || !isAdmin}
+                    className="text-[#b31b25] text-xs font-bold hover:underline transition-colors disabled:opacity-30"
+                  >
+                    {voidingId === c.id ? '...' : 'Anular'}
+                  </button>
+                )}
+              </div>
             </div>
           )
         })}

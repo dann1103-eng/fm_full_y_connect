@@ -504,6 +504,7 @@ export function ConsumptionPanel({
             isAdmin={isAdmin}
             cycleId={cycle.id}
             userMap={userMap}
+            maxCambios={client.max_cambios}
           />
         </div>
 
