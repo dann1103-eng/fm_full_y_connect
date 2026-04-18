@@ -13,6 +13,7 @@ import { ClientPipelineTab } from '@/components/pipeline/ClientPipelineTab'
 import { PIPELINE_CONTENT_TYPES } from '@/lib/domain/pipeline'
 import type { PipelineItem } from '@/lib/domain/pipeline'
 import type { ConsumptionPhaseLog } from '@/types/db'
+import { DeleteClientButton } from '@/components/clients/DeleteClientButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -195,6 +196,13 @@ export default async function ClientDetailPage({
               logsMap={pipelineLogsMap}
               currentUserId={authUser?.id ?? ''}
             />
+          </div>
+        )}
+
+        {/* Delete client — admin only */}
+        {isAdmin && (
+          <div className="pt-4">
+            <DeleteClientButton clientId={client.id} clientName={client.name} />
           </div>
         )}
       </div>
