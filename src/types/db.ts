@@ -101,6 +101,7 @@ export interface Database {
           created_at: string
           updated_at: string
           weekly_targets_json: Partial<Record<ContentType, number>> | null
+          max_cambios: number
         }
         Insert: {
           id?: string
@@ -140,6 +141,7 @@ export interface Database {
           start_date?: string
           status?: ClientStatus
           weekly_targets_json?: Partial<Record<ContentType, number>> | null
+          max_cambios?: number
         }
         Relationships: [
           {
@@ -212,6 +214,8 @@ export interface Database {
           over_limit: boolean
           phase: Phase
           carried_over: boolean
+          title: string
+          cambios_count: number
         }
         Insert: {
           id?: string
@@ -226,6 +230,8 @@ export interface Database {
           over_limit?: boolean
           phase?: Phase
           carried_over?: boolean
+          title?: string
+          cambios_count?: number
         }
         Update: {
           billing_cycle_id?: string
@@ -238,6 +244,8 @@ export interface Database {
           over_limit?: boolean
           phase?: Phase
           carried_over?: boolean
+          title?: string
+          cambios_count?: number
         }
         Relationships: [
           {
