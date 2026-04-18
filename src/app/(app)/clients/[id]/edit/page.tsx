@@ -43,6 +43,7 @@ export default function ClientEditPage() {
     notes: '',
     current_plan_id: '',
     billing_day: '1',
+    max_cambios: '2',
   })
 
   const limits = useMemo(() => {
@@ -86,6 +87,7 @@ export default function ClientEditPage() {
         notes: clientData.notes ?? '',
         current_plan_id: clientData.current_plan_id,
         billing_day: clientData.billing_day.toString(),
+        max_cambios: clientData.max_cambios?.toString() ?? '2',
       })
       setLogoUrl(clientData.logo_url ?? null)
       setWeeklyTargets(clientData.weekly_targets_json ?? {})
@@ -135,6 +137,7 @@ export default function ClientEditPage() {
         logo_url: logoUrl,
         current_plan_id: form.current_plan_id,
         billing_day: parseInt(form.billing_day, 10),
+        max_cambios: parseInt(form.max_cambios, 10) || 2,
         weekly_targets_json: buildWeeklyTargetsJson(weeklyTargets, limits),
       })
       .eq('id', id)
@@ -214,6 +217,18 @@ export default function ClientEditPage() {
                   <Input required type="number" min={1} max={31} value={form.billing_day}
                     onChange={(e) => set('billing_day', e.target.value)}
                     className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Máx. cambios por consumo</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={form.max_cambios}
+                    onChange={(e) => set('max_cambios', e.target.value)}
+                    className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                  />
+                  <p className="text-xs text-[#747779]">Default: 2. Aplica a todos los consumos del cliente.</p>
                 </div>
 
                 <div className="space-y-1.5">
