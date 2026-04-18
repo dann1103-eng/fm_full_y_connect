@@ -19,7 +19,7 @@ Tres mejoras de operación diaria en el CRM FM Communication Solutions:
 ## 1. Base de datos — Migración `0008`
 
 ```sql
--- Título requerido por consumo (existentes quedan con string vacío)
+-- Título requerido por consumo (existentes quedan con string vacío — ver nota)
 ALTER TABLE public.consumptions
   ADD COLUMN IF NOT EXISTS title TEXT NOT NULL DEFAULT '';
 
@@ -31,6 +31,8 @@ ALTER TABLE public.consumptions
 ALTER TABLE public.clients
   ADD COLUMN IF NOT EXISTS max_cambios INTEGER NOT NULL DEFAULT 2;
 ```
+
+**Nota sobre `title` en filas existentes:** los consumos ya registrados quedan con `title = ''`. En `ConsumptionHistory` y `PipelineCard`, si `title` está vacío se muestra `TYPE_ACTION[type]` como fallback (comportamiento anterior). No se agrega constraint `CHECK (title <> '')` en DB para no romper scripts de importación existentes; la obligatoriedad se impone solo a nivel de UI.
 
 **TypeScript (`src/types/db.ts`):**
 - `consumptions.Row/Insert/Update`: añadir `title: string`, `cambios_count: number`
@@ -58,6 +60,8 @@ Borrado secuencial para respetar FK constraints:
 5. `DELETE billing_cycles` donde `client_id = clientId`
 6. `DELETE clients` donde `id = clientId`
 
+**Nota FK:** `consumptions.voided_by_user_id` referencia `public.users`, pero los registros de usuario NO se eliminan en este flujo — solo se eliminan los consumos del cliente. No hay conflicto.
+
 ### Archivos
 - **Nuevo:** `src/app/actions/deleteClient.ts`
 - **Modificado:** `src/app/(app)/clients/[id]/page.tsx` (botón + dialog de confirmación)
@@ -75,6 +79,7 @@ Borrado secuencial para respetar FK constraints:
 - Solo visible en consumos no anulados
 - Al hacer clic: `UPDATE consumptions SET cambios_count = cambios_count + 1 WHERE id = ?` + router.refresh()
 - No bloquea: si `cambios_count >= max_cambios`, el badge se pone rojo pero el botón sigue activo
+- **Por diseño no existe decremento:** si el operador incrementa por error, debe anular el consumo o ajustar manualmente desde la base de datos. Esta limitación es intencional para mantener la UI simple.
 
 ### Display en historial
 Badge `cambios: N/max` junto a los badges "Anulado" / "Excedente":
@@ -133,7 +138,7 @@ title: string
 consumptionNotes: string | null
 cambiosCount: number
 maxCambios: number
-showMoveSection?: boolean  // default true; false en KanbanBoard
+showMoveSection?: boolean  // default true (ClientPipelineTab); false en KanbanBoard
 ```
 
 ### Estructura del panel (cuerpo scrollable)
@@ -153,6 +158,10 @@ supabase.from('consumption_phase_logs')
   .eq('consumption_id', id)
   .order('created_at')
 ```
+
+### Estado del sheet por componente
+- **`KanbanBoard`**: mantiene `activeDetailId: string | null` — al hacer doble clic en una tarjeta, guarda su id y renderiza un único `PhaseSheet` con `showMoveSection={false}`.
+- **`ClientPipelineTab`**: cada tarjeta maneja su propio estado `open: boolean` local (patrón existente con `PhaseSheet` actual). No se comparte estado con `KanbanBoard`.
 
 ### Trigger de doble clic
 - `PipelineCard` recibe prop `onDoubleClick?: () => void`
