@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -13,6 +13,8 @@ import {
 import { KanbanColumn } from './KanbanColumn'
 import { CardBody } from './PipelineCard'
 import { MovePhaseModal } from './MovePhaseModal'
+import { PhaseSheet } from './PhaseSheet'
+import { createClient } from '@/lib/supabase/client'
 import { PHASES } from '@/lib/domain/pipeline'
 import type { PipelineItem } from '@/lib/domain/pipeline'
 import type { Phase, ConsumptionPhaseLog } from '@/types/db'
@@ -32,6 +34,24 @@ interface KanbanBoardProps {
 export function KanbanBoard({ byPhase, logsMap, currentUserId }: KanbanBoardProps) {
   const [activeItem, setActiveItem] = useState<PipelineItem | null>(null)
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null)
+  const [activeDetailItem, setActiveDetailItem] = useState<PipelineItem | null>(null)
+  const [detailLogs, setDetailLogs] = useState<ConsumptionPhaseLog[]>([])
+  const [loadingLogs, setLoadingLogs] = useState(false)
+
+  useEffect(() => {
+    if (!activeDetailItem) { setDetailLogs([]); return }
+    setLoadingLogs(true)
+    const supabase = createClient()
+    supabase
+      .from('consumption_phase_logs')
+      .select('*')
+      .eq('consumption_id', activeDetailItem.id)
+      .order('created_at')
+      .then(({ data }) => {
+        setDetailLogs(data ?? [])
+        setLoadingLogs(false)
+      })
+  }, [activeDetailItem])
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -71,6 +91,7 @@ export function KanbanBoard({ byPhase, logsMap, currentUserId }: KanbanBoardProp
               logsMap={logsMap}
               currentUserId={currentUserId}
               draggableCards
+              onDoubleClick={(item) => setActiveDetailItem(item)}
             />
           ))}
         </div>
@@ -97,6 +118,25 @@ export function KanbanBoard({ byPhase, logsMap, currentUserId }: KanbanBoardProp
         currentUserId={currentUserId}
         onClose={() => setPendingMove(null)}
       />
+
+      {/* Detail sheet — opens on double click */}
+      {activeDetailItem && !loadingLogs && (
+        <PhaseSheet
+          open={true}
+          onClose={() => setActiveDetailItem(null)}
+          consumptionId={activeDetailItem.id}
+          contentType={activeDetailItem.content_type}
+          currentPhase={activeDetailItem.phase as Phase}
+          clientName={activeDetailItem.client_name}
+          logs={detailLogs}
+          currentUserId={currentUserId}
+          title={activeDetailItem.title}
+          consumptionNotes={activeDetailItem.notes}
+          cambiosCount={activeDetailItem.cambios_count}
+          maxCambios={activeDetailItem.max_cambios}
+          showMoveSection={false}
+        />
+      )}
     </>
   )
 }
