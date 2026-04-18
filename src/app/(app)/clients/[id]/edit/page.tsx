@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import type { Client, Plan, ContentType } from '@/types/db'
 import { effectiveWeeklyTarget } from '@/lib/domain/consumption'
 import { limitsToRecord, CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
+import { LogoUploader } from '@/components/clients/LogoUploader'
 
 export default function ClientEditPage() {
   const router = useRouter()
@@ -25,6 +26,8 @@ export default function ClientEditPage() {
   const [error, setError] = useState<string | null>(null)
 
   const [weeklyTargets, setWeeklyTargets] = useState<Partial<Record<ContentType, number>>>({})
+
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     name: '',
@@ -84,6 +87,7 @@ export default function ClientEditPage() {
         current_plan_id: clientData.current_plan_id,
         billing_day: clientData.billing_day.toString(),
       })
+      setLogoUrl(clientData.logo_url ?? null)
       setWeeklyTargets(clientData.weekly_targets_json ?? {})
       setFetching(false)
     }
@@ -128,6 +132,7 @@ export default function ClientEditPage() {
         website_url: form.website_url || null,
         other_contact: form.other_contact || null,
         notes: form.notes || null,
+        logo_url: logoUrl,
         current_plan_id: form.current_plan_id,
         billing_day: parseInt(form.billing_day, 10),
         weekly_targets_json: buildWeeklyTargetsJson(weeklyTargets, limits),
@@ -175,6 +180,17 @@ export default function ClientEditPage() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
+
+                <div className="col-span-2 space-y-1.5">
+                  <Label>Logo</Label>
+                  <LogoUploader
+                    value={logoUrl}
+                    onChange={setLogoUrl}
+                    clientId={id}
+                    clientName={form.name || client?.name || ''}
+                    disabled={loading}
+                  />
+                </div>
 
                 <div className="col-span-2 space-y-1.5">
                   <Label>Nombre *</Label>
