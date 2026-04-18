@@ -42,6 +42,9 @@ export interface PipelineItem {
   registered_at: string
   notes: string | null
   carried_over: boolean
+  title: string
+  cambios_count: number
+  max_cambios: number   // client's limit, fetched from clients table
 }
 
 /**
@@ -131,7 +134,7 @@ export async function migrateOpenPipelineItems(
   // 1. Obtener piezas abiertas del ciclo anterior
   const { data: openItems } = await supabase
     .from('consumptions')
-    .select('id, content_type, phase')
+    .select('id, content_type, phase, title')
     .eq('billing_cycle_id', previousCycleId)
     .eq('voided', false)
     .neq('phase', 'publicado')
@@ -151,6 +154,7 @@ export async function migrateOpenPipelineItems(
         registered_by_user_id: movedBy,
         over_limit: false,
         voided: false,
+        title: item.title ?? '',
       })
       .select('id')
       .single()

@@ -26,6 +26,7 @@ interface PipelineCardProps {
   showClient?: boolean
   /** Si true, la card es arrastrable (solo en KanbanBoard del pipeline global) */
   draggable?: boolean
+  onDoubleClick?: () => void
 }
 
 /** Exported so KanbanBoard can render it directly inside DragOverlay without
@@ -36,12 +37,14 @@ export function CardBody({
   dragHandleProps,
   isDragging,
   onClick,
+  onDoubleClick,
 }: {
   item: PipelineItem
   showClient: boolean
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>
   isDragging?: boolean
   onClick?: () => void
+  onDoubleClick?: () => void
 }) {
   const relativeDate = (iso: string) => {
     const diff = Math.floor((new Date().getTime() - new Date(iso).getTime()) / 86400000)
@@ -91,6 +94,12 @@ export function CardBody({
         </span>
       )}
 
+      {/* Title — primary text */}
+      {item.title ? (
+        <p className="text-sm font-semibold text-[#2c2f31] mb-1 line-clamp-2">{item.title}</p>
+      ) : null}
+
+      {/* Notes — secondary */}
       {item.notes && (
         <p className="text-xs text-[#595c5e] line-clamp-2 mb-2">{item.notes}</p>
       )}
@@ -101,13 +110,13 @@ export function CardBody({
 
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className={sharedClassName}>
+      <button type="button" onClick={onClick} onDoubleClick={onDoubleClick} className={sharedClassName}>
         {children}
       </button>
     )
   }
   return (
-    <div {...dragHandleProps} className={sharedClassName}>
+    <div {...dragHandleProps} onDoubleClick={onDoubleClick} className={sharedClassName}>
       {children}
     </div>
   )
@@ -119,6 +128,7 @@ export function PipelineCard({
   currentUserId,
   showClient = true,
   draggable = false,
+  onDoubleClick,
 }: PipelineCardProps) {
   const [sheetOpen, setSheetOpen] = useState(false)
 
@@ -140,6 +150,7 @@ export function PipelineCard({
           showClient={showClient}
           dragHandleProps={{ ...attributes, ...listeners }}
           isDragging={isDragging}
+          onDoubleClick={onDoubleClick}
         />
       </div>
     )
