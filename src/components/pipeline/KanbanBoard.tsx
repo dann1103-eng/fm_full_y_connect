@@ -36,11 +36,9 @@ export function KanbanBoard({ byPhase, logsMap, currentUserId }: KanbanBoardProp
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null)
   const [activeDetailItem, setActiveDetailItem] = useState<PipelineItem | null>(null)
   const [detailLogs, setDetailLogs] = useState<ConsumptionPhaseLog[]>([])
-  const [loadingLogs, setLoadingLogs] = useState(false)
 
   useEffect(() => {
-    if (!activeDetailItem) { setDetailLogs([]); return }
-    setLoadingLogs(true)
+    if (!activeDetailItem) return
     const supabase = createClient()
     supabase
       .from('consumption_phase_logs')
@@ -49,7 +47,6 @@ export function KanbanBoard({ byPhase, logsMap, currentUserId }: KanbanBoardProp
       .order('created_at')
       .then(({ data }) => {
         setDetailLogs(data ?? [])
-        setLoadingLogs(false)
       })
   }, [activeDetailItem])
 
@@ -120,7 +117,7 @@ export function KanbanBoard({ byPhase, logsMap, currentUserId }: KanbanBoardProp
       />
 
       {/* Detail sheet — opens on double click */}
-      {activeDetailItem && !loadingLogs && (
+      {activeDetailItem && (
         <PhaseSheet
           open={true}
           onClose={() => setActiveDetailItem(null)}
