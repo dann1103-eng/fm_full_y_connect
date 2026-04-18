@@ -76,6 +76,7 @@ export function ConsumptionModal({
 }: ConsumptionModalProps) {
   const router = useRouter()
   const [selectedType, setSelectedType] = useState<ContentType | null>(null)
+  const [title, setTitle] = useState('')
   const [notes, setNotes] = useState('')
   const [forceOverLimit, setForceOverLimit] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -115,6 +116,7 @@ export function ConsumptionModal({
       .insert({
         billing_cycle_id: cycle.id,
         content_type: selectedType,
+        title: title.trim(),
         registered_by_user_id: user.id,
         notes: notes.trim() || null,
         voided: false,
@@ -139,6 +141,7 @@ export function ConsumptionModal({
 
     setLoading(false)
     setSelectedType(null)
+    setTitle('')
     setNotes('')
     setForceOverLimit(false)
     onClose()
@@ -220,21 +223,37 @@ export function ConsumptionModal({
             </div>
           )}
 
-          {/* Notes */}
+          {/* Title + Notes */}
           {selectedType && (
-            <div>
-              <Label htmlFor="notes" className="text-sm font-medium text-[#2c2f31] mb-1.5 block">
-                Notas <span className="text-[#747779] font-normal">(opcional)</span>
-              </Label>
-              <Textarea
-                id="notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Descripción del contenido, cliente, etc."
-                className="resize-none bg-[#f5f7f9] border-[#dfe3e6] focus:border-[#00675c] focus:ring-[#00675c]/20 rounded-xl"
-                rows={3}
-              />
-            </div>
+            <>
+              <div>
+                <Label htmlFor="title" className="text-sm font-medium text-[#2c2f31] mb-1.5 block">
+                  Título <span className="text-[#b31b25]">*</span>
+                </Label>
+                <input
+                  id="title"
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Ej. Reel de lanzamiento mayo"
+                  required
+                  className="w-full px-3 py-2 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl focus:outline-none focus:border-[#00675c] text-[#2c2f31]"
+                />
+              </div>
+              <div>
+                <Label htmlFor="notes" className="text-sm font-medium text-[#2c2f31] mb-1.5 block">
+                  Notas <span className="text-[#747779] font-normal">(opcional)</span>
+                </Label>
+                <Textarea
+                  id="notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Descripción del contenido, cliente, etc."
+                  className="resize-none bg-[#f5f7f9] border-[#dfe3e6] focus:border-[#00675c] focus:ring-[#00675c]/20 rounded-xl"
+                  rows={3}
+                />
+              </div>
+            </>
           )}
 
           {/* Impact preview */}
@@ -277,6 +296,7 @@ export function ConsumptionModal({
               disabled={
                 !selectedType ||
                 loading ||
+                !title.trim() ||
                 (selectedAtLimit && !forceOverLimit)
               }
               className="flex-1 rounded-xl text-white font-semibold"
