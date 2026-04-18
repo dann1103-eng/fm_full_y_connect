@@ -173,6 +173,11 @@ export function PipelineCard({
         clientName={item.client_name}
         logs={logs}
         currentUserId={currentUserId}
+        title={item.title}
+        consumptionNotes={item.notes}
+        cambiosCount={item.cambios_count}
+        maxCambios={item.max_cambios}
+        showMoveSection={true}
       />
     </>
   )

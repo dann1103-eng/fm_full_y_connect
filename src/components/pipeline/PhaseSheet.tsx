@@ -36,6 +36,12 @@ interface PhaseSheetProps {
   clientName: string
   logs: ConsumptionPhaseLog[]
   currentUserId: string
+  // New props:
+  title: string
+  consumptionNotes: string | null
+  cambiosCount: number
+  maxCambios: number
+  showMoveSection?: boolean // default true
 }
 
 export function PhaseSheet({
@@ -47,12 +53,27 @@ export function PhaseSheet({
   clientName,
   logs,
   currentUserId,
+  title,
+  consumptionNotes,
+  cambiosCount,
+  maxCambios,
+  showMoveSection,
 }: PhaseSheetProps) {
   const router = useRouter()
+
+  // Phase-move state
   const [toPhase, setToPhase] = useState<Phase>(currentPhase)
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Editable consumption fields state
+  const [editTitle, setEditTitle] = useState(title)
+  const [editNotes, setEditNotes] = useState(consumptionNotes ?? '')
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
+  const [incrementing, setIncrementing] = useState(false)
+  const [localCambios, setLocalCambios] = useState(cambiosCount)
 
   async function handleMove() {
     if (toPhase === currentPhase) {
@@ -84,6 +105,36 @@ export function PhaseSheet({
     router.refresh()
   }
 
+  async function handleSaveEdit() {
+    if (!editTitle.trim()) {
+      setEditError('El título no puede estar vacío.')
+      return
+    }
+    setEditError(null)
+    setSavingEdit(true)
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('consumptions')
+      .update({ title: editTitle.trim(), notes: editNotes.trim() || null })
+      .eq('id', consumptionId)
+    setSavingEdit(false)
+    if (error) { setEditError('Error al guardar.'); return }
+    onClose()
+    router.refresh()
+  }
+
+  async function handleAddCambio() {
+    setIncrementing(true)
+    const supabase = createClient()
+    await supabase
+      .from('consumptions')
+      .update({ cambios_count: localCambios + 1 })
+      .eq('id', consumptionId)
+    setLocalCambios((n) => n + 1)
+    setIncrementing(false)
+    router.refresh()
+  }
+
   return (
     <Sheet open={open} onOpenChange={(v) => { if (!v) onClose() }}>
       {/* Layout: flex-col h-full → header fijo + cuerpo scrollable + footer fijo */}
@@ -99,6 +150,72 @@ export function PhaseSheet({
 
         {/* ── Cuerpo scrollable ── */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+
+          {/* ── Información del consumo ── */}
+          <div className="space-y-3 pb-5 border-b border-[#dfe3e6]">
+            <p className="text-xs font-semibold text-[#747779] uppercase tracking-wider">
+              Información del consumo
+            </p>
+
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-[#2c2f31]">Título</Label>
+              <input
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="w-full px-3 py-2 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl focus:outline-none focus:border-[#00675c]"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-[#2c2f31]">
+                Notas <span className="text-[#abadaf] font-normal">(opcional)</span>
+              </Label>
+              <Textarea
+                value={editNotes}
+                onChange={(e) => setEditNotes(e.target.value)}
+                placeholder="Descripción, instrucciones del cliente..."
+                className="resize-none bg-[#f5f7f9] border-[#dfe3e6] focus:border-[#00675c] rounded-xl text-sm"
+                rows={2}
+              />
+            </div>
+
+            {/* Cambios */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-[#595c5e]">Cambios solicitados:</span>
+                <span className={`text-sm font-bold ${localCambios >= maxCambios ? 'text-[#b31b25]' : 'text-[#2c2f31]'}`}>
+                  {localCambios}/{maxCambios}
+                </span>
+              </div>
+              <button
+                onClick={handleAddCambio}
+                disabled={incrementing}
+                className={`text-xs font-bold px-3 py-1 rounded-lg transition-colors disabled:opacity-40 ${
+                  localCambios >= maxCambios
+                    ? 'bg-[#b31b25]/10 text-[#b31b25] hover:bg-[#b31b25]/20'
+                    : 'bg-[#00675c]/10 text-[#00675c] hover:bg-[#00675c]/20'
+                }`}
+              >
+                {incrementing ? '...' : '+1 cambio'}
+              </button>
+            </div>
+
+            {editError && (
+              <p className="text-xs text-[#b31b25] bg-[#b31b25]/5 rounded-lg px-3 py-2 border border-[#b31b25]/20">
+                {editError}
+              </p>
+            )}
+
+            <button
+              onClick={handleSaveEdit}
+              disabled={savingEdit || !editTitle.trim()}
+              className="w-full py-2 text-sm font-semibold rounded-xl text-white transition-colors disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)' }}
+            >
+              {savingEdit ? 'Guardando...' : 'Guardar cambios'}
+            </button>
+          </div>
 
           {/* Fase actual */}
           <div className="flex items-center gap-2">
@@ -155,69 +272,79 @@ export function PhaseSheet({
           </div>
 
           {/* Formulario mover de fase */}
-          <div className="space-y-4 border-t border-[#dfe3e6] pt-5">
-            <p className="text-xs font-semibold text-[#747779] uppercase tracking-wider">
-              Mover a fase
-            </p>
-
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-[#2c2f31]">Nueva fase</Label>
-              <Select value={toPhase} onValueChange={(v) => setToPhase(v as Phase)}>
-                <SelectTrigger className="rounded-xl border-[#dfe3e6] bg-white h-10">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PHASES.map((phase) => (
-                    <SelectItem key={phase} value={phase}>
-                      {PHASE_LABELS[phase]}
-                      {phase === currentPhase ? ' (actual)' : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="phase-notes" className="text-sm font-medium text-[#2c2f31]">
-                Notas{' '}
-                <span className="text-[#abadaf] font-normal">(opcional)</span>
-              </Label>
-              <Textarea
-                id="phase-notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Ej. cliente pidió cambiar el copy..."
-                className="resize-none bg-[#f5f7f9] border-[#dfe3e6] focus:border-[#00675c] rounded-xl text-sm"
-                rows={3}
-              />
-            </div>
-
-            {error && (
-              <p className="text-sm text-[#b31b25] bg-[#b31b25]/5 rounded-xl px-3 py-2.5 border border-[#b31b25]/20">
-                {error}
+          {(showMoveSection ?? true) && (
+            <div className="space-y-4 border-t border-[#dfe3e6] pt-5">
+              <p className="text-xs font-semibold text-[#747779] uppercase tracking-wider">
+                Mover a fase
               </p>
-            )}
-          </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-[#2c2f31]">Nueva fase</Label>
+                <Select value={toPhase} onValueChange={(v) => setToPhase(v as Phase)}>
+                  <SelectTrigger className="rounded-xl border-[#dfe3e6] bg-white h-10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PHASES.map((phase) => (
+                      <SelectItem key={phase} value={phase}>
+                        {PHASE_LABELS[phase]}
+                        {phase === currentPhase ? ' (actual)' : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="phase-notes" className="text-sm font-medium text-[#2c2f31]">
+                  Notas{' '}
+                  <span className="text-[#abadaf] font-normal">(opcional)</span>
+                </Label>
+                <Textarea
+                  id="phase-notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Ej. cliente pidió cambiar el copy..."
+                  className="resize-none bg-[#f5f7f9] border-[#dfe3e6] focus:border-[#00675c] rounded-xl text-sm"
+                  rows={3}
+                />
+              </div>
+
+              {error && (
+                <p className="text-sm text-[#b31b25] bg-[#b31b25]/5 rounded-xl px-3 py-2.5 border border-[#b31b25]/20">
+                  {error}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ── Footer fijo con botones ── */}
-        <div className="px-6 py-4 border-t border-[#dfe3e6] bg-white flex gap-3">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            className="flex-1 rounded-xl border-[#dfe3e6] text-[#595c5e] h-10"
-          >
-            Cancelar
-          </Button>
-          <Button
-            onClick={handleMove}
-            disabled={loading || toPhase === currentPhase}
-            className="flex-1 rounded-xl text-white font-semibold h-10"
-            style={{ background: 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)' }}
-          >
-            {loading ? 'Moviendo...' : 'Mover'}
-          </Button>
-        </div>
+        {(showMoveSection ?? true) ? (
+          <div className="px-6 py-4 border-t border-[#dfe3e6] bg-white flex gap-3">
+            <Button
+              variant="outline"
+              onClick={onClose}
+              className="flex-1 rounded-xl border-[#dfe3e6] text-[#595c5e] h-10"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleMove}
+              disabled={loading || toPhase === currentPhase}
+              className="flex-1 rounded-xl text-white font-semibold h-10"
+              style={{ background: 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)' }}
+            >
+              {loading ? 'Moviendo...' : 'Mover'}
+            </Button>
+          </div>
+        ) : (
+          <div className="px-6 py-4 border-t border-[#dfe3e6] bg-white">
+            <Button variant="outline" onClick={onClose} className="w-full rounded-xl h-10">
+              Cerrar
+            </Button>
+          </div>
+        )}
 
       </SheetContent>
     </Sheet>
