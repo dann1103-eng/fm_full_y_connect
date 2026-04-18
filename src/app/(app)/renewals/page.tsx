@@ -32,8 +32,7 @@ export default async function RenewalsPage({
     : { data: null }
   const isAdmin = appUser?.role === 'admin'
 
-  const today = new Date().toISOString().split('T')[0]
-  const in7Days = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+  const in7Days = new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000)
     .toISOString()
     .split('T')[0]
 

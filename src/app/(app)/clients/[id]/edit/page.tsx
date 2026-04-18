@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -25,7 +25,6 @@ export default function ClientEditPage() {
   const [error, setError] = useState<string | null>(null)
 
   const [weeklyTargets, setWeeklyTargets] = useState<Partial<Record<ContentType, number>>>({})
-  const [limits, setLimits] = useState<Record<ContentType, number> | null>(null)
 
   const [form, setForm] = useState({
     name: '',
@@ -43,11 +42,10 @@ export default function ClientEditPage() {
     billing_day: '1',
   })
 
-  useEffect(() => {
+  const limits = useMemo(() => {
     const selected = plans.find((p) => p.id === form.current_plan_id)
-    setLimits(selected ? limitsToRecord(selected.limits_json) : null)
-    setWeeklyTargets({})
-  }, [form.current_plan_id, plans])
+    return selected ? limitsToRecord(selected.limits_json) : null
+  }, [plans, form.current_plan_id])
 
   useEffect(() => {
     async function load() {
@@ -87,9 +85,6 @@ export default function ClientEditPage() {
         billing_day: clientData.billing_day.toString(),
       })
       setWeeklyTargets(clientData.weekly_targets_json ?? {})
-      const activePlan = (plansData ?? []).find((p) => p.id === clientData.current_plan_id)
-      const activeLimits = activePlan ? limitsToRecord(activePlan.limits_json) : null
-      setLimits(activeLimits)
       setFetching(false)
     }
     load()
@@ -189,7 +184,7 @@ export default function ClientEditPage() {
 
                 <div className="space-y-1.5">
                   <Label>Plan *</Label>
-                  <select required value={form.current_plan_id} onChange={(e) => set('current_plan_id', e.target.value)}
+                  <select required value={form.current_plan_id} onChange={(e) => { set('current_plan_id', e.target.value); setWeeklyTargets({}) }}
                     className="w-full py-2 px-3 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl text-[#2c2f31] focus:outline-none focus:border-[#00675c]">
                     {plans.map((p) => (
                       <option key={p.id} value={p.id}>{p.name} — ${p.price_usd}</option>

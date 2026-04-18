@@ -44,7 +44,7 @@ export function CardBody({
   onClick?: () => void
 }) {
   const relativeDate = (iso: string) => {
-    const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)
+    const diff = Math.floor((new Date().getTime() - new Date(iso).getTime()) / 86400000)
     if (diff === 0) return 'hoy'
     if (diff === 1) return 'hace 1 día'
     return `hace ${diff} días`

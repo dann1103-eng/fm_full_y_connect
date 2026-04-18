@@ -122,7 +122,7 @@ export function ConsumptionPanel({
   // Weekly breakdown
   const weeklyGroups = groupByWeek(consumptions, cycle.period_start)
   const daysSinceStart = Math.floor(
-    (Date.now() - new Date(cycle.period_start).getTime()) / (1000 * 60 * 60 * 24)
+    (new Date().getTime() - new Date(cycle.period_start).getTime()) / (1000 * 60 * 60 * 24)
   )
   const currentWeek = Math.min(Math.floor(daysSinceStart / 7), 3)
 
