@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { useUser } from '@/contexts/UserContext'
 
 const navItems = [
   {
@@ -68,6 +69,7 @@ interface SidebarProps {
 
 export function Sidebar({ renewalCount = 0 }: SidebarProps) {
   const pathname = usePathname()
+  const user = useUser()
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 w-64 flex flex-col bg-white border-r border-[#abadaf]/30 shadow-sm">
@@ -113,6 +115,25 @@ export function Sidebar({ renewalCount = 0 }: SidebarProps) {
             </Link>
           )
         })}
+
+        {user.role === 'admin' && (
+          <Link
+            href="/users"
+            className={cn(
+              'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
+              pathname.startsWith('/users')
+                ? 'bg-[#00675c]/10 text-[#00675c]'
+                : 'text-[#595c5e] hover:bg-[#f5f7f9] hover:text-[#2c2f31]'
+            )}
+          >
+            <span className={pathname.startsWith('/users') ? 'text-[#00675c]' : 'text-[#747779]'}>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+              </svg>
+            </span>
+            <span>Usuarios</span>
+          </Link>
+        )}
       </nav>
 
       {/* Bottom section */}

@@ -24,6 +24,9 @@ const CONTENT_ICONS: Record<ContentType, string> = {
 // Amber-toned types (estatico, video_corto) get amber icon styling
 const AMBER_TYPES = new Set<ContentType>(['estatico', 'video_corto'])
 
+// Simple (non-pipeline) content types
+const SIMPLE_TYPES: ContentType[] = ['produccion', 'reunion']
+
 // Progress bar color based on percentage
 function barColor(pct: number): string {
   if (pct >= 90) return '#b31b25'
@@ -118,6 +121,8 @@ export function ConsumptionPanel({
 
   // Active content types (limit > 0)
   const activeTypes = CONTENT_TYPES.filter((t) => limits[t] > 0)
+  const pipelineTypes = activeTypes.filter((t) => !SIMPLE_TYPES.includes(t))
+  const simpleTypes = activeTypes.filter((t) => SIMPLE_TYPES.includes(t))
 
   // Weekly breakdown
   const weeklyGroups = groupByWeek(consumptions, cycle.period_start)
@@ -450,7 +455,7 @@ export function ConsumptionPanel({
                   <p className="text-xs text-[#abadaf]">Sin consumos</p>
                 ) : (
                   <div className="space-y-3">
-                    {activeTypes.map((type) => {
+                    {pipelineTypes.map((type) => {
                       const consumed = items.filter(
                         (c) => c.content_type === type && !c.voided && !c.carried_over
                       ).length
@@ -491,6 +496,82 @@ export function ConsumptionPanel({
           })}
         </div>
       </section>
+
+      {/* ── Producciones y reuniones del mes ── */}
+      {simpleTypes.length > 0 && (
+        <section className="space-y-5">
+          <h3 className="text-xl font-extrabold tracking-tight text-[#2c2f31]">
+            Producciones y reuniones del mes
+          </h3>
+          {/* Counter */}
+          <div className="flex gap-4 flex-wrap">
+            {simpleTypes.map((type) => {
+              const count = consumptions.filter(
+                (c) => c.content_type === type && !c.voided && !c.carried_over
+              ).length
+              return (
+                <div key={type} className="flex items-center gap-2 px-4 py-2 glass-panel rounded-2xl">
+                  <span className="material-symbols-outlined text-[#00675c] text-base">
+                    {CONTENT_ICONS[type]}
+                  </span>
+                  <span className="text-sm font-bold text-[#2c2f31]">
+                    {count} {count !== 1
+                      ? (type === 'produccion' ? 'producciones' : 'reuniones')
+                      : CONTENT_TYPE_LABELS[type].toLowerCase()
+                    }
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+          {/* List of entries */}
+          <div className="glass-panel rounded-[2rem] overflow-hidden">
+            {(() => {
+              const simpleEntries = consumptions
+                .filter((c) => simpleTypes.includes(c.content_type as ContentType) && !c.voided)
+                .sort((a, b) => new Date(b.registered_at).getTime() - new Date(a.registered_at).getTime())
+
+              if (simpleEntries.length === 0) {
+                return (
+                  <div className="p-8 text-center">
+                    <p className="text-sm text-[#595c5e]">Sin registros este ciclo.</p>
+                  </div>
+                )
+              }
+
+              return (
+                <div className="divide-y divide-[#dfe3e6]/60">
+                  {simpleEntries.map((c) => {
+                    const type = c.content_type as ContentType
+                    const date = new Date(c.registered_at)
+                    const dateStr = `${date.getDate()} ${['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][date.getMonth()]} ${date.getFullYear()}`
+                    return (
+                      <div key={c.id} className="px-6 py-4 flex items-start gap-4">
+                        <div className="p-2 bg-[#5bf4de]/30 rounded-xl flex-shrink-0 mt-0.5">
+                          <span className="material-symbols-outlined text-[#00675c] text-base">
+                            {CONTENT_ICONS[type]}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-[#2c2f31]">
+                            {CONTENT_TYPE_LABELS[type]} — {dateStr}
+                          </p>
+                          {c.notes && (
+                            <p className="text-xs text-[#595c5e] mt-0.5">{c.notes}</p>
+                          )}
+                          {c.title && (
+                            <p className="text-xs text-[#747779] mt-0.5 italic">{c.title}</p>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })()}
+          </div>
+        </section>
+      )}
 
       {/* ── History + Notes grid ── */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-8">

@@ -83,6 +83,7 @@ export function ConsumptionModal({
   const [error, setError] = useState<string | null>(null)
 
   const activeTypes = CONTENT_TYPES.filter((t) => limits[t] > 0)
+  const isSimpleType = selectedType === 'produccion' || selectedType === 'reunion'
 
   async function handleSubmit() {
     if (!selectedType) return
@@ -228,15 +229,14 @@ export function ConsumptionModal({
             <>
               <div>
                 <Label htmlFor="title" className="text-sm font-medium text-[#2c2f31] mb-1.5 block">
-                  Título <span className="text-[#b31b25]">*</span>
+                  Título{!isSimpleType && <span className="text-[#b31b25]"> *</span>}
                 </Label>
                 <input
                   id="title"
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Ej. Reel de lanzamiento mayo"
-                  required
+                  placeholder={isSimpleType ? 'Título (opcional)' : 'Ej. Reel de lanzamiento mayo'}
                   className="w-full px-3 py-2 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl focus:outline-none focus:border-[#00675c] text-[#2c2f31]"
                 />
               </div>
@@ -296,7 +296,7 @@ export function ConsumptionModal({
               disabled={
                 !selectedType ||
                 loading ||
-                !title.trim() ||
+                (!title.trim() && !isSimpleType) ||
                 (selectedAtLimit && !forceOverLimit)
               }
               className="flex-1 rounded-xl text-white font-semibold"

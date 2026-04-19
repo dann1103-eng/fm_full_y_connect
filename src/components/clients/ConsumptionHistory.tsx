@@ -133,7 +133,7 @@ export function ConsumptionHistory({
                       </span>
                     )}
                     {/* Cambios badge */}
-                    {!c.voided && (() => {
+                    {!c.voided && type !== 'produccion' && type !== 'reunion' && (() => {
                       const isOver = c.cambios_count >= maxCambios
                       return (
                         <span className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded ${
@@ -160,7 +160,7 @@ export function ConsumptionHistory({
               {/* Action buttons */}
               <div className="flex items-center gap-3 flex-shrink-0 ml-4">
                 {/* +1 cambio */}
-                {!c.voided && (
+                {!c.voided && type !== 'produccion' && type !== 'reunion' && (
                   <button
                     onClick={() => handleAddCambio(c.id)}
                     disabled={incrementingId === c.id}
