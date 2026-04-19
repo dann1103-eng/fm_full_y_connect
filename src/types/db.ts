@@ -39,12 +39,15 @@ export interface CambiosPackage {
 }
 
 export interface ExtraContentItem {
-  content_type: ContentType
+  content_type?: ContentType       // standard content item (video, estático)
+  label: string                    // display label — either from content_type or custom description
   qty: number
   price_per_unit: number
   note: string | null
   created_at: string
 }
+
+export type BillingPeriod = 'monthly' | 'biweekly'
 
 export interface Database {
   public: {
@@ -114,11 +117,13 @@ export interface Database {
           notes: string | null
           current_plan_id: string
           billing_day: number
+          billing_day_2: number | null
           start_date: string
           status: ClientStatus
           created_at: string
           updated_at: string
           weekly_targets_json: Partial<Record<ContentType, number>> | null
+          billing_period: BillingPeriod
         }
         Insert: {
           id?: string
@@ -136,9 +141,11 @@ export interface Database {
           notes?: string | null
           current_plan_id: string
           billing_day: number
+          billing_day_2?: number | null
           start_date: string
           status?: ClientStatus
           weekly_targets_json?: Partial<Record<ContentType, number>> | null
+          billing_period?: BillingPeriod
         }
         Update: {
           name?: string
@@ -155,9 +162,11 @@ export interface Database {
           notes?: string | null
           current_plan_id?: string
           billing_day?: number
+          billing_day_2?: number | null
           start_date?: string
           status?: ClientStatus
           weekly_targets_json?: Partial<Record<ContentType, number>> | null
+          billing_period?: BillingPeriod
         }
         Relationships: [
           {

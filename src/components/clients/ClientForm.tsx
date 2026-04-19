@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { createClient } from '@/lib/supabase/client'
 import { currentCycleDates, firstCycleDates } from '@/lib/domain/cycles'
-import type { Client } from '@/types/db'
+import type { BillingPeriod, Client } from '@/types/db'
 
 interface Plan {
   id: string
@@ -38,6 +38,8 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
   const defaultCycleStart = existing?.start_date
     ?? currentCycleDates(initialBillingDay).periodStart
 
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>(existing?.billing_period ?? 'monthly')
+  const [billingDay2, setBillingDay2] = useState(existing?.billing_day_2?.toString() ?? '')
   const [form, setForm] = useState({
     name: existing?.name ?? '',
     contact_email: existing?.contact_email ?? '',
@@ -85,6 +87,8 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
           notes: form.notes || null,
           current_plan_id: form.current_plan_id,
           billing_day: billingDay,
+          billing_day_2: billingPeriod === 'biweekly' && billingDay2 ? parseInt(billingDay2, 10) : null,
+          billing_period: billingPeriod,
         })
         .eq('id', existing.id)
 
@@ -111,6 +115,8 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
           notes: form.notes || null,
           current_plan_id: form.current_plan_id,
           billing_day: billingDay,
+          billing_day_2: billingPeriod === 'biweekly' && billingDay2 ? parseInt(billingDay2, 10) : null,
+          billing_period: billingPeriod,
           start_date: form.start_date,
           status: 'active',
         })
@@ -131,7 +137,10 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
         .single()
 
       if (plan) {
-        const { periodStart, periodEnd } = firstCycleDates(form.start_date, billingDay)
+        const { periodStart, periodEnd } = firstCycleDates(form.start_date, billingDay, {
+          billingPeriod,
+          billingDay2: billingPeriod === 'biweekly' && billingDay2 ? parseInt(billingDay2, 10) : null,
+        })
 
         await supabase.from('billing_cycles').insert({
           client_id: newClient.id,
@@ -212,6 +221,34 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
               />
             </div>
 
+            <div className="space-y-1.5">
+              <Label>Período de facturación</Label>
+              <select
+                value={billingPeriod}
+                onChange={(e) => setBillingPeriod(e.target.value as BillingPeriod)}
+                className="w-full py-2 px-3 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl text-[#2c2f31] focus:outline-none focus:border-[#00675c]"
+              >
+                <option value="monthly">Mensual</option>
+                <option value="biweekly">Quincenal</option>
+              </select>
+            </div>
+
+            {billingPeriod === 'biweekly' && (
+              <div className="space-y-1.5">
+                <Label>2° día de facturación *</Label>
+                <Input
+                  required
+                  type="number"
+                  min={1}
+                  max={31}
+                  value={billingDay2}
+                  onChange={(e) => setBillingDay2(e.target.value)}
+                  placeholder="ej. 15"
+                  className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                />
+              </div>
+            )}
+
             {!existing && (
               <div className="col-span-2 space-y-1.5">
                 <Label>Inicio del primer ciclo *</Label>
@@ -225,7 +262,10 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
                 {form.start_date && (() => {
                   const bd = parseInt(form.billing_day, 10)
                   if (!bd || bd < 1 || bd > 31) return null
-                  const { periodEnd } = firstCycleDates(form.start_date, bd)
+                  const { periodEnd } = firstCycleDates(form.start_date, bd, {
+                    billingPeriod,
+                    billingDay2: billingPeriod === 'biweekly' && billingDay2 ? parseInt(billingDay2, 10) : null,
+                  })
                   const fmt = (d: string) =>
                     new Date(d + 'T12:00:00').toLocaleDateString('es-ES', {
                       day: 'numeric', month: 'long', year: 'numeric',

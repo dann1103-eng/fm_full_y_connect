@@ -74,7 +74,7 @@ export default async function RenewalsPage({
   // Plans for filter dropdown
   const { data: plans } = await supabase
     .from('plans')
-    .select('id, name, limits_json')
+    .select('id, name, limits_json, cambios_included')
     .eq('active', true)
 
   // Build renewal items

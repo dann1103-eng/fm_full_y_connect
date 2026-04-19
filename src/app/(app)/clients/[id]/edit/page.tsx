@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import type { Client, Plan, BillingCycle, ContentType, CambiosPackage, ExtraContentItem } from '@/types/db'
+import type { BillingPeriod, Client, Plan, BillingCycle, ContentType, CambiosPackage, ExtraContentItem } from '@/types/db'
 import { effectiveWeeklyTarget } from '@/lib/domain/requirement'
 import { limitsToRecord, CONTENT_TYPE_LABELS, EXTRA_CONTENT_PRICES } from '@/lib/domain/plans'
 import { LogoUploader } from '@/components/clients/LogoUploader'
@@ -59,6 +59,11 @@ export default function ClientEditPage() {
   const [extraType, setExtraType] = useState<ContentType>('video_corto')
   const [extraQty, setExtraQty] = useState('1')
   const [extraNote, setExtraNote] = useState('')
+  const [extraIsCustom, setExtraIsCustom] = useState(false)
+  const [extraLabel, setExtraLabel] = useState('')
+  const [extraPrice, setExtraPrice] = useState('')
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly')
+  const [billingDay2, setBillingDay2] = useState('')
 
   const limits = useMemo(() => {
     const selected = plans.find((p) => p.id === form.current_plan_id)
@@ -111,6 +116,8 @@ export default function ClientEditPage() {
       })
       setLogoUrl(clientData.logo_url ?? null)
       setWeeklyTargets(clientData.weekly_targets_json ?? {})
+      setBillingPeriod(clientData.billing_period)
+      setBillingDay2(clientData.billing_day_2?.toString() ?? '')
 
       if (cycleData) {
         const cycle = cycleData as BillingCycle
@@ -166,6 +173,8 @@ export default function ClientEditPage() {
         current_plan_id: form.current_plan_id,
         billing_day: parseInt(form.billing_day, 10),
         weekly_targets_json: buildWeeklyTargetsJson(weeklyTargets, limits),
+        billing_period: billingPeriod,
+        billing_day_2: billingPeriod === 'biweekly' && billingDay2 ? parseInt(billingDay2, 10) : null,
       })
       .eq('id', id)
 
@@ -218,15 +227,30 @@ export default function ClientEditPage() {
 
   function addExtraContent() {
     const qty = parseInt(extraQty) || 1
-    const pricePerUnit = EXTRA_CONTENT_PRICES[extraType] ?? 0
-    setExtraContent(prev => [...prev, {
-      content_type: extraType,
-      qty,
-      price_per_unit: pricePerUnit,
-      note: extraNote.trim() || null,
-      created_at: new Date().toISOString(),
-    }])
-    setExtraQty('1'); setExtraNote('')
+    if (extraIsCustom) {
+      const label = extraLabel.trim()
+      const price = parseFloat(extraPrice) || 0
+      if (!label || !price) return
+      setExtraContent(prev => [...prev, {
+        label,
+        qty,
+        price_per_unit: price,
+        note: extraNote.trim() || null,
+        created_at: new Date().toISOString(),
+      }])
+      setExtraLabel(''); setExtraPrice(''); setExtraNote('')
+    } else {
+      const pricePerUnit = EXTRA_CONTENT_PRICES[extraType] ?? 0
+      setExtraContent(prev => [...prev, {
+        content_type: extraType,
+        label: CONTENT_TYPE_LABELS[extraType],
+        qty,
+        price_per_unit: pricePerUnit,
+        note: extraNote.trim() || null,
+        created_at: new Date().toISOString(),
+      }])
+      setExtraQty('1'); setExtraNote('')
+    }
   }
 
   const totalCambiosBudget = (selectedPlan?.cambios_included ?? currentCycle?.cambios_budget ?? 0)
@@ -303,6 +327,26 @@ export default function ClientEditPage() {
                       onChange={(e) => set('billing_day', e.target.value)}
                       className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
                   </div>
+
+                  <div className="space-y-1.5">
+                    <Label>Período de facturación</Label>
+                    <select value={billingPeriod} onChange={(e) => setBillingPeriod(e.target.value as BillingPeriod)}
+                      className="w-full py-2 px-3 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl text-[#2c2f31] focus:outline-none focus:border-[#00675c]">
+                      <option value="monthly">Mensual</option>
+                      <option value="biweekly">Quincenal</option>
+                    </select>
+                  </div>
+
+                  {billingPeriod === 'biweekly' && (
+                    <div className="space-y-1.5">
+                      <Label>2° día de facturación</Label>
+                      <Input required type="number" min={1} max={31}
+                        value={billingDay2}
+                        onChange={(e) => setBillingDay2(e.target.value)}
+                        placeholder="ej. 15"
+                        className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                    </div>
+                  )}
 
                   <div className="space-y-1.5">
                     <Label>Correo de contacto</Label>
@@ -519,33 +563,68 @@ export default function ClientEditPage() {
 
                 {/* 2. Contenido extra vendido */}
                 <div>
-                  <p className="text-[11px] font-bold text-[#abadaf] uppercase tracking-wider mb-3">
+                  <p className="text-[11px] font-bold text-[#abadaf] uppercase tracking-wider mb-0.5">
                     Contenido extra vendido
                   </p>
+                  <p className="text-[10px] text-[#747779] mb-3">
+                    Cobros adicionales fuera del plan — fotografía, diseño, consultorías, etc.
+                  </p>
 
-                  <div className="flex gap-1.5 mb-3 flex-wrap">
-                    {(Object.entries(EXTRA_CONTENT_PRICES) as [ContentType, number][]).map(([type, price]) => (
-                      <span key={type} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#f5f7f9] border border-[#dfe3e6] text-[#595c5e]">
-                        {CONTENT_TYPE_LABELS[type]} · ${price}
-                      </span>
-                    ))}
-                    {(['historia', 'produccion', 'reunion'] as ContentType[]).map(t => (
-                      <span key={t} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#f5f7f9] border border-[#dfe3e6] text-[#abadaf] line-through">
-                        {CONTENT_TYPE_LABELS[t]}
-                      </span>
-                    ))}
+                  {/* Mode toggle */}
+                  <div className="flex gap-1 mb-3 bg-[#f5f7f9] rounded-lg border border-[#dfe3e6] p-0.5 w-fit">
+                    <button
+                      onClick={() => setExtraIsCustom(false)}
+                      className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                        !extraIsCustom ? 'bg-white text-[#2c2f31] shadow-sm' : 'text-[#747779]'
+                      }`}
+                    >
+                      Estándar
+                    </button>
+                    <button
+                      onClick={() => setExtraIsCustom(true)}
+                      className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                        extraIsCustom ? 'bg-white text-[#2c2f31] shadow-sm' : 'text-[#747779]'
+                      }`}
+                    >
+                      Personalizado
+                    </button>
                   </div>
 
-                  <div className="flex gap-2 mb-2">
-                    <div className="flex flex-col gap-1 flex-1">
-                      <label className="text-[10px] font-medium text-[#595c5e]">Tipo</label>
-                      <select value={extraType} onChange={e => setExtraType(e.target.value as ContentType)}
-                        className="h-8 px-2 rounded-lg border border-[#dfe3e6] bg-[#f5f7f9] text-xs text-[#2c2f31] focus:outline-none focus:border-[#00675c]">
-                        {(Object.keys(EXTRA_CONTENT_PRICES) as ContentType[]).map(t => (
-                          <option key={t} value={t}>{CONTENT_TYPE_LABELS[t]} · ${EXTRA_CONTENT_PRICES[t]}</option>
-                        ))}
-                      </select>
+                  {!extraIsCustom && (
+                    <div className="flex gap-1.5 mb-3 flex-wrap">
+                      {(Object.entries(EXTRA_CONTENT_PRICES) as [ContentType, number][]).map(([type, price]) => (
+                        <span key={type} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#f5f7f9] border border-[#dfe3e6] text-[#595c5e]">
+                          {CONTENT_TYPE_LABELS[type]} · ${price}
+                        </span>
+                      ))}
                     </div>
+                  )}
+
+                  <div className="flex gap-2 mb-2">
+                    {extraIsCustom ? (
+                      <>
+                        <div className="flex flex-col gap-1 flex-1">
+                          <label className="text-[10px] font-medium text-[#595c5e]">Descripción</label>
+                          <Input placeholder="ej. Sesión fotográfica" value={extraLabel} onChange={e => setExtraLabel(e.target.value)}
+                            className="rounded-lg bg-[#f5f7f9] border-[#dfe3e6] h-8 text-sm" />
+                        </div>
+                        <div className="flex flex-col gap-1 flex-shrink-0 w-24">
+                          <label className="text-[10px] font-medium text-[#595c5e]">Precio/u (USD)</label>
+                          <Input type="number" step="0.01" placeholder="0.00" value={extraPrice} onChange={e => setExtraPrice(e.target.value)}
+                            className="rounded-lg bg-[#f5f7f9] border-[#dfe3e6] h-8 text-sm" />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex flex-col gap-1 flex-1">
+                        <label className="text-[10px] font-medium text-[#595c5e]">Tipo</label>
+                        <select value={extraType} onChange={e => setExtraType(e.target.value as ContentType)}
+                          className="h-8 px-2 rounded-lg border border-[#dfe3e6] bg-[#f5f7f9] text-xs text-[#2c2f31] focus:outline-none focus:border-[#00675c]">
+                          {(Object.keys(EXTRA_CONTENT_PRICES) as ContentType[]).map(t => (
+                            <option key={t} value={t}>{CONTENT_TYPE_LABELS[t]} · ${EXTRA_CONTENT_PRICES[t]}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                     <div className="flex flex-col gap-1 flex-shrink-0 w-16">
                       <label className="text-[10px] font-medium text-[#595c5e]">Cant.</label>
                       <Input type="number" min={1} value={extraQty} onChange={e => setExtraQty(e.target.value)}
@@ -569,7 +648,7 @@ export default function ClientEditPage() {
                     {extraContent.map((item, i) => (
                       <div key={i} className="flex items-center gap-2 text-xs px-3 py-2 bg-[#f5f7f9] rounded-lg border border-[#dfe3e6]">
                         <span className="flex-1 text-[#2c2f31]">
-                          {item.qty}× {CONTENT_TYPE_LABELS[item.content_type]}
+                          {item.qty}× {item.label}
                           {item.note && ` · ${item.note}`}
                         </span>
                         <span className="font-semibold text-[#00675c]">${(item.price_per_unit * item.qty).toFixed(2)}</span>

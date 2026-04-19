@@ -4,8 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import type { ClientWithPlan, BillingCycle, Requirement, ContentType } from '@/types/db'
-import { CONTENT_TYPES, CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
+import type { ClientWithPlan, BillingCycle, ExtraContentItem, Requirement, ContentType } from '@/types/db'
+import { CONTENT_TYPES, CONTENT_TYPE_LABELS, limitsToRecord } from '@/lib/domain/plans'
 import { groupByWeek, effectiveWeeklyTarget } from '@/lib/domain/requirement'
 import { RequirementModal } from './RequirementModal'
 import { RequirementHistory } from './RequirementHistory'
@@ -320,9 +320,12 @@ export function RequirementPanel({
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {activeTypes.map((type) => {
             const consumed = totals[type]
-            const limit = limits[type]
-            const pct = limit > 0 ? Math.min(100, Math.round((consumed / limit) * 100)) : 0
-            const available = Math.max(0, limit - consumed)
+            const snapshotLimits = limitsToRecord(cycle.limits_snapshot_json)
+            const overrides = cycle.content_limits_override_json as Partial<Record<ContentType, number>> | null
+            const baseLimit = overrides?.[type] ?? snapshotLimits[type]
+            const extraSold = (cycle.extra_content_json as ExtraContentItem[])
+              ?.filter((e) => e.content_type === type)
+              .reduce((s, e) => s + e.qty, 0) ?? 0
             const rollover =
               cycle.rollover_from_previous_json?.[
                 type === 'historia'
@@ -339,6 +342,10 @@ export function RequirementPanel({
                   ? 'reuniones'
                   : 'producciones'
               ] ?? 0
+
+            const effectiveTotal = baseLimit + rollover + extraSold
+            const pct = effectiveTotal > 0 ? Math.min(100, Math.round((consumed / effectiveTotal) * 100)) : 0
+            const available = Math.max(0, effectiveTotal - consumed)
 
             const isAmber = AMBER_TYPES.has(type)
             const iconBg = isAmber ? 'bg-amber-100/60' : 'bg-[#5bf4de]/30'
@@ -366,9 +373,12 @@ export function RequirementPanel({
                   <p className="text-2xl font-black text-[#2c2f31] mt-0.5">
                     {consumed}{' '}
                     <span className="text-base font-medium text-[#747779]">
-                      / {limit}
+                      / {baseLimit}
                       {rollover > 0 && (
                         <span className="text-[10px] text-[#4a6319] ml-1">(+{rollover})</span>
+                      )}
+                      {extraSold > 0 && (
+                        <span className="text-[10px] text-[#006385] ml-1">(+{extraSold})</span>
                       )}
                     </span>
                   </p>

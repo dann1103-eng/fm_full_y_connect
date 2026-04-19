@@ -92,25 +92,46 @@ export function currentCycleDates(
  */
 export function firstCycleDates(
   startDate: string,
-  billingDay: number
+  billingDay: number,
+  options?: { billingPeriod?: string; billingDay2?: number | null }
 ): { periodStart: string; periodEnd: string } {
   const start      = new Date(startDate)
   const startDay   = start.getDate()
   const startMonth = start.getMonth()   // 0-indexed
   const startYear  = start.getFullYear()
 
-  // Clamp billingDay to the last day of startDate's month
+  // Biweekly: find the nearest billing day strictly after startDate
+  if (options?.billingPeriod === 'biweekly' && options.billingDay2) {
+    const day1 = Math.min(billingDay, options.billingDay2)
+    const day2 = Math.max(billingDay, options.billingDay2)
+    const clampedDay1 = clampDay(startYear, startMonth, day1)
+    const clampedDay2 = clampDay(startYear, startMonth, day2)
+
+    if (startDay < clampedDay1) {
+      // day1 of this month is still ahead
+      return { periodStart: startDate, periodEnd: new Date(startYear, startMonth, clampedDay1).toISOString().split('T')[0] }
+    } else if (startDay < clampedDay2) {
+      // day2 of this month is still ahead
+      return { periodStart: startDate, periodEnd: new Date(startYear, startMonth, clampedDay2).toISOString().split('T')[0] }
+    } else {
+      // Both have passed → day1 of next month
+      const endYear  = startMonth === 11 ? startYear + 1 : startYear
+      const endMonth = startMonth === 11 ? 0 : startMonth + 1
+      const endDay   = clampDay(endYear, endMonth, day1)
+      return { periodStart: startDate, periodEnd: new Date(endYear, endMonth, endDay).toISOString().split('T')[0] }
+    }
+  }
+
+  // Monthly (default)
   const clampedThisMonth = clampDay(startYear, startMonth, billingDay)
 
   let endYear: number
-  let endMonth: number // 0-indexed
+  let endMonth: number
 
   if (startDay < clampedThisMonth) {
-    // Billing day is still ahead this month
     endYear  = startYear
     endMonth = startMonth
   } else {
-    // Billing day has passed (or startDay equals clamped day) → next month
     endYear  = startMonth === 11 ? startYear + 1 : startYear
     endMonth = startMonth === 11 ? 0 : startMonth + 1
   }
@@ -138,16 +159,38 @@ export function firstCycleDates(
  */
 export function nextCycleDates(
   previousPeriodEnd: string,
-  billingDay: number
+  billingDay: number,
+  options?: { billingPeriod?: string; billingDay2?: number | null }
 ): { periodStart: string; periodEnd: string } {
   const prevEnd   = new Date(previousPeriodEnd)
   const prevYear  = prevEnd.getFullYear()
   const prevMonth = prevEnd.getMonth()  // 0-indexed
+  const prevDay   = prevEnd.getDate()
 
-  // period_start = previousPeriodEnd (it's already the clamped billing day of its month)
   const periodStart = previousPeriodEnd
 
-  // period_end = billingDay of the month following prevEnd, clamped
+  // Biweekly: alternate between billingDay and billingDay2 within the same month
+  if (options?.billingPeriod === 'biweekly' && options.billingDay2) {
+    const day1 = Math.min(billingDay, options.billingDay2)
+    const day2 = Math.max(billingDay, options.billingDay2)
+    const clampedDay1 = clampDay(prevYear, prevMonth, day1)
+    const clampedDay2 = clampDay(prevYear, prevMonth, day2)
+
+    if (prevDay <= clampedDay1) {
+      // We're at or before day1 → next end is day2 of same month
+      const periodEnd = new Date(prevYear, prevMonth, clampedDay2)
+      return { periodStart, periodEnd: periodEnd.toISOString().split('T')[0] }
+    } else {
+      // We're at day2 → next end is day1 of next month
+      const endYear  = prevMonth === 11 ? prevYear + 1 : prevYear
+      const endMonth = prevMonth === 11 ? 0 : prevMonth + 1
+      const endDay   = clampDay(endYear, endMonth, day1)
+      const periodEnd = new Date(endYear, endMonth, endDay)
+      return { periodStart, periodEnd: periodEnd.toISOString().split('T')[0] }
+    }
+  }
+
+  // Monthly (default): period_end = billingDay of following month, clamped
   const endYear  = prevMonth === 11 ? prevYear + 1 : prevYear
   const endMonth = prevMonth === 11 ? 0 : prevMonth + 1
   const endDay   = clampDay(endYear, endMonth, billingDay)
