@@ -51,10 +51,10 @@ export default async function PipelinePage({
     const uniqueClientIds = [...new Set(Object.values(cycleClientMap))]
     const { data: clientsRaw } = await supabase
       .from('clients')
-      .select('id, name, logo_url, max_cambios')
+      .select('id, name, logo_url')
       .in('id', uniqueClientIds)
 
-    const clientMap: Record<string, Pick<Client, 'id' | 'name' | 'logo_url' | 'max_cambios'>> = {}
+    const clientMap: Record<string, Pick<Client, 'id' | 'name' | 'logo_url'>> = {}
     for (const cl of clientsRaw ?? []) clientMap[cl.id] = cl
 
     // Armar PipelineItem
@@ -77,7 +77,6 @@ export default async function PipelinePage({
         carried_over: c.carried_over,
         title: c.title ?? '',
         cambios_count: c.cambios_count ?? 0,
-        max_cambios: cl.max_cambios ?? 2,
         review_started_at: c.review_started_at ?? null,
       })
     }

@@ -44,7 +44,6 @@ export interface PipelineItem {
   carried_over: boolean
   title: string
   cambios_count: number
-  max_cambios: number           // client's limit, fetched from clients table
   review_started_at: string | null  // set when phase enters revision_cliente
 }
 

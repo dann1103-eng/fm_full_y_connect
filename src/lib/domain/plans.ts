@@ -1,5 +1,13 @@
 import type { PlanLimits, ContentType } from '@/types/db'
 
+/** Tipos vendibles como contenido extra y su precio unitario (USD) */
+export const EXTRA_CONTENT_PRICES: Partial<Record<ContentType, number>> = {
+  video_corto: 25,
+  reel: 25,
+  short: 25,
+  estatico: 15,
+}
+
 /** Human-readable label for each content type */
 export const CONTENT_TYPE_LABELS: Record<ContentType, string> = {
   historia: 'Historias',

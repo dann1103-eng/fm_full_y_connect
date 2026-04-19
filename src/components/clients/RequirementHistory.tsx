@@ -48,14 +48,12 @@ interface RequirementHistoryProps {
   isAdmin: boolean
   cycleId: string
   userMap: Record<string, string>
-  maxCambios: number
 }
 
 export function RequirementHistory({
   requirements,
   isAdmin,
   userMap,
-  maxCambios,
 }: RequirementHistoryProps) {
   const router = useRouter()
   const [voidingId, setVoidingId] = useState<string | null>(null)
@@ -133,18 +131,11 @@ export function RequirementHistory({
                       </span>
                     )}
                     {/* Cambios badge */}
-                    {!r.voided && type !== 'produccion' && type !== 'reunion' && (() => {
-                      const isOver = r.cambios_count >= maxCambios
-                      return (
-                        <span className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded ${
-                          isOver
-                            ? 'text-[#b31b25] bg-[#b31b25]/10'
-                            : 'text-[#595c5e] bg-[#abadaf]/20'
-                        }`}>
-                          {r.cambios_count}/{maxCambios} cambios
-                        </span>
-                      )
-                    })()}
+                    {!r.voided && type !== 'produccion' && type !== 'reunion' && r.cambios_count > 0 && (
+                      <span className="ml-2 text-xs font-medium px-1.5 py-0.5 rounded text-[#595c5e] bg-[#abadaf]/20">
+                        {r.cambios_count} {r.cambios_count === 1 ? 'cambio' : 'cambios'}
+                      </span>
+                    )}
                   </p>
                   <p className="text-xs text-[#595c5e] mt-0.5">
                     <span className="text-[#abadaf]">{CONTENT_TYPE_LABELS[type]}</span>
@@ -164,11 +155,7 @@ export function RequirementHistory({
                   <button
                     onClick={() => handleAddCambio(r.id)}
                     disabled={incrementingId === r.id}
-                    className={`text-xs font-bold transition-colors disabled:opacity-30 ${
-                      r.cambios_count >= maxCambios
-                        ? 'text-[#b31b25] hover:underline'
-                        : 'text-[#00675c] hover:underline'
-                    }`}
+                    className="text-xs font-bold transition-colors disabled:opacity-30 text-[#00675c] hover:underline"
                   >
                     {incrementingId === r.id ? '...' : '+1 cambio'}
                   </button>

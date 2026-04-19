@@ -104,7 +104,6 @@ export default async function ClientDetailPage({
         carried_over: c.carried_over,
         title: c.title ?? '',
         cambios_count: c.cambios_count ?? 0,
-        max_cambios: client.max_cambios ?? 2,
         review_started_at: c.review_started_at ?? null,
       })
     }

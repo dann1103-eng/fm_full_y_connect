@@ -39,7 +39,6 @@ interface PhaseSheetProps {
   title: string
   requirementNotes: string | null
   cambiosCount: number
-  maxCambios: number
   reviewStartedAt: string | null
   showMoveSection?: boolean
 }
@@ -56,7 +55,6 @@ export function PhaseSheet({
   title,
   requirementNotes,
   cambiosCount,
-  maxCambios,
   reviewStartedAt,
   showMoveSection,
 }: PhaseSheetProps) {
@@ -316,29 +314,14 @@ export function PhaseSheet({
               <div className="flex items-center justify-between bg-[#f5f7f9] rounded-xl px-4 py-3">
                 <div>
                   <p className="text-xs text-[#595c5e] font-semibold">Cambios aplicados</p>
-                  <div className="w-32 h-1.5 bg-[#eef1f3] rounded-full mt-1.5 overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${Math.min(100, (localCambios / maxCambios) * 100)}%`,
-                        background: localCambios >= maxCambios ? '#b31b25' : '#f59e0b',
-                      }}
-                    />
-                  </div>
+                  <p className="text-[10px] text-[#abadaf] mt-0.5">se suman al total del ciclo</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className={`text-lg font-black ${localCambios >= maxCambios ? 'text-[#b31b25]' : 'text-[#2c2f31]'}`}>
-                    {localCambios}
-                    <span className="text-sm font-normal text-[#abadaf]">/{maxCambios}</span>
-                  </span>
+                  <span className="text-lg font-black text-[#2c2f31]">{localCambios}</span>
                   <button
                     onClick={handleAddCambio}
                     disabled={incrementing}
-                    className={`text-xs font-bold px-2.5 py-1 rounded-lg transition-colors disabled:opacity-40 ${
-                      localCambios >= maxCambios
-                        ? 'bg-[#b31b25]/10 text-[#b31b25] hover:bg-[#b31b25]/20'
-                        : 'bg-[#00675c]/10 text-[#00675c] hover:bg-[#00675c]/20'
-                    }`}
+                    className="text-xs font-bold px-2.5 py-1 rounded-lg transition-colors disabled:opacity-40 bg-[#00675c]/10 text-[#00675c] hover:bg-[#00675c]/20"
                   >
                     {incrementing ? '…' : '+1'}
                   </button>

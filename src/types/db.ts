@@ -31,6 +31,21 @@ export interface PlanLimits {
   reunion_duracion_horas?: number // opcional: ídem
 }
 
+export interface CambiosPackage {
+  qty: number
+  price_usd: number | null
+  note: string | null
+  created_at: string
+}
+
+export interface ExtraContentItem {
+  content_type: ContentType
+  qty: number
+  price_per_unit: number
+  note: string | null
+  created_at: string
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -61,6 +76,7 @@ export interface Database {
           name: string
           price_usd: number
           limits_json: PlanLimits
+          cambios_included: number
           active: boolean
           created_at: string
         }
@@ -69,12 +85,14 @@ export interface Database {
           name: string
           price_usd: number
           limits_json: PlanLimits
+          cambios_included?: number
           active?: boolean
         }
         Update: {
           name?: string
           price_usd?: number
           limits_json?: PlanLimits
+          cambios_included?: number
           active?: boolean
         }
         Relationships: []
@@ -101,7 +119,6 @@ export interface Database {
           created_at: string
           updated_at: string
           weekly_targets_json: Partial<Record<ContentType, number>> | null
-          max_cambios: number
         }
         Insert: {
           id?: string
@@ -141,7 +158,6 @@ export interface Database {
           start_date?: string
           status?: ClientStatus
           weekly_targets_json?: Partial<Record<ContentType, number>> | null
-          max_cambios?: number
         }
         Relationships: [
           {
@@ -166,6 +182,10 @@ export interface Database {
           payment_status: PaymentStatus
           payment_date: string | null
           created_at: string
+          cambios_budget: number
+          cambios_packages_json: CambiosPackage[]
+          extra_content_json: ExtraContentItem[]
+          content_limits_override_json: Partial<Record<ContentType, number>> | null
         }
         Insert: {
           id?: string
@@ -178,6 +198,10 @@ export interface Database {
           status?: CycleStatus
           payment_status?: PaymentStatus
           payment_date?: string | null
+          cambios_budget?: number
+          cambios_packages_json?: CambiosPackage[]
+          extra_content_json?: ExtraContentItem[]
+          content_limits_override_json?: Partial<Record<ContentType, number>> | null
         }
         Update: {
           client_id?: string
@@ -189,6 +213,10 @@ export interface Database {
           status?: CycleStatus
           payment_status?: PaymentStatus
           payment_date?: string | null
+          cambios_budget?: number
+          cambios_packages_json?: CambiosPackage[]
+          extra_content_json?: ExtraContentItem[]
+          content_limits_override_json?: Partial<Record<ContentType, number>> | null
         }
         Relationships: [
           {
