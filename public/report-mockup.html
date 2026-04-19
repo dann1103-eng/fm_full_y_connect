@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Reporte de Ciclo - FM Communication Solutions</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "primary": "#004d44",
+          "primary-container": "#00675c",
+          "primary-fixed": "#a1f1e3",
+          "primary-fixed-dim": "#85d5c7",
+          "on-primary": "#ffffff",
+          "on-primary-container": "#92e2d4",
+          "on-primary-fixed": "#00201c",
+          "on-primary-fixed-variant": "#005047",
+          "secondary": "#5c5f61",
+          "secondary-container": "#dee0e2",
+          "secondary-fixed": "#e1e3e5",
+          "secondary-fixed-dim": "#c4c7c9",
+          "on-secondary": "#ffffff",
+          "on-secondary-container": "#606365",
+          "on-secondary-fixed": "#191c1e",
+          "on-secondary-fixed-variant": "#444749",
+          "tertiary": "#8d0014",
+          "tertiary-container": "#b31b25",
+          "on-tertiary": "#ffffff",
+          "on-tertiary-container": "#ffc6c2",
+          "surface": "#f8f9fc",
+          "surface-dim": "#d8dadc",
+          "surface-bright": "#f8f9fc",
+          "surface-variant": "#e1e3e5",
+          "surface-container-lowest": "#ffffff",
+          "surface-container-low": "#f2f4f6",
+          "surface-container": "#eceef0",
+          "surface-container-high": "#e6e8ea",
+          "surface-container-highest": "#e1e3e5",
+          "on-surface": "#191c1e",
+          "on-surface-variant": "#3e4946",
+          "background": "#f8f9fc",
+          "on-background": "#191c1e",
+          "outline": "#6f7976",
+          "outline-variant": "#bec9c5",
+          "inverse-surface": "#2e3133",
+          "inverse-on-surface": "#eff1f3",
+          "inverse-primary": "#85d5c7",
+          "surface-tint": "#086a5f",
+          "error": "#ba1a1a",
+          "error-container": "#ffdad6",
+          "on-error": "#ffffff",
+          "on-error-container": "#93000a",
+        },
+        borderRadius: {
+          DEFAULT: "1rem",
+          lg: "2rem",
+          xl: "3rem",
+          full: "9999px",
+        },
+        fontFamily: {
+          headline: ["Inter"],
+          body: ["Inter"],
+          label: ["Inter"],
+        },
+      },
+    },
+  }
+</script>
+<style>
+  body { font-family: 'Inter', sans-serif; background-color: #f8f9fc; }
+  .a4-container {
+    width: 210mm;
+    min-height: 297mm;
+    padding: 20mm;
+    margin: 20px auto;
+    background: white;
+    box-shadow: 0 0 40px rgba(0,0,0,0.05);
+  }
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    vertical-align: middle;
+  }
+  @media print {
+    body { background: white; }
+    .a4-container { margin: 0; box-shadow: none; }
+    .print\:hidden { display: none; }
+  }
+</style>
+</head>
+<body class="text-on-surface">
+
+<!-- Top bar -->
+<header class="bg-[#f8f9fc] shadow-[0_2px_20px_rgba(0,103,92,0.06)] sticky top-0 z-50 print:hidden">
+  <div class="flex justify-between items-center w-full px-12 py-5 max-w-screen-2xl mx-auto">
+    <div class="text-2xl font-black text-[#00675c]">FM CRM</div>
+    <nav class="hidden md:flex space-x-8">
+      <a class="text-[#595c5e] font-medium hover:text-[#00675c] transition-colors" href="#">Dashboard</a>
+      <a class="text-[#00675c] font-bold border-b-2 border-[#00675c] pb-0.5" href="#">Reportes</a>
+      <a class="text-[#595c5e] font-medium hover:text-[#00675c] transition-colors" href="#">Clientes</a>
+      <a class="text-[#595c5e] font-medium hover:text-[#00675c] transition-colors" href="#">Pipeline</a>
+    </nav>
+    <button class="bg-[#00675c] text-white px-6 py-2 rounded-full font-semibold text-sm active:scale-95 transition-transform flex items-center gap-2">
+      <span class="material-symbols-outlined text-base">download</span>
+      Descargar PDF
+    </button>
+  </div>
+</header>
+
+<main class="a4-container">
+
+  <!-- ── Header ── -->
+  <section class="flex justify-between items-start mb-10">
+    <div class="flex flex-col gap-5">
+      <div class="w-14 h-9 bg-[#00675c] flex items-center justify-center rounded-md">
+        <span class="text-white font-black text-xs tracking-tight">FM</span>
+      </div>
+      <div>
+        <h1 class="text-4xl font-black tracking-tight text-on-surface mb-2">TIENDA MODELO PRUEBA</h1>
+        <div class="flex items-center gap-3 text-secondary font-medium text-sm flex-wrap">
+          <span class="flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-sm">calendar_today</span>
+            15 Mar 2026 – 15 Abr 2026
+          </span>
+          <span class="h-3 w-px bg-outline-variant"></span>
+          <span class="flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-sm">package_2</span>
+            Plan Básico · $200/mes
+          </span>
+          <span class="bg-[#a1f1e3] text-[#005047] px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">✓ Pagado</span>
+        </div>
+        <div class="flex items-center gap-3 mt-2 text-sm text-secondary">
+          <span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">mail</span> contacto@tiendamodelo.com</span>
+          <span class="h-3 w-px bg-outline-variant"></span>
+          <span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">phone</span> +503 7123 4567</span>
+          <span class="h-3 w-px bg-outline-variant"></span>
+          <span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">alternate_email</span> @tiendamodelo</span>
+        </div>
+      </div>
+    </div>
+    <div class="w-20 h-20 rounded-full bg-surface-container flex items-center justify-center border-2 border-surface-container-high flex-shrink-0">
+      <span class="text-xl font-black text-[#00675c]">TM</span>
+    </div>
+  </section>
+
+  <!-- ── Resumen del ciclo ── -->
+  <section class="mb-10">
+    <h2 class="text-[10px] font-bold uppercase tracking-[0.2em] text-secondary mb-5 flex items-center gap-2">
+      <span class="w-5 h-px bg-[#00675c]"></span>
+      Resumen del ciclo
+    </h2>
+    <div class="grid grid-cols-2 gap-4">
+
+      <!-- Historias -->
+      <div class="bg-surface-container-low p-5 rounded-lg">
+        <div class="flex justify-between items-start mb-4">
+          <div class="flex items-center gap-3">
+            <div class="p-2 bg-surface-container-lowest rounded-md text-[#00675c]">
+              <span class="material-symbols-outlined text-xl">auto_stories</span>
+            </div>
+            <span class="font-bold text-base">Historias</span>
+          </div>
+          <div class="flex gap-1">
+            <span class="bg-[#dcf0e6] text-[#2d6a4f] text-[9px] font-bold px-1.5 py-0.5 rounded">+2 rollover</span>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-2 mb-2">
+          <span class="text-3xl font-black text-on-surface">7 <span class="text-base font-medium text-secondary">/ 12</span></span>
+          <span class="text-[11px] text-secondary font-medium uppercase tracking-wider">7 disponibles</span>
+        </div>
+        <div class="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
+          <div class="h-full bg-[#00675c] rounded-full" style="width:40%"></div>
+        </div>
+      </div>
+
+      <!-- Estáticos -->
+      <div class="bg-surface-container-low p-5 rounded-lg">
+        <div class="flex justify-between items-start mb-4">
+          <div class="flex items-center gap-3">
+            <div class="p-2 bg-surface-container-lowest rounded-md text-[#00675c]">
+              <span class="material-symbols-outlined text-xl">image</span>
+            </div>
+            <span class="font-bold text-base">Estáticos</span>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-2 mb-2">
+          <span class="text-3xl font-black text-on-surface">2 <span class="text-base font-medium text-secondary">/ 4</span></span>
+          <span class="text-[11px] text-secondary font-medium uppercase tracking-wider">2 disponibles</span>
+        </div>
+        <div class="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
+          <div class="h-full bg-[#00675c] rounded-full" style="width:50%"></div>
+        </div>
+      </div>
+
+      <!-- Videos Cortos -->
+      <div class="bg-surface-container-low p-5 rounded-lg">
+        <div class="flex justify-between items-start mb-4">
+          <div class="flex items-center gap-3">
+            <div class="p-2 bg-surface-container-lowest rounded-md text-[#00675c]">
+              <span class="material-symbols-outlined text-xl">videocam</span>
+            </div>
+            <span class="font-bold text-base">Videos Cortos</span>
+          </div>
+          <div class="flex gap-1">
+            <span class="bg-[#dbeafe] text-[#1d4ed8] text-[9px] font-bold px-1.5 py-0.5 rounded">+1 extra</span>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-2 mb-2">
+          <span class="text-3xl font-black text-on-surface">1 <span class="text-base font-medium text-secondary">/ 2</span></span>
+          <span class="text-[11px] text-secondary font-medium uppercase tracking-wider">2 disponibles</span>
+        </div>
+        <div class="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
+          <div class="h-full bg-[#00675c] rounded-full" style="width:33%"></div>
+        </div>
+      </div>
+
+      <!-- Reels -->
+      <div class="bg-surface-container-low p-5 rounded-lg">
+        <div class="flex justify-between items-start mb-4">
+          <div class="flex items-center gap-3">
+            <div class="p-2 bg-surface-container-lowest rounded-md text-[#00675c]">
+              <span class="material-symbols-outlined text-xl">movie</span>
+            </div>
+            <span class="font-bold text-base">Reels</span>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-2 mb-2">
+          <span class="text-3xl font-black text-on-surface">1 <span class="text-base font-medium text-secondary">/ 2</span></span>
+          <span class="text-[11px] text-secondary font-medium uppercase tracking-wider">1 disponible</span>
+        </div>
+        <div class="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
+          <div class="h-full bg-[#00675c] rounded-full" style="width:50%"></div>
+        </div>
+      </div>
+
+      <!-- Producción -->
+      <div class="bg-surface-container-low p-5 rounded-lg">
+        <div class="flex justify-between items-start mb-4">
+          <div class="flex items-center gap-3">
+            <div class="p-2 bg-amber-50 rounded-md text-amber-600">
+              <span class="material-symbols-outlined text-xl">videocam</span>
+            </div>
+            <span class="font-bold text-base">Producción</span>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-2 mb-2">
+          <span class="text-3xl font-black text-on-surface">0 <span class="text-base font-medium text-secondary">/ 1</span></span>
+          <span class="text-[11px] text-amber-600 font-medium uppercase tracking-wider">1 disponible</span>
+        </div>
+        <div class="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
+          <div class="h-full bg-amber-400 rounded-full" style="width:0%"></div>
+        </div>
+      </div>
+
+      <!-- Reunión -->
+      <div class="bg-surface-container-low p-5 rounded-lg">
+        <div class="flex justify-between items-start mb-4">
+          <div class="flex items-center gap-3">
+            <div class="p-2 bg-amber-50 rounded-md text-amber-600">
+              <span class="material-symbols-outlined text-xl">groups</span>
+            </div>
+            <span class="font-bold text-base">Reunión</span>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-2 mb-2">
+          <span class="text-3xl font-black text-on-surface">1 <span class="text-base font-medium text-secondary">/ 1</span></span>
+          <span class="text-[11px] text-secondary font-medium uppercase tracking-wider">0 disponibles</span>
+        </div>
+        <div class="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
+          <div class="h-full bg-amber-400 rounded-full" style="width:100%"></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── Cambios del ciclo ── -->
+  <section class="mb-10 bg-surface-container-low p-7 rounded-lg">
+    <div class="flex justify-between items-center mb-5">
+      <div>
+        <span class="text-[10px] font-bold uppercase tracking-widest text-secondary">Control de ediciones</span>
+        <h3 class="text-lg font-bold mt-0.5">Cambios del ciclo</h3>
+      </div>
+      <span class="text-2xl font-black text-[#00675c]">5 / 13 usados</span>
+    </div>
+    <div class="w-full h-2.5 bg-surface-container-highest rounded-full overflow-hidden mb-5">
+      <div class="h-full bg-[#00675c] rounded-full" style="width:38%"></div>
+    </div>
+    <div class="flex gap-8 flex-wrap">
+      <div class="flex items-center gap-2.5">
+        <div class="w-2 h-2 rounded-full bg-[#00675c]"></div>
+        <span class="text-sm text-on-surface">Plan: <span class="font-bold">8 cambios incluidos</span></span>
+      </div>
+      <div class="flex items-center gap-2.5">
+        <div class="w-2 h-2 rounded-full bg-[#5bf4de]"></div>
+        <span class="text-sm text-on-surface">Comprados: <span class="font-bold text-[#00675c]">+5</span> <span class="text-secondary">— Paquete extra acordado en reunión</span></span>
+      </div>
+      <div class="ml-auto">
+        <span class="text-sm font-bold text-secondary">8 disponibles</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Detalle de requerimientos ── -->
+  <section>
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-[10px] font-bold uppercase tracking-[0.2em] text-secondary flex items-center gap-2">
+        <span class="w-5 h-px bg-[#00675c]"></span>
+        Detalle de requerimientos
+      </h2>
+      <span class="bg-[#e8f5f3] text-[#00675c] text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">incluido</span>
+    </div>
+
+    <!-- Historias -->
+    <div class="mb-6">
+      <div class="bg-surface-container-low px-4 py-2 rounded-t-lg text-[10px] font-bold uppercase tracking-widest text-secondary border-b border-surface-container">
+        Historias
+      </div>
+      <div class="divide-y divide-surface-container bg-surface-container-lowest rounded-b-lg overflow-hidden border border-surface-container-low border-t-0">
+        <div class="flex items-center justify-between px-4 py-3">
+          <div class="flex items-center gap-3">
+            <div class="w-1.5 h-1.5 rounded-full bg-[#00675c]"></div>
+            <span class="text-sm text-on-surface">Historia S1 — Lanzamiento de temporada</span>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-[#e8f5f3] text-[#00675c]">publicado</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-[10px] text-secondary font-bold uppercase">Cambios:</span>
+            <span class="w-5 h-5 rounded-full bg-surface-container flex items-center justify-center text-[10px] font-bold">0</span>
+          </div>
+        </div>
+        <div class="flex items-center justify-between px-4 py-3">
+          <div class="flex items-center gap-3">
+            <div class="w-1.5 h-1.5 rounded-full bg-[#00675c]"></div>
+            <span class="text-sm text-on-surface">Historia S1 — Producto destacado</span>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-[#e8f5f3] text-[#00675c]">publicado</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-[10px] text-secondary font-bold uppercase">Cambios:</span>
+            <span class="w-5 h-5 rounded-full bg-surface-container flex items-center justify-center text-[10px] font-bold">1</span>
+          </div>
+        </div>
+        <div class="flex items-center justify-between px-4 py-3">
+          <div class="flex items-center gap-3">
+            <div class="w-1.5 h-1.5 rounded-full bg-[#00675c]"></div>
+            <span class="text-sm text-on-surface">Historia S2 — Promoción especial 2x1</span>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-[#e8f5f3] text-[#00675c]">publicado</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-[10px] text-secondary font-bold uppercase">Cambios:</span>
+            <span class="w-5 h-5 rounded-full bg-surface-container flex items-center justify-center text-[10px] font-bold">0</span>
+          </div>
+        </div>
+        <div class="flex items-center justify-between px-4 py-3">
+          <div class="flex items-center gap-3">
+            <div class="w-1.5 h-1.5 rounded-full bg-[#00675c]"></div>
+            <span class="text-sm text-on-surface">Historia S2 — Beneficios del producto</span>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-[#e8f5f3] text-[#00675c]">publicado</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-[10px] text-secondary font-bold uppercase">Cambios:</span>
+            <span class="w-5 h-5 rounded-full bg-surface-container flex items-center justify-center text-[10px] font-bold">2</span>
+          </div>
+        </div>
+        <div class="flex items-center justify-between px-4 py-3">
+          <div class="flex items-center gap-3">
+            <div class="w-1.5 h-1.5 rounded-full bg-[#00675c]"></div>
+            <span class="text-sm text-on-surface">Historia S3 — Behind the scenes</span>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-[#e8f5f3] text-[#00675c]">publicado</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-[10px] text-secondary font-bold uppercase">Cambios:</span>
+            <span class="w-5 h-5 rounded-full bg-surface-container flex items-center justify-center text-[10px] font-bold">0</span>
+          </div>
+        </div>
+        <div class="flex items-center justify-between px-4 py-3">
+          <div class="flex items-center gap-3">
+            <div class="w-1.5 h-1.5 rounded-full bg-[#00675c]"></div>
+            <span class="text-sm text-on-surface">Historia S3 — Testimonio de cliente</span>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-[#e8f0fb] text-[#3b6fd4]">revisión cliente</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-[10px] text-secondary font-bold uppercase">Cambios:</span>
+            <span class="w-5 h-5 rounded-full bg-surface-container flex items-center justify-center text-[10px] font-bold">1</span>
+          </div>
+        </div>
+        <div class="flex items-center justify-between px-4 py-3">
+          <div class="flex items-center gap-3">
+            <div class="w-1.5 h-1.5 rounded-full bg-[#00675c]"></div>
+            <span class="text-sm text-on-surface">Historia S4 — Cierre de mes</span>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-[#fff7e6] text-[#d97706]">en producción</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-[10px] text-secondary font-bold uppercase">Cambios:</span>
+            <span class="w-5 h-5 rounded-full bg-surface-container flex items-center justify-center text-[10px] font-bold">0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Estáticos -->
+    <div class="mb-6">
+      <div class="bg-surface-container-low px-4 py-2 rounded-t-lg text-[10px] font-bold uppercase tracking-widest text-secondary border-b border-surface-container">
+        Estáticos
+      </div>
+      <div class="divide-y divide-surface-container bg-surface-container-lowest rounded-b-lg overflow-hidden border border-surface-container-low border-t-0">
+        <div class="flex items-center justify-between px-4 py-3">
+          <div class="flex items-center gap-3">
+            <div class="w-1.5 h-1.5 rounded-full bg-[#00675c]"></div>
+            <span class="text-sm text-on-surface">Banner principal — Temporada abril</span>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-[#e8f5f3] text-[#00675c]">publicado</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-[10px] text-secondary font-bold uppercase">Cambios:</span>
+            <span class="w-5 h-5 rounded-full bg-surface-container flex items-center justify-center text-[10px] font-bold">3</span>
+          </div>
+        </div>
+        <div class="flex items-center justify-between px-4 py-3">
+          <div class="flex items-center gap-3">
+            <div class="w-1.5 h-1.5 rounded-full bg-[#00675c]"></div>
+            <span class="text-sm text-on-surface">Post cuadrado — Producto destacado</span>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-[#f2f4f6] text-[#595c5e]">revisión interna</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-[10px] text-secondary font-bold uppercase">Cambios:</span>
+            <span class="w-5 h-5 rounded-full bg-surface-container flex items-center justify-center text-[10px] font-bold">1</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Videos Cortos -->
+    <div class="mb-6">
+      <div class="bg-surface-container-low px-4 py-2 rounded-t-lg text-[10px] font-bold uppercase tracking-widest text-secondary border-b border-surface-container">
+        Videos Cortos
+      </div>
+      <div class="divide-y divide-surface-container bg-surface-container-lowest rounded-b-lg overflow-hidden border border-surface-container-low border-t-0">
+        <div class="flex items-center justify-between px-4 py-3">
+          <div class="flex items-center gap-3">
+            <div class="w-1.5 h-1.5 rounded-full bg-[#00675c]"></div>
+            <span class="text-sm text-on-surface">Video 30s — Presentación de marca</span>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-[#e8f5f3] text-[#00675c]">publicado</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-[10px] text-secondary font-bold uppercase">Cambios:</span>
+            <span class="w-5 h-5 rounded-full bg-surface-container flex items-center justify-center text-[10px] font-bold">2</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reels -->
+    <div class="mb-6">
+      <div class="bg-surface-container-low px-4 py-2 rounded-t-lg text-[10px] font-bold uppercase tracking-widest text-secondary border-b border-surface-container">
+        Reels
+      </div>
+      <div class="divide-y divide-surface-container bg-surface-container-lowest rounded-b-lg overflow-hidden border border-surface-container-low border-t-0">
+        <div class="flex items-center justify-between px-4 py-3">
+          <div class="flex items-center gap-3">
+            <div class="w-1.5 h-1.5 rounded-full bg-[#00675c]"></div>
+            <span class="text-sm text-on-surface">Video largo — Transformación del mes</span>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-[#f0f7e8] text-[#4a6319]">aprobado</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-[10px] text-secondary font-bold uppercase">Cambios:</span>
+            <span class="w-5 h-5 rounded-full bg-surface-container flex items-center justify-center text-[10px] font-bold">0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reunión -->
+    <div class="mb-6">
+      <div class="bg-surface-container-low px-4 py-2 rounded-t-lg text-[10px] font-bold uppercase tracking-widest text-secondary border-b border-surface-container">
+        Reunión
+      </div>
+      <div class="divide-y divide-surface-container bg-surface-container-lowest rounded-b-lg overflow-hidden border border-surface-container-low border-t-0">
+        <div class="flex items-center justify-between px-4 py-3">
+          <div class="flex items-center gap-3">
+            <div class="w-1.5 h-1.5 rounded-full bg-[#00675c]"></div>
+            <span class="text-sm text-on-surface">Reunión mensual de estrategia</span>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-[#e8f5f3] text-[#00675c]">publicado</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-[10px] text-secondary font-bold uppercase">Cambios:</span>
+            <span class="w-5 h-5 rounded-full bg-surface-container flex items-center justify-center text-[10px] font-bold">0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ── Footer ── -->
+  <footer class="mt-10 pt-6 border-t border-surface-container-high flex justify-between items-center text-[11px] text-secondary uppercase tracking-widest">
+    <span>Generado el <strong class="text-on-surface">19 de abril de 2026</strong></span>
+    <span class="font-bold text-[#00675c]">FM Communication Solutions</span>
+  </footer>
+
+</main>
+</body>
+</html>

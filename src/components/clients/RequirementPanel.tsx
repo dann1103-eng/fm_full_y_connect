@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import type { ClientWithPlan, BillingCycle, ExtraContentItem, Requirement, ContentType } from '@/types/db'
+import type { ClientWithPlan, BillingCycle, CambiosPackage, ExtraContentItem, Requirement, ContentType } from '@/types/db'
 import { CONTENT_TYPES, CONTENT_TYPE_LABELS, limitsToRecord } from '@/lib/domain/plans'
 import { groupByWeek, effectiveWeeklyTarget } from '@/lib/domain/requirement'
 import { RequirementModal } from './RequirementModal'
@@ -400,6 +400,65 @@ export function RequirementPanel({
             )
           })}
         </div>
+
+        {/* Cambios counter */}
+        {(() => {
+          const packages = (cycle.cambios_packages_json as CambiosPackage[]) ?? []
+          const pkgTotal = packages.reduce((s, p) => s + p.qty, 0)
+          const planBase = client.plan.cambios_included
+          const totalBudget = planBase + pkgTotal
+          const used = requirements.filter(r => !r.voided).reduce((s, r) => s + r.cambios_count, 0)
+          const available = Math.max(0, totalBudget - used)
+          const pct = totalBudget > 0 ? Math.min(100, Math.round((used / totalBudget) * 100)) : 0
+          const color = pct >= 90 ? '#b31b25' : pct >= 70 ? '#f59e0b' : '#00675c'
+
+          return (
+            <div className="glass-panel rounded-2xl px-5 py-3 flex items-center gap-6 flex-wrap">
+              <p className="text-[11px] font-extrabold text-[#abadaf] uppercase tracking-widest shrink-0">
+                Cambios del ciclo
+              </p>
+
+              <div className="flex items-center gap-3">
+                {/* Short progress bar */}
+                <div className="w-32 bg-[#e5e9eb] rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${pct}%`, backgroundColor: color }}
+                  />
+                </div>
+                <p className="text-xs font-bold shrink-0" style={{ color }}>
+                  {used} / {totalBudget}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#dfe3e6]" />
+                  <span className="text-[11px] text-[#595c5e]">
+                    Plan: <strong className="text-[#2c2f31]">{planBase}</strong>
+                  </span>
+                </div>
+                {pkgTotal > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#5bf4de]" />
+                    <span className="text-[11px] text-[#595c5e]">
+                      Comprados: <strong className="text-[#00675c]">+{pkgTotal}</strong>
+                      {packages.length > 0 && (
+                        <span className="ml-1 text-[#abadaf]">
+                          ({packages.map(p => `${p.qty}${p.note ? ` — ${p.note}` : ''}`).join(', ')})
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <p className="text-[11px] font-bold ml-auto shrink-0" style={{ color: available === 0 ? '#b31b25' : '#595c5e' }}>
+                {available} disponibles
+              </p>
+            </div>
+          )
+        })()}
       </section>
 
       {/* ── Desglose semanal ── */}

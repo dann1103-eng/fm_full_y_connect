@@ -1,3 +1,13 @@
+export type TimeEntryType = 'requirement' | 'administrative'
+
+export type AdminCategory =
+  | 'administrativa'
+  | 'coordinacion_cuentas'
+  | 'reunion_interna'
+  | 'direccion_creativa'
+  | 'direccion_comunicacion'
+  | 'standby'
+
 export type ContentType =
   | 'historia'
   | 'estatico'
@@ -356,8 +366,10 @@ export interface Database {
       time_entries: {
         Row: {
           id: string
-          requirement_id: string
+          requirement_id: string | null
           user_id: string
+          entry_type: TimeEntryType
+          category: AdminCategory | null
           phase: string
           title: string
           started_at: string
@@ -368,9 +380,11 @@ export interface Database {
         }
         Insert: {
           id?: string
-          requirement_id: string
+          requirement_id?: string | null
           user_id: string
-          phase: string
+          entry_type?: TimeEntryType
+          category?: AdminCategory | null
+          phase?: string
           title?: string
           started_at?: string
           ended_at?: string | null
@@ -379,9 +393,14 @@ export interface Database {
           created_at?: string
         }
         Update: {
+          requirement_id?: string | null
+          entry_type?: TimeEntryType
+          category?: AdminCategory | null
+          phase?: string
+          title?: string
+          started_at?: string
           ended_at?: string | null
           duration_seconds?: number | null
-          title?: string
           notes?: string | null
         }
         Relationships: [
@@ -410,6 +429,15 @@ export type Requirement = Database['public']['Tables']['requirements']['Row']
 export type RequirementPhaseLog = Database['public']['Tables']['requirement_phase_logs']['Row']
 export type RequirementMessage = Database['public']['Tables']['requirement_messages']['Row']
 export type TimeEntry = Database['public']['Tables']['time_entries']['Row']
+
+export const ADMIN_CATEGORY_LABELS: Record<AdminCategory, string> = {
+  administrativa:          'Administrativa',
+  coordinacion_cuentas:    'Coordinación de Cuentas',
+  reunion_interna:         'Reunión Interna',
+  direccion_creativa:      'Dirección Creativa',
+  direccion_comunicacion:  'Dirección de Comunicación',
+  standby:                 'Tiempo de Standby',
+}
 export type AppUser = Database['public']['Tables']['users']['Row']
 
 export interface ClientWithPlan extends Client {

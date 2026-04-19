@@ -87,12 +87,14 @@ export function RequirementTimesheet({
   const [showManual, setShowManual] = useState(false)
   const [saving, setSaving] = useState(false)
   const [titleError, setTitleError] = useState(false)
+  const [globalActiveWarning, setGlobalActiveWarning] = useState<string | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const isReviewPhase = currentPhase === 'revision_cliente'
 
   useEffect(() => {
     loadEntries()
+    checkGlobalActive()
     // Restore active timer from localStorage
     const stored = localStorage.getItem(TIMER_KEY(requirementId, currentUserId))
     if (stored) {
@@ -106,6 +108,22 @@ export function RequirementTimesheet({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requirementId])
+
+  async function checkGlobalActive() {
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('time_entries')
+      .select('id, title, entry_type, requirement_id')
+      .eq('user_id', currentUserId)
+      .is('ended_at', null)
+      .maybeSingle()
+    if (data && data.requirement_id !== requirementId) {
+      const label = data.entry_type === 'administrative' ? 'una tarea administrativa' : `otro requerimiento`
+      setGlobalActiveWarning(`Tienes un timer activo en ${label}. Detenlo primero para registrar tiempo aquí.`)
+    } else {
+      setGlobalActiveWarning(null)
+    }
+  }
 
   useEffect(() => {
     if (activeTimer) {
@@ -137,10 +155,11 @@ export function RequirementTimesheet({
     setSaving(true)
     const supabase = createClient()
     const startedAt = new Date().toISOString()
-    const { data: inserted } = await supabase
+    const { data: inserted, error } = await supabase
       .from('time_entries')
       .insert({
         requirement_id: requirementId,
+        entry_type: 'requirement',
         user_id: currentUserId,
         phase: newPhase,
         title: newTitle.trim(),
@@ -148,7 +167,14 @@ export function RequirementTimesheet({
       })
       .select('id')
       .single()
+    if (error) {
+      // Unique index violation = active timer elsewhere
+      setGlobalActiveWarning('Ya tienes un timer activo en otro lugar. Detenlo primero.')
+      setSaving(false)
+      return
+    }
     if (inserted) {
+      setGlobalActiveWarning(null)
       const timer: ActiveTimer = {
         entryId: inserted.id,
         startedAt: new Date(startedAt).getTime(),
@@ -286,8 +312,16 @@ export function RequirementTimesheet({
         </div>
       )}
 
+      {/* Global active timer warning */}
+      {globalActiveWarning && (
+        <div className="flex gap-2 items-start bg-amber-50 border border-amber-200 rounded-2xl p-3 text-xs text-amber-800 font-medium flex-shrink-0">
+          <span className="material-symbols-outlined text-base text-amber-500 flex-shrink-0">warning</span>
+          {globalActiveWarning}
+        </div>
+      )}
+
       {/* New entry form (hidden in revision_cliente or while timer runs) */}
-      {!isReviewPhase && !activeTimer && (
+      {!isReviewPhase && !activeTimer && !globalActiveWarning && (
         <div className="border border-dashed border-[#dfe3e6] rounded-2xl p-4 space-y-3 flex-shrink-0">
           <p className="text-[10px] font-bold text-[#abadaf] uppercase tracking-wider">
             Nueva entrada de tiempo

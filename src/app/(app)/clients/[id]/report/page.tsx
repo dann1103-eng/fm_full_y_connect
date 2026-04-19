@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { TopNav } from '@/components/layout/TopNav'
 import { CsvDownloadButton } from '@/components/reports/CsvDownloadButton'
-import { PrintButton } from '@/components/reports/PrintButton'
+import { PdfDownloadButton } from '@/components/reports/PdfDownloadButton'
 import type { ClientWithPlan, BillingCycle, Requirement } from '@/types/db'
 import { computeTotals } from '@/lib/domain/requirement'
 import { effectiveLimits } from '@/lib/domain/plans'
@@ -208,14 +208,14 @@ export default async function ClientReportPage({
             </div>
 
             {/* Action buttons */}
-            <div className="no-print flex items-center gap-3 flex-shrink-0">
-              <PrintButton />
+            <div className="no-print flex items-center gap-3 flex-wrap flex-shrink-0">
+              <PdfDownloadButton clientId={client.id} />
               {csvRows.length > 0 && (
                 <CsvDownloadButton
                   headers={csvHeaders}
                   rows={csvRows}
                   filename={csvFilename}
-                  label="Descargar CSV"
+                  label="CSV"
                 />
               )}
             </div>
