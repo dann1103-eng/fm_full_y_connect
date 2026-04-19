@@ -64,10 +64,11 @@ export default function ClientEditPage() {
         return
       }
 
-      const [{ data: clientData }, { data: plansData }] = await Promise.all([
+      const [{ data: clientDataRaw }, { data: plansData }] = await Promise.all([
         supabase.from('clients').select('*').eq('id', id).single(),
         supabase.from('plans').select('*').eq('active', true).order('price_usd'),
       ])
+      const clientData = clientDataRaw as Client | null
 
       if (!clientData) { router.replace('/clients'); return }
 

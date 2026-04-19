@@ -78,7 +78,8 @@ export async function movePhase(
   }
 
   // When entering revision_cliente, record the timestamp (reference timer for client response time)
-  const phaseUpdate: Record<string, unknown> = { phase: toPhase }
+  type RequirementUpdate = Database['public']['Tables']['requirements']['Update']
+  const phaseUpdate: RequirementUpdate = { phase: toPhase }
   if (toPhase === 'revision_cliente') {
     phaseUpdate.review_started_at = new Date().toISOString()
   }

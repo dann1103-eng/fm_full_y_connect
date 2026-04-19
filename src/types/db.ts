@@ -290,7 +290,6 @@ export interface Database {
           }
         ]
       }
-    }
       requirement_messages: {
         Row: {
           id: string
