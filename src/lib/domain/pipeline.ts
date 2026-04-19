@@ -44,7 +44,8 @@ export interface PipelineItem {
   carried_over: boolean
   title: string
   cambios_count: number
-  max_cambios: number   // client's limit, fetched from clients table
+  max_cambios: number           // client's limit, fetched from clients table
+  review_started_at: string | null  // set when phase enters revision_cliente
 }
 
 /**
@@ -76,9 +77,15 @@ export async function movePhase(
     return { error: 'Fase no válida.' }
   }
 
+  // When entering revision_cliente, record the timestamp (reference timer for client response time)
+  const phaseUpdate: Record<string, unknown> = { phase: toPhase }
+  if (toPhase === 'revision_cliente') {
+    phaseUpdate.review_started_at = new Date().toISOString()
+  }
+
   const { error: updateError } = await supabase
     .from('requirements')
-    .update({ phase: toPhase })
+    .update(phaseUpdate)
     .eq('id', requirementId)
 
   if (updateError) return { error: updateError.message }
@@ -134,7 +141,7 @@ export async function migrateOpenPipelineItems(
   // 1. Obtener requerimientos abiertos del ciclo anterior
   const { data: openItems } = await supabase
     .from('requirements')
-    .select('id, content_type, phase, title')
+    .select('id, content_type, phase, title, review_started_at')
     .eq('billing_cycle_id', previousCycleId)
     .eq('voided', false)
     .neq('phase', 'publicado')
@@ -155,6 +162,7 @@ export async function migrateOpenPipelineItems(
         over_limit: false,
         voided: false,
         title: item.title ?? '',
+        review_started_at: item.review_started_at ?? null,
       })
       .select('id')
       .single()

@@ -216,6 +216,7 @@ export interface Database {
           carried_over: boolean
           title: string
           cambios_count: number
+          review_started_at: string | null
         }
         Insert: {
           id?: string
@@ -232,6 +233,7 @@ export interface Database {
           carried_over?: boolean
           title?: string
           cambios_count?: number
+          review_started_at?: string | null
         }
         Update: {
           billing_cycle_id?: string
@@ -246,6 +248,7 @@ export interface Database {
           carried_over?: boolean
           title?: string
           cambios_count?: number
+          review_started_at?: string | null
         }
         Relationships: [
           {
@@ -288,6 +291,74 @@ export interface Database {
         ]
       }
     }
+      requirement_messages: {
+        Row: {
+          id: string
+          requirement_id: string
+          user_id: string
+          body: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          requirement_id: string
+          user_id: string
+          body: string
+          created_at?: string
+        }
+        Update: Record<string, never>
+        Relationships: [
+          {
+            foreignKeyName: 'requirement_messages_requirement_id_fkey'
+            columns: ['requirement_id']
+            isOneToOne: false
+            referencedRelation: 'requirements'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      time_entries: {
+        Row: {
+          id: string
+          requirement_id: string
+          user_id: string
+          phase: string
+          title: string
+          started_at: string
+          ended_at: string | null
+          duration_seconds: number | null
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          requirement_id: string
+          user_id: string
+          phase: string
+          title?: string
+          started_at?: string
+          ended_at?: string | null
+          duration_seconds?: number | null
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          ended_at?: string | null
+          duration_seconds?: number | null
+          title?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'time_entries_requirement_id_fkey'
+            columns: ['requirement_id']
+            isOneToOne: false
+            referencedRelation: 'requirements'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+    }
     Views: Record<string, never>
     Functions: Record<string, never>
     Enums: Record<string, never>
@@ -301,6 +372,8 @@ export type Client = Database['public']['Tables']['clients']['Row']
 export type BillingCycle = Database['public']['Tables']['billing_cycles']['Row']
 export type Requirement = Database['public']['Tables']['requirements']['Row']
 export type RequirementPhaseLog = Database['public']['Tables']['requirement_phase_logs']['Row']
+export type RequirementMessage = Database['public']['Tables']['requirement_messages']['Row']
+export type TimeEntry = Database['public']['Tables']['time_entries']['Row']
 export type AppUser = Database['public']['Tables']['users']['Row']
 
 export interface ClientWithPlan extends Client {

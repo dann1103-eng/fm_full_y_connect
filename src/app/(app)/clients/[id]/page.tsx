@@ -83,7 +83,7 @@ export default async function ClientDetailPage({
   if (currentCycle) {
     const { data: pipelineCons } = await supabase
       .from('requirements')
-      .select('id, content_type, phase, carried_over, billing_cycle_id, registered_at, notes, title, cambios_count')
+      .select('id, content_type, phase, carried_over, billing_cycle_id, registered_at, notes, title, cambios_count, review_started_at')
       .eq('billing_cycle_id', currentCycle.id)
       .eq('voided', false)
       .in('content_type', PIPELINE_CONTENT_TYPES)
@@ -105,6 +105,7 @@ export default async function ClientDetailPage({
         title: c.title ?? '',
         cambios_count: c.cambios_count ?? 0,
         max_cambios: client.max_cambios ?? 2,
+        review_started_at: c.review_started_at ?? null,
       })
     }
 

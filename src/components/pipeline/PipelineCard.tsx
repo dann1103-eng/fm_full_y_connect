@@ -177,6 +177,7 @@ export function PipelineCard({
         requirementNotes={item.notes}
         cambiosCount={item.cambios_count}
         maxCambios={item.max_cambios}
+        reviewStartedAt={item.review_started_at}
         showMoveSection={true}
       />
     </>

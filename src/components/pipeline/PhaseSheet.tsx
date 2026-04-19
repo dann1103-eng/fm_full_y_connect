@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Sheet,
@@ -19,13 +19,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { createClient } from '@/lib/supabase/client'
-import {
-  PHASES,
-  PHASE_LABELS,
-  movePhase,
-} from '@/lib/domain/pipeline'
+import { PHASES, PHASE_LABELS, movePhase } from '@/lib/domain/pipeline'
 import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import type { Phase, ContentType, RequirementPhaseLog } from '@/types/db'
+import { RequirementChat } from './RequirementChat'
+import { RequirementTimesheet } from './RequirementTimesheet'
+
+type Tab = 'fases' | 'chat' | 'tiempo'
 
 interface PhaseSheetProps {
   open: boolean
@@ -40,7 +40,8 @@ interface PhaseSheetProps {
   requirementNotes: string | null
   cambiosCount: number
   maxCambios: number
-  showMoveSection?: boolean // default true
+  reviewStartedAt: string | null
+  showMoveSection?: boolean
 }
 
 export function PhaseSheet({
@@ -56,50 +57,79 @@ export function PhaseSheet({
   requirementNotes,
   cambiosCount,
   maxCambios,
+  reviewStartedAt,
   showMoveSection,
 }: PhaseSheetProps) {
   const router = useRouter()
+  const [activeTab, setActiveTab] = useState<Tab>('fases')
 
   // Phase-move state
   const [toPhase, setToPhase] = useState<Phase>(currentPhase)
-  const [notes, setNotes] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [moveNotes, setMoveNotes] = useState('')
+  const [moving, setMoving] = useState(false)
+  const [moveError, setMoveError] = useState<string | null>(null)
 
-  // Editable requirement fields state
+  // Edit requirement state
   const [editTitle, setEditTitle] = useState(title)
   const [editNotes, setEditNotes] = useState(requirementNotes ?? '')
   const [savingEdit, setSavingEdit] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
-  const [incrementing, setIncrementing] = useState(false)
+
+  // Cambios
   const [localCambios, setLocalCambios] = useState(cambiosCount)
+  const [incrementing, setIncrementing] = useState(false)
+
+  // Review timer (counts up while in revision_cliente)
+  const [reviewElapsed, setReviewElapsed] = useState('')
+
+  useEffect(() => {
+    if (currentPhase !== 'revision_cliente' || !reviewStartedAt) {
+      setReviewElapsed('')
+      return
+    }
+    function tick() {
+      const diff = Date.now() - new Date(reviewStartedAt!).getTime()
+      const h = Math.floor(diff / 3600000)
+      const m = Math.floor((diff % 3600000) / 60000)
+      setReviewElapsed(`${h}h ${m}m`)
+    }
+    tick()
+    const id = setInterval(tick, 60000) // update every minute
+    return () => clearInterval(id)
+  }, [currentPhase, reviewStartedAt])
+
+  // Reset tab when sheet closes/opens
+  useEffect(() => {
+    if (open) {
+      setActiveTab('fases')
+      setToPhase(currentPhase)
+      setMoveNotes('')
+      setMoveError(null)
+      setEditTitle(title)
+      setEditNotes(requirementNotes ?? '')
+      setLocalCambios(cambiosCount)
+    }
+  }, [open, currentPhase, title, requirementNotes, cambiosCount])
 
   async function handleMove() {
     if (toPhase === currentPhase) {
-      setError('Selecciona una fase diferente a la actual.')
+      setMoveError('Selecciona una fase diferente a la actual.')
       return
     }
-    setError(null)
-    setLoading(true)
-
+    setMoveError(null)
+    setMoving(true)
     const supabase = createClient()
-    const { error: moveError } = await movePhase(supabase, {
+    const { error } = await movePhase(supabase, {
       requirementId,
       currentPhase,
       contentType,
       toPhase,
       movedBy: currentUserId,
-      notes,
+      notes: moveNotes,
     })
-
-    setLoading(false)
-
-    if (moveError) {
-      setError(moveError)
-      return
-    }
-
-    setNotes('')
+    setMoving(false)
+    if (error) { setMoveError(error); return }
+    setMoveNotes('')
     onClose()
     router.refresh()
   }
@@ -134,212 +164,312 @@ export function PhaseSheet({
     router.refresh()
   }
 
+  const showMove = showMoveSection ?? true
+  const isReviewPhase = currentPhase === 'revision_cliente'
+
   return (
     <Sheet open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      {/* Layout: flex-col h-full → header fijo + cuerpo scrollable + footer fijo */}
-      <SheetContent className="w-full sm:max-w-md flex flex-col p-0 gap-0">
+      <SheetContent className="w-full sm:max-w-md flex flex-col p-0 gap-0 overflow-hidden">
 
-        {/* ── Header ── */}
-        <SheetHeader className="px-6 pt-6 pb-4 border-b border-[#dfe3e6] pr-14">
-          <SheetTitle className="text-base font-semibold text-[#2c2f31] leading-tight">
-            {CONTENT_TYPE_LABELS[contentType]}
-          </SheetTitle>
-          <p className="text-sm text-[#595c5e] mt-0.5">{clientName}</p>
-        </SheetHeader>
-
-        {/* ── Cuerpo scrollable ── */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
-
-          {/* ── Información del requerimiento ── */}
-          <div className="space-y-3 pb-5 border-b border-[#dfe3e6]">
-            <p className="text-xs font-semibold text-[#747779] uppercase tracking-wider">
-              Información del requerimiento
-            </p>
-
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-[#2c2f31]">Título</Label>
-              <input
-                type="text"
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                className="w-full px-3 py-2 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl focus:outline-none focus:border-[#00675c]"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-[#2c2f31]">
-                Notas <span className="text-[#abadaf] font-normal">(opcional)</span>
-              </Label>
-              <Textarea
-                value={editNotes}
-                onChange={(e) => setEditNotes(e.target.value)}
-                placeholder="Descripción, instrucciones del cliente..."
-                className="resize-none bg-[#f5f7f9] border-[#dfe3e6] focus:border-[#00675c] rounded-xl text-sm"
-                rows={2}
-              />
-            </div>
-
-            {/* Cambios */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-[#595c5e]">Cambios solicitados:</span>
-                <span className={`text-sm font-bold ${localCambios >= maxCambios ? 'text-[#b31b25]' : 'text-[#2c2f31]'}`}>
-                  {localCambios}/{maxCambios}
-                </span>
-              </div>
-              <button
-                onClick={handleAddCambio}
-                disabled={incrementing}
-                className={`text-xs font-bold px-3 py-1 rounded-lg transition-colors disabled:opacity-40 ${
-                  localCambios >= maxCambios
-                    ? 'bg-[#b31b25]/10 text-[#b31b25] hover:bg-[#b31b25]/20'
-                    : 'bg-[#00675c]/10 text-[#00675c] hover:bg-[#00675c]/20'
-                }`}
-              >
-                {incrementing ? '...' : '+1 cambio'}
-              </button>
-            </div>
-
-            {editError && (
-              <p className="text-xs text-[#b31b25] bg-[#b31b25]/5 rounded-lg px-3 py-2 border border-[#b31b25]/20">
-                {editError}
-              </p>
-            )}
-
-            <button
-              onClick={handleSaveEdit}
-              disabled={savingEdit || !editTitle.trim()}
-              className="w-full py-2 text-sm font-semibold rounded-xl text-white transition-colors disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)' }}
+        {/* ── Header (fixed) ── */}
+        <SheetHeader className="px-5 pt-5 pb-3 border-b border-[#dfe3e6] pr-14 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#00675c]/10 text-[#00675c]">
+              {CONTENT_TYPE_LABELS[contentType]}
+            </span>
+            <span
+              className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                isReviewPhase
+                  ? 'bg-amber-100 text-amber-700'
+                  : 'bg-[#f5f7f9] text-[#595c5e]'
+              }`}
             >
-              {savingEdit ? 'Guardando...' : 'Guardar cambios'}
-            </button>
-          </div>
-
-          {/* Fase actual */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-[#747779]">Fase actual:</span>
-            <span className="text-xs font-semibold bg-[#00675c]/10 text-[#00675c] px-2.5 py-1 rounded-full">
               {PHASE_LABELS[currentPhase]}
             </span>
+            {isReviewPhase && reviewElapsed && (
+              <span className="text-xs font-bold text-amber-700 flex items-center gap-1">
+                <svg viewBox="0 0 24 24" className="w-3 h-3 fill-current">
+                  <path d="M6 2v6l2 2-2 2v6h12v-6l-2-2 2-2V2H6zm10 14.5V20H8v-3.5l4-4 4 4zm-4-5l-4-4V4h8v3.5l-4 4z"/>
+                </svg>
+                {reviewElapsed}
+              </span>
+            )}
           </div>
+          <SheetTitle className="text-sm font-semibold text-[#2c2f31] leading-snug mt-1 line-clamp-2">
+            {title || CONTENT_TYPE_LABELS[contentType]}
+          </SheetTitle>
+          <p className="text-xs text-[#747779]">{clientName}</p>
+        </SheetHeader>
 
-          {/* Timeline de historial */}
-          <div>
-            <p className="text-xs font-semibold text-[#747779] uppercase tracking-wider mb-4">
-              Historial
-            </p>
-            {logs.length === 0 ? (
-              <p className="text-sm text-[#abadaf] italic">Sin movimientos registrados.</p>
-            ) : (
-              <ol className="space-y-0">
-                {logs.map((log, idx) => (
-                  <li key={log.id} className="flex gap-3">
-                    {/* Línea + punto */}
-                    <div className="flex flex-col items-center">
-                      <div className="w-2.5 h-2.5 rounded-full bg-[#00675c] flex-shrink-0 mt-1" />
-                      {idx < logs.length - 1 && (
-                        <div className="w-px flex-1 bg-[#dfe3e6] my-1" />
-                      )}
-                    </div>
-                    {/* Contenido */}
-                    <div className="pb-5 min-w-0">
-                      <p className="text-xs text-[#abadaf] mb-0.5">
-                        {new Date(log.created_at).toLocaleDateString('es-SV', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+        {/* ── Tabs (fixed) ── */}
+        <div className="flex border-b border-[#dfe3e6] flex-shrink-0 bg-white">
+          {([
+            { id: 'fases', icon: (
+              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current">
+                <path d="M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z"/>
+              </svg>
+            ), label: 'Fases' },
+            { id: 'chat', icon: (
+              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current">
+                <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
+              </svg>
+            ), label: 'Chat' },
+            { id: 'tiempo', icon: (
+              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current">
+                <path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42C16.07 4.74 14.12 4 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/>
+              </svg>
+            ), label: 'Hoja de tiempo' },
+          ] as { id: Tab; icon: React.ReactNode; label: string }[]).map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors flex-1 justify-center ${
+                activeTab === tab.id
+                  ? 'text-[#00675c] border-[#00675c]'
+                  : 'text-[#747779] border-transparent hover:text-[#2c2f31]'
+              }`}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Tab content (scrollable) ── */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+
+          {/* FASES */}
+          <div className={`h-full overflow-y-auto ${activeTab === 'fases' ? 'block' : 'hidden'}`}>
+            <div className="px-5 py-4 space-y-5">
+
+              {/* Edit title/notes */}
+              <div className="space-y-3 pb-4 border-b border-[#eef1f3]">
+                <p className="text-[10px] font-bold text-[#abadaf] uppercase tracking-wider">
+                  Información del requerimiento
+                </p>
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-[#595c5e]">Título</Label>
+                  <input
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl focus:outline-none focus:border-[#00675c] text-[#2c2f31]"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-[#595c5e]">
+                    Notas <span className="text-[#abadaf] font-normal">(opcional)</span>
+                  </Label>
+                  <Textarea
+                    value={editNotes}
+                    onChange={(e) => setEditNotes(e.target.value)}
+                    placeholder="Instrucciones, descripción del contenido…"
+                    className="resize-none bg-[#f5f7f9] border-[#dfe3e6] focus:border-[#00675c] rounded-xl text-sm"
+                    rows={2}
+                  />
+                </div>
+                {editError && (
+                  <p className="text-xs text-[#b31b25] bg-[#b31b25]/5 rounded-lg px-3 py-1.5 border border-[#b31b25]/20">
+                    {editError}
+                  </p>
+                )}
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={savingEdit || !editTitle.trim()}
+                  className="w-full py-2 text-sm font-semibold rounded-xl text-white disabled:opacity-50"
+                  style={{ background: 'linear-gradient(135deg,#00675c,#5bf4de)' }}
+                >
+                  {savingEdit ? 'Guardando…' : 'Guardar cambios'}
+                </button>
+              </div>
+
+              {/* Review timer (solo en revision_cliente) */}
+              {isReviewPhase && (
+                <div className="rounded-2xl p-4 border border-[#f59e0b]/30 bg-amber-50">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-amber-600">
+                          <path d="M6 2v6l2 2-2 2v6h12v-6l-2-2 2-2V2H6zm10 14.5V20H8v-3.5l4-4 4 4zm-4-5l-4-4V4h8v3.5l-4 4z"/>
+                        </svg>
+                        <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">
+                          Esperando respuesta del cliente
+                        </span>
+                        <span className="text-[9px] font-bold bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded-full">
+                          REFERENCIA
+                        </span>
+                      </div>
+                      <p className="text-2xl font-black text-amber-700 tabular-nums">
+                        {reviewElapsed || '—'}
                       </p>
-                      <p className="text-sm font-medium text-[#2c2f31] leading-snug">
-                        {log.from_phase
-                          ? `${PHASE_LABELS[log.from_phase as Phase]} → ${PHASE_LABELS[log.to_phase as Phase]}`
-                          : `Creado en ${PHASE_LABELS[log.to_phase as Phase]}`}
-                      </p>
-                      {log.notes && (
-                        <p className="text-xs text-[#595c5e] mt-1 bg-[#f5f7f9] rounded-lg px-2.5 py-1.5">
-                          {log.notes}
+                      {reviewStartedAt && (
+                        <p className="text-xs text-amber-600 mt-0.5">
+                          Desde {new Date(reviewStartedAt).toLocaleDateString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                         </p>
                       )}
                     </div>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </div>
+                  </div>
+                </div>
+              )}
 
-          {/* Formulario mover de fase */}
-          {(showMoveSection ?? true) && (
-            <div className="space-y-4 border-t border-[#dfe3e6] pt-5">
-              <p className="text-xs font-semibold text-[#747779] uppercase tracking-wider">
-                Mover a fase
-              </p>
-
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium text-[#2c2f31]">Nueva fase</Label>
-                <Select value={toPhase} onValueChange={(v) => setToPhase(v as Phase)}>
-                  <SelectTrigger className="rounded-xl border-[#dfe3e6] bg-white h-10">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PHASES.map((phase) => (
-                      <SelectItem key={phase} value={phase}>
-                        {PHASE_LABELS[phase]}
-                        {phase === currentPhase ? ' (actual)' : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {/* Cambios */}
+              <div className="flex items-center justify-between bg-[#f5f7f9] rounded-xl px-4 py-3">
+                <div>
+                  <p className="text-xs text-[#595c5e] font-semibold">Cambios aplicados</p>
+                  <div className="w-32 h-1.5 bg-[#eef1f3] rounded-full mt-1.5 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${Math.min(100, (localCambios / maxCambios) * 100)}%`,
+                        background: localCambios >= maxCambios ? '#b31b25' : '#f59e0b',
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={`text-lg font-black ${localCambios >= maxCambios ? 'text-[#b31b25]' : 'text-[#2c2f31]'}`}>
+                    {localCambios}
+                    <span className="text-sm font-normal text-[#abadaf]">/{maxCambios}</span>
+                  </span>
+                  <button
+                    onClick={handleAddCambio}
+                    disabled={incrementing}
+                    className={`text-xs font-bold px-2.5 py-1 rounded-lg transition-colors disabled:opacity-40 ${
+                      localCambios >= maxCambios
+                        ? 'bg-[#b31b25]/10 text-[#b31b25] hover:bg-[#b31b25]/20'
+                        : 'bg-[#00675c]/10 text-[#00675c] hover:bg-[#00675c]/20'
+                    }`}
+                  >
+                    {incrementing ? '…' : '+1'}
+                  </button>
+                </div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="phase-notes" className="text-sm font-medium text-[#2c2f31]">
-                  Notas{' '}
-                  <span className="text-[#abadaf] font-normal">(opcional)</span>
-                </Label>
-                <Textarea
-                  id="phase-notes"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Ej. cliente pidió cambiar el copy..."
-                  className="resize-none bg-[#f5f7f9] border-[#dfe3e6] focus:border-[#00675c] rounded-xl text-sm"
-                  rows={3}
-                />
-              </div>
-
-              {error && (
-                <p className="text-sm text-[#b31b25] bg-[#b31b25]/5 rounded-xl px-3 py-2.5 border border-[#b31b25]/20">
-                  {error}
+              {/* Timeline */}
+              <div>
+                <p className="text-[10px] font-bold text-[#abadaf] uppercase tracking-wider mb-3">
+                  Historial de fases
                 </p>
+                {logs.length === 0 ? (
+                  <p className="text-sm text-[#abadaf] italic">Sin movimientos registrados.</p>
+                ) : (
+                  <ol className="space-y-0">
+                    {logs.map((log, idx) => (
+                      <li key={log.id} className="flex gap-3">
+                        <div className="flex flex-col items-center">
+                          <div
+                            className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1"
+                            style={{
+                              background: log.to_phase === 'revision_cliente' ? '#f59e0b' : '#00675c',
+                            }}
+                          />
+                          {idx < logs.length - 1 && (
+                            <div className="w-px flex-1 bg-[#eef1f3] my-1" />
+                          )}
+                        </div>
+                        <div className="pb-4 min-w-0">
+                          <p className="text-[11px] text-[#abadaf] mb-0.5">
+                            {new Date(log.created_at).toLocaleDateString('es', {
+                              day: '2-digit', month: 'short', year: 'numeric',
+                              hour: '2-digit', minute: '2-digit',
+                            })}
+                          </p>
+                          <p className="text-sm font-semibold text-[#2c2f31]">
+                            {log.from_phase
+                              ? `${PHASE_LABELS[log.from_phase as Phase]} → ${PHASE_LABELS[log.to_phase as Phase]}`
+                              : `Creado en ${PHASE_LABELS[log.to_phase as Phase]}`}
+                          </p>
+                          {log.notes && (
+                            <p className="text-xs text-[#595c5e] mt-1 bg-[#f5f7f9] rounded-lg px-2.5 py-1.5">
+                              {log.notes}
+                            </p>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+
+              {/* Move phase form */}
+              {showMove && (
+                <div className="space-y-3 border-t border-[#eef1f3] pt-4">
+                  <p className="text-[10px] font-bold text-[#abadaf] uppercase tracking-wider">
+                    Mover a fase
+                  </p>
+                  <Select value={toPhase} onValueChange={(v) => setToPhase(v as Phase)}>
+                    <SelectTrigger className="rounded-xl border-[#dfe3e6] bg-white h-10">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PHASES.map((phase) => (
+                        <SelectItem key={phase} value={phase}>
+                          {PHASE_LABELS[phase]}{phase === currentPhase ? ' (actual)' : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Textarea
+                    value={moveNotes}
+                    onChange={(e) => setMoveNotes(e.target.value)}
+                    placeholder="Notas del movimiento (opcional)"
+                    className="resize-none bg-[#f5f7f9] border-[#dfe3e6] focus:border-[#00675c] rounded-xl text-sm"
+                    rows={2}
+                  />
+                  {moveError && (
+                    <p className="text-sm text-[#b31b25] bg-[#b31b25]/5 rounded-xl px-3 py-2 border border-[#b31b25]/20">
+                      {moveError}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
-          )}
+          </div>
+
+          {/* CHAT */}
+          <div className={`h-full ${activeTab === 'chat' ? 'block' : 'hidden'}`}>
+            <RequirementChat
+              requirementId={requirementId}
+              currentUserId={currentUserId}
+            />
+          </div>
+
+          {/* HOJA DE TIEMPO */}
+          <div className={`h-full overflow-hidden ${activeTab === 'tiempo' ? 'block' : 'hidden'}`}>
+            <RequirementTimesheet
+              requirementId={requirementId}
+              currentPhase={currentPhase}
+              currentUserId={currentUserId}
+            />
+          </div>
         </div>
 
-        {/* ── Footer fijo con botones ── */}
-        {(showMoveSection ?? true) ? (
-          <div className="px-6 py-4 border-t border-[#dfe3e6] bg-white flex gap-3">
+        {/* ── Footer (fixed) ── */}
+        {activeTab === 'fases' && showMove ? (
+          <div className="px-5 py-3 border-t border-[#dfe3e6] bg-white flex gap-2 flex-shrink-0">
             <Button
               variant="outline"
               onClick={onClose}
-              className="flex-1 rounded-xl border-[#dfe3e6] text-[#595c5e] h-10"
+              className="flex-1 rounded-xl border-[#dfe3e6] text-[#595c5e] h-9 text-sm"
             >
               Cancelar
             </Button>
             <Button
               onClick={handleMove}
-              disabled={loading || toPhase === currentPhase}
-              className="flex-1 rounded-xl text-white font-semibold h-10"
-              style={{ background: 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)' }}
+              disabled={moving || toPhase === currentPhase}
+              className="flex-1 rounded-xl text-white font-semibold h-9 text-sm"
+              style={{ background: 'linear-gradient(135deg,#00675c,#5bf4de)' }}
             >
-              {loading ? 'Moviendo...' : 'Mover'}
+              {moving ? 'Moviendo…' : 'Mover fase'}
             </Button>
           </div>
         ) : (
-          <div className="px-6 py-4 border-t border-[#dfe3e6] bg-white">
-            <Button variant="outline" onClick={onClose} className="w-full rounded-xl h-10">
+          <div className="px-5 py-3 border-t border-[#dfe3e6] bg-white flex-shrink-0">
+            <Button
+              variant="outline"
+              onClick={onClose}
+              className="w-full rounded-xl h-9 text-sm"
+            >
               Cerrar
             </Button>
           </div>

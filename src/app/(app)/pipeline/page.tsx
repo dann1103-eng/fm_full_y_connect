@@ -37,7 +37,7 @@ export default async function PipelinePage({
   if (currentCycleIds.length > 0) {
     const { data: requirementsRaw } = await supabase
       .from('requirements')
-      .select('id, content_type, phase, carried_over, billing_cycle_id, registered_at, notes, title, cambios_count')
+      .select('id, content_type, phase, carried_over, billing_cycle_id, registered_at, notes, title, cambios_count, review_started_at')
       .eq('voided', false)
       .in('content_type', PIPELINE_CONTENT_TYPES)
       .in('billing_cycle_id', currentCycleIds)
@@ -78,6 +78,7 @@ export default async function PipelinePage({
         title: c.title ?? '',
         cambios_count: c.cambios_count ?? 0,
         max_cambios: cl.max_cambios ?? 2,
+        review_started_at: c.review_started_at ?? null,
       })
     }
 

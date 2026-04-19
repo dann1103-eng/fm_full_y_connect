@@ -131,6 +131,7 @@ export function KanbanBoard({ byPhase, logsMap, currentUserId }: KanbanBoardProp
           requirementNotes={activeDetailItem.notes}
           cambiosCount={activeDetailItem.cambios_count}
           maxCambios={activeDetailItem.max_cambios}
+          reviewStartedAt={activeDetailItem.review_started_at}
           showMoveSection={false}
         />
       )}
