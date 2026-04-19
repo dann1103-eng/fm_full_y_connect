@@ -58,7 +58,7 @@ export default function ClientEditPage() {
       const { data: { user } } = await supabase.auth.getUser()
       const { data: appUser } = user
         ? await supabase.from('users').select('role').eq('id', user.id).single()
-        : { data: null }
+        : { data: null as { role: string } | null }
       if (appUser?.role !== 'admin') {
         router.replace(`/clients/${id}`)
         return
