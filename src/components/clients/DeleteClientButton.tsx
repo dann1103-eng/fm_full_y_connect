@@ -27,7 +27,7 @@ export function DeleteClientButton({ clientId, clientName }: { clientId: string;
     <div className="glass-panel rounded-2xl p-5 border border-[#b31b25]/30 space-y-3">
       <p className="text-sm font-semibold text-[#b31b25]">¿Eliminar a {clientName}?</p>
       <p className="text-xs text-[#595c5e]">
-        Esta acción es irreversible. Se eliminarán todos sus ciclos, consumos y logs asociados.
+        Esta acción es irreversible. Se eliminarán todos sus ciclos, requerimientos y logs asociados.
       </p>
       <div className="flex gap-3">
         <button

@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase/client'
 import type { ClientWithPlan, BillingCycle, ContentType } from '@/types/db'
 import { CONTENT_TYPES, CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
-import { canConsume } from '@/lib/domain/consumption'
+import { canRegister } from '@/lib/domain/requirement'
 import { insertInitialPhaseLog } from '@/lib/domain/pipeline'
 
 const CONTENT_ICONS: Record<ContentType, React.ReactNode> = {
@@ -55,7 +55,7 @@ const CONTENT_ICONS: Record<ContentType, React.ReactNode> = {
   ),
 }
 
-interface ConsumptionModalProps {
+interface RequirementModalProps {
   open: boolean
   onClose: () => void
   client: ClientWithPlan
@@ -65,7 +65,7 @@ interface ConsumptionModalProps {
   isAdmin: boolean
 }
 
-export function ConsumptionModal({
+export function RequirementModal({
   open,
   onClose,
   client,
@@ -73,7 +73,7 @@ export function ConsumptionModal({
   totals,
   limits,
   isAdmin,
-}: ConsumptionModalProps) {
+}: RequirementModalProps) {
   const router = useRouter()
   const [selectedType, setSelectedType] = useState<ContentType | null>(null)
   const [title, setTitle] = useState('')
@@ -90,16 +90,16 @@ export function ConsumptionModal({
     setError(null)
     setLoading(true)
 
-    const allowed = canConsume(selectedType, totals, limits)
+    const allowed = canRegister(selectedType, totals, limits)
 
     if (!allowed && !forceOverLimit) {
-      setError('Límite alcanzado. Solo un admin puede forzar un consumo extra.')
+      setError('Límite alcanzado. Solo un admin puede forzar un requerimiento extra.')
       setLoading(false)
       return
     }
 
     if (!allowed && !isAdmin) {
-      setError('No tienes permisos para registrar consumo por encima del límite.')
+      setError('No tienes permisos para registrar requerimientos por encima del límite.')
       setLoading(false)
       return
     }
@@ -112,8 +112,8 @@ export function ConsumptionModal({
       return
     }
 
-    const { data: newConsumption, error: insertError } = await supabase
-      .from('consumptions')
+    const { data: newRequirement, error: insertError } = await supabase
+      .from('requirements')
       .insert({
         billing_cycle_id: cycle.id,
         content_type: selectedType,
@@ -127,15 +127,15 @@ export function ConsumptionModal({
       .single()
 
     if (insertError) {
-      setError('Error al registrar el consumo. Intenta de nuevo.')
+      setError('Error al registrar el requerimiento. Intenta de nuevo.')
       setLoading(false)
       return
     }
 
     // Crear log inicial del pipeline (solo tipos que tienen fases; excluye produccion y reunion)
-    if (selectedType !== 'produccion' && selectedType !== 'reunion' && newConsumption?.id) {
+    if (selectedType !== 'produccion' && selectedType !== 'reunion' && newRequirement?.id) {
       await insertInitialPhaseLog(supabase, {
-        consumptionId: newConsumption.id,
+        requirementId: newRequirement.id,
         movedBy: user.id,
       })
     }
@@ -150,14 +150,14 @@ export function ConsumptionModal({
   }
 
   const selectedAtLimit =
-    selectedType !== null && !canConsume(selectedType, totals, limits)
+    selectedType !== null && !canRegister(selectedType, totals, limits)
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
       <DialogContent className="max-w-lg rounded-2xl border border-[#abadaf]/20 shadow-xl p-0 overflow-hidden">
         <DialogHeader className="px-6 pt-6 pb-0">
           <DialogTitle className="text-lg font-semibold text-[#2c2f31]">
-            Registrar consumo
+            Registrar requerimiento
           </DialogTitle>
           <p className="text-sm text-[#595c5e] mt-0.5">{client.name}</p>
         </DialogHeader>
@@ -217,7 +217,7 @@ export function ConsumptionModal({
                     className="rounded border-[#b31b25]/30 accent-[#b31b25]"
                   />
                   <span className="text-xs font-medium text-[#b31b25]">
-                    Forzar consumo (marcar como excedente)
+                    Forzar requerimiento (marcar como excedente)
                   </span>
                 </label>
               )}

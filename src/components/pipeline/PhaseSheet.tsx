@@ -25,20 +25,19 @@ import {
   movePhase,
 } from '@/lib/domain/pipeline'
 import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
-import type { Phase, ContentType, ConsumptionPhaseLog } from '@/types/db'
+import type { Phase, ContentType, RequirementPhaseLog } from '@/types/db'
 
 interface PhaseSheetProps {
   open: boolean
   onClose: () => void
-  consumptionId: string
+  requirementId: string
   contentType: ContentType
   currentPhase: Phase
   clientName: string
-  logs: ConsumptionPhaseLog[]
+  logs: RequirementPhaseLog[]
   currentUserId: string
-  // New props:
   title: string
-  consumptionNotes: string | null
+  requirementNotes: string | null
   cambiosCount: number
   maxCambios: number
   showMoveSection?: boolean // default true
@@ -47,14 +46,14 @@ interface PhaseSheetProps {
 export function PhaseSheet({
   open,
   onClose,
-  consumptionId,
+  requirementId,
   contentType,
   currentPhase,
   clientName,
   logs,
   currentUserId,
   title,
-  consumptionNotes,
+  requirementNotes,
   cambiosCount,
   maxCambios,
   showMoveSection,
@@ -67,9 +66,9 @@ export function PhaseSheet({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Editable consumption fields state
+  // Editable requirement fields state
   const [editTitle, setEditTitle] = useState(title)
-  const [editNotes, setEditNotes] = useState(consumptionNotes ?? '')
+  const [editNotes, setEditNotes] = useState(requirementNotes ?? '')
   const [savingEdit, setSavingEdit] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [incrementing, setIncrementing] = useState(false)
@@ -85,7 +84,7 @@ export function PhaseSheet({
 
     const supabase = createClient()
     const { error: moveError } = await movePhase(supabase, {
-      consumptionId,
+      requirementId,
       currentPhase,
       contentType,
       toPhase,
@@ -114,9 +113,9 @@ export function PhaseSheet({
     setSavingEdit(true)
     const supabase = createClient()
     const { error } = await supabase
-      .from('consumptions')
+      .from('requirements')
       .update({ title: editTitle.trim(), notes: editNotes.trim() || null })
-      .eq('id', consumptionId)
+      .eq('id', requirementId)
     setSavingEdit(false)
     if (error) { setEditError('Error al guardar.'); return }
     onClose()
@@ -127,9 +126,9 @@ export function PhaseSheet({
     setIncrementing(true)
     const supabase = createClient()
     await supabase
-      .from('consumptions')
+      .from('requirements')
       .update({ cambios_count: localCambios + 1 })
-      .eq('id', consumptionId)
+      .eq('id', requirementId)
     setLocalCambios((n) => n + 1)
     setIncrementing(false)
     router.refresh()
@@ -151,10 +150,10 @@ export function PhaseSheet({
         {/* ── Cuerpo scrollable ── */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
 
-          {/* ── Información del consumo ── */}
+          {/* ── Información del requerimiento ── */}
           <div className="space-y-3 pb-5 border-b border-[#dfe3e6]">
             <p className="text-xs font-semibold text-[#747779] uppercase tracking-wider">
-              Información del consumo
+              Información del requerimiento
             </p>
 
             <div className="space-y-1.5">

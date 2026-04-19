@@ -200,7 +200,7 @@ export interface Database {
           }
         ]
       }
-      consumptions: {
+      requirements: {
         Row: {
           id: string
           billing_cycle_id: string
@@ -249,7 +249,7 @@ export interface Database {
         }
         Relationships: [
           {
-            foreignKeyName: 'consumptions_billing_cycle_id_fkey'
+            foreignKeyName: 'requirements_billing_cycle_id_fkey'
             columns: ['billing_cycle_id']
             isOneToOne: false
             referencedRelation: 'billing_cycles'
@@ -257,10 +257,10 @@ export interface Database {
           }
         ]
       }
-      consumption_phase_logs: {
+      requirement_phase_logs: {
         Row: {
           id: string
-          consumption_id: string
+          requirement_id: string
           from_phase: Phase | null
           to_phase: Phase
           moved_by: string | null
@@ -269,7 +269,7 @@ export interface Database {
         }
         Insert: {
           id?: string
-          consumption_id: string
+          requirement_id: string
           from_phase?: Phase | null
           to_phase: Phase
           moved_by?: string | null
@@ -279,10 +279,10 @@ export interface Database {
         Update: Record<string, never>
         Relationships: [
           {
-            foreignKeyName: 'phase_logs_consumption_id_fkey'
-            columns: ['consumption_id']
+            foreignKeyName: 'requirement_phase_logs_requirement_id_fkey'
+            columns: ['requirement_id']
             isOneToOne: false
-            referencedRelation: 'consumptions'
+            referencedRelation: 'requirements'
             referencedColumns: ['id']
           }
         ]
@@ -299,20 +299,20 @@ export interface Database {
 export type Plan = Database['public']['Tables']['plans']['Row']
 export type Client = Database['public']['Tables']['clients']['Row']
 export type BillingCycle = Database['public']['Tables']['billing_cycles']['Row']
-export type Consumption = Database['public']['Tables']['consumptions']['Row']
-export type ConsumptionPhaseLog = Database['public']['Tables']['consumption_phase_logs']['Row']
+export type Requirement = Database['public']['Tables']['requirements']['Row']
+export type RequirementPhaseLog = Database['public']['Tables']['requirement_phase_logs']['Row']
 export type AppUser = Database['public']['Tables']['users']['Row']
 
 export interface ClientWithPlan extends Client {
   plan: Plan
 }
 
-export interface CycleWithConsumptions extends BillingCycle {
-  consumptions: Consumption[]
+export interface CycleWithRequirements extends BillingCycle {
+  requirements: Requirement[]
 }
 
-/** consumido por tipo en un ciclo */
-export type ConsumptionTotals = Record<ContentType, number>
+/** requerimientos por tipo en un ciclo */
+export type RequirementTotals = Record<ContentType, number>
 
 /** límites efectivos = snapshot + rollover */
 export type EffectiveLimits = Record<ContentType, number>

@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import type { Client, Plan, ContentType } from '@/types/db'
-import { effectiveWeeklyTarget } from '@/lib/domain/consumption'
+import { effectiveWeeklyTarget } from '@/lib/domain/requirement'
 import { limitsToRecord, CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import { LogoUploader } from '@/components/clients/LogoUploader'
 
@@ -220,7 +220,7 @@ export default function ClientEditPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>Máx. cambios por consumo</Label>
+                  <Label>Máx. cambios por requerimiento</Label>
                   <Input
                     type="number"
                     min={0}
@@ -228,7 +228,7 @@ export default function ClientEditPage() {
                     onChange={(e) => set('max_cambios', e.target.value)}
                     className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
                   />
-                  <p className="text-xs text-[#747779]">Default: 2. Aplica a todos los consumos del cliente.</p>
+                  <p className="text-xs text-[#747779]">Default: 2. Aplica a todos los requerimientos del cliente.</p>
                 </div>
 
                 <div className="space-y-1.5">

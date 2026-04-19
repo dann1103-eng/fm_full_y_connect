@@ -3,7 +3,7 @@
 # FM CRM — Claude Context
 
 ## Proyecto
-CRM interno para FM Communication Solutions. Gestiona clientes, ciclos de facturación, consumos de contenido, y pipeline de producción.
+CRM interno para FM Communication Solutions. Gestiona clientes, ciclos de facturación, requerimientos de contenido, y pipeline de producción.
 
 ## Stack
 - Next.js 14 App Router · TypeScript · Tailwind · shadcn/ui
@@ -24,7 +24,7 @@ git add <files> && git commit -m "feat|fix|docs: mensaje en español"
 |---------|-----|
 | `src/types/db.ts` | Tipos TS manuales (NO auto-generados). Editar directamente al cambiar el schema. |
 | `src/lib/domain/pipeline.ts` | `PipelineItem` interface — fuente de verdad para todos los componentes del pipeline. Incluye `migrateOpenPipelineItems`. |
-| `src/lib/domain/consumption.ts` | Lógica de cálculo de límites y semanas |
+| `src/lib/domain/requirement.ts` | Lógica de cálculo de límites y semanas |
 | `src/lib/domain/plans.ts` | `limitsToRecord`, `CONTENT_TYPE_LABELS` |
 | `src/app/actions/` | Server Actions (`'use server'`) |
 | `supabase/migrations/` | Migraciones SQL (`NNNN_description.sql`) — aplicar manualmente en Supabase Dashboard |
@@ -47,16 +47,16 @@ const supabase = createClient()          // ← sync
 
 ## Modelo de datos (tablas principales)
 ```
-clients         → billing_cycles → consumptions → consumption_phase_logs
+clients         → billing_cycles → requirements → requirement_phase_logs
                                               ↘ voided_by_user_id (→ users, NO se borra)
-clients.max_cambios       — límite de cambios por consumo (default 2)
-consumptions.title        — requerido en UI, DEFAULT '' en DB (legacy rows ok)
-consumptions.cambios_count — contador, sin decremento por diseño
-consumptions.phase        — fase actual en pipeline
+clients.max_cambios       — límite de cambios por requerimiento (default 2)
+requirements.title        — requerido en UI, DEFAULT '' en DB (legacy rows ok)
+requirements.cambios_count — contador, sin decremento por diseño
+requirements.phase        — fase actual en pipeline
 ```
 
 ### Cascade delete (orden obligatorio)
-`consumption_phase_logs` → `consumptions` → `billing_cycles` → `clients`
+`requirement_phase_logs` → `requirements` → `billing_cycles` → `clients`
 No hay FK CASCADE en DB — el app borra en secuencia.
 
 ## Pipeline — arquitectura de componentes
@@ -72,9 +72,9 @@ clients/[id]/page.tsx (server)
   └─ ClientPipelineTab ('use client')
        └─ PipelineCard — rama NO-DRAGGABLE (onClick → PhaseSheet con move section)
 ```
-- `PipelineItem` (en `pipeline.ts`): al agregar columnas a `consumptions`/`clients`, actualizar interfaz Y `migrateOpenPipelineItems`.
-- `PhaseSheet` props clave: `showMoveSection` (default true), `title`, `consumptionNotes`, `cambiosCount`, `maxCambios`.
-- `KanbanBoard`: logs del consumo se cargan on-demand en `.then()` del useEffect (no setState síncrono).
+- `PipelineItem` (en `pipeline.ts`): al agregar columnas a `requirements`/`clients`, actualizar interfaz Y `migrateOpenPipelineItems`.
+- `PhaseSheet` props clave: `showMoveSection` (default true), `title`, `requirementNotes`, `cambiosCount`, `maxCambios`.
+- `KanbanBoard`: logs del requerimiento se cargan on-demand en `.then()` del useEffect (no setState síncrono).
 
 ## Storage — logos de clientes
 - Bucket público: `client-logos` (crear manualmente en Supabase Dashboard)
@@ -94,3 +94,4 @@ clients/[id]/page.tsx (server)
 |-----------|-----------|
 | 0007 | Storage bucket client-logos (policies) |
 | 0008 | `consumptions.title`, `consumptions.cambios_count`, `clients.max_cambios` |
+| 0009 | Rename `consumptions` → `requirements`, `consumption_phase_logs` → `requirement_phase_logs` |

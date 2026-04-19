@@ -4,11 +4,11 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import type { ClientWithPlan, BillingCycle, Consumption, ContentType } from '@/types/db'
+import type { ClientWithPlan, BillingCycle, Requirement, ContentType } from '@/types/db'
 import { CONTENT_TYPES, CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
-import { groupByWeek, effectiveWeeklyTarget } from '@/lib/domain/consumption'
-import { ConsumptionModal } from './ConsumptionModal'
-import { ConsumptionHistory } from './ConsumptionHistory'
+import { groupByWeek, effectiveWeeklyTarget } from '@/lib/domain/requirement'
+import { RequirementModal } from './RequirementModal'
+import { RequirementHistory } from './RequirementHistory'
 
 // Material Symbols icon names per content type
 const CONTENT_ICONS: Record<ContentType, string> = {
@@ -58,10 +58,10 @@ const STATUS_LABELS: Record<string, string> = {
 const MONTHS_SHORT = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
 const MONTHS_FULL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
-interface ConsumptionPanelProps {
+interface RequirementPanelProps {
   client: ClientWithPlan
   cycle: BillingCycle
-  consumptions: Consumption[]
+  requirements: Requirement[]
   totals: Record<ContentType, number>
   limits: Record<ContentType, number>
   daysLeft: number | null
@@ -69,16 +69,16 @@ interface ConsumptionPanelProps {
   userMap: Record<string, string>
 }
 
-export function ConsumptionPanel({
+export function RequirementPanel({
   client,
   cycle,
-  consumptions,
+  requirements,
   totals,
   limits,
   daysLeft,
   isAdmin,
   userMap,
-}: ConsumptionPanelProps) {
+}: RequirementPanelProps) {
   const [modalOpen, setModalOpen] = useState(false)
   const [markingPaid, setMarkingPaid] = useState(false)
   const [notes, setNotes] = useState(client.notes ?? '')
@@ -125,7 +125,7 @@ export function ConsumptionPanel({
   const simpleTypes = activeTypes.filter((t) => SIMPLE_TYPES.includes(t))
 
   // Weekly breakdown
-  const weeklyGroups = groupByWeek(consumptions, cycle.period_start)
+  const weeklyGroups = groupByWeek(requirements, cycle.period_start)
   const daysSinceStart = Math.floor(
     (new Date().getTime() - new Date(cycle.period_start).getTime()) / (1000 * 60 * 60 * 24)
   )
@@ -271,7 +271,7 @@ export function ConsumptionPanel({
             style={{ background: isOverdue ? '#b31b25' : 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)', boxShadow: '0 4px 15px rgba(0,103,92,0.25)' }}
           >
             <span className="material-symbols-outlined text-base">{isOverdue ? 'block' : 'add'}</span>
-            {isOverdue ? 'Cuenta vencida' : 'Registrar consumo'}
+            {isOverdue ? 'Cuenta vencida' : 'Registrar requerimiento'}
           </button>
         </div>
       </section>
@@ -281,7 +281,7 @@ export function ConsumptionPanel({
         <div className="bg-[#b31b25]/5 border border-[#b31b25]/20 rounded-2xl px-5 py-4 flex items-center gap-3">
           <span className="material-symbols-outlined text-[#b31b25] text-xl flex-shrink-0">warning</span>
           <div>
-            <p className="text-sm font-semibold text-[#b31b25]">Cuenta vencida — registro de consumos bloqueado</p>
+            <p className="text-sm font-semibold text-[#b31b25]">Cuenta vencida — registro de requerimientos bloqueado</p>
             <p className="text-xs text-[#b31b25]/80 mt-0.5">
               El ciclo venció y el pago está pendiente.
               {isAdmin ? ' Marca el pago como recibido para desbloquear.' : ' Contacta al administrador para regularizar el pago.'}
@@ -290,11 +290,11 @@ export function ConsumptionPanel({
         </div>
       )}
 
-      {/* ── Consumption section ── */}
+      {/* ── Requerimientos del ciclo ── */}
       <section className="space-y-5">
         <div>
           <h2 className="text-2xl font-extrabold tracking-tight text-[#2c2f31]">
-            Consumo del ciclo actual
+            Requerimientos del ciclo actual
           </h2>
           <p className="text-[#595c5e] font-medium text-sm mt-1">
             {cycleMonthLabel}
@@ -316,7 +316,7 @@ export function ConsumptionPanel({
           </p>
         </div>
 
-        {/* Consumption cards */}
+        {/* Requirement cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {activeTypes.map((type) => {
             const consumed = totals[type]
@@ -392,7 +392,7 @@ export function ConsumptionPanel({
         </div>
       </section>
 
-      {/* ── Weekly breakdown ── */}
+      {/* ── Desglose semanal ── */}
       <section className="space-y-5">
         <h3 className="text-xl font-extrabold tracking-tight text-[#2c2f31]">
           Desglose semanal
@@ -405,7 +405,7 @@ export function ConsumptionPanel({
             const isCurrent = weekIdx === currentWeek
             const isFuture = weekIdx > currentWeek
 
-            // Future week with no consumptions → hourglass
+            // Future week with no requirements → hourglass
             if (isFuture && items.length === 0) {
               return (
                 <div
@@ -452,12 +452,12 @@ export function ConsumptionPanel({
 
                 {/* Per-type progress bars */}
                 {items.length === 0 ? (
-                  <p className="text-xs text-[#abadaf]">Sin consumos</p>
+                  <p className="text-xs text-[#abadaf]">Sin requerimientos</p>
                 ) : (
                   <div className="space-y-3">
                     {pipelineTypes.map((type) => {
                       const consumed = items.filter(
-                        (c) => c.content_type === type && !c.voided && !c.carried_over
+                        (r) => r.content_type === type && !r.voided && !r.carried_over
                       ).length
                       const target = effectiveWeeklyTarget(type, limits[type], client.weekly_targets_json ?? null)
                       const pct = target > 0 ? Math.min(100, Math.round((consumed / target) * 100)) : 0
@@ -506,8 +506,8 @@ export function ConsumptionPanel({
           {/* Counter */}
           <div className="flex gap-4 flex-wrap">
             {simpleTypes.map((type) => {
-              const count = consumptions.filter(
-                (c) => c.content_type === type && !c.voided && !c.carried_over
+              const count = requirements.filter(
+                (r) => r.content_type === type && !r.voided && !r.carried_over
               ).length
               return (
                 <div key={type} className="flex items-center gap-2 px-4 py-2 glass-panel rounded-2xl">
@@ -527,8 +527,8 @@ export function ConsumptionPanel({
           {/* List of entries */}
           <div className="glass-panel rounded-[2rem] overflow-hidden">
             {(() => {
-              const simpleEntries = consumptions
-                .filter((c) => simpleTypes.includes(c.content_type as ContentType) && !c.voided)
+              const simpleEntries = requirements
+                .filter((r) => simpleTypes.includes(r.content_type as ContentType) && !r.voided)
                 .sort((a, b) => new Date(b.registered_at).getTime() - new Date(a.registered_at).getTime())
 
               if (simpleEntries.length === 0) {
@@ -541,12 +541,12 @@ export function ConsumptionPanel({
 
               return (
                 <div className="divide-y divide-[#dfe3e6]/60">
-                  {simpleEntries.map((c) => {
-                    const type = c.content_type as ContentType
-                    const date = new Date(c.registered_at)
+                  {simpleEntries.map((r) => {
+                    const type = r.content_type as ContentType
+                    const date = new Date(r.registered_at)
                     const dateStr = `${date.getDate()} ${['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][date.getMonth()]} ${date.getFullYear()}`
                     return (
-                      <div key={c.id} className="px-6 py-4 flex items-start gap-4">
+                      <div key={r.id} className="px-6 py-4 flex items-start gap-4">
                         <div className="p-2 bg-[#5bf4de]/30 rounded-xl flex-shrink-0 mt-0.5">
                           <span className="material-symbols-outlined text-[#00675c] text-base">
                             {CONTENT_ICONS[type]}
@@ -556,11 +556,11 @@ export function ConsumptionPanel({
                           <p className="text-sm font-bold text-[#2c2f31]">
                             {CONTENT_TYPE_LABELS[type]} — {dateStr}
                           </p>
-                          {c.notes && (
-                            <p className="text-xs text-[#595c5e] mt-0.5">{c.notes}</p>
+                          {r.notes && (
+                            <p className="text-xs text-[#595c5e] mt-0.5">{r.notes}</p>
                           )}
-                          {c.title && (
-                            <p className="text-xs text-[#747779] mt-0.5 italic">{c.title}</p>
+                          {r.title && (
+                            <p className="text-xs text-[#747779] mt-0.5 italic">{r.title}</p>
                           )}
                         </div>
                       </div>
@@ -580,8 +580,8 @@ export function ConsumptionPanel({
           <h3 className="text-xl font-extrabold tracking-tight text-[#2c2f31]">
             Historial del ciclo
           </h3>
-          <ConsumptionHistory
-            consumptions={consumptions}
+          <RequirementHistory
+            requirements={requirements}
             isAdmin={isAdmin}
             cycleId={cycle.id}
             userMap={userMap}
@@ -619,8 +619,8 @@ export function ConsumptionPanel({
         </div>
       </section>
 
-      {/* Consumption modal */}
-      <ConsumptionModal
+      {/* Requirement modal */}
+      <RequirementModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         client={client}

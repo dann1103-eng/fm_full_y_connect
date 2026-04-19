@@ -2,17 +2,17 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { TopNav } from '@/components/layout/TopNav'
-import { ConsumptionPanel } from '@/components/clients/ConsumptionPanel'
+import { RequirementPanel } from '@/components/clients/RequirementPanel'
 import { CycleHistory } from '@/components/clients/CycleHistory'
 import { ReactivatePanel } from '@/components/clients/ReactivatePanel'
-import type { ClientWithPlan, BillingCycle, Consumption, Plan } from '@/types/db'
-import { computeTotals } from '@/lib/domain/consumption'
+import type { ClientWithPlan, BillingCycle, Requirement, Plan } from '@/types/db'
+import { computeTotals } from '@/lib/domain/requirement'
 import { effectiveLimits } from '@/lib/domain/plans'
 import { daysUntilEnd } from '@/lib/domain/cycles'
 import { ClientPipelineTab } from '@/components/pipeline/ClientPipelineTab'
 import { PIPELINE_CONTENT_TYPES } from '@/lib/domain/pipeline'
 import type { PipelineItem } from '@/lib/domain/pipeline'
-import type { ConsumptionPhaseLog } from '@/types/db'
+import type { RequirementPhaseLog } from '@/types/db'
 import { DeleteClientButton } from '@/components/clients/DeleteClientButton'
 
 export const dynamic = 'force-dynamic'
@@ -57,10 +57,10 @@ export default async function ClientDetailPage({
     .eq('active', true)
     .order('price_usd')
 
-  // Consumptions for current cycle
-  const { data: consumptions } = currentCycle
+  // Requirements for current cycle
+  const { data: requirements } = currentCycle
     ? await supabase
-        .from('consumptions')
+        .from('requirements')
         .select('*')
         .eq('billing_cycle_id', currentCycle.id)
         .order('registered_at', { ascending: false })
@@ -78,11 +78,11 @@ export default async function ClientDetailPage({
 
   // Pipeline items del ciclo actual
   const pipelineItems: PipelineItem[] = []
-  const pipelineLogsMap: Record<string, ConsumptionPhaseLog[]> = {}
+  const pipelineLogsMap: Record<string, RequirementPhaseLog[]> = {}
 
   if (currentCycle) {
     const { data: pipelineCons } = await supabase
-      .from('consumptions')
+      .from('requirements')
       .select('id, content_type, phase, carried_over, billing_cycle_id, registered_at, notes, title, cambios_count')
       .eq('billing_cycle_id', currentCycle.id)
       .eq('voided', false)
@@ -110,14 +110,14 @@ export default async function ClientDetailPage({
 
     if (pipelineItems.length > 0) {
       const { data: logsRaw } = await supabase
-        .from('consumption_phase_logs')
+        .from('requirement_phase_logs')
         .select('*')
-        .in('consumption_id', pipelineItems.map((i) => i.id))
+        .in('requirement_id', pipelineItems.map((i) => i.id))
         .order('created_at', { ascending: true })
 
       for (const log of logsRaw ?? []) {
-        if (!pipelineLogsMap[log.consumption_id]) pipelineLogsMap[log.consumption_id] = []
-        pipelineLogsMap[log.consumption_id].push(log as ConsumptionPhaseLog)
+        if (!pipelineLogsMap[log.requirement_id]) pipelineLogsMap[log.requirement_id] = []
+        pipelineLogsMap[log.requirement_id].push(log as RequirementPhaseLog)
       }
 
       for (const item of pipelineItems) {
@@ -128,8 +128,8 @@ export default async function ClientDetailPage({
   }
 
   const cycle = currentCycle as BillingCycle | null
-  const cons = (consumptions ?? []) as Consumption[]
-  const totals = computeTotals(cons)
+  const reqs = (requirements ?? []) as Requirement[]
+  const totals = computeTotals(reqs)
   const limits = cycle
     ? effectiveLimits(cycle.limits_snapshot_json, cycle.rollover_from_previous_json)
     : null
@@ -160,12 +160,12 @@ export default async function ClientDetailPage({
           <span className="font-semibold text-[#2c2f31]">{client.name}</span>
         </nav>
 
-        {/* Current cycle consumption panel (includes client header card) */}
+        {/* Current cycle requirement panel (includes client header card) */}
         {cycle && limits ? (
-          <ConsumptionPanel
+          <RequirementPanel
             client={client}
             cycle={cycle}
-            consumptions={cons}
+            requirements={reqs}
             totals={totals}
             limits={limits}
             daysLeft={daysLeft}

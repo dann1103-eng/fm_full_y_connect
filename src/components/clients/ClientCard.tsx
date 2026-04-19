@@ -122,7 +122,7 @@ export function ClientCard({ item }: { item: ClientDashboardItem }) {
         {cycle && (
           <>
             <div className="flex items-center justify-between text-xs text-[#595c5e] mb-1.5">
-              <span>Consumo del ciclo</span>
+              <span>Requerimientos del ciclo</span>
               <span className="font-semibold text-[#2c2f31]">{pct}%</span>
             </div>
             <div className="w-full h-1.5 bg-[#eef1f3] rounded-full overflow-hidden mb-3">

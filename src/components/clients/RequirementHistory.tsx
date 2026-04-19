@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { Consumption, ContentType } from '@/types/db'
+import type { Requirement, ContentType } from '@/types/db'
 import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 
 // Material Symbols icon per content type
@@ -43,52 +43,52 @@ function daysAgo(dateStr: string): string {
   return `hace ${Math.floor(diffDays / 7)} semanas`
 }
 
-interface ConsumptionHistoryProps {
-  consumptions: Consumption[]
+interface RequirementHistoryProps {
+  requirements: Requirement[]
   isAdmin: boolean
   cycleId: string
   userMap: Record<string, string>
   maxCambios: number
 }
 
-export function ConsumptionHistory({
-  consumptions,
+export function RequirementHistory({
+  requirements,
   isAdmin,
   userMap,
   maxCambios,
-}: ConsumptionHistoryProps) {
+}: RequirementHistoryProps) {
   const router = useRouter()
   const [voidingId, setVoidingId] = useState<string | null>(null)
   const [incrementingId, setIncrementingId] = useState<string | null>(null)
 
-  async function handleVoid(consumptionId: string) {
-    setVoidingId(consumptionId)
+  async function handleVoid(requirementId: string) {
+    setVoidingId(requirementId)
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    await supabase.from('consumptions').update({
+    await supabase.from('requirements').update({
       voided: true,
       voided_by_user_id: user?.id,
       voided_at: new Date().toISOString(),
-    }).eq('id', consumptionId)
+    }).eq('id', requirementId)
     setVoidingId(null)
     router.refresh()
   }
 
-  async function handleAddCambio(consumptionId: string) {
-    setIncrementingId(consumptionId)
+  async function handleAddCambio(requirementId: string) {
+    setIncrementingId(requirementId)
     const supabase = createClient()
     await supabase
-      .from('consumptions')
-      .update({ cambios_count: (consumptions.find(c => c.id === consumptionId)?.cambios_count ?? 0) + 1 })
-      .eq('id', consumptionId)
+      .from('requirements')
+      .update({ cambios_count: (requirements.find(r => r.id === requirementId)?.cambios_count ?? 0) + 1 })
+      .eq('id', requirementId)
     setIncrementingId(null)
     router.refresh()
   }
 
-  if (consumptions.length === 0) {
+  if (requirements.length === 0) {
     return (
       <div className="glass-panel rounded-[2rem] p-8 text-center">
-        <p className="text-sm text-[#595c5e]">Sin registros de consumo en este ciclo.</p>
+        <p className="text-sm text-[#595c5e]">Sin requerimientos registrados en este ciclo.</p>
       </div>
     )
   }
@@ -96,18 +96,18 @@ export function ConsumptionHistory({
   return (
     <div className="glass-panel rounded-[2rem] overflow-hidden">
       <div className="divide-y divide-[#dfe3e6]/60">
-        {consumptions.map((c) => {
-          const type = c.content_type as ContentType
+        {requirements.map((r) => {
+          const type = r.content_type as ContentType
           const isAmber = AMBER_TYPES.has(type)
           const iconBg = isAmber ? 'bg-amber-100/60' : 'bg-[#5bf4de]/30'
           const iconColor = isAmber ? 'text-amber-600' : 'text-[#00675c]'
-          const userName = userMap[c.registered_by_user_id] ?? 'Operador'
+          const userName = userMap[r.registered_by_user_id] ?? 'Operador'
 
           return (
             <div
-              key={c.id}
+              key={r.id}
               className={`px-6 py-4 flex items-center justify-between hover:bg-[#eef1f3] transition-colors ${
-                c.voided ? 'opacity-40' : ''
+                r.voided ? 'opacity-40' : ''
               }`}
             >
               <div className="flex items-center gap-4">
@@ -121,37 +121,37 @@ export function ConsumptionHistory({
                 {/* Text */}
                 <div>
                   <p className="text-sm font-bold text-[#2c2f31]">
-                    {c.title || TYPE_ACTION[type] || CONTENT_TYPE_LABELS[type]}
-                    {c.voided && (
+                    {r.title || TYPE_ACTION[type] || CONTENT_TYPE_LABELS[type]}
+                    {r.voided && (
                       <span className="ml-2 text-xs font-medium text-[#747779] bg-[#abadaf]/20 px-1.5 py-0.5 rounded">
                         Anulado
                       </span>
                     )}
-                    {c.over_limit && !c.voided && (
+                    {r.over_limit && !r.voided && (
                       <span className="ml-2 text-xs font-medium text-[#b31b25] bg-[#b31b25]/10 px-1.5 py-0.5 rounded">
                         Excedente
                       </span>
                     )}
                     {/* Cambios badge */}
-                    {!c.voided && type !== 'produccion' && type !== 'reunion' && (() => {
-                      const isOver = c.cambios_count >= maxCambios
+                    {!r.voided && type !== 'produccion' && type !== 'reunion' && (() => {
+                      const isOver = r.cambios_count >= maxCambios
                       return (
                         <span className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded ${
                           isOver
                             ? 'text-[#b31b25] bg-[#b31b25]/10'
                             : 'text-[#595c5e] bg-[#abadaf]/20'
                         }`}>
-                          {c.cambios_count}/{maxCambios} cambios
+                          {r.cambios_count}/{maxCambios} cambios
                         </span>
                       )
                     })()}
                   </p>
                   <p className="text-xs text-[#595c5e] mt-0.5">
                     <span className="text-[#abadaf]">{CONTENT_TYPE_LABELS[type]}</span>
-                    {c.notes && <span> — {c.notes}</span>}
+                    {r.notes && <span> — {r.notes}</span>}
                   </p>
                   <p className="text-xs text-[#595c5e] mt-0.5">
-                    {daysAgo(c.registered_at)}&nbsp;·&nbsp;por{' '}
+                    {daysAgo(r.registered_at)}&nbsp;·&nbsp;por{' '}
                     <span className="font-semibold text-[#2c2f31]">{userName}</span>
                   </p>
                 </div>
@@ -160,27 +160,27 @@ export function ConsumptionHistory({
               {/* Action buttons */}
               <div className="flex items-center gap-3 flex-shrink-0 ml-4">
                 {/* +1 cambio */}
-                {!c.voided && type !== 'produccion' && type !== 'reunion' && (
+                {!r.voided && type !== 'produccion' && type !== 'reunion' && (
                   <button
-                    onClick={() => handleAddCambio(c.id)}
-                    disabled={incrementingId === c.id}
+                    onClick={() => handleAddCambio(r.id)}
+                    disabled={incrementingId === r.id}
                     className={`text-xs font-bold transition-colors disabled:opacity-30 ${
-                      c.cambios_count >= maxCambios
+                      r.cambios_count >= maxCambios
                         ? 'text-[#b31b25] hover:underline'
                         : 'text-[#00675c] hover:underline'
                     }`}
                   >
-                    {incrementingId === c.id ? '...' : '+1 cambio'}
+                    {incrementingId === r.id ? '...' : '+1 cambio'}
                   </button>
                 )}
                 {/* Void button */}
-                {!c.voided && (
+                {!r.voided && (
                   <button
-                    onClick={() => handleVoid(c.id)}
-                    disabled={voidingId === c.id || !isAdmin}
+                    onClick={() => handleVoid(r.id)}
+                    disabled={voidingId === r.id || !isAdmin}
                     className="text-[#b31b25] text-xs font-bold hover:underline transition-colors disabled:opacity-30"
                   >
-                    {voidingId === c.id ? '...' : 'Anular'}
+                    {voidingId === r.id ? '...' : 'Anular'}
                   </button>
                 )}
               </div>

@@ -3,7 +3,7 @@ import { TopNav } from '@/components/layout/TopNav'
 import { KanbanBoard } from '@/components/pipeline/KanbanBoard'
 import { PIPELINE_CONTENT_TYPES } from '@/lib/domain/pipeline'
 import type { PipelineItem } from '@/lib/domain/pipeline'
-import type { Phase, ConsumptionPhaseLog, Client } from '@/types/db'
+import type { Phase, RequirementPhaseLog, Client } from '@/types/db'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,13 +30,13 @@ export default async function PipelinePage({
   const { data: currentCycles } = await cyclesQuery
   const currentCycleIds = (currentCycles ?? []).map((c) => c.id)
 
-  // 2. Consumos de esos ciclos (no voided, no produccion)
+  // 2. Requerimientos de esos ciclos (no voided, no produccion)
   const items: PipelineItem[] = []
-  const logsMap: Record<string, ConsumptionPhaseLog[]> = {}
+  const logsMap: Record<string, RequirementPhaseLog[]> = {}
 
   if (currentCycleIds.length > 0) {
-    const { data: consumptionsRaw } = await supabase
-      .from('consumptions')
+    const { data: requirementsRaw } = await supabase
+      .from('requirements')
       .select('id, content_type, phase, carried_over, billing_cycle_id, registered_at, notes, title, cambios_count')
       .eq('voided', false)
       .in('content_type', PIPELINE_CONTENT_TYPES)
@@ -58,7 +58,7 @@ export default async function PipelinePage({
     for (const cl of clientsRaw ?? []) clientMap[cl.id] = cl
 
     // Armar PipelineItem
-    for (const c of consumptionsRaw ?? []) {
+    for (const c of requirementsRaw ?? []) {
       const cClientId = cycleClientMap[c.billing_cycle_id]
       const cl = clientMap[cClientId]
       if (!cl) continue
@@ -84,14 +84,14 @@ export default async function PipelinePage({
     // Logs de todas las piezas
     if (items.length > 0) {
       const { data: logsRaw } = await supabase
-        .from('consumption_phase_logs')
+        .from('requirement_phase_logs')
         .select('*')
-        .in('consumption_id', items.map((i) => i.id))
+        .in('requirement_id', items.map((i) => i.id))
         .order('created_at', { ascending: true })
 
       for (const log of logsRaw ?? []) {
-        if (!logsMap[log.consumption_id]) logsMap[log.consumption_id] = []
-        logsMap[log.consumption_id].push(log as ConsumptionPhaseLog)
+        if (!logsMap[log.requirement_id]) logsMap[log.requirement_id] = []
+        logsMap[log.requirement_id].push(log as RequirementPhaseLog)
       }
 
       // Actualizar last_moved_at con el máximo del log

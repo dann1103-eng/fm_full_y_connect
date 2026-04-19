@@ -6,7 +6,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { PhaseSheet } from './PhaseSheet'
 import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import type { PipelineItem } from '@/lib/domain/pipeline'
-import type { ConsumptionPhaseLog, ContentType, Phase } from '@/types/db'
+import type { RequirementPhaseLog, ContentType, Phase } from '@/types/db'
 
 const CONTENT_TYPE_COLORS: Record<ContentType, string> = {
   historia:    'bg-purple-100 text-purple-700',
@@ -20,7 +20,7 @@ const CONTENT_TYPE_COLORS: Record<ContentType, string> = {
 
 interface PipelineCardProps {
   item: PipelineItem
-  logs: ConsumptionPhaseLog[]
+  logs: RequirementPhaseLog[]
   currentUserId: string
   /** Si true, muestra el nombre del cliente en la card (vista global) */
   showClient?: boolean
@@ -167,14 +167,14 @@ export function PipelineCard({
       <PhaseSheet
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
-        consumptionId={item.id}
+        requirementId={item.id}
         contentType={item.content_type}
         currentPhase={item.phase as Phase}
         clientName={item.client_name}
         logs={logs}
         currentUserId={currentUserId}
         title={item.title}
-        consumptionNotes={item.notes}
+        requirementNotes={item.notes}
         cambiosCount={item.cambios_count}
         maxCambios={item.max_cambios}
         showMoveSection={true}

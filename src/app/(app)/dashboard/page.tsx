@@ -2,9 +2,9 @@ import { createClient } from '@/lib/supabase/server'
 import { TopNav } from '@/components/layout/TopNav'
 import { ClientCard } from '@/components/clients/ClientCard'
 import { DashboardFilters } from '@/components/clients/DashboardFilters'
-import type { ClientWithPlan, BillingCycle, Consumption } from '@/types/db'
+import type { ClientWithPlan, BillingCycle, Requirement } from '@/types/db'
 import { daysUntilEnd } from '@/lib/domain/cycles'
-import { computeTotals } from '@/lib/domain/consumption'
+import { computeTotals } from '@/lib/domain/requirement'
 import { effectiveLimits, limitsToRecord } from '@/lib/domain/plans'
 
 export const dynamic = 'force-dynamic'
@@ -57,27 +57,27 @@ export default async function DashboardPage({
   const cycleMap = new Map<string, BillingCycle>()
   cycles?.forEach((cyc) => cycleMap.set(cyc.client_id, cyc))
 
-  // Fetch consumptions for all current cycles
+  // Fetch requirements for all current cycles
   const cycleIds = cycles?.map((c) => c.id) ?? []
-  const { data: consumptions } = cycleIds.length
+  const { data: requirements } = cycleIds.length
     ? await supabase
-        .from('consumptions')
+        .from('requirements')
         .select('*')
         .in('billing_cycle_id', cycleIds)
     : { data: [] }
 
-  const consumptionsByCycle = new Map<string, Consumption[]>()
-  consumptions?.forEach((c) => {
-    const arr = consumptionsByCycle.get(c.billing_cycle_id) ?? []
-    arr.push(c)
-    consumptionsByCycle.set(c.billing_cycle_id, arr)
+  const requirementsByCycle = new Map<string, Requirement[]>()
+  requirements?.forEach((r) => {
+    const arr = requirementsByCycle.get(r.billing_cycle_id) ?? []
+    arr.push(r)
+    requirementsByCycle.set(r.billing_cycle_id, arr)
   })
 
   // Build dashboard items
   const items: ClientDashboardItem[] = filtered.map((client) => {
     const cycle = cycleMap.get(client.id) ?? null
-    const cycleCons = cycle ? (consumptionsByCycle.get(cycle.id) ?? []) : []
-    const totals = computeTotals(cycleCons)
+    const cycleReqs = cycle ? (requirementsByCycle.get(cycle.id) ?? []) : []
+    const totals = computeTotals(cycleReqs)
     const limits = cycle
       ? effectiveLimits(cycle.limits_snapshot_json, cycle.rollover_from_previous_json)
       : limitsToRecord(client.plan.limits_json)

@@ -10,7 +10,7 @@ const manrope = Manrope({
 
 export const metadata: Metadata = {
   title: "FM Communication Solutions — CRM",
-  description: "Plataforma de gestión de clientes y consumo de contenido",
+  description: "Plataforma de gestión de clientes y requerimientos de contenido",
 };
 
 export default function RootLayout({

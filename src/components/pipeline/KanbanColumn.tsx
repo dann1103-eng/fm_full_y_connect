@@ -4,12 +4,12 @@ import { useDroppable } from '@dnd-kit/core'
 import { PHASE_LABELS } from '@/lib/domain/pipeline'
 import { PipelineCard } from './PipelineCard'
 import type { PipelineItem } from '@/lib/domain/pipeline'
-import type { Phase, ConsumptionPhaseLog } from '@/types/db'
+import type { Phase, RequirementPhaseLog } from '@/types/db'
 
 interface KanbanColumnProps {
   phase: Phase
   items: PipelineItem[]
-  logsMap: Record<string, ConsumptionPhaseLog[]>
+  logsMap: Record<string, RequirementPhaseLog[]>
   currentUserId: string
   /** Si true, las cards son arrastrables (solo en KanbanBoard global) */
   draggableCards?: boolean

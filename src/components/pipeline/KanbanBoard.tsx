@@ -17,7 +17,7 @@ import { PhaseSheet } from './PhaseSheet'
 import { createClient } from '@/lib/supabase/client'
 import { PHASES } from '@/lib/domain/pipeline'
 import type { PipelineItem } from '@/lib/domain/pipeline'
-import type { Phase, ConsumptionPhaseLog } from '@/types/db'
+import type { Phase, RequirementPhaseLog } from '@/types/db'
 
 interface PendingMove {
   item: PipelineItem
@@ -27,7 +27,7 @@ interface PendingMove {
 
 interface KanbanBoardProps {
   byPhase: Record<Phase, PipelineItem[]>
-  logsMap: Record<string, ConsumptionPhaseLog[]>
+  logsMap: Record<string, RequirementPhaseLog[]>
   currentUserId: string
 }
 
@@ -35,15 +35,15 @@ export function KanbanBoard({ byPhase, logsMap, currentUserId }: KanbanBoardProp
   const [activeItem, setActiveItem] = useState<PipelineItem | null>(null)
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null)
   const [activeDetailItem, setActiveDetailItem] = useState<PipelineItem | null>(null)
-  const [detailLogs, setDetailLogs] = useState<ConsumptionPhaseLog[]>([])
+  const [detailLogs, setDetailLogs] = useState<RequirementPhaseLog[]>([])
 
   useEffect(() => {
     if (!activeDetailItem) return
     const supabase = createClient()
     supabase
-      .from('consumption_phase_logs')
+      .from('requirement_phase_logs')
       .select('*')
-      .eq('consumption_id', activeDetailItem.id)
+      .eq('requirement_id', activeDetailItem.id)
       .order('created_at')
       .then(({ data }) => {
         setDetailLogs(data ?? [])
@@ -121,14 +121,14 @@ export function KanbanBoard({ byPhase, logsMap, currentUserId }: KanbanBoardProp
         <PhaseSheet
           open={true}
           onClose={() => setActiveDetailItem(null)}
-          consumptionId={activeDetailItem.id}
+          requirementId={activeDetailItem.id}
           contentType={activeDetailItem.content_type}
           currentPhase={activeDetailItem.phase as Phase}
           clientName={activeDetailItem.client_name}
           logs={detailLogs}
           currentUserId={currentUserId}
           title={activeDetailItem.title}
-          consumptionNotes={activeDetailItem.notes}
+          requirementNotes={activeDetailItem.notes}
           cambiosCount={activeDetailItem.cambios_count}
           maxCambios={activeDetailItem.max_cambios}
           showMoveSection={false}

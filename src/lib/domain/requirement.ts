@@ -1,8 +1,8 @@
-import type { Consumption, ContentType, ConsumptionTotals } from '@/types/db'
+import type { Requirement, ContentType, RequirementTotals } from '@/types/db'
 
-/** Count non-voided consumptions by type */
-export function computeTotals(consumptions: Consumption[]): ConsumptionTotals {
-  const totals: ConsumptionTotals = {
+/** Count non-voided requirements by type */
+export function computeTotals(requirements: Requirement[]): RequirementTotals {
+  const totals: RequirementTotals = {
     historia: 0,
     estatico: 0,
     video_corto: 0,
@@ -12,9 +12,9 @@ export function computeTotals(consumptions: Consumption[]): ConsumptionTotals {
     reunion: 0,
   }
 
-  for (const c of consumptions) {
-    if (!c.voided && !c.carried_over) {
-      totals[c.content_type]++
+  for (const r of requirements) {
+    if (!r.voided && !r.carried_over) {
+      totals[r.content_type]++
     }
   }
 
@@ -22,34 +22,34 @@ export function computeTotals(consumptions: Consumption[]): ConsumptionTotals {
 }
 
 /** Check if adding one more of a type would exceed the effective limit.
- *  Returns true if the consumption is allowed (has room), false if at/over limit. */
-export function canConsume(
+ *  Returns true if the requirement is allowed (has room), false if at/over limit. */
+export function canRegister(
   type: ContentType,
-  totals: ConsumptionTotals,
+  totals: RequirementTotals,
   limits: Record<ContentType, number>
 ): boolean {
   return totals[type] < limits[type]
 }
 
-/** Group consumptions by ISO week within a cycle period.
+/** Group requirements by ISO week within a cycle period.
  *  Returns weeks S1–S4 (and S5 if needed). */
 export function groupByWeek(
-  consumptions: Consumption[],
+  requirements: Requirement[],
   periodStart: string
-): Record<string, Consumption[]> {
+): Record<string, Requirement[]> {
   const start = new Date(periodStart)
-  const groups: Record<string, Consumption[]> = {}
+  const groups: Record<string, Requirement[]> = {}
 
-  for (const c of consumptions) {
-    if (c.voided) continue
-    const date = new Date(c.registered_at)
+  for (const r of requirements) {
+    if (r.voided) continue
+    const date = new Date(r.registered_at)
     const diffDays = Math.floor(
       (date.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
     )
     const weekNum = Math.floor(diffDays / 7) + 1
     const key = `S${weekNum}`
     if (!groups[key]) groups[key] = []
-    groups[key].push(c)
+    groups[key].push(r)
   }
 
   return groups
@@ -57,7 +57,7 @@ export function groupByWeek(
 
 /** Compute what could be rolled over: limit - consumed (only positive amounts) */
 export function computeRollover(
-  totals: ConsumptionTotals,
+  totals: RequirementTotals,
   limits: Record<ContentType, number>
 ): Partial<Record<ContentType, number>> {
   const rollover: Partial<Record<ContentType, number>> = {}
@@ -74,9 +74,6 @@ export function computeRollover(
 /**
  * Default weekly target for a content type: monthly limit ÷ 4, rounded up.
  * Returns 0 when limit is 0 — callers can treat that as the type being inactive.
- *
- * `_type` is accepted for API symmetry with `effectiveWeeklyTarget` and reserved
- * for future per-type overrides.
  */
 export function weeklyTarget(_type: ContentType, limit: number): number {
   return Math.ceil(limit / 4)
@@ -84,7 +81,6 @@ export function weeklyTarget(_type: ContentType, limit: number): number {
 
 /**
  * Resolve the effective weekly target for a client, falling back to the default.
- * Use for both display (ConsumptionPanel) and edit-form placeholder.
  */
 export function effectiveWeeklyTarget(
   type: ContentType,

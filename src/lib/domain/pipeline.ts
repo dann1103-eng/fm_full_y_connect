@@ -48,17 +48,17 @@ export interface PipelineItem {
 }
 
 /**
- * Mueve una pieza a una nueva fase.
+ * Mueve un requerimiento a una nueva fase.
  * - Valida que no sea tipo 'produccion'.
  * - Valida que toPhase sea un valor válido.
- * - Actualiza consumptions.phase.
+ * - Actualiza requirements.phase.
  * - Inserta un log con from_phase, to_phase, moved_by, notes.
  * Retorna { error } si algo falla.
  */
 export async function movePhase(
   supabase: SupabaseClient<Database>,
   params: {
-    consumptionId: string
+    requirementId: string
     currentPhase: Phase
     contentType: ContentType
     toPhase: Phase
@@ -66,7 +66,7 @@ export async function movePhase(
     notes?: string
   }
 ): Promise<{ error: string | null }> {
-  const { consumptionId, currentPhase, contentType, toPhase, movedBy, notes } = params
+  const { requirementId, currentPhase, contentType, toPhase, movedBy, notes } = params
 
   if (contentType === 'produccion') {
     return { error: 'Las producciones no tienen pipeline de fases.' }
@@ -77,16 +77,16 @@ export async function movePhase(
   }
 
   const { error: updateError } = await supabase
-    .from('consumptions')
+    .from('requirements')
     .update({ phase: toPhase })
-    .eq('id', consumptionId)
+    .eq('id', requirementId)
 
   if (updateError) return { error: updateError.message }
 
   const { error: logError } = await supabase
-    .from('consumption_phase_logs')
+    .from('requirement_phase_logs')
     .insert({
-      consumption_id: consumptionId,
+      requirement_id: requirementId,
       from_phase: currentPhase,
       to_phase: toPhase,
       moved_by: movedBy,
@@ -100,14 +100,14 @@ export async function movePhase(
 
 /**
  * Inserta el log inicial (from_phase = null, to_phase = 'pendiente').
- * Llamado inmediatamente después de insertar un consumo nuevo.
+ * Llamado inmediatamente después de insertar un requerimiento nuevo.
  */
 export async function insertInitialPhaseLog(
   supabase: SupabaseClient<Database>,
-  params: { consumptionId: string; movedBy: string }
+  params: { requirementId: string; movedBy: string }
 ): Promise<void> {
-  await supabase.from('consumption_phase_logs').insert({
-    consumption_id: params.consumptionId,
+  await supabase.from('requirement_phase_logs').insert({
+    requirement_id: params.requirementId,
     from_phase: null,
     to_phase: 'pendiente',
     moved_by: params.movedBy,
@@ -115,10 +115,10 @@ export async function insertInitialPhaseLog(
 }
 
 /**
- * Traslada automáticamente las piezas abiertas del ciclo anterior al nuevo ciclo.
+ * Traslada automáticamente los requerimientos abiertos del ciclo anterior al nuevo ciclo.
  * - Solo tipos en PIPELINE_CONTENT_TYPES (excluye 'produccion')
- * - Solo no anuladas y en fase distinta a 'publicado'
- * - Las piezas trasladadas tienen carried_over = true (no descuentan del nuevo límite)
+ * - Solo no anulados y en fase distinta a 'publicado'
+ * - Los requerimientos trasladados tienen carried_over = true (no descuentan del nuevo límite)
  * - Se copian todos los logs históricos + se agrega un log de migración
  */
 export async function migrateOpenPipelineItems(
@@ -131,9 +131,9 @@ export async function migrateOpenPipelineItems(
 ): Promise<void> {
   const { previousCycleId, newCycleId, movedBy } = params
 
-  // 1. Obtener piezas abiertas del ciclo anterior
+  // 1. Obtener requerimientos abiertos del ciclo anterior
   const { data: openItems } = await supabase
-    .from('consumptions')
+    .from('requirements')
     .select('id, content_type, phase, title')
     .eq('billing_cycle_id', previousCycleId)
     .eq('voided', false)
@@ -143,9 +143,9 @@ export async function migrateOpenPipelineItems(
   if (!openItems || openItems.length === 0) return
 
   for (const item of openItems) {
-    // 2. Crear nuevo consumo en el nuevo ciclo
-    const { data: newConsumption, error: insertError } = await supabase
-      .from('consumptions')
+    // 2. Crear nuevo requerimiento en el nuevo ciclo
+    const { data: newRequirement, error: insertError } = await supabase
+      .from('requirements')
       .insert({
         billing_cycle_id: newCycleId,
         content_type: item.content_type,
@@ -159,22 +159,22 @@ export async function migrateOpenPipelineItems(
       .select('id')
       .single()
 
-    if (insertError || !newConsumption) {
-      console.error('migrateOpenPipelineItems: falló al insertar consumo trasladado', insertError)
+    if (insertError || !newRequirement) {
+      console.error('migrateOpenPipelineItems: falló al insertar requerimiento trasladado', insertError)
       continue
     }
 
-    // 3. Copiar logs históricos del consumo original
+    // 3. Copiar logs históricos del requerimiento original
     const { data: oldLogs } = await supabase
-      .from('consumption_phase_logs')
+      .from('requirement_phase_logs')
       .select('*')
-      .eq('consumption_id', item.id)
+      .eq('requirement_id', item.id)
       .order('created_at', { ascending: true })
 
     // Omitir deliberadamente log.id para que Supabase genere un nuevo UUID por cada copia
     for (const log of oldLogs ?? []) {
-      await supabase.from('consumption_phase_logs').insert({
-        consumption_id: newConsumption.id,
+      await supabase.from('requirement_phase_logs').insert({
+        requirement_id: newRequirement.id,
         from_phase: log.from_phase as Phase | null,
         to_phase: log.to_phase as Phase,
         moved_by: log.moved_by,
@@ -184,8 +184,8 @@ export async function migrateOpenPipelineItems(
     }
 
     // 4. Agregar log de migración
-    await supabase.from('consumption_phase_logs').insert({
-      consumption_id: newConsumption.id,
+    await supabase.from('requirement_phase_logs').insert({
+      requirement_id: newRequirement.id,
       from_phase: null,
       to_phase: item.phase as Phase,
       moved_by: movedBy,

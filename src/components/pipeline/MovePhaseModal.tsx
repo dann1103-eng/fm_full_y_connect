@@ -45,7 +45,7 @@ export function MovePhaseModal({
 
     const supabase = createClient()
     const { error: moveError } = await movePhase(supabase, {
-      consumptionId: item.id,
+      requirementId: item.id,
       currentPhase: fromPhase,
       contentType: item.content_type,
       toPhase,

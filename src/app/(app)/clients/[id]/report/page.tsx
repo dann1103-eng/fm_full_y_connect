@@ -5,8 +5,8 @@ import { createClient } from '@/lib/supabase/server'
 import { TopNav } from '@/components/layout/TopNav'
 import { CsvDownloadButton } from '@/components/reports/CsvDownloadButton'
 import { PrintButton } from '@/components/reports/PrintButton'
-import type { ClientWithPlan, BillingCycle, Consumption } from '@/types/db'
-import { computeTotals } from '@/lib/domain/consumption'
+import type { ClientWithPlan, BillingCycle, Requirement } from '@/types/db'
+import { computeTotals } from '@/lib/domain/requirement'
 import { effectiveLimits } from '@/lib/domain/plans'
 import { daysUntilEnd } from '@/lib/domain/cycles'
 import { CONTENT_TYPES, CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
@@ -69,21 +69,21 @@ export default async function ClientReportPage({
   const plansMap: Record<string, string> = {}
   for (const p of plansRaw ?? []) plansMap[p.id] = p.name
 
-  // 5. Consumptions for current cycle
-  const consumptions: Consumption[] = []
+  // 5. Requirements for current cycle
+  const reqs: Requirement[] = []
   if (cycle) {
-    const { data: consRaw } = await supabase
-      .from('consumptions')
+    const { data: reqsRaw } = await supabase
+      .from('requirements')
       .select('*')
       .eq('billing_cycle_id', cycle.id)
-    consumptions.push(...((consRaw ?? []) as Consumption[]))
+    reqs.push(...((reqsRaw ?? []) as Requirement[]))
   }
 
   // 6. Pipeline items for current cycle
   const pipelineCountByPhase: Record<string, number> = {}
   if (cycle) {
     const { data: pipelineRaw } = await supabase
-      .from('consumptions')
+      .from('requirements')
       .select('id, phase')
       .eq('billing_cycle_id', cycle.id)
       .eq('voided', false)
@@ -94,14 +94,14 @@ export default async function ClientReportPage({
   }
 
   // Computed values
-  const totals = computeTotals(consumptions)
+  const totals = computeTotals(reqs)
   const limits = cycle
     ? effectiveLimits(cycle.limits_snapshot_json, cycle.rollover_from_previous_json)
     : null
   const daysLeft = cycle ? daysUntilEnd(cycle.period_end) : null
   const activeTypes = CONTENT_TYPES.filter((t) => limits && limits[t] > 0)
 
-  // CSV rows for content consumption
+  // CSV rows for content requirements
   const csvHeaders = ['Tipo', 'Consumido', 'Límite', 'Restante', '% Usado']
   const csvRows = activeTypes.map((t) => {
     const consumed = totals[t]
@@ -226,14 +226,14 @@ export default async function ClientReportPage({
         {cycle && limits && activeTypes.length > 0 && (
           <section className="glass-panel rounded-[2rem] p-8 space-y-5">
             <h2 className="text-xl font-extrabold tracking-tight text-[#2c2f31]">
-              Consumo por tipo — {cycleMonthLabel}
+              Requerimientos por tipo — {cycleMonthLabel}
             </h2>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[#dfe3e6]">
                     <th className="text-left py-2 pr-4 font-extrabold text-[#595c5e] uppercase text-xs tracking-wider">Tipo</th>
-                    <th className="text-right py-2 px-4 font-extrabold text-[#595c5e] uppercase text-xs tracking-wider">Consumido</th>
+                    <th className="text-right py-2 px-4 font-extrabold text-[#595c5e] uppercase text-xs tracking-wider">Registrado</th>
                     <th className="text-right py-2 px-4 font-extrabold text-[#595c5e] uppercase text-xs tracking-wider">Límite</th>
                     <th className="text-right py-2 px-4 font-extrabold text-[#595c5e] uppercase text-xs tracking-wider">Restante</th>
                     <th className="text-right py-2 pl-4 font-extrabold text-[#595c5e] uppercase text-xs tracking-wider">% Usado</th>

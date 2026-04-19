@@ -18,23 +18,23 @@ export async function deleteClient(clientId: string): Promise<void> {
     .from('billing_cycles').select('id').eq('client_id', clientId)
   const cycleIds = (cycles ?? []).map((c) => c.id)
 
-  // 2. Get consumption IDs
-  let consumptionIds: string[] = []
+  // 2. Get requirement IDs
+  let requirementIds: string[] = []
   if (cycleIds.length > 0) {
-    const { data: consumptions } = await supabase
-      .from('consumptions').select('id').in('billing_cycle_id', cycleIds)
-    consumptionIds = (consumptions ?? []).map((c) => c.id)
+    const { data: requirements } = await supabase
+      .from('requirements').select('id').in('billing_cycle_id', cycleIds)
+    requirementIds = (requirements ?? []).map((r) => r.id)
   }
 
   // 3. Delete phase logs
-  if (consumptionIds.length > 0) {
-    await supabase.from('consumption_phase_logs')
-      .delete().in('consumption_id', consumptionIds)
+  if (requirementIds.length > 0) {
+    await supabase.from('requirement_phase_logs')
+      .delete().in('requirement_id', requirementIds)
   }
 
-  // 4. Delete consumptions
+  // 4. Delete requirements
   if (cycleIds.length > 0) {
-    await supabase.from('consumptions')
+    await supabase.from('requirements')
       .delete().in('billing_cycle_id', cycleIds)
   }
 

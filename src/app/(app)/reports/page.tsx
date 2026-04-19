@@ -2,12 +2,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { TopNav } from '@/components/layout/TopNav'
 import { CsvDownloadButton } from '@/components/reports/CsvDownloadButton'
-import { computeTotals } from '@/lib/domain/consumption'
+import { computeTotals } from '@/lib/domain/requirement'
 import { effectiveLimits } from '@/lib/domain/plans'
 import { daysUntilEnd } from '@/lib/domain/cycles'
 import { CONTENT_TYPES, CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import { PIPELINE_CONTENT_TYPES, PHASES, PHASE_LABELS } from '@/lib/domain/pipeline'
-import type { BillingCycle, Consumption, ContentType } from '@/types/db'
+import type { BillingCycle, Requirement, ContentType } from '@/types/db'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,19 +47,19 @@ export default async function ReportsPage() {
   const plansMap: Record<string, { name: string; price_usd: number }> = {}
   for (const p of plansRaw ?? []) plansMap[p.id] = { name: p.name, price_usd: p.price_usd }
 
-  // 4. Consumptions for all current cycles (guarded)
-  let allConsumptions: Consumption[] = []
+  // 4. Requirements for all current cycles (guarded)
+  let allRequirements: Requirement[] = []
   if (currentCycleIds.length > 0) {
-    const { data: consRaw } = await supabase
-      .from('consumptions')
+    const { data: reqsRaw } = await supabase
+      .from('requirements')
       .select('*')
       .in('billing_cycle_id', currentCycleIds)
-    allConsumptions = (consRaw ?? []) as Consumption[]
+    allRequirements = (reqsRaw ?? []) as Requirement[]
   }
 
-  // Group consumptions by billing_cycle_id
-  const consByCycleId: Record<string, Consumption[]> = {}
-  for (const c of allConsumptions) {
+  // Group requirements by billing_cycle_id
+  const consByCycleId: Record<string, Requirement[]> = {}
+  for (const c of allRequirements) {
     if (!consByCycleId[c.billing_cycle_id]) consByCycleId[c.billing_cycle_id] = []
     consByCycleId[c.billing_cycle_id].push(c)
   }
@@ -68,7 +68,7 @@ export default async function ReportsPage() {
   const pipelineCountByPhase: Record<string, number> = {}
   if (currentCycleIds.length > 0) {
     const { data: pipelineRaw } = await supabase
-      .from('consumptions')
+      .from('requirements')
       .select('phase')
       .eq('voided', false)
       .in('content_type', PIPELINE_CONTENT_TYPES)

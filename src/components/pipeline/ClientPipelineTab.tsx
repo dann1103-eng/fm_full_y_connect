@@ -3,11 +3,11 @@
 import { PipelineCard } from './PipelineCard'
 import { PHASES, PHASE_LABELS } from '@/lib/domain/pipeline'
 import type { PipelineItem } from '@/lib/domain/pipeline'
-import type { Phase, ConsumptionPhaseLog } from '@/types/db'
+import type { Phase, RequirementPhaseLog } from '@/types/db'
 
 interface ClientPipelineTabProps {
   items: PipelineItem[]
-  logsMap: Record<string, ConsumptionPhaseLog[]>
+  logsMap: Record<string, RequirementPhaseLog[]>
   currentUserId: string
 }
 

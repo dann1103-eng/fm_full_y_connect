@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { BillingCycle, ClientWithPlan, ContentType, PlanLimits } from '@/types/db'
 import { CONTENT_TYPES, CONTENT_TYPE_LABELS, effectiveLimits, limitsToRecord } from '@/lib/domain/plans'
 import { nextCycleDates } from '@/lib/domain/cycles'
-import { computeTotals } from '@/lib/domain/consumption'
+import { computeTotals } from '@/lib/domain/requirement'
 import { migrateOpenPipelineItems } from '@/lib/domain/pipeline'
 
 const avatarGradients = [
@@ -72,9 +72,9 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
     setLoading(true)
     const supabase = createClient()
 
-    // Fetch current cycle consumptions to compute real rollover amounts
+    // Fetch current cycle requirements to compute real rollover amounts
     const { data: cons } = await supabase
-      .from('consumptions')
+      .from('requirements')
       .select('*')
       .eq('billing_cycle_id', cycle.id)
 
