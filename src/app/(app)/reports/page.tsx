@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { TopNav } from '@/components/layout/TopNav'
 import { CsvDownloadButton } from '@/components/reports/CsvDownloadButton'
 import { TimesheetReport } from '@/components/reports/TimesheetReport'
+import { TimeByRequirementPhaseReport } from '@/components/reports/TimeByRequirementPhaseReport'
 import { computeTotals } from '@/lib/domain/requirement'
 import { effectiveLimits } from '@/lib/domain/plans'
 import { daysUntilEnd } from '@/lib/domain/cycles'
@@ -20,6 +21,45 @@ function barColor(pct: number): string {
   if (pct >= 90) return '#b31b25'
   if (pct >= 70) return '#f59e0b'
   return '#00675c'
+}
+
+function AccordionSection({
+  title,
+  subtitle,
+  defaultOpen = false,
+  headerRight,
+  children,
+}: {
+  title: string
+  subtitle?: string
+  defaultOpen?: boolean
+  headerRight?: React.ReactNode
+  children: React.ReactNode
+}) {
+  return (
+    <details
+      className="glass-panel rounded-[2rem] overflow-hidden group"
+      open={defaultOpen || undefined}
+    >
+      <summary className="px-8 py-5 cursor-pointer list-none flex items-center justify-between gap-4 [&::-webkit-details-marker]:hidden">
+        <div className="flex items-baseline gap-3 min-w-0">
+          <h2 className="text-xl font-extrabold tracking-tight text-[#2c2f31] truncate">
+            {title}
+          </h2>
+          {subtitle && (
+            <span className="text-xs text-[#595c5e] truncate">{subtitle}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {headerRight}
+          <span className="material-symbols-outlined text-[#595c5e] transition-transform group-open:rotate-180">
+            expand_more
+          </span>
+        </div>
+      </summary>
+      <div className="px-8 pb-8">{children}</div>
+    </details>
+  )
 }
 
 export default async function ReportsPage() {
@@ -226,27 +266,26 @@ export default async function ReportsPage() {
         </div>
 
         {/* ── Section 1: Summary cards ── */}
-        <section className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          {[
-            { label: 'Clientes activos', value: totalActive, color: '#00675c' },
-            { label: 'Clientes pausados', value: totalPaused, color: '#595c5e' },
-            { label: 'Clientes morosos', value: totalOverdue, color: '#b31b25' },
-            { label: 'MRR cobrado', value: `$${mrrCobrado.toLocaleString('en-US', { minimumFractionDigits: 0 })}`, color: '#00675c' },
-            { label: 'Pendiente cobro', value: `$${ingresosPendientes.toLocaleString('en-US', { minimumFractionDigits: 0 })}`, color: ingresosPendientes > 0 ? '#b31b25' : '#595c5e' },
-          ].map((card) => (
-            <div key={card.label} className="glass-panel rounded-[2rem] p-6 space-y-2">
-              <p className="text-[11px] font-extrabold uppercase tracking-wider text-[#595c5e]">{card.label}</p>
-              <p className="text-3xl font-black" style={{ color: card.color }}>{card.value}</p>
-            </div>
-          ))}
-        </section>
+        <AccordionSection title="Indicadores clave" subtitle={cycleMonth} defaultOpen>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {[
+              { label: 'Clientes activos', value: totalActive, color: '#00675c' },
+              { label: 'Clientes pausados', value: totalPaused, color: '#595c5e' },
+              { label: 'Clientes morosos', value: totalOverdue, color: '#b31b25' },
+              { label: 'MRR cobrado', value: `$${mrrCobrado.toLocaleString('en-US', { minimumFractionDigits: 0 })}`, color: '#00675c' },
+              { label: 'Pendiente cobro', value: `$${ingresosPendientes.toLocaleString('en-US', { minimumFractionDigits: 0 })}`, color: ingresosPendientes > 0 ? '#b31b25' : '#595c5e' },
+            ].map((card) => (
+              <div key={card.label} className="rounded-2xl bg-[#f5f7f9] border border-[#dfe3e6] p-5 space-y-2">
+                <p className="text-[11px] font-extrabold uppercase tracking-wider text-[#595c5e]">{card.label}</p>
+                <p className="text-3xl font-black" style={{ color: card.color }}>{card.value}</p>
+              </div>
+            ))}
+          </div>
+        </AccordionSection>
 
         {/* ── Section 2: Production totals ── */}
         {productionActiveTypes.length > 0 && (
-          <section className="glass-panel rounded-[2rem] p-8 space-y-5">
-            <h2 className="text-xl font-extrabold tracking-tight text-[#2c2f31]">
-              Producción total — {cycleMonth}
-            </h2>
+          <AccordionSection title={`Producción total — ${cycleMonth}`}>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -281,12 +320,11 @@ export default async function ReportsPage() {
                 </tbody>
               </table>
             </div>
-          </section>
+          </AccordionSection>
         )}
 
         {/* ── Section 3: Pipeline summary ── */}
-        <section className="glass-panel rounded-[2rem] p-8 space-y-5">
-          <h2 className="text-xl font-extrabold tracking-tight text-[#2c2f31]">Resumen de pipeline</h2>
+        <AccordionSection title="Resumen de pipeline">
           <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
             {PHASES.map((phase) => {
               const count = pipelineCountByPhase[phase] ?? 0
@@ -308,13 +346,10 @@ export default async function ReportsPage() {
               )
             })}
           </div>
-        </section>
+        </AccordionSection>
 
         {/* ── Section 4: Client list ── */}
-        <section className="glass-panel rounded-[2rem] p-8 space-y-5">
-          <h2 className="text-xl font-extrabold tracking-tight text-[#2c2f31]">
-            Clientes activos ({clientRows.length})
-          </h2>
+        <AccordionSection title={`Clientes activos (${clientRows.length})`}>
           {clientRows.length === 0 ? (
             <p className="text-sm text-[#595c5e]">No hay clientes activos con ciclo en curso.</p>
           ) : (
@@ -389,19 +424,24 @@ export default async function ReportsPage() {
               </table>
             </div>
           )}
-        </section>
+        </AccordionSection>
 
         {/* ── Section 5: Informes de hojas de tiempo ── */}
-        <section className="glass-panel rounded-[2rem] p-8 space-y-5">
-          <h2 className="text-xl font-extrabold tracking-tight text-[#2c2f31]">
-            Informes de hojas de tiempo
-          </h2>
+        <AccordionSection title="Informes de hojas de tiempo">
           <TimesheetReport
             users={(usersList ?? []).map(u => ({ id: u.id, full_name: u.full_name, avatar_url: u.avatar_url }))}
             clients={clientsList ?? []}
             currentUserId={authUser.id}
           />
-        </section>
+        </AccordionSection>
+
+        {/* ── Section 6: Tiempo por requerimiento × fase ── */}
+        <AccordionSection title="Tiempo por requerimiento y fase">
+          <TimeByRequirementPhaseReport
+            users={(usersList ?? []).map(u => ({ id: u.id, full_name: u.full_name }))}
+            clients={clientsList ?? []}
+          />
+        </AccordionSection>
 
         {/* Empty state — no cycles at all */}
         {currentCycles.length === 0 && (
