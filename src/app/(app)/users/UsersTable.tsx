@@ -65,12 +65,10 @@ function UserRow({
     if (!newRole || isPending) return
     setError(null)
     setIsPending(true)
-    updateUserRole(user.id, newRole as UserRole)
-      .then(() => setIsPending(false))
-      .catch((err: unknown) => {
-        setIsPending(false)
-        setError(err instanceof Error ? err.message : 'Error al actualizar el rol')
-      })
+    updateUserRole(user.id, newRole as UserRole).then((res) => {
+      setIsPending(false)
+      if (res.error) setError(res.error)
+    })
   }
 
   function handleDelete() {
