@@ -74,7 +74,7 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
     const billingDay = parseInt(form.billing_day, 10)
 
     if (existing) {
-      // Update
+      // Update client row
       const { error: updateError } = await supabase
         .from('clients')
         .update({
@@ -93,6 +93,7 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
           billing_day: billingDay,
           billing_day_2: billingPeriod === 'biweekly' && billingDay2 ? parseInt(billingDay2, 10) : null,
           billing_period: billingPeriod,
+          start_date: form.start_date,
         })
         .eq('id', existing.id)
 
@@ -100,6 +101,33 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
         setError('Error al actualizar el cliente.')
         setLoading(false)
         return
+      }
+
+      // Recalcular y actualizar el ciclo de facturación actual
+      if (!isContentPlan) {
+        const { data: plan } = await supabase
+          .from('plans')
+          .select('*')
+          .eq('id', form.current_plan_id)
+          .single()
+
+        if (plan) {
+          const { periodStart, periodEnd } = firstCycleDates(form.start_date, billingDay, {
+            billingPeriod,
+            billingDay2: billingPeriod === 'biweekly' && billingDay2 ? parseInt(billingDay2, 10) : null,
+          })
+
+          await supabase
+            .from('billing_cycles')
+            .update({
+              period_start: periodStart,
+              period_end: periodEnd,
+              plan_id_snapshot: plan.id,
+              limits_snapshot_json: plan.limits_json,
+            })
+            .eq('client_id', existing.id)
+            .eq('status', 'current')
+        }
       }
     } else {
       // Insert client
@@ -276,9 +304,9 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
               </>
             )}
 
-            {!existing && !isContentPlan && (
+            {!isContentPlan && (
               <div className="col-span-2 space-y-1.5">
-                <Label>Inicio del primer ciclo *</Label>
+                <Label>{existing ? 'Inicio del ciclo actual *' : 'Inicio del primer ciclo *'}</Label>
                 <Input
                   required
                   type="date"
@@ -302,7 +330,7 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-[#00675c] flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/>
                       </svg>
-                      Primer ciclo: <span className="font-medium text-[#2c2f31]">{fmt(form.start_date)}</span>
+                      {existing ? 'Ciclo actual:' : 'Primer ciclo:'} <span className="font-medium text-[#2c2f31]">{fmt(form.start_date)}</span>
                       <span className="text-[#abadaf]">→</span>
                       <span className="font-medium text-[#2c2f31]">{fmt(periodEnd)}</span>
                     </p>
