@@ -113,30 +113,24 @@ export function Sidebar({ renewalCount = 0, agencyLogoUrl }: SidebarProps) {
   return (
     <aside className="fixed inset-y-0 left-0 z-40 w-64 flex flex-col bg-white border-r border-[#abadaf]/30 shadow-sm">
       {/* Logo */}
-      <div className="px-4 py-4 border-b border-[#abadaf]/20">
-        {agencyLogoUrl && !logoError ? (
-          // Logo de la agencia cargado desde Supabase
-          <div className="rounded-xl overflow-hidden" style={{ background: '#0d1b3e' }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
+      <div className="flex items-center gap-3 px-6 py-5 border-b border-[#abadaf]/20">
+        <div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0 signature-gradient flex items-center justify-center">
+          {agencyLogoUrl && !logoError ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={agencyLogoUrl}
-              alt="FM Communication Solutions"
-              className="w-full h-14 object-contain py-1.5 px-2"
+              alt="FM"
+              className="w-full h-full object-cover"
               onError={() => setLogoError(true)}
             />
-          </div>
-        ) : (
-          // Fallback: badge FM + texto
-          <div className="flex items-center gap-3 px-2">
-            <div className="w-9 h-9 rounded-xl signature-gradient flex items-center justify-center flex-shrink-0">
-              <span className="text-white font-bold text-sm">FM</span>
-            </div>
-            <div>
-              <p className="font-bold text-[#2c2f31] text-sm leading-tight">FM Communication</p>
-              <p className="text-[#595c5e] text-xs">Solutions</p>
-            </div>
-          </div>
-        )}
+          ) : (
+            <span className="text-white font-bold text-sm">FM</span>
+          )}
+        </div>
+        <div>
+          <p className="font-bold text-[#2c2f31] text-sm leading-tight">FM Communication</p>
+          <p className="text-[#595c5e] text-xs">Solutions</p>
+        </div>
       </div>
 
       {/* Navigation */}

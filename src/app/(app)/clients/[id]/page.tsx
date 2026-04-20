@@ -213,16 +213,6 @@ export default async function ClientDetailPage({
           </div>
         )}
 
-        {/* Past cycles */}
-        {pastCycles && pastCycles.length > 0 && (
-          <CycleHistory
-            cycles={pastCycles as BillingCycle[]}
-            clientId={id}
-            supabase={null}
-            plansMap={Object.fromEntries((plans ?? []).map((p) => [p.id, p.name]))}
-          />
-        )}
-
         {/* Pipeline del ciclo actual */}
         {cycle && (
           <div className="glass-panel rounded-[2rem] p-6 space-y-4">
@@ -234,6 +224,16 @@ export default async function ClientDetailPage({
               canAssign={canCreate}
             />
           </div>
+        )}
+
+        {/* Past cycles */}
+        {pastCycles && pastCycles.length > 0 && (
+          <CycleHistory
+            cycles={pastCycles as BillingCycle[]}
+            clientId={id}
+            supabase={null}
+            plansMap={Object.fromEntries((plans ?? []).map((p) => [p.id, p.name]))}
+          />
         )}
 
         {/* Delete client — admin only */}
