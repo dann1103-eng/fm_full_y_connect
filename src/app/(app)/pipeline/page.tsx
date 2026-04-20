@@ -1,44 +1,36 @@
 import { createClient } from '@/lib/supabase/server'
 import { TopNav } from '@/components/layout/TopNav'
-import { KanbanBoard } from '@/components/pipeline/KanbanBoard'
-import { PIPELINE_CONTENT_TYPES, PHASES } from '@/lib/domain/pipeline'
+import { PipelineContainer } from '@/components/pipeline/PipelineContainer'
+import { PIPELINE_CONTENT_TYPES } from '@/lib/domain/pipeline'
 import type { PipelineItem } from '@/lib/domain/pipeline'
 import type { Phase, RequirementPhaseLog, Client } from '@/types/db'
 
 export const dynamic = 'force-dynamic'
 
-export default async function PipelinePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ clientId?: string }>
-}) {
-  const { clientId } = await searchParams
+export default async function PipelinePage() {
   const supabase = await createClient()
 
-  // Usuario actual
   const { data: { user: authUser } } = await supabase.auth.getUser()
   if (!authUser) return null
 
   const { data: appUser } = await supabase.from('users').select('role').eq('id', authUser.id).single()
-  const canAssign = appUser?.role === 'admin' || appUser?.role === 'supervisor'
+  const role = appUser?.role ?? 'operator'
+  const canAssign = role === 'admin' || role === 'supervisor'
+  const isOperator = role === 'operator'
 
-  // 1. Ciclos activos (current), opcionalmente filtrados por cliente
-  let cyclesQuery = supabase
+  // 1. Active cycles
+  const { data: currentCycles } = await supabase
     .from('billing_cycles')
     .select('id, client_id')
     .eq('status', 'current')
 
-  if (clientId) cyclesQuery = cyclesQuery.eq('client_id', clientId)
+  const currentCycleIds = (currentCycles ?? []).map(c => c.id)
 
-  const { data: currentCycles } = await cyclesQuery
-  const currentCycleIds = (currentCycles ?? []).map((c) => c.id)
-
-  // 2. Requerimientos de esos ciclos (no voided, no produccion)
   const items: PipelineItem[] = []
   const logsMap: Record<string, RequirementPhaseLog[]> = {}
 
   if (currentCycleIds.length > 0) {
-    const { data: requirementsRaw } = await supabase
+    let reqQuery = supabase
       .from('requirements')
       .select('id, content_type, phase, carried_over, billing_cycle_id, registered_at, notes, title, cambios_count, review_started_at, priority, estimated_time_minutes, assigned_to')
       .eq('voided', false)
@@ -47,7 +39,12 @@ export default async function PipelinePage({
       .order('registered_at', { ascending: false })
       .limit(200)
 
-    // 3. Info de clientes (mapa cycle_id → client_id, luego clientes)
+    if (isOperator) {
+      reqQuery = reqQuery.eq('assigned_to', authUser.id)
+    }
+
+    const { data: requirementsRaw } = await reqQuery
+
     const cycleClientMap: Record<string, string> = {}
     for (const c of currentCycles ?? []) cycleClientMap[c.id] = c.client_id
 
@@ -64,7 +61,6 @@ export default async function PipelinePage({
     const usersMap: Record<string, string> = {}
     for (const u of usersRaw ?? []) usersMap[u.id] = u.full_name
 
-    // Armar PipelineItem
     for (const c of requirementsRaw ?? []) {
       const cClientId = cycleClientMap[c.billing_cycle_id]
       const cl = clientMap[cClientId]
@@ -92,12 +88,11 @@ export default async function PipelinePage({
       })
     }
 
-    // Logs de todas las piezas
     if (items.length > 0) {
       const { data: logsRaw } = await supabase
         .from('requirement_phase_logs')
         .select('*')
-        .in('requirement_id', items.map((i) => i.id))
+        .in('requirement_id', items.map(i => i.id))
         .order('created_at', { ascending: true })
 
       for (const log of logsRaw ?? []) {
@@ -105,7 +100,6 @@ export default async function PipelinePage({
         logsMap[log.requirement_id].push(log as RequirementPhaseLog)
       }
 
-      // Actualizar last_moved_at con el máximo del log
       for (const item of items) {
         const itemLogs = logsMap[item.id] ?? []
         if (itemLogs.length > 0) {
@@ -115,58 +109,23 @@ export default async function PipelinePage({
     }
   }
 
-  // Agrupar por fase
-  const byPhase = Object.fromEntries(PHASES.map(p => [p, [] as PipelineItem[]])) as Record<Phase, PipelineItem[]>
-  for (const item of items) {
-    byPhase[item.phase as Phase]?.push(item)
-  }
-
-  // Lista de clientes para el filtro (todos los activos)
-  const { data: allClients } = await supabase
-    .from('clients')
-    .select('id, name')
-    .eq('status', 'active')
-    .order('name')
+  // Clients present in current cycles (for filter dropdown)
+  const cycleClientIds = [...new Set((currentCycles ?? []).map(c => c.client_id))]
+  const { data: pipelineClients } = cycleClientIds.length > 0
+    ? await supabase.from('clients').select('id, name').in('id', cycleClientIds).order('name')
+    : { data: [] }
 
   return (
     <div className="flex flex-col h-full">
       <TopNav title="Pipeline" />
-
-      <div className="flex-1 p-6 flex flex-col gap-4 overflow-hidden">
-        {/* Filtro por cliente */}
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-[#595c5e]">Cliente:</span>
-          <form method="GET">
-            <select
-              name="clientId"
-              defaultValue={clientId ?? ''}
-              className="text-sm border border-[#dfe3e6] rounded-xl px-3 py-1.5 bg-white text-[#2c2f31]"
-            >
-              <option value="">Todos los clientes</option>
-              {(allClients ?? []).map((cl) => (
-                <option key={cl.id} value={cl.id}>
-                  {cl.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              className="ml-2 text-sm px-3 py-1.5 rounded-xl bg-[#00675c] text-white"
-            >
-              Filtrar
-            </button>
-          </form>
-        </div>
-
-        {/* Kanban */}
-        <div className="flex-1 overflow-x-auto">
-          <KanbanBoard
-            byPhase={byPhase}
-            logsMap={logsMap}
-            currentUserId={authUser.id}
-            canAssign={canAssign}
-          />
-        </div>
+      <div className="flex-1 p-6 flex flex-col overflow-hidden">
+        <PipelineContainer
+          items={items}
+          logsMap={logsMap}
+          currentUserId={authUser.id}
+          canAssign={canAssign}
+          clients={pipelineClients ?? []}
+        />
       </div>
     </div>
   )
