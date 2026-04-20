@@ -207,14 +207,17 @@ function AddEntryModal({ targetUserId, onClose, onSaved }: {
   function handleSubmit() {
     if (!startedAt || !endedAt) { setError('Completa las horas de inicio y fin.'); return }
     setError(null)
+    // Convertir datetime-local (hora local sin TZ) a UTC ISO en el browser antes de enviar
+    const startUtc = new Date(startedAt).toISOString()
+    const endUtc   = new Date(endedAt).toISOString()
     startTransition(async () => {
       const res = await adminAddEntry({
         targetUserId,
         entryType,
         category: entryType === 'administrative' ? category : undefined,
         title: entryType === 'administrative' ? ADMIN_CATEGORY_LABELS[category] : title,
-        startedAt,
-        endedAt,
+        startedAt: startUtc,
+        endedAt:   endUtc,
       })
       if (res.error) { setError(res.error); return }
       onSaved()
@@ -325,11 +328,14 @@ function EditEntryModal({ entry, onClose, onSaved }: {
   function handleSubmit() {
     if (!endedAt) { setError('La hora de fin es requerida.'); return }
     setError(null)
+    // Convertir datetime-local (hora local sin TZ) a UTC ISO en el browser antes de enviar
+    const startUtc = new Date(startedAt).toISOString()
+    const endUtc   = new Date(endedAt).toISOString()
     startTransition(async () => {
       const res = await adminEditEntry(entry.id, {
         category,
-        startedAt,
-        endedAt,
+        startedAt: startUtc,
+        endedAt:   endUtc,
       })
       if (res.error) { setError(res.error); return }
       onSaved()

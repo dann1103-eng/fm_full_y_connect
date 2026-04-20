@@ -28,24 +28,10 @@ const TIMER_KEY = (reqId: string, userId: string) => `fm_crm_timer_${reqId}_${us
 
 const USER_TRACKED_PHASES = PHASES.filter(isUserTrackedPhase)
 
-function parseDuration(str: string): number | null {
-  str = str.trim().toLowerCase()
-  // "1h 30m" or "1h30m"
-  const full = str.match(/^(\d+(?:\.\d+)?)\s*h\s*(\d+)\s*m?$/)
-  if (full) return Math.round(parseFloat(full[1]) * 3600 + parseInt(full[2]) * 60)
-  // "1.5h" or "2h"
-  const hours = str.match(/^(\d+(?:\.\d+)?)\s*h$/)
-  if (hours) return Math.round(parseFloat(hours[1]) * 3600)
-  // "90m" or "90min"
-  const mins = str.match(/^(\d+(?:\.\d+)?)\s*m(?:in)?$/)
-  if (mins) return Math.round(parseFloat(mins[1]) * 60)
-  // "1:30" → 1h30m
-  const colon = str.match(/^(\d+):(\d{2})$/)
-  if (colon) return parseInt(colon[1]) * 3600 + parseInt(colon[2]) * 60
-  // bare number → minutes
-  const bare = str.match(/^(\d+)$/)
-  if (bare) return parseInt(bare[1]) * 60
-  return null
+/** Convierte un valor de input datetime-local (sin zona horaria) a ISO UTC.
+ *  El browser parsea strings sin TZ como hora local → toISOString() da UTC correcto. */
+function localInputToUtc(localStr: string): string {
+  return new Date(localStr).toISOString()
 }
 
 function formatDuration(seconds: number): string {
@@ -86,7 +72,8 @@ export function RequirementTimesheet({
   const [newPhase, setNewPhase] = useState<string>(
     isUserTrackedPhase(currentPhase) ? currentPhase : 'proceso_edicion'
   )
-  const [manualTime, setManualTime] = useState('')
+  const [manualStartedAt, setManualStartedAt] = useState('')
+  const [manualEndedAt, setManualEndedAt] = useState('')
   const [showManual, setShowManual] = useState(false)
   const [saving, setSaving] = useState(false)
   const [titleError, setTitleError] = useState(false)
@@ -227,15 +214,26 @@ export function RequirementTimesheet({
   }
 
   async function addManualEntry() {
-    const secs = parseDuration(manualTime)
     if (!newTitle.trim()) { setTitleError(true); return }
     setTitleError(false)
     setManualError(null)
-    if (!secs || secs <= 0) return
-    setSaving(true)
-    const now = new Date()
-    const startedAt = new Date(now.getTime() - secs * 1000)
 
+    if (!manualStartedAt || !manualEndedAt) {
+      setManualError('Completa la fecha/hora de inicio y fin.')
+      return
+    }
+
+    // Convertir valores de datetime-local (hora local sin TZ) a UTC ISO en el browser
+    const startUtc = localInputToUtc(manualStartedAt)
+    const endUtc   = localInputToUtc(manualEndedAt)
+    const secs = Math.round((new Date(endUtc).getTime() - new Date(startUtc).getTime()) / 1000)
+
+    if (secs <= 0) {
+      setManualError('La hora de fin debe ser posterior a la de inicio.')
+      return
+    }
+
+    setSaving(true)
     const targetIsSelf = !canAssignToOthers || manualTargetUserId === currentUserId
 
     if (targetIsSelf) {
@@ -248,8 +246,8 @@ export function RequirementTimesheet({
           entry_type: 'requirement',
           phase: newPhase,
           title: newTitle.trim(),
-          started_at: startedAt.toISOString(),
-          ended_at: now.toISOString(),
+          started_at: startUtc,
+          ended_at: endUtc,
           duration_seconds: secs,
         })
     } else {
@@ -260,8 +258,8 @@ export function RequirementTimesheet({
         requirementId,
         phase: newPhase,
         title: newTitle.trim(),
-        startedAt: startedAt.toISOString(),
-        endedAt: now.toISOString(),
+        startedAt: startUtc,
+        endedAt: endUtc,
       })
       if (result.error) {
         setManualError(result.error)
@@ -270,7 +268,8 @@ export function RequirementTimesheet({
       }
     }
     setNewTitle('')
-    setManualTime('')
+    setManualStartedAt('')
+    setManualEndedAt('')
     setShowManual(false)
     setManualTargetUserId(currentUserId)
     await loadEntries()
@@ -447,26 +446,42 @@ export function RequirementTimesheet({
                   </select>
                 </div>
               )}
-              <div className="flex gap-2 items-center">
-                <input
-                  type="text"
-                  value={manualTime}
-                  onChange={(e) => setManualTime(e.target.value)}
-                  placeholder="ej. 1h 30m  ·  90m  ·  1:30"
-                  className="flex-1 px-3 py-2 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl outline-none focus:border-[#00675c] text-[#2c2f31]"
-                  onKeyDown={(e) => e.key === 'Enter' && addManualEntry()}
-                />
-                <button
-                  onClick={addManualEntry}
-                  disabled={saving || !manualTime.trim()}
-                  className="px-3 py-2 text-sm font-bold text-white rounded-xl bg-[#00675c] disabled:opacity-50"
-                >
-                  {saving ? '…' : 'Agregar'}
-                </button>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-[#abadaf] uppercase tracking-wider">
+                    Inicio
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={manualStartedAt}
+                    onChange={(e) => setManualStartedAt(e.target.value)}
+                    className="w-full px-2 py-2 text-xs bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl outline-none focus:border-[#00675c] text-[#2c2f31]"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-[#abadaf] uppercase tracking-wider">
+                    Fin
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={manualEndedAt}
+                    onChange={(e) => setManualEndedAt(e.target.value)}
+                    className="w-full px-2 py-2 text-xs bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl outline-none focus:border-[#00675c] text-[#2c2f31]"
+                  />
+                </div>
               </div>
               {manualError && (
                 <p className="text-xs text-[#b31b25]">{manualError}</p>
               )}
+              <div className="flex justify-end">
+                <button
+                  onClick={addManualEntry}
+                  disabled={saving || !manualStartedAt || !manualEndedAt}
+                  className="px-4 py-2 text-sm font-bold text-white rounded-xl bg-[#00675c] disabled:opacity-50"
+                >
+                  {saving ? '…' : 'Agregar'}
+                </button>
+              </div>
             </div>
           )}
         </div>
