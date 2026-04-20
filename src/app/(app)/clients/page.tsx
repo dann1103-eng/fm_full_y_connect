@@ -82,7 +82,10 @@ export default async function ClientsPage() {
                 return (
                   <tr key={client.id} className="hover:bg-[#f5f7f9] transition-colors">
                     <td className="px-5 py-3">
-                      <div className="flex items-center gap-3">
+                      <Link
+                        href={`/clients/${client.id}`}
+                        className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                      >
                         {client.logo_url ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={client.logo_url} alt={client.name} className="w-8 h-8 rounded-lg object-cover" />
@@ -100,7 +103,7 @@ export default async function ClientsPage() {
                             <p className="text-xs text-[#747779]">{client.contact_email}</p>
                           )}
                         </div>
-                      </div>
+                      </Link>
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-sm text-[#2c2f31]">{client.plan.name}</span>

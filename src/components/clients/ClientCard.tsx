@@ -1,7 +1,8 @@
 import Link from 'next/link'
-import { Badge } from '@/components/ui/badge'
 import type { ClientDashboardItem } from '@/app/(app)/dashboard/page'
-import { CONTENT_TYPES, CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
+import type { ContentType } from '@/types/db'
+import { CONTENT_TYPES } from '@/lib/domain/plans'
+import { CONTENT_ICONS } from '@/lib/domain/content-icons'
 
 const STATUS_LABELS: Record<string, string> = {
   active: 'Activo',
@@ -15,14 +16,9 @@ const STATUS_COLORS: Record<string, string> = {
   overdue: 'bg-[#b31b25]/10 text-[#b31b25] border-[#b31b25]/20',
 }
 
-const CONTENT_ICONS: Record<string, string> = {
-  historia: 'auto_stories',
-  estatico: 'photo_camera',
-  video_corto: 'movie',
-  reel: 'videocam',
-  short: 'slideshow',
-  produccion: 'video_camera_front',
-}
+// Producción y reunión son eventos esporádicos; no cuentan para el progreso
+// del flujo de contenido ni se muestran como íconos en la card del dashboard.
+const EXCLUDED_FROM_CARD = new Set<ContentType>(['produccion', 'reunion'])
 
 // Amber-toned types share a different accent color from the rest
 const AMBER_TYPES = new Set(['estatico', 'video_corto'])
@@ -42,6 +38,7 @@ function overallProgress(
   let totalConsumed = 0
   let totalLimit = 0
   for (const type of CONTENT_TYPES) {
+    if (EXCLUDED_FROM_CARD.has(type)) continue
     totalConsumed += totals[type] ?? 0
     totalLimit += limits[type] ?? 0
   }
@@ -77,8 +74,10 @@ export function ClientCard({ item }: { item: ClientDashboardItem }) {
   const barColor =
     pct >= 90 ? 'bg-[#b31b25]' : pct >= 70 ? 'bg-amber-400' : 'bg-[#00675c]'
 
-  // Show only non-zero limit content types (max 4)
-  const visibleTypes = CONTENT_TYPES.filter((t) => (limits[t] ?? 0) > 0).slice(0, 4)
+  // Show all content-flow types with limit > 0 (excludes producción y reunión).
+  const visibleTypes = CONTENT_TYPES.filter(
+    (t) => !EXCLUDED_FROM_CARD.has(t) && (limits[t] ?? 0) > 0,
+  )
 
   return (
     <Link
@@ -137,7 +136,7 @@ export function ClientCard({ item }: { item: ClientDashboardItem }) {
 
       {/* Content type mini-counters */}
       {visibleTypes.length > 0 && (
-        <div className="px-5 pb-3 grid grid-cols-4 gap-2">
+        <div className="px-5 pb-3 grid grid-cols-3 gap-2">
           {visibleTypes.map((type) => {
             const consumed = totals[type] ?? 0
             const limit = limits[type] ?? 0

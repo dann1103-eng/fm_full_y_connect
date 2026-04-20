@@ -1,5 +1,26 @@
 import type { Requirement, ContentType, RequirementTotals, WeeklyDistribution, WeekKey } from '@/types/db'
 
+/** Retorna { year, month } (month 0-11) con más días dentro de [startIso, endIso).
+ *  Empates se resuelven en favor del mes de `startIso` (comparación > estricta). */
+export function dominantCycleMonth(startIso: string, endIso: string): { year: number; month: number } {
+  const start = new Date(startIso)
+  const end = new Date(endIso)
+  const counts = new Map<string, number>()
+  const cursor = new Date(start)
+  while (cursor < end) {
+    const k = `${cursor.getFullYear()}-${cursor.getMonth()}`
+    counts.set(k, (counts.get(k) ?? 0) + 1)
+    cursor.setDate(cursor.getDate() + 1)
+  }
+  let bestKey = `${start.getFullYear()}-${start.getMonth()}`
+  let bestCount = 0
+  for (const [k, v] of counts) {
+    if (v > bestCount) { bestCount = v; bestKey = k }
+  }
+  const [y, m] = bestKey.split('-').map(Number)
+  return { year: y, month: m }
+}
+
 /** Count non-voided requirements by type */
 export function computeTotals(requirements: Requirement[]): RequirementTotals {
   const totals: RequirementTotals = {

@@ -5,17 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Requirement, RequirementCambioLog, ContentType } from '@/types/db'
 import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
-
-const CONTENT_ICONS: Record<ContentType, string> = {
-  historia: 'auto_stories',
-  estatico: 'photo_camera',
-  video_corto: 'movie',
-  reel: 'videocam',
-  short: 'slideshow',
-  produccion: 'video_camera_front',
-  reunion: 'groups',
-  matriz_contenido: 'grid_view',
-}
+import { CONTENT_ICONS } from '@/lib/domain/content-icons'
 
 const AMBER_TYPES = new Set<ContentType>(['estatico', 'video_corto'])
 

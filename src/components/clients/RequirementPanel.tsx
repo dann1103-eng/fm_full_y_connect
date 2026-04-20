@@ -6,27 +6,24 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { ClientWithPlan, BillingCycle, CambiosPackage, ExtraContentItem, Requirement, RequirementCambioLog, ContentType } from '@/types/db'
 import { CONTENT_TYPES, CONTENT_TYPE_LABELS, limitsToRecord } from '@/lib/domain/plans'
-import { resolveDistribution, augmentDistribution, computeWeeklyBreakdownWithCascade } from '@/lib/domain/requirement'
+import {
+  resolveDistribution,
+  augmentDistribution,
+  computeWeeklyBreakdownWithCascade,
+  dominantCycleMonth,
+} from '@/lib/domain/requirement'
+import { CONTENT_ICONS } from '@/lib/domain/content-icons'
+import { socialUrl, type SocialNetwork } from '@/lib/domain/social'
 import { RequirementModal } from './RequirementModal'
 import { RequirementHistory } from './RequirementHistory'
-
-// Material Symbols icon names per content type
-const CONTENT_ICONS: Record<ContentType, string> = {
-  historia: 'auto_stories',
-  estatico: 'photo_camera',
-  video_corto: 'movie',
-  reel: 'videocam',
-  short: 'slideshow',
-  produccion: 'video_camera_front',
-  reunion: 'groups',
-  matriz_contenido: 'grid_view',
-}
 
 // Amber-toned types (estatico, video_corto) get amber icon styling
 const AMBER_TYPES = new Set<ContentType>(['estatico', 'video_corto'])
 
-// Simple (non-pipeline) content types
+// Simple (non-pipeline) content types — counters only, sin distribución semanal
 const SIMPLE_TYPES: ContentType[] = ['produccion', 'reunion']
+// Counter-only: se excluyen del desglose semanal (solo aparecen como contadores)
+const COUNTER_ONLY_TYPES: ContentType[] = ['matriz_contenido', 'produccion', 'reunion']
 
 // Progress bar color based on percentage
 function barColor(pct: number): string {
@@ -58,6 +55,30 @@ const STATUS_LABELS: Record<string, string> = {
 
 const MONTHS_SHORT = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
 const MONTHS_FULL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+
+function SocialChip({
+  network,
+  handle,
+  icon,
+  display,
+}: {
+  network: SocialNetwork
+  handle: string
+  icon: string
+  display: string
+}) {
+  return (
+    <a
+      href={socialUrl(network, handle)}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-1.5 px-3 py-1 bg-[#eef1f3] text-[#595c5e] text-[11px] font-bold rounded-full border border-[#abadaf]/20 hover:bg-[#00675c]/10 hover:text-[#00675c] transition-colors"
+    >
+      <span className="material-symbols-outlined text-sm">{icon}</span>
+      {display}
+    </a>
+  )
+}
 
 interface RequirementPanelProps {
   client: ClientWithPlan
@@ -124,14 +145,18 @@ export function RequirementPanel({
     return `${date.getDate()} ${MONTHS_SHORT[date.getMonth()]}`
   }
 
-  // Section header: "Abril 2026"
-  const cycleStart = new Date(cycle.period_start)
-  const cycleMonthLabel = `${MONTHS_FULL[cycleStart.getMonth()]} ${cycleStart.getFullYear()}`
+  // Section header: "Abril 2026" basado en el mes con más días del ciclo.
+  const { year: cycleYear, month: cycleMonthIdx } = dominantCycleMonth(
+    cycle.period_start,
+    cycle.period_end,
+  )
+  const cycleMonthLabel = `${MONTHS_FULL[cycleMonthIdx]} ${cycleYear}`
 
   // Active content types (limit > 0)
   const activeTypes = CONTENT_TYPES.filter((t) => limits[t] > 0)
-  const pipelineTypes = activeTypes.filter((t) => !SIMPLE_TYPES.includes(t))
+  const pipelineTypes = activeTypes.filter((t) => !COUNTER_ONLY_TYPES.includes(t))
   const simpleTypes = activeTypes.filter((t) => SIMPLE_TYPES.includes(t))
+  const hasMatriz = activeTypes.includes('matriz_contenido') && limits.matriz_contenido > 0
 
   // Weekly breakdown
   const daysSinceStart = Math.floor(
@@ -213,34 +238,44 @@ export function RequirementPanel({
               client.yt_handle || client.linkedin_handle || client.website_url || client.other_contact) && (
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 pt-1">
                 {client.ig_handle && (
-                  <span className="flex items-center gap-1.5 px-3 py-1 bg-[#eef1f3] text-[#595c5e] text-[11px] font-bold rounded-full border border-[#abadaf]/20">
-                    <span className="material-symbols-outlined text-sm">photo_camera</span>
-                    @{client.ig_handle.replace('@', '')}
-                  </span>
+                  <SocialChip
+                    network="instagram"
+                    handle={client.ig_handle}
+                    icon="photo_camera"
+                    display={`@${client.ig_handle.replace('@', '')}`}
+                  />
                 )}
                 {client.fb_handle && (
-                  <span className="flex items-center gap-1.5 px-3 py-1 bg-[#eef1f3] text-[#595c5e] text-[11px] font-bold rounded-full border border-[#abadaf]/20">
-                    <span className="material-symbols-outlined text-sm">thumb_up</span>
-                    {client.fb_handle}
-                  </span>
+                  <SocialChip
+                    network="facebook"
+                    handle={client.fb_handle}
+                    icon="thumb_up"
+                    display={client.fb_handle}
+                  />
                 )}
                 {client.tiktok_handle && (
-                  <span className="flex items-center gap-1.5 px-3 py-1 bg-[#eef1f3] text-[#595c5e] text-[11px] font-bold rounded-full border border-[#abadaf]/20">
-                    <span className="material-symbols-outlined text-sm">music_note</span>
-                    @{client.tiktok_handle.replace('@', '')}
-                  </span>
+                  <SocialChip
+                    network="tiktok"
+                    handle={client.tiktok_handle}
+                    icon="music_note"
+                    display={`@${client.tiktok_handle.replace('@', '')}`}
+                  />
                 )}
                 {client.yt_handle && (
-                  <span className="flex items-center gap-1.5 px-3 py-1 bg-[#eef1f3] text-[#595c5e] text-[11px] font-bold rounded-full border border-[#abadaf]/20">
-                    <span className="material-symbols-outlined text-sm">play_circle</span>
-                    {client.yt_handle}
-                  </span>
+                  <SocialChip
+                    network="youtube"
+                    handle={client.yt_handle}
+                    icon="play_circle"
+                    display={client.yt_handle}
+                  />
                 )}
                 {client.linkedin_handle && (
-                  <span className="flex items-center gap-1.5 px-3 py-1 bg-[#eef1f3] text-[#595c5e] text-[11px] font-bold rounded-full border border-[#abadaf]/20">
-                    <span className="material-symbols-outlined text-sm">work</span>
-                    {client.linkedin_handle}
-                  </span>
+                  <SocialChip
+                    network="linkedin"
+                    handle={client.linkedin_handle}
+                    icon="work"
+                    display={client.linkedin_handle}
+                  />
                 )}
                 {client.website_url && (
                   <a
@@ -512,7 +547,8 @@ export function RequirementPanel({
                           const budget = week.budget[type] ?? 0
                           const extra = week.overflow[type] ?? 0
                           const pct = budget > 0 ? Math.min(100, Math.round((consumed / budget) * 100)) : 0
-                          const weekBarColor = isFuture ? '#e5e9eb' : consumed >= budget && budget > 0 ? '#00675c' : '#f59e0b'
+                          const isComplete = budget > 0 && consumed >= budget
+                          const weekBarColor = isComplete ? '#00675c' : isFuture ? '#e5e9eb' : '#f59e0b'
                           return (
                             <div key={type}>
                               <div className="flex justify-between items-center mb-1">
@@ -548,14 +584,25 @@ export function RequirementPanel({
         </div>
       </section>
 
-      {/* ── Producciones y reuniones del mes ── */}
-      {simpleTypes.length > 0 && (
+      {/* ── Matriz, producciones y reuniones del mes ── */}
+      {(simpleTypes.length > 0 || hasMatriz) && (
         <section className="space-y-5">
           <h3 className="text-xl font-extrabold tracking-tight text-[#2c2f31]">
-            Producciones y reuniones del mes
+            {hasMatriz ? 'Matriz, producciones y reuniones del mes' : 'Producciones y reuniones del mes'}
           </h3>
           {/* Counter */}
           <div className="flex gap-4 flex-wrap">
+            {hasMatriz && (
+              <div className="flex items-center gap-2 px-4 py-2 glass-panel rounded-2xl">
+                <span className="material-symbols-outlined text-[#00675c] text-base">
+                  {CONTENT_ICONS.matriz_contenido}
+                </span>
+                <span className="text-sm font-bold text-[#2c2f31]">
+                  {totals.matriz_contenido ?? 0} / {limits.matriz_contenido}{' '}
+                  {(totals.matriz_contenido ?? 0) === 1 ? 'matriz' : 'matrices'}
+                </span>
+              </div>
+            )}
             {simpleTypes.map((type) => {
               const count = requirements.filter(
                 (r) => r.content_type === type && !r.voided && !r.carried_over

@@ -21,7 +21,7 @@ import { insertInitialPhaseLog } from '@/lib/domain/pipeline'
 const CONTENT_ICONS: Record<ContentType, React.ReactNode> = {
   historia: (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
+      <path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-1.99-1.99zM17 19H7V5h10v14z"/>
     </svg>
   ),
   estatico: (
