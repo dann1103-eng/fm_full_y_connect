@@ -1,4 +1,50 @@
-import type { Requirement, ContentType, RequirementTotals, WeeklyDistribution, WeekKey } from '@/types/db'
+import type { Requirement, ContentType, RequirementTotals, WeeklyDistribution, WeekKey, BillingCycle, Client } from '@/types/db'
+
+/**
+ * Biweekly unlock: retorna true si la semana dada está desbloqueada por el pago correspondiente.
+ * - Monthly: siempre true (el pago del ciclo cubre las 4 semanas).
+ * - Biweekly: S1-S2 requieren `payment_status = 'paid'`; S3-S4 requieren `payment_status_2 = 'paid'`.
+ */
+export function isWeekUnlocked(
+  week: 1 | 2 | 3 | 4,
+  cycle: BillingCycle,
+  client: Pick<Client, 'billing_period'>
+): boolean {
+  if (client.billing_period !== 'biweekly') return true
+  if (week === 1 || week === 2) return cycle.payment_status === 'paid'
+  return cycle.payment_status_2 === 'paid'
+}
+
+/**
+ * Valida el pago + límite al registrar un requerimiento (biweekly aware).
+ * Retorna { ok, reason }.
+ */
+export function canRegisterWithContext(
+  type: ContentType,
+  totals: RequirementTotals,
+  limits: Record<ContentType, number>,
+  ctx: { week: 1 | 2 | 3 | 4; cycle: BillingCycle; client: Pick<Client, 'billing_period'> }
+): { ok: boolean; reason?: string } {
+  if (!isWeekUnlocked(ctx.week, ctx.cycle, ctx.client)) {
+    return {
+      ok: false,
+      reason:
+        ctx.week <= 2
+          ? 'Pago pendiente de 1ra quincena'
+          : 'Pago pendiente de 2da quincena',
+    }
+  }
+  if (totals[type] >= limits[type]) return { ok: false, reason: 'Límite alcanzado' }
+  return { ok: true }
+}
+
+/** Calcula el índice de semana (1..4) de una fecha dentro del ciclo. S5+ se clampa a 4. */
+export function weekIndexInCycle(date: Date, periodStart: string): 1 | 2 | 3 | 4 {
+  const start = new Date(periodStart)
+  const diffDays = Math.floor((date.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+  const w = Math.min(4, Math.max(1, Math.floor(diffDays / 7) + 1))
+  return w as 1 | 2 | 3 | 4
+}
 
 /** Retorna { year, month } (month 0-11) con más días dentro de [startIso, endIso).
  *  Empates se resuelven en favor del mes de `startIso` (comparación > estricta). */

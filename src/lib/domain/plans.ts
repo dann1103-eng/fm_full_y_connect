@@ -35,6 +35,10 @@ export const CONTENT_TYPES: ContentType[] = [
 /** Content types that never carry over between billing cycles */
 export const NON_CARRYOVER_TYPES: ContentType[] = ['produccion', 'reunion', 'matriz_contenido']
 
+/** Tipos de contenido "tippables" — el operador puede elegir uno u otro al registrar.
+ *  En planes con `unified_content_limit`, estos tipos comparten un pool común. */
+export const TIPPABLE_CONTENT_TYPES: ContentType[] = ['estatico', 'video_corto', 'reel', 'short']
+
 /** Convert PlanLimits JSON to ContentType-keyed record */
 export function limitsToRecord(limits: PlanLimits): Record<ContentType, number> {
   return {
@@ -78,4 +82,48 @@ export function effectiveLimits(
     reunion: base.reunion + (roll.reunion ?? 0),
     matriz_contenido: base.matriz_contenido,
   }
+}
+
+/**
+ * Ajusta los límites para planes con `unified_content_limit` (pool compartido).
+ *
+ * Toma los límites base (`effectiveLimits(...)`) y, si el snapshot incluye
+ * `unified_content_limit`, redistribuye los tipos tippables:
+ *   remainingPool = pool - sum(totals[tippable])
+ *   limits[t] = remainingPool + totals[t]
+ * Esto permite al operador elegir cualquier tipo hasta agotar el pool compartido,
+ * sin romper el check `totals[t] >= limits[t]`.
+ *
+ * Planes sin `unified_content_limit` retornan los límites base sin modificar.
+ */
+export function applyUnifiedPool(
+  base: Record<ContentType, number>,
+  snapshot: PlanLimits,
+  totals: Record<ContentType, number>,
+): Record<ContentType, number> {
+  const pool = snapshot.unified_content_limit
+  if (pool == null) return base
+
+  const consumed = TIPPABLE_CONTENT_TYPES.reduce((sum, t) => sum + (totals[t] ?? 0), 0)
+  const remaining = Math.max(0, pool - consumed)
+
+  const out = { ...base }
+  for (const t of TIPPABLE_CONTENT_TYPES) {
+    out[t] = remaining + (totals[t] ?? 0)
+  }
+  return out
+}
+
+/**
+ * Consumo total del pool unificado (suma de tipos tippables).
+ * Retorna null si el plan no usa `unified_content_limit`.
+ */
+export function unifiedPoolUsage(
+  snapshot: PlanLimits,
+  totals: Record<ContentType, number>,
+): { used: number; limit: number } | null {
+  const pool = snapshot.unified_content_limit
+  if (pool == null) return null
+  const used = TIPPABLE_CONTENT_TYPES.reduce((sum, t) => sum + (totals[t] ?? 0), 0)
+  return { used, limit: pool }
 }

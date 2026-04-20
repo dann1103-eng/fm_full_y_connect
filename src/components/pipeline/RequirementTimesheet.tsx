@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { adminAddEntry } from '@/app/actions/time'
 import type { Phase } from '@/types/db'
 import { PHASE_LABELS, PHASES, isUserTrackedPhase, isPassiveTimerPhase } from '@/lib/domain/pipeline'
 
@@ -68,12 +69,14 @@ interface RequirementTimesheetProps {
   requirementId: string
   currentPhase: Phase
   currentUserId: string
+  canAssignToOthers?: boolean
 }
 
 export function RequirementTimesheet({
   requirementId,
   currentPhase,
   currentUserId,
+  canAssignToOthers = false,
 }: RequirementTimesheetProps) {
   const [entries, setEntries] = useState<TimeEntryRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -87,7 +90,11 @@ export function RequirementTimesheet({
   const [showManual, setShowManual] = useState(false)
   const [saving, setSaving] = useState(false)
   const [titleError, setTitleError] = useState(false)
+  const [manualError, setManualError] = useState<string | null>(null)
   const [globalActiveWarning, setGlobalActiveWarning] = useState<string | null>(null)
+  // Admin/supervisor: elegir a quién se asigna la entrada manual
+  const [manualTargetUserId, setManualTargetUserId] = useState<string>(currentUserId)
+  const [assignableUsers, setAssignableUsers] = useState<{ id: string; full_name: string }[]>([])
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const canTrackTime = isUserTrackedPhase(currentPhase)
@@ -109,6 +116,17 @@ export function RequirementTimesheet({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requirementId])
+
+  // Fetch assignable users when admin/supervisor
+  useEffect(() => {
+    if (!canAssignToOthers) return
+    const supabase = createClient()
+    supabase
+      .from('users')
+      .select('id, full_name')
+      .order('full_name')
+      .then(({ data }) => setAssignableUsers(data ?? []))
+  }, [canAssignToOthers])
 
   async function checkGlobalActive() {
     const supabase = createClient()
@@ -212,25 +230,49 @@ export function RequirementTimesheet({
     const secs = parseDuration(manualTime)
     if (!newTitle.trim()) { setTitleError(true); return }
     setTitleError(false)
+    setManualError(null)
     if (!secs || secs <= 0) return
     setSaving(true)
-    const supabase = createClient()
     const now = new Date()
     const startedAt = new Date(now.getTime() - secs * 1000)
-    await supabase
-      .from('time_entries')
-      .insert({
-        requirement_id: requirementId,
-        user_id: currentUserId,
+
+    const targetIsSelf = !canAssignToOthers || manualTargetUserId === currentUserId
+
+    if (targetIsSelf) {
+      const supabase = createClient()
+      await supabase
+        .from('time_entries')
+        .insert({
+          requirement_id: requirementId,
+          user_id: currentUserId,
+          entry_type: 'requirement',
+          phase: newPhase,
+          title: newTitle.trim(),
+          started_at: startedAt.toISOString(),
+          ended_at: now.toISOString(),
+          duration_seconds: secs,
+        })
+    } else {
+      // Admin/supervisor carga tiempo a otro usuario — usa Server Action con validación de rol
+      const result = await adminAddEntry({
+        targetUserId: manualTargetUserId,
+        entryType: 'requirement',
+        requirementId,
         phase: newPhase,
         title: newTitle.trim(),
-        started_at: startedAt.toISOString(),
-        ended_at: now.toISOString(),
-        duration_seconds: secs,
+        startedAt: startedAt.toISOString(),
+        endedAt: now.toISOString(),
       })
+      if (result.error) {
+        setManualError(result.error)
+        setSaving(false)
+        return
+      }
+    }
     setNewTitle('')
     setManualTime('')
     setShowManual(false)
+    setManualTargetUserId(currentUserId)
     await loadEntries()
     setSaving(false)
   }
@@ -383,22 +425,48 @@ export function RequirementTimesheet({
           </div>
 
           {showManual && (
-            <div className="flex gap-2 items-center pt-1">
-              <input
-                type="text"
-                value={manualTime}
-                onChange={(e) => setManualTime(e.target.value)}
-                placeholder="ej. 1h 30m  ·  90m  ·  1:30"
-                className="flex-1 px-3 py-2 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl outline-none focus:border-[#00675c] text-[#2c2f31]"
-                onKeyDown={(e) => e.key === 'Enter' && addManualEntry()}
-              />
-              <button
-                onClick={addManualEntry}
-                disabled={saving || !manualTime.trim()}
-                className="px-3 py-2 text-sm font-bold text-white rounded-xl bg-[#00675c] disabled:opacity-50"
-              >
-                {saving ? '…' : 'Agregar'}
-              </button>
+            <div className="space-y-2 pt-1">
+              {canAssignToOthers && assignableUsers.length > 0 && (
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-[#abadaf] uppercase tracking-wider">
+                    Registrar tiempo a
+                  </label>
+                  <select
+                    value={manualTargetUserId}
+                    onChange={(e) => setManualTargetUserId(e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl outline-none text-[#2c2f31]"
+                  >
+                    <option value={currentUserId}>Yo mismo</option>
+                    {assignableUsers
+                      .filter((u) => u.id !== currentUserId)
+                      .map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.full_name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
+              <div className="flex gap-2 items-center">
+                <input
+                  type="text"
+                  value={manualTime}
+                  onChange={(e) => setManualTime(e.target.value)}
+                  placeholder="ej. 1h 30m  ·  90m  ·  1:30"
+                  className="flex-1 px-3 py-2 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl outline-none focus:border-[#00675c] text-[#2c2f31]"
+                  onKeyDown={(e) => e.key === 'Enter' && addManualEntry()}
+                />
+                <button
+                  onClick={addManualEntry}
+                  disabled={saving || !manualTime.trim()}
+                  className="px-3 py-2 text-sm font-bold text-white rounded-xl bg-[#00675c] disabled:opacity-50"
+                >
+                  {saving ? '…' : 'Agregar'}
+                </button>
+              </div>
+              {manualError && (
+                <p className="text-xs text-[#b31b25]">{manualError}</p>
+              )}
             </div>
           )}
         </div>

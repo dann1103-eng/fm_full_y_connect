@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { ClientWithPlan, Plan, PlanLimits } from '@/types/db'
+import type { ClientWithPlan, Plan } from '@/types/db'
 import { firstCycleDates } from '@/lib/domain/cycles'
 import { migrateOpenPipelineItems } from '@/lib/domain/pipeline'
 
@@ -42,13 +42,18 @@ export function ReactivatePanel({ client, plans }: ReactivatePanelProps) {
 
     const { periodStart, periodEnd } = firstCycleDates(startDate, client.billing_day)
 
+    // Copia el unified_content_limit del plan al snapshot (plan "Contenido")
+    const snapshot = plan.unified_content_limit != null
+      ? { ...plan.limits_json, unified_content_limit: plan.unified_content_limit }
+      : plan.limits_json
+
     // PRIMERO: crear el nuevo ciclo (si falla, cliente sigue paused — estado seguro)
     const { data: newCycle, error: cycleError } = await supabase
       .from('billing_cycles')
       .insert({
         client_id: client.id,
         plan_id_snapshot: plan.id,
-        limits_snapshot_json: plan.limits_json,
+        limits_snapshot_json: snapshot,
         rollover_from_previous_json: null,
         period_start: periodStart,
         period_end: periodEnd,

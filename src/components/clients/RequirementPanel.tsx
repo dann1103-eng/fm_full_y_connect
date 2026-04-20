@@ -5,12 +5,13 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { ClientWithPlan, BillingCycle, CambiosPackage, ExtraContentItem, Requirement, RequirementCambioLog, ContentType } from '@/types/db'
-import { CONTENT_TYPES, CONTENT_TYPE_LABELS, limitsToRecord } from '@/lib/domain/plans'
+import { CONTENT_TYPES, CONTENT_TYPE_LABELS, limitsToRecord, applyUnifiedPool, unifiedPoolUsage, TIPPABLE_CONTENT_TYPES } from '@/lib/domain/plans'
 import {
   resolveDistribution,
   augmentDistribution,
   computeWeeklyBreakdownWithCascade,
   dominantCycleMonth,
+  isWeekUnlocked,
 } from '@/lib/domain/requirement'
 import { CONTENT_ICONS } from '@/lib/domain/content-icons'
 import { socialUrl, type SocialNetwork } from '@/lib/domain/social'
@@ -91,7 +92,7 @@ interface RequirementPanelProps {
   canCreate?: boolean
   canAssign?: boolean
   userMap: Record<string, string>
-  assignableUsers?: { id: string; full_name: string }[]
+  assignableUsers?: { id: string; full_name: string; default_assignee?: boolean }[]
   cambioLogsMap?: Record<string, RequirementCambioLog[]>
 }
 
@@ -128,6 +129,19 @@ export function RequirementPanel({
     router.refresh()
   }
 
+  async function handleMarkPaid2() {
+    setMarkingPaid(true)
+    const supabase = createClient()
+    await supabase
+      .from('billing_cycles')
+      .update({ payment_status_2: 'paid', payment_date_2: new Date().toISOString() })
+      .eq('id', cycle.id)
+    setMarkingPaid(false)
+    router.refresh()
+  }
+
+  const isBiweekly = client.billing_period === 'biweekly'
+
   async function handleSaveNotes() {
     setSavingNotes(true)
     const supabase = createClient()
@@ -152,8 +166,24 @@ export function RequirementPanel({
   )
   const cycleMonthLabel = `${MONTHS_FULL[cycleMonthIdx]} ${cycleYear}`
 
+  // Plan "Contenido" — pool unificado compartido entre tippables
+  const poolUsage = unifiedPoolUsage(cycle.limits_snapshot_json, totals)
+  const isUnifiedPool = poolUsage !== null
+
+  // Ajustar límites: en plan unificado, cada tippable puede recibir hasta `remainingPool + totals[t]`
+  const effectiveLimitsMap = isUnifiedPool
+    ? applyUnifiedPool(limits, cycle.limits_snapshot_json, totals)
+    : limits
+
   // Active content types (limit > 0)
-  const activeTypes = CONTENT_TYPES.filter((t) => limits[t] > 0)
+  // En plan unificado, todos los tipos tippables se consideran activos mientras quede pool.
+  const activeTypes = isUnifiedPool
+    ? CONTENT_TYPES.filter((t) =>
+        TIPPABLE_CONTENT_TYPES.includes(t)
+          ? (poolUsage!.limit - poolUsage!.used) > 0 || (totals[t] ?? 0) > 0
+          : effectiveLimitsMap[t] > 0
+      )
+    : CONTENT_TYPES.filter((t) => limits[t] > 0)
   const pipelineTypes = activeTypes.filter((t) => !COUNTER_ONLY_TYPES.includes(t))
   const simpleTypes = activeTypes.filter((t) => SIMPLE_TYPES.includes(t))
   const hasMatriz = activeTypes.includes('matriz_contenido') && limits.matriz_contenido > 0
@@ -213,10 +243,11 @@ export function RequirementPanel({
             <p className="text-[#595c5e] text-sm flex flex-wrap items-center justify-center md:justify-start gap-1.5">
               <span className="material-symbols-outlined text-base">calendar_today</span>
               Ciclo: {formatDateShort(cycle.period_start)} – {formatDateShort(cycle.period_end)}
-              &nbsp;·&nbsp; Pago: día {client.billing_day}
+              &nbsp;·&nbsp; Pago: día {client.billing_day}{isBiweekly && client.billing_day_2 ? ` y ${client.billing_day_2}` : ''}
+              {/* 1er pago (o único en monthly) */}
               {cycle.payment_status === 'paid' ? (
                 <span className="px-2 py-0.5 bg-[#00675c]/10 text-[#00675c] text-[10px] font-extrabold rounded-full border border-[#00675c]/20">
-                  ✓ Pagado
+                  ✓ {isBiweekly ? '1er pago' : 'Pagado'}
                 </span>
               ) : isAdmin ? (
                 <button
@@ -224,12 +255,32 @@ export function RequirementPanel({
                   disabled={markingPaid}
                   className="px-2 py-0.5 bg-[#b31b25]/10 text-[#b31b25] text-[10px] font-extrabold rounded-full border border-[#b31b25]/20 hover:bg-[#b31b25]/20 transition-colors"
                 >
-                  {markingPaid ? '...' : 'Marcar pagado'}
+                  {markingPaid ? '...' : isBiweekly ? 'Marcar 1er pago' : 'Marcar pagado'}
                 </button>
               ) : (
                 <span className="px-2 py-0.5 bg-[#b31b25]/10 text-[#b31b25] text-[10px] font-extrabold rounded-full border border-[#b31b25]/20">
-                  Sin pago
+                  {isBiweekly ? '1er pago pendiente' : 'Sin pago'}
                 </span>
+              )}
+              {/* 2do pago — solo biweekly */}
+              {isBiweekly && (
+                cycle.payment_status_2 === 'paid' ? (
+                  <span className="px-2 py-0.5 bg-[#00675c]/10 text-[#00675c] text-[10px] font-extrabold rounded-full border border-[#00675c]/20">
+                    ✓ 2do pago
+                  </span>
+                ) : isAdmin ? (
+                  <button
+                    onClick={handleMarkPaid2}
+                    disabled={markingPaid}
+                    className="px-2 py-0.5 bg-[#b31b25]/10 text-[#b31b25] text-[10px] font-extrabold rounded-full border border-[#b31b25]/20 hover:bg-[#b31b25]/20 transition-colors"
+                  >
+                    {markingPaid ? '...' : 'Marcar 2do pago'}
+                  </button>
+                ) : (
+                  <span className="px-2 py-0.5 bg-[#b31b25]/10 text-[#b31b25] text-[10px] font-extrabold rounded-full border border-[#b31b25]/20">
+                    2do pago pendiente
+                  </span>
+                )
               )}
             </p>
 
@@ -368,9 +419,62 @@ export function RequirementPanel({
           </p>
         </div>
 
-        {/* Requirement cards */}
+        {/* Unified pool bar — solo plan "Contenido" */}
+        {isUnifiedPool && poolUsage && (() => {
+          const { used, limit } = poolUsage
+          const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0
+          const color = barColor(pct)
+          const available = Math.max(0, limit - used)
+          return (
+            <div className="glass-panel p-6 rounded-[2rem] space-y-3">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-[#5bf4de]/30 rounded-xl w-fit">
+                    <span className="material-symbols-outlined text-[#00675c] text-xl">collections</span>
+                  </div>
+                  <div>
+                    <p className="text-[#595c5e] text-[11px] font-extrabold tracking-widest uppercase">
+                      Contenidos del ciclo (pool unificado)
+                    </p>
+                    <p className="text-2xl font-black text-[#2c2f31] mt-0.5">
+                      {used} <span className="text-base font-medium text-[#747779]">/ {limit}</span>
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs font-bold" style={{ color: available === 0 ? '#b31b25' : '#00675c' }}>
+                  {available} disponibles
+                </p>
+              </div>
+              <div className="w-full bg-[#e5e9eb] rounded-full h-2 overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${pct}%`, backgroundColor: color }}
+                />
+              </div>
+              <div className="flex flex-wrap gap-3 pt-1">
+                {TIPPABLE_CONTENT_TYPES.map((t) => {
+                  const n = totals[t] ?? 0
+                  if (n === 0) return null
+                  return (
+                    <span key={t} className="flex items-center gap-1.5 text-[11px] font-bold text-[#595c5e]">
+                      <span className="material-symbols-outlined text-sm text-[#00675c]">
+                        {CONTENT_ICONS[t]}
+                      </span>
+                      {CONTENT_TYPE_LABELS[t]}: {n}
+                    </span>
+                  )
+                })}
+                {TIPPABLE_CONTENT_TYPES.every((t) => (totals[t] ?? 0) === 0) && (
+                  <span className="text-[11px] text-[#abadaf]">Sin registros aún — el operador elige el tipo al registrar.</span>
+                )}
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* Requirement cards (tippables ocultos en plan unificado — solo counter-only y specials) */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {activeTypes.map((type) => {
+          {activeTypes.filter((t) => !isUnifiedPool || !TIPPABLE_CONTENT_TYPES.includes(t)).map((type) => {
             const consumed = totals[type]
             const snapshotLimits = limitsToRecord(cycle.limits_snapshot_json)
             const overrides = cycle.content_limits_override_json as Partial<Record<ContentType, number>> | null
@@ -524,11 +628,13 @@ export function RequirementPanel({
                 const isFuture = !week.isCurrent && ['S1','S2','S3','S4'].indexOf(week.label) > currentWeek
                 const budgetTypes = pipelineTypes.filter(t => (week.budget[t] ?? 0) > 0)
                 const hasActivity = pipelineTypes.some(t => (week.counts[t] ?? 0) > 0 || (week.overflow[t] ?? 0) > 0)
+                const weekIdx = (['S1','S2','S3','S4'].indexOf(week.label) + 1) as 1 | 2 | 3 | 4
+                const unlocked = isWeekUnlocked(weekIdx, cycle, client)
 
                 return (
                   <div
                     key={week.label}
-                    className="glass-panel p-5 rounded-[1.5rem]"
+                    className="glass-panel p-5 rounded-[1.5rem] relative"
                     style={week.isCurrent ? { background: 'rgba(0,103,92,0.05)', border: '2px solid rgba(0,103,92,0.3)' } : {}}
                   >
                     <div className="flex justify-between items-start mb-4">
@@ -537,6 +643,18 @@ export function RequirementPanel({
                       </p>
                       {week.isCurrent && <span className="flex h-2 w-2 rounded-full bg-[#00675c] animate-pulse flex-shrink-0" />}
                     </div>
+
+                    {!unlocked && (
+                      <div className="absolute inset-0 bg-white/85 backdrop-blur-[1px] rounded-[1.5rem] flex flex-col items-center justify-center gap-2 z-10">
+                        <span className="material-symbols-outlined text-2xl text-[#b31b25]">lock</span>
+                        <p className="text-xs font-bold text-[#b31b25] text-center px-4">
+                          {weekIdx <= 2 ? '1ra quincena' : '2da quincena'}
+                        </p>
+                        <p className="text-[10px] text-[#595c5e] text-center px-4">
+                          Bloqueada — pago pendiente
+                        </p>
+                      </div>
+                    )}
 
                     {budgetTypes.length === 0 && !hasActivity ? (
                       <p className="text-xs text-[#abadaf]">{isFuture ? 'Pendiente' : 'Sin actividad'}</p>
@@ -724,7 +842,7 @@ export function RequirementPanel({
         client={client}
         cycle={cycle}
         totals={totals}
-        limits={limits}
+        limits={effectiveLimitsMap}
         isAdmin={isAdmin}
         canAssign={canAssign}
         assignableUsers={assignableUsers}

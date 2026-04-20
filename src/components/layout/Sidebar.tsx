@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { useUser } from '@/contexts/UserContext'
 import { UserAvatar } from '@/components/ui/UserAvatar'
@@ -97,11 +98,13 @@ const navItems: NavItem[] = [
 
 interface SidebarProps {
   renewalCount?: number
+  agencyLogoUrl?: string | null
 }
 
-export function Sidebar({ renewalCount = 0 }: SidebarProps) {
+export function Sidebar({ renewalCount = 0, agencyLogoUrl }: SidebarProps) {
   const pathname = usePathname()
   const user = useUser()
+  const [logoError, setLogoError] = useState(false)
 
   const visibleItems = navItems.filter(
     (item) => !item.allowedRoles || item.allowedRoles.includes(user.role)
@@ -110,14 +113,30 @@ export function Sidebar({ renewalCount = 0 }: SidebarProps) {
   return (
     <aside className="fixed inset-y-0 left-0 z-40 w-64 flex flex-col bg-white border-r border-[#abadaf]/30 shadow-sm">
       {/* Logo */}
-      <div className="flex items-center gap-3 px-6 py-5 border-b border-[#abadaf]/20">
-        <div className="w-9 h-9 rounded-xl signature-gradient flex items-center justify-center flex-shrink-0">
-          <span className="text-white font-bold text-sm">FM</span>
-        </div>
-        <div>
-          <p className="font-bold text-[#2c2f31] text-sm leading-tight">FM Communication</p>
-          <p className="text-[#595c5e] text-xs">Solutions</p>
-        </div>
+      <div className="px-4 py-4 border-b border-[#abadaf]/20">
+        {agencyLogoUrl && !logoError ? (
+          // Logo de la agencia cargado desde Supabase
+          <div className="rounded-xl overflow-hidden" style={{ background: '#0d1b3e' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={agencyLogoUrl}
+              alt="FM Communication Solutions"
+              className="w-full h-14 object-contain py-1.5 px-2"
+              onError={() => setLogoError(true)}
+            />
+          </div>
+        ) : (
+          // Fallback: badge FM + texto
+          <div className="flex items-center gap-3 px-2">
+            <div className="w-9 h-9 rounded-xl signature-gradient flex items-center justify-center flex-shrink-0">
+              <span className="text-white font-bold text-sm">FM</span>
+            </div>
+            <div>
+              <p className="font-bold text-[#2c2f31] text-sm leading-tight">FM Communication</p>
+              <p className="text-[#595c5e] text-xs">Solutions</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Navigation */}

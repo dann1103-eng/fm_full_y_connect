@@ -2,12 +2,16 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { uploadRequirementAttachment } from '@/lib/supabase/upload-req-attachment'
 
 interface ChatMessage {
   id: string
   body: string
   created_at: string
   user_id: string
+  attachment_path: string | null
+  attachment_type: string | null
+  attachment_name: string | null
   user: { full_name: string; role: string } | null
 }
 
@@ -16,13 +20,23 @@ interface RequirementChatProps {
   currentUserId: string
 }
 
+function publicUrlFor(path: string): string {
+  const supabase = createClient()
+  return supabase.storage.from('requirement-attachments').getPublicUrl(path).data.publicUrl
+}
+
 export function RequirementChat({ requirementId, currentUserId }: RequirementChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(true)
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [pendingPreview, setPendingPreview] = useState<string | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [lightbox, setLightbox] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     loadMessages()
@@ -34,7 +48,7 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
     const supabase = createClient()
     const { data } = await supabase
       .from('requirement_messages')
-      .select('id, body, created_at, user_id, user:users(full_name, role)')
+      .select('id, body, created_at, user_id, attachment_path, attachment_type, attachment_name, user:users(full_name, role)')
       .eq('requirement_id', requirementId)
       .order('created_at', { ascending: true })
     setMessages((data ?? []) as ChatMessage[])
@@ -45,18 +59,70 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Clean up object URL when preview changes
+  useEffect(() => {
+    return () => {
+      if (pendingPreview) URL.revokeObjectURL(pendingPreview)
+    }
+  }, [pendingPreview])
+
+  function handlePickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // permitir reseleccionar el mismo archivo
+    if (!file) return
+    setUploadError(null)
+    // Preview con object URL
+    if (pendingPreview) URL.revokeObjectURL(pendingPreview)
+    const url = URL.createObjectURL(file)
+    setPendingFile(file)
+    setPendingPreview(url)
+  }
+
+  function clearPendingFile() {
+    if (pendingPreview) URL.revokeObjectURL(pendingPreview)
+    setPendingFile(null)
+    setPendingPreview(null)
+  }
+
   async function handleSend() {
     const trimmed = body.trim()
-    if (!trimmed || sending) return
+    if ((!trimmed && !pendingFile) || sending) return
     setSending(true)
+    setUploadError(null)
+
+    let attachmentPath: string | null = null
+    let attachmentType: string | null = null
+    let attachmentName: string | null = null
+
+    if (pendingFile) {
+      try {
+        const uploaded = await uploadRequirementAttachment(pendingFile, requirementId)
+        attachmentPath = uploaded.path
+        attachmentType = uploaded.mime
+        attachmentName = uploaded.name
+      } catch (e) {
+        setUploadError(e instanceof Error ? e.message : 'Error al subir la imagen.')
+        setSending(false)
+        return
+      }
+    }
+
     const supabase = createClient()
     const { data: inserted } = await supabase
       .from('requirement_messages')
-      .insert({ requirement_id: requirementId, user_id: currentUserId, body: trimmed })
-      .select('id, body, created_at, user_id, user:users(full_name, role)')
+      .insert({
+        requirement_id: requirementId,
+        user_id: currentUserId,
+        body: trimmed,
+        attachment_path: attachmentPath,
+        attachment_type: attachmentType,
+        attachment_name: attachmentName,
+      })
+      .select('id, body, created_at, user_id, attachment_path, attachment_type, attachment_name, user:users(full_name, role)')
       .single()
     if (inserted) setMessages((prev) => [...prev, inserted as ChatMessage])
     setBody('')
+    clearPendingFile()
     setSending(false)
     inputRef.current?.focus()
   }
@@ -119,6 +185,7 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
                 const isMine = msg.user_id === currentUserId
                 const name = msg.user?.full_name ?? 'Usuario'
                 const role = msg.user?.role ?? ''
+                const imgUrl = msg.attachment_path ? publicUrlFor(msg.attachment_path) : null
                 return (
                   <div key={msg.id} className={`flex gap-2 items-end ${isMine ? 'flex-row-reverse' : ''}`}>
                     {/* Avatar */}
@@ -142,20 +209,41 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
                           </span>
                         )}
                       </span>
-                      <div
-                        className={`px-3 py-2 rounded-2xl text-sm leading-relaxed ${
-                          isMine
-                            ? 'text-white rounded-br-sm'
-                            : 'bg-[#f0f2f4] text-[#2c2f31] rounded-bl-sm'
-                        }`}
-                        style={
-                          isMine
-                            ? { background: 'linear-gradient(135deg,#00675c,#029e90)' }
-                            : undefined
-                        }
-                      >
-                        {msg.body}
-                      </div>
+
+                      {imgUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setLightbox(imgUrl)}
+                          className={`mb-1 overflow-hidden rounded-2xl border border-[#eef1f3] bg-[#f5f7f9] ${
+                            isMine ? 'rounded-br-sm' : 'rounded-bl-sm'
+                          }`}
+                          title={msg.attachment_name ?? 'Ver imagen'}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={imgUrl}
+                            alt={msg.attachment_name ?? 'Adjunto'}
+                            className="block max-w-full max-h-64 object-contain"
+                          />
+                        </button>
+                      )}
+
+                      {msg.body && (
+                        <div
+                          className={`px-3 py-2 rounded-2xl text-sm leading-relaxed ${
+                            isMine
+                              ? 'text-white rounded-br-sm'
+                              : 'bg-[#f0f2f4] text-[#2c2f31] rounded-bl-sm'
+                          }`}
+                          style={
+                            isMine
+                              ? { background: 'linear-gradient(135deg,#00675c,#029e90)' }
+                              : undefined
+                          }
+                        >
+                          {msg.body}
+                        </div>
+                      )}
                       <span className="text-[10px] text-[#c8cacc] mt-1">{formatTime(msg.created_at)}</span>
                     </div>
                   </div>
@@ -167,8 +255,52 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
         <div ref={bottomRef} />
       </div>
 
+      {/* Preview del adjunto pendiente */}
+      {pendingPreview && (
+        <div className="px-5 py-2 border-t border-[#eef1f3] flex items-center gap-3 flex-shrink-0 bg-[#f5f7f9]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={pendingPreview} alt="Preview" className="w-12 h-12 object-cover rounded-lg" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-[#2c2f31] truncate">
+              {pendingFile?.name}
+            </p>
+            <p className="text-[10px] text-[#747779]">
+              Se comprimirá automáticamente antes de enviar
+            </p>
+          </div>
+          <button
+            onClick={clearPendingFile}
+            className="text-[#b31b25] p-1 rounded hover:bg-[#b31b25]/10"
+            title="Quitar adjunto"
+          >
+            <span className="material-symbols-outlined text-base">close</span>
+          </button>
+        </div>
+      )}
+
+      {uploadError && (
+        <div className="px-5 py-2 bg-[#b31b25]/5 border-t border-[#b31b25]/20 text-xs text-[#b31b25] font-medium flex-shrink-0">
+          {uploadError}
+        </div>
+      )}
+
       {/* Input bar */}
       <div className="flex gap-2 items-end px-5 py-3 border-t border-[#eef1f3] flex-shrink-0">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          onChange={handlePickFile}
+          className="hidden"
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={sending}
+          title="Adjuntar imagen"
+          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-[#f5f7f9] border border-[#dfe3e6] text-[#595c5e] hover:bg-[#eef1f3] disabled:opacity-40"
+        >
+          <span className="material-symbols-outlined text-base">attach_file</span>
+        </button>
         <textarea
           ref={inputRef}
           value={body}
@@ -181,15 +313,30 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
         />
         <button
           onClick={handleSend}
-          disabled={!body.trim() || sending}
+          disabled={(!body.trim() && !pendingFile) || sending}
           className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-opacity"
           style={{ background: 'linear-gradient(135deg,#00675c,#5bf4de)' }}
         >
-          <svg viewBox="0 0 24 24" className="w-4 h-4 fill-white">
-            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-          </svg>
+          {sending ? (
+            <span className="material-symbols-outlined text-base text-white animate-spin">progress_activity</span>
+          ) : (
+            <svg viewBox="0 0 24 24" className="w-4 h-4 fill-white">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+            </svg>
+          )}
         </button>
       </div>
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div
+          onClick={() => setLightbox(null)}
+          className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 cursor-zoom-out"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={lightbox} alt="Vista ampliada" className="max-w-full max-h-full object-contain" />
+        </div>
+      )}
     </div>
   )
 }

@@ -41,10 +41,17 @@ export default async function AppLayout({ children }: AppLayoutProps) {
 
   const renewalCount = await getPendingRenewalsCount(supabase)
 
+  const { data: logoSetting } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', 'agency_logo_url')
+    .single()
+  const agencyLogoUrl = logoSetting?.value ?? null
+
   return (
     <UserProvider user={appUser}>
       <div className="flex h-screen overflow-hidden bg-[#f5f7f9]">
-        <Sidebar renewalCount={renewalCount} />
+        <Sidebar renewalCount={renewalCount} agencyLogoUrl={agencyLogoUrl} />
         <div className="flex flex-col flex-1 ml-64 overflow-hidden">
           <main className="flex-1 overflow-y-auto">{children}</main>
         </div>

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { TopNav } from '@/components/layout/TopNav'
 import { CONTENT_TYPES, CONTENT_TYPE_LABELS, limitsToRecord } from '@/lib/domain/plans'
+import { PlansManager, PlanEditButton } from '@/components/plans/PlansManager'
 import type { Plan } from '@/types/db'
 
 export const dynamic = 'force-dynamic'
@@ -27,7 +28,13 @@ export default async function PlansPage() {
       <TopNav title="Planes" />
 
       <div className="flex-1 p-6 space-y-5">
-        {/* Warning removed — operators are redirected to /, supervisors and admins can view */}
+        {/* Header con botón crear (solo admin) */}
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-[#595c5e]">
+            {plans?.length ?? 0} plan{plans?.length !== 1 ? 'es' : ''}
+          </p>
+          <PlansManager isAdmin={isAdmin} />
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {(plans ?? []).map((plan: Plan) => {
@@ -106,6 +113,12 @@ export default async function PlansPage() {
                 <p className="text-xs text-[#747779] mt-4 bg-[#f5f7f9] rounded-lg px-3 py-2">
                   Los cambios al catálogo no afectan ciclos activos (snapshot).
                 </p>
+
+                {isAdmin && (
+                  <div className="mt-3 flex justify-end">
+                    <PlanEditButton plan={plan} />
+                  </div>
+                )}
               </div>
             )
           })}

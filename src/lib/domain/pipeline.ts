@@ -127,6 +127,55 @@ export async function movePhase(
 
   if (updateError) return { error: updateError.message }
 
+  // --- Cerrar el log previo (si existe y está abierto) con standby/worked ---
+  const nowIso = new Date().toISOString()
+  const { data: openLogs } = await supabase
+    .from('requirement_phase_logs')
+    .select('id, created_at, to_phase')
+    .eq('requirement_id', requirementId)
+    .is('ended_at', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+
+  const openLog = openLogs?.[0]
+  if (openLog) {
+    const phaseStart = openLog.created_at
+    // Solo fases user-tracked acumulan tiempo trabajado (otras no reciben time_entries).
+    // Para passive_timer / timestamp_only, worked = 0 y standby = total.
+    let workedSeconds = 0
+    if (isUserTrackedPhase(openLog.to_phase as Phase)) {
+      const { data: entries } = await supabase
+        .from('time_entries')
+        .select('duration_seconds, started_at, ended_at')
+        .eq('requirement_id', requirementId)
+        .eq('phase', openLog.to_phase)
+        .gte('started_at', phaseStart)
+      for (const e of entries ?? []) {
+        if (e.duration_seconds != null) {
+          workedSeconds += e.duration_seconds
+        } else if (e.started_at) {
+          // Timer aún corriendo — se cierra ahora
+          const dur = Math.max(0, (new Date(nowIso).getTime() - new Date(e.started_at).getTime()) / 1000)
+          workedSeconds += Math.floor(dur)
+        }
+      }
+    }
+    const totalSeconds = Math.max(
+      0,
+      Math.floor((new Date(nowIso).getTime() - new Date(phaseStart).getTime()) / 1000)
+    )
+    const standbySeconds = Math.max(0, totalSeconds - workedSeconds)
+
+    await supabase
+      .from('requirement_phase_logs')
+      .update({
+        ended_at: nowIso,
+        worked_seconds: workedSeconds,
+        standby_seconds: standbySeconds,
+      })
+      .eq('id', openLog.id)
+  }
+
   const { error: logError } = await supabase
     .from('requirement_phase_logs')
     .insert({

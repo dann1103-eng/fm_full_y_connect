@@ -66,6 +66,20 @@ export function RequirementHistory({
       voided_by_user_id: user?.id,
       voided_at: new Date().toISOString(),
     }).eq('id', requirementId)
+
+    // Cleanup de adjuntos del chat — presupuesto 50MB total en Supabase Free.
+    try {
+      const { data: files } = await supabase.storage
+        .from('requirement-attachments')
+        .list(requirementId)
+      if (files && files.length > 0) {
+        const paths = files.map((f) => `${requirementId}/${f.name}`)
+        await supabase.storage.from('requirement-attachments').remove(paths)
+      }
+    } catch (err) {
+      console.error('Cleanup de adjuntos al anular req falló:', err)
+    }
+
     setVoidingId(null)
     router.refresh()
   }

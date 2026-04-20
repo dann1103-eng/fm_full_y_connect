@@ -61,6 +61,7 @@ export interface PlanLimits {
   reuniones?: number              // opcional: ciclos anteriores a la migración no lo tienen
   reunion_duracion_horas?: number // opcional: ídem
   matrices_contenido?: number     // opcional: ciclos anteriores a la migración no lo tienen
+  unified_content_limit?: number | null // plan "Contenido": pool único de N tipables
 }
 
 export interface CambiosPackage {
@@ -95,6 +96,7 @@ export interface Database {
           role: UserRole
           created_at: string
           avatar_url: string | null
+          default_assignee: boolean
         }
         Insert: {
           id: string
@@ -102,12 +104,14 @@ export interface Database {
           full_name?: string
           role?: UserRole
           avatar_url?: string | null
+          default_assignee?: boolean
         }
         Update: {
           email?: string
           full_name?: string
           role?: UserRole
           avatar_url?: string | null
+          default_assignee?: boolean
         }
         Relationships: []
       }
@@ -121,6 +125,7 @@ export interface Database {
           active: boolean
           created_at: string
           default_weekly_distribution_json: WeeklyDistribution | null
+          unified_content_limit: number | null
         }
         Insert: {
           id?: string
@@ -130,6 +135,7 @@ export interface Database {
           cambios_included?: number
           active?: boolean
           default_weekly_distribution_json?: WeeklyDistribution | null
+          unified_content_limit?: number | null
         }
         Update: {
           name?: string
@@ -138,6 +144,7 @@ export interface Database {
           cambios_included?: number
           active?: boolean
           default_weekly_distribution_json?: WeeklyDistribution | null
+          unified_content_limit?: number | null
         }
         Relationships: []
       }
@@ -234,6 +241,8 @@ export interface Database {
           status: CycleStatus
           payment_status: PaymentStatus
           payment_date: string | null
+          payment_status_2: PaymentStatus | null
+          payment_date_2: string | null
           created_at: string
           cambios_budget: number
           cambios_packages_json: CambiosPackage[]
@@ -251,6 +260,8 @@ export interface Database {
           status?: CycleStatus
           payment_status?: PaymentStatus
           payment_date?: string | null
+          payment_status_2?: PaymentStatus | null
+          payment_date_2?: string | null
           cambios_budget?: number
           cambios_packages_json?: CambiosPackage[]
           extra_content_json?: ExtraContentItem[]
@@ -266,6 +277,8 @@ export interface Database {
           status?: CycleStatus
           payment_status?: PaymentStatus
           payment_date?: string | null
+          payment_status_2?: PaymentStatus | null
+          payment_date_2?: string | null
           cambios_budget?: number
           cambios_packages_json?: CambiosPackage[]
           extra_content_json?: ExtraContentItem[]
@@ -359,6 +372,9 @@ export interface Database {
           moved_by: string | null
           notes: string | null
           created_at: string
+          ended_at: string | null
+          standby_seconds: number | null
+          worked_seconds: number | null
         }
         Insert: {
           id?: string
@@ -368,8 +384,15 @@ export interface Database {
           moved_by?: string | null
           notes?: string | null
           created_at?: string
+          ended_at?: string | null
+          standby_seconds?: number | null
+          worked_seconds?: number | null
         }
-        Update: Record<string, never>
+        Update: {
+          ended_at?: string | null
+          standby_seconds?: number | null
+          worked_seconds?: number | null
+        }
         Relationships: [
           {
             foreignKeyName: 'requirement_phase_logs_requirement_id_fkey'
@@ -413,6 +436,9 @@ export interface Database {
           user_id: string
           body: string
           created_at: string
+          attachment_path: string | null
+          attachment_type: string | null
+          attachment_name: string | null
         }
         Insert: {
           id?: string
@@ -420,6 +446,9 @@ export interface Database {
           user_id: string
           body: string
           created_at?: string
+          attachment_path?: string | null
+          attachment_type?: string | null
+          attachment_name?: string | null
         }
         Update: Record<string, never>
         Relationships: [
@@ -481,6 +510,23 @@ export interface Database {
             referencedColumns: ['id']
           }
         ]
+      }
+      app_settings: {
+        Row: {
+          key: string
+          value: string | null
+          updated_at: string
+        }
+        Insert: {
+          key: string
+          value?: string | null
+          updated_at?: string
+        }
+        Update: {
+          value?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
     }
     Views: Record<string, never>

@@ -69,7 +69,7 @@ export default async function ClientDetailPage({
   // Internal users (for "registered by" display in history)
   const { data: users } = await supabase
     .from('users')
-    .select('id, full_name, role, avatar_url')
+    .select('id, full_name, role, avatar_url, default_assignee')
 
   const userMap: Record<string, string> = {}
   const userAvatarMap: Record<string, string | null> = {}
@@ -197,7 +197,11 @@ export default async function ClientDetailPage({
             isAdmin={isAdmin}
             canCreate={canCreate}
             userMap={userMap}
-            assignableUsers={(users ?? []).map(u => ({ id: u.id, full_name: u.full_name || u.role }))}
+            assignableUsers={(users ?? []).map(u => ({
+              id: u.id,
+              full_name: u.full_name || u.role,
+              default_assignee: u.default_assignee ?? false,
+            }))}
             canAssign={canCreate}
             cambioLogsMap={cambioLogsMap}
           />

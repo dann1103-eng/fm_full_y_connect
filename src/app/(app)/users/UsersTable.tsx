@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import type { AppUser, UserRole } from '@/types/db'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { updateUserRole } from '@/app/actions/updateUserRole'
+import { updateUserDefaultAssignee } from '@/app/actions/updateUserDefaultAssignee'
 import { createUser, deleteUser } from '@/app/actions/users'
 import {
   Select,
@@ -54,16 +55,19 @@ function UserRow({
   isCurrentUser,
   onDeleted,
   onRoleChanged,
+  onDefaultAssigneeChanged,
 }: {
   user: AppUser
   isCurrentUser: boolean
   onDeleted: (id: string) => void
   onRoleChanged: (id: string, role: UserRole) => void
+  onDefaultAssigneeChanged: (id: string, value: boolean) => void
 }) {
   const router = useRouter()
   const [isPending, setIsPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isDeleting, startDeleteTransition] = useTransition()
+  const [isTogglingDefault, setIsTogglingDefault] = useState(false)
 
   function handleRoleChange(newRole: string | null) {
     if (!newRole || isPending) return
@@ -75,6 +79,25 @@ function UserRow({
         setError(res.error)
       } else {
         onRoleChanged(user.id, newRole as UserRole)
+        router.refresh()
+      }
+    })
+  }
+
+  function handleToggleDefaultAssignee() {
+    if (isTogglingDefault) return
+    setError(null)
+    const next = !user.default_assignee
+    setIsTogglingDefault(true)
+    // Optimistic update
+    onDefaultAssigneeChanged(user.id, next)
+    updateUserDefaultAssignee(user.id, next).then((res) => {
+      setIsTogglingDefault(false)
+      if (res.error) {
+        setError(res.error)
+        // Revert optimistic change
+        onDefaultAssigneeChanged(user.id, !next)
+      } else {
         router.refresh()
       }
     })
@@ -110,6 +133,28 @@ function UserRow({
       {/* Created at */}
       <div className="hidden md:block w-32 flex-shrink-0 text-xs text-[#595c5e]">
         {formatDate(user.created_at)}
+      </div>
+
+      {/* Default assignee toggle */}
+      <div className="w-20 flex-shrink-0 flex items-center justify-center">
+        <button
+          onClick={handleToggleDefaultAssignee}
+          disabled={isTogglingDefault}
+          title={
+            user.default_assignee
+              ? 'Usuario preseleccionado al crear requerimientos — click para desactivar'
+              : 'Click para preseleccionar al crear requerimientos'
+          }
+          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50 ${
+            user.default_assignee ? 'bg-[#00675c]' : 'bg-[#dfe3e6]'
+          }`}
+        >
+          <span
+            className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+              user.default_assignee ? 'translate-x-[18px]' : 'translate-x-[3px]'
+            }`}
+          />
+        </button>
       </div>
 
       {/* Role selector */}
@@ -181,6 +226,7 @@ function CreateUserModal({ onClose, onCreated }: {
         role,
         created_at: new Date().toISOString(),
         avatar_url: null,
+        default_assignee: false,
       })
       onClose()
     })
@@ -288,6 +334,9 @@ export function UsersTable({ users: initialUsers, currentUserId }: UsersTablePro
           <div className="hidden md:block w-32 flex-shrink-0 text-xs font-semibold text-[#595c5e] uppercase tracking-wide">
             Creado
           </div>
+          <div className="w-20 flex-shrink-0 text-xs font-semibold text-[#595c5e] uppercase tracking-wide text-center">
+            Default
+          </div>
           <div className="w-36 flex-shrink-0 text-xs font-semibold text-[#595c5e] uppercase tracking-wide">
             Cambiar rol
           </div>
@@ -306,6 +355,9 @@ export function UsersTable({ users: initialUsers, currentUserId }: UsersTablePro
               isCurrentUser={user.id === currentUserId}
               onDeleted={(id) => setUsers(prev => prev.filter(u => u.id !== id))}
               onRoleChanged={(id, role) => setUsers(prev => prev.map(u => u.id === id ? { ...u, role } : u))}
+              onDefaultAssigneeChanged={(id, value) =>
+                setUsers(prev => prev.map(u => u.id === id ? { ...u, default_assignee: value } : u))
+              }
             />
           ))
         )}

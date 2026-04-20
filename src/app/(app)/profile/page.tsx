@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { TopNav } from '@/components/layout/TopNav'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,7 +10,9 @@ import { UserAvatar } from '@/components/ui/UserAvatar'
 import { useUser } from '@/contexts/UserContext'
 import { createClient } from '@/lib/supabase/client'
 import { uploadUserAvatar } from '@/lib/supabase/upload-avatar'
+import { uploadAgencyLogo } from '@/lib/supabase/upload-agency-logo'
 import { updateMyProfile } from '@/app/actions/profile'
+import { updateAgencyLogoUrl } from '@/app/actions/agencySettings'
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Administrador',
@@ -19,6 +22,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function ProfilePage() {
   const user = useUser()
+  const router = useRouter()
 
   const [name, setName] = useState(user.full_name)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user.avatar_url ?? null)
@@ -26,6 +30,12 @@ export default function ProfilePage() {
   const [profileMsg, setProfileMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [isPending, startTransition] = useTransition()
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // Agency logo (admin only)
+  const agencyLogoRef = useRef<HTMLInputElement>(null)
+  const [agencyLogoUrl, setAgencyLogoUrl] = useState<string | null>(null)
+  const [agencyLogoUploading, setAgencyLogoUploading] = useState(false)
+  const [agencyLogoMsg, setAgencyLogoMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -59,6 +69,28 @@ export default function ProfilePage() {
       if (res.error) setProfileMsg({ type: 'error', text: res.error })
       else setProfileMsg({ type: 'success', text: 'Perfil actualizado.' })
     })
+  }
+
+  async function handleAgencyLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setAgencyLogoUploading(true)
+    setAgencyLogoMsg(null)
+    try {
+      const url = await uploadAgencyLogo(file)
+      const res = await updateAgencyLogoUrl(url)
+      if (res.error) {
+        setAgencyLogoMsg({ type: 'error', text: res.error })
+      } else {
+        setAgencyLogoUrl(url)
+        setAgencyLogoMsg({ type: 'success', text: 'Logo actualizado. Se verá en el menú lateral.' })
+        router.refresh()
+      }
+    } catch (err) {
+      setAgencyLogoMsg({ type: 'error', text: err instanceof Error ? err.message : 'Error al subir el logo.' })
+    } finally {
+      setAgencyLogoUploading(false)
+    }
   }
 
   async function handleChangePassword(e: React.FormEvent) {
@@ -158,6 +190,61 @@ export default function ProfilePage() {
             </Button>
           </form>
         </div>
+
+        {/* Agency logo — admin only */}
+        {user.role === 'admin' && (
+          <div className="bg-white rounded-2xl border border-[#dfe3e6] p-6 space-y-4">
+            <h2 className="text-base font-bold text-[#2c2f31]">Logo de la agencia</h2>
+            <p className="text-xs text-[#595c5e]">
+              Aparece en el menú lateral de todas las vistas del sistema.
+              PNG, JPG, WebP o SVG · máx. 2 MB.
+            </p>
+
+            {/* Preview */}
+            <div className="rounded-xl overflow-hidden w-full" style={{ background: '#0d1b3e' }}>
+              {agencyLogoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={agencyLogoUrl}
+                  alt="Logo actual"
+                  className="w-full h-20 object-contain py-2 px-4"
+                />
+              ) : (
+                <div className="h-20 flex items-center justify-center">
+                  <span className="text-white/40 text-xs">Sin logo cargado</span>
+                </div>
+              )}
+            </div>
+
+            {agencyLogoMsg && (
+              <div className={`text-sm rounded-xl px-3 py-2 border ${
+                agencyLogoMsg.type === 'success'
+                  ? 'text-[#00675c] bg-[#00675c]/5 border-[#00675c]/20'
+                  : 'text-[#b31b25] bg-[#b31b25]/5 border-[#b31b25]/20'
+              }`}>
+                {agencyLogoMsg.text}
+              </div>
+            )}
+
+            <input
+              ref={agencyLogoRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+              className="hidden"
+              onChange={handleAgencyLogoChange}
+            />
+            <Button
+              type="button"
+              onClick={() => agencyLogoRef.current?.click()}
+              disabled={agencyLogoUploading}
+              variant="outline"
+              className="w-full rounded-xl border-[#dfe3e6] font-semibold"
+            >
+              <span className="material-symbols-outlined text-sm mr-2">upload</span>
+              {agencyLogoUploading ? 'Subiendo...' : 'Subir logo'}
+            </Button>
+          </div>
+        )}
 
         {/* Password change */}
         <div className="bg-white rounded-2xl border border-[#dfe3e6] p-6 space-y-4">

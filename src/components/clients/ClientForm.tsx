@@ -142,10 +142,15 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
           billingDay2: billingPeriod === 'biweekly' && billingDay2 ? parseInt(billingDay2, 10) : null,
         })
 
+        // Copia el unified_content_limit del plan al snapshot (plan "Contenido")
+        const snapshot = plan.unified_content_limit != null
+          ? { ...plan.limits_json, unified_content_limit: plan.unified_content_limit }
+          : plan.limits_json
+
         await supabase.from('billing_cycles').insert({
           client_id: newClient.id,
           plan_id_snapshot: plan.id,
-          limits_snapshot_json: plan.limits_json,
+          limits_snapshot_json: snapshot,
           rollover_from_previous_json: null,
           period_start: periodStart,
           period_end: periodEnd,

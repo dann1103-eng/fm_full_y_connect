@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Dialog,
@@ -15,7 +15,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { ClientWithPlan, BillingCycle, ContentType, Priority } from '@/types/db'
 import { PRIORITY_LABELS, PRIORITY_COLORS } from '@/types/db'
 import { CONTENT_TYPES, CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
-import { canRegister } from '@/lib/domain/requirement'
+import { canRegister, canRegisterWithContext, weekIndexInCycle } from '@/lib/domain/requirement'
 import { insertInitialPhaseLog } from '@/lib/domain/pipeline'
 
 const CONTENT_ICONS: Record<ContentType, React.ReactNode> = {
@@ -70,7 +70,7 @@ interface RequirementModalProps {
   limits: Record<ContentType, number>
   isAdmin: boolean
   canAssign?: boolean
-  assignableUsers?: { id: string; full_name: string }[]
+  assignableUsers?: { id: string; full_name: string; default_assignee?: boolean }[]
 }
 
 export function RequirementModal({
@@ -92,6 +92,19 @@ export function RequirementModal({
   const [estimatedTime, setEstimatedTime] = useState('')
   const [assignedTo, setAssignedTo] = useState<string[]>([])
   const [forceOverLimit, setForceOverLimit] = useState(false)
+
+  // Pre-seleccionar usuarios con `default_assignee=true` cada vez que se abre el modal,
+  // solo si el usuario aún no ha tocado la selección (assignedTo vacío).
+  useEffect(() => {
+    if (!open) return
+    if (assignedTo.length > 0) return
+    const defaults = assignableUsers
+      .filter((u) => u.default_assignee)
+      .map((u) => u.id)
+    if (defaults.length > 0) setAssignedTo(defaults)
+  // Dependemos de `open` y `assignableUsers` — no incluir assignedTo para no sobrescribir cambios manuales
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, assignableUsers])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -102,6 +115,19 @@ export function RequirementModal({
     if (!selectedType) return
     setError(null)
     setLoading(true)
+
+    // Biweekly gate — si la semana actual está bloqueada, detener (no bypasseable por admin).
+    const currentWeek = weekIndexInCycle(new Date(), cycle.period_start)
+    const gate = canRegisterWithContext(selectedType, totals, limits, {
+      week: currentWeek,
+      cycle,
+      client,
+    })
+    if (!gate.ok && gate.reason?.startsWith('Pago pendiente')) {
+      setError(`${gate.reason}. Registra el pago antes de crear requerimientos en esta semana.`)
+      setLoading(false)
+      return
+    }
 
     const allowed = canRegister(selectedType, totals, limits)
 

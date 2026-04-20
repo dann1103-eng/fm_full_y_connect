@@ -81,6 +81,27 @@ Deno.serve(async (_req) => {
           .update({ status: 'archived' })
           .eq('id', cycle.id)
 
+        // Cleanup de adjuntos del chat — Supabase Free solo permite 50MB total.
+        // Listar todos los requerimientos del ciclo archivado y borrar sus imágenes.
+        try {
+          const { data: reqsOfCycle } = await supabase
+            .from('requirements')
+            .select('id')
+            .eq('billing_cycle_id', cycle.id)
+          for (const r of reqsOfCycle ?? []) {
+            const { data: files } = await supabase.storage
+              .from('requirement-attachments')
+              .list(r.id)
+            if (files && files.length > 0) {
+              const paths = files.map((f: { name: string }) => `${r.id}/${f.name}`)
+              await supabase.storage.from('requirement-attachments').remove(paths)
+            }
+          }
+          log.push(`✓ Cleanup adjuntos para ciclo ${cycle.id}`)
+        } catch (cleanupErr) {
+          log.push(`⚠ Cleanup adjuntos falló: ${String(cleanupErr)}`)
+        }
+
         const { periodStart, periodEnd } = nextCycleDates(
           cycle.period_end,
           client.billing_day
@@ -93,10 +114,16 @@ Deno.serve(async (_req) => {
           .eq('id', client.current_plan_id)
           .single()
 
+        // Copia el unified_content_limit al snapshot si aplica (plan "Contenido")
+        const baseSnapshot = plan?.limits_json ?? cycle.limits_snapshot_json
+        const limitsSnapshot = plan?.unified_content_limit != null
+          ? { ...baseSnapshot, unified_content_limit: plan.unified_content_limit }
+          : baseSnapshot
+
         await supabase.from('billing_cycles').insert({
           client_id: client.id,
           plan_id_snapshot: client.current_plan_id,
-          limits_snapshot_json: plan?.limits_json ?? cycle.limits_snapshot_json,
+          limits_snapshot_json: limitsSnapshot,
           rollover_from_previous_json: null,
           period_start: periodStart,
           period_end: periodEnd,

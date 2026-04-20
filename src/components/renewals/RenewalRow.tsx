@@ -26,7 +26,7 @@ function getInitials(name: string) {
 
 type PanelMode = null | 'simple' | 'cambios' | 'pausar'
 
-interface Plan { id: string; name: string; limits_json: PlanLimits; cambios_included: number }
+interface Plan { id: string; name: string; limits_json: PlanLimits; cambios_included: number; unified_content_limit?: number | null }
 
 interface RenewalRowProps {
   cycle: BillingCycle
@@ -100,7 +100,11 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
     const planData = withChanges
       ? allPlans.find((p) => p.id === planId)
       : null
-    const planLimits = planData?.limits_json ?? client.plan.limits_json
+    const basePlan = planData ?? client.plan
+    // Copia el unified_content_limit al snapshot si aplica (plan "Contenido")
+    const planLimits: PlanLimits = basePlan.unified_content_limit != null
+      ? { ...basePlan.limits_json, unified_content_limit: basePlan.unified_content_limit }
+      : basePlan.limits_json
     const planCambios = planData?.cambios_included ?? client.plan.cambios_included
 
     // Build rollover

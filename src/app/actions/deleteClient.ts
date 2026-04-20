@@ -26,7 +26,25 @@ export async function deleteClient(clientId: string): Promise<void> {
     requirementIds = (requirements ?? []).map((r) => r.id)
   }
 
-  // 3. Delete phase logs
+  // 3. Cleanup de adjuntos del chat (bucket requirement-attachments).
+  // Se hace antes de borrar requirements para que los paths sigan resolviendo.
+  if (requirementIds.length > 0) {
+    for (const reqId of requirementIds) {
+      try {
+        const { data: files } = await supabase.storage
+          .from('requirement-attachments')
+          .list(reqId)
+        if (files && files.length > 0) {
+          const paths = files.map((f) => `${reqId}/${f.name}`)
+          await supabase.storage.from('requirement-attachments').remove(paths)
+        }
+      } catch (err) {
+        console.error(`Cleanup de adjuntos para req ${reqId} falló:`, err)
+      }
+    }
+  }
+
+  // 4. Delete phase logs
   if (requirementIds.length > 0) {
     await supabase.from('requirement_phase_logs')
       .delete().in('requirement_id', requirementIds)

@@ -29,6 +29,17 @@ import { RequirementTimesheet } from './RequirementTimesheet'
 
 type Tab = 'fases' | 'chat' | 'tiempo'
 
+/** "1h 30m" / "35m" / "45s" — compacto para el historial de fases */
+function formatSecondsShort(secs: number): string {
+  if (secs <= 0) return '0m'
+  const h = Math.floor(secs / 3600)
+  const m = Math.floor((secs % 3600) / 60)
+  const s = secs % 60
+  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`
+  if (m > 0) return `${m}m`
+  return `${s}s`
+}
+
 interface PhaseSheetProps {
   open: boolean
   onClose: () => void
@@ -111,8 +122,13 @@ export function PhaseSheet({
     revision_cliente: 'Esperando respuesta del cliente',
   }
 
+  // `revision_cliente` conserva el box visible (timestamp de inicio) pero sin
+  // contador en vivo — el tracking "stand-by vs trabajado" no aplica cuando la
+  // pelota está del lado del cliente.
+  const showLiveCounter = isPassiveTimer && currentPhase !== 'revision_cliente'
+
   useEffect(() => {
-    if (!isPassiveTimer || !passiveTimerStart) {
+    if (!showLiveCounter || !passiveTimerStart) {
       setReviewElapsed('')
       return
     }
@@ -126,7 +142,7 @@ export function PhaseSheet({
     const id = setInterval(tick, 60000)
     return () => clearInterval(id)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPhase, passiveTimerStart])
+  }, [currentPhase, passiveTimerStart, showLiveCounter])
 
   // Fetch assignable users when canAssign
   useEffect(() => {
@@ -460,13 +476,21 @@ export function PhaseSheet({
                         <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">
                           {passiveTimerLabel[currentPhase] ?? 'Tiempo automático'}
                         </span>
-                        <span className="text-[9px] font-bold bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded-full">
-                          AUTO
-                        </span>
+                        {showLiveCounter && (
+                          <span className="text-[9px] font-bold bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded-full">
+                            AUTO
+                          </span>
+                        )}
                       </div>
-                      <p className="text-2xl font-black text-amber-700 tabular-nums">
-                        {reviewElapsed || '—'}
-                      </p>
+                      {showLiveCounter ? (
+                        <p className="text-2xl font-black text-amber-700 tabular-nums">
+                          {reviewElapsed || '—'}
+                        </p>
+                      ) : (
+                        <p className="text-sm font-semibold text-amber-700">
+                          En espera del cliente
+                        </p>
+                      )}
                       {passiveTimerStart && (
                         <p className="text-xs text-amber-600 mt-0.5">
                           Desde {new Date(passiveTimerStart).toLocaleDateString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
@@ -577,12 +601,32 @@ export function PhaseSheet({
                               day: '2-digit', month: 'short', year: 'numeric',
                               hour: '2-digit', minute: '2-digit',
                             })}
+                            {log.ended_at && (
+                              <>
+                                {' · salió '}
+                                {new Date(log.ended_at).toLocaleDateString('es', {
+                                  day: '2-digit', month: 'short',
+                                  hour: '2-digit', minute: '2-digit',
+                                })}
+                              </>
+                            )}
                           </p>
                           <p className="text-sm font-semibold text-[#2c2f31]">
                             {log.from_phase
                               ? `${PHASE_LABELS[log.from_phase as Phase]} → ${PHASE_LABELS[log.to_phase as Phase]}`
                               : `Creado en ${PHASE_LABELS[log.to_phase as Phase]}`}
                           </p>
+                          {log.ended_at && (log.standby_seconds != null || log.worked_seconds != null) && (
+                            <p className="text-[11px] text-[#595c5e] mt-1">
+                              <span className="text-amber-700 font-semibold">
+                                Stand-by: {formatSecondsShort(log.standby_seconds ?? 0)}
+                              </span>
+                              {' · '}
+                              <span className="text-[#00675c] font-semibold">
+                                Trabajado: {formatSecondsShort(log.worked_seconds ?? 0)}
+                              </span>
+                            </p>
+                          )}
                           {log.notes && (
                             <p className="text-xs text-[#595c5e] mt-1 bg-[#f5f7f9] rounded-lg px-2.5 py-1.5">
                               {log.notes}
@@ -644,6 +688,7 @@ export function PhaseSheet({
               requirementId={requirementId}
               currentPhase={currentPhase}
               currentUserId={currentUserId}
+              canAssignToOthers={canAssign}
             />
           </div>
         </div>
