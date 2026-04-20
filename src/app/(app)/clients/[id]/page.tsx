@@ -69,11 +69,13 @@ export default async function ClientDetailPage({
   // Internal users (for "registered by" display in history)
   const { data: users } = await supabase
     .from('users')
-    .select('id, full_name, role')
+    .select('id, full_name, role, avatar_url')
 
   const userMap: Record<string, string> = {}
+  const userAvatarMap: Record<string, string | null> = {}
   ;(users ?? []).forEach((u) => {
     userMap[u.id] = u.full_name || (u.role === 'admin' ? 'Admin' : u.role === 'supervisor' ? 'Supervisor' : 'Operador')
+    userAvatarMap[u.id] = u.avatar_url ?? null
   })
 
   // Pipeline items del ciclo actual
@@ -109,6 +111,7 @@ export default async function ClientDetailPage({
         estimated_time_minutes: c.estimated_time_minutes ?? null,
         assigned_to: c.assigned_to ?? null,
         assignee_name: c.assigned_to ? (userMap[c.assigned_to] ?? null) : null,
+        assignee_avatar_url: c.assigned_to ? (userAvatarMap[c.assigned_to] ?? null) : null,
       })
     }
 

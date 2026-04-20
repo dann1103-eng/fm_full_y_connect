@@ -57,9 +57,9 @@ export default async function PipelinePage() {
     const clientMap: Record<string, Pick<Client, 'id' | 'name' | 'logo_url'>> = {}
     for (const cl of clientsRaw ?? []) clientMap[cl.id] = cl
 
-    const { data: usersRaw } = await supabase.from('users').select('id, full_name')
-    const usersMap: Record<string, string> = {}
-    for (const u of usersRaw ?? []) usersMap[u.id] = u.full_name
+    const { data: usersRaw } = await supabase.from('users').select('id, full_name, avatar_url')
+    const usersMap: Record<string, { name: string; avatar_url: string | null }> = {}
+    for (const u of usersRaw ?? []) usersMap[u.id] = { name: u.full_name, avatar_url: u.avatar_url }
 
     for (const c of requirementsRaw ?? []) {
       const cClientId = cycleClientMap[c.billing_cycle_id]
@@ -84,7 +84,8 @@ export default async function PipelinePage() {
         priority: (c.priority ?? 'media') as import('@/types/db').Priority,
         estimated_time_minutes: c.estimated_time_minutes ?? null,
         assigned_to: c.assigned_to ?? null,
-        assignee_name: c.assigned_to ? (usersMap[c.assigned_to] ?? null) : null,
+        assignee_name: c.assigned_to ? (usersMap[c.assigned_to]?.name ?? null) : null,
+        assignee_avatar_url: c.assigned_to ? (usersMap[c.assigned_to]?.avatar_url ?? null) : null,
       })
     }
 

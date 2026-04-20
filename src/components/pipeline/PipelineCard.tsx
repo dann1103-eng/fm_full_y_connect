@@ -8,6 +8,7 @@ import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import type { PipelineItem } from '@/lib/domain/pipeline'
 import type { RequirementPhaseLog, ContentType, Phase, Priority } from '@/types/db'
 import { PRIORITY_COLORS } from '@/types/db'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 
 const CONTENT_TYPE_COLORS: Record<ContentType, string> = {
   historia:    'bg-purple-100 text-purple-700',
@@ -111,11 +112,8 @@ export function CardBody({
             </span>
           )}
           {item.assignee_name && (
-            <span
-              title={item.assignee_name}
-              className="w-5 h-5 rounded-full bg-[#00675c]/15 flex items-center justify-center text-[9px] font-bold text-[#00675c] flex-shrink-0"
-            >
-              {item.assignee_name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()}
+            <span title={item.assignee_name}>
+              <UserAvatar name={item.assignee_name} avatarUrl={item.assignee_avatar_url} size="xs" />
             </span>
           )}
         </div>

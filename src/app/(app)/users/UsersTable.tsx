@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import type { AppUser, UserRole } from '@/types/db'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import { updateUserRole } from '@/app/actions/updateUserRole'
 import { createUser, deleteUser } from '@/app/actions/users'
 import {
@@ -84,11 +85,7 @@ function UserRow({
   return (
     <div className="flex items-center gap-4 px-4 py-3 border-b border-[#dfe3e6] last:border-0">
       {/* Avatar */}
-      <div className="w-8 h-8 rounded-full bg-[#00675c]/10 flex items-center justify-center flex-shrink-0">
-        <span className="text-xs font-bold text-[#00675c]">
-          {(user.full_name ?? user.email).slice(0, 2).toUpperCase()}
-        </span>
-      </div>
+      <UserAvatar name={user.full_name || user.email} avatarUrl={user.avatar_url} size="sm" />
 
       {/* Name + email */}
       <div className="flex-1 min-w-0">

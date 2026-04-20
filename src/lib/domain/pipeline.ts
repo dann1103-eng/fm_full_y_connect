@@ -82,6 +82,7 @@ export interface PipelineItem {
   estimated_time_minutes: number | null
   assigned_to: string | null
   assignee_name: string | null
+  assignee_avatar_url: string | null
 }
 
 /**
