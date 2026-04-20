@@ -19,6 +19,7 @@ const CONTENT_ICONS: Record<ContentType, string> = {
   short: 'slideshow',
   produccion: 'video_camera_front',
   reunion: 'groups',
+  matriz_contenido: 'grid_view',
 }
 
 // Amber-toned types (estatico, video_corto) get amber icon styling

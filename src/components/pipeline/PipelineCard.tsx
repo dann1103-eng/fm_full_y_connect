@@ -11,13 +11,14 @@ import { PRIORITY_COLORS } from '@/types/db'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 
 const CONTENT_TYPE_COLORS: Record<ContentType, string> = {
-  historia:    'bg-purple-100 text-purple-700',
-  estatico:    'bg-blue-100 text-blue-700',
-  video_corto: 'bg-orange-100 text-orange-700',
-  reel:        'bg-pink-100 text-pink-700',
-  short:       'bg-yellow-100 text-yellow-700',
-  produccion:  'bg-teal-100 text-teal-700',
-  reunion:     'bg-indigo-100 text-indigo-700',
+  historia:         'bg-purple-100 text-purple-700',
+  estatico:         'bg-blue-100 text-blue-700',
+  video_corto:      'bg-orange-100 text-orange-700',
+  reel:             'bg-pink-100 text-pink-700',
+  short:            'bg-yellow-100 text-yellow-700',
+  produccion:       'bg-teal-100 text-teal-700',
+  reunion:          'bg-indigo-100 text-indigo-700',
+  matriz_contenido: 'bg-emerald-100 text-emerald-700',
 }
 
 interface PipelineCardProps {

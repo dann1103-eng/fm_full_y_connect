@@ -17,6 +17,7 @@ export const CONTENT_TYPE_LABELS: Record<ContentType, string> = {
   short: 'Shorts',
   produccion: 'Producciones',
   reunion: 'Reuniones',
+  matriz_contenido: 'Matriz de contenido',
 }
 
 /** Ordered list for display */
@@ -28,7 +29,11 @@ export const CONTENT_TYPES: ContentType[] = [
   'short',
   'produccion',
   'reunion',
+  'matriz_contenido',
 ]
+
+/** Content types that never carry over between billing cycles */
+export const NON_CARRYOVER_TYPES: ContentType[] = ['produccion', 'reunion', 'matriz_contenido']
 
 /** Convert PlanLimits JSON to ContentType-keyed record */
 export function limitsToRecord(limits: PlanLimits): Record<ContentType, number> {
@@ -39,7 +44,8 @@ export function limitsToRecord(limits: PlanLimits): Record<ContentType, number> 
     reel: limits.reels,
     short: limits.shorts,
     produccion: limits.producciones,
-    reunion: limits.reuniones ?? 0,  // ?? 0: ciclos antiguos sin este campo devuelven 0
+    reunion: limits.reuniones ?? 0,
+    matriz_contenido: limits.matrices_contenido ?? 1,
   }
 }
 
@@ -59,6 +65,7 @@ export function effectiveLimits(
     short: rollover.shorts ?? 0,
     produccion: rollover.producciones ?? 0,
     reunion: rollover.reuniones ?? 0,
+    matriz_contenido: 0, // never carries over
   }
 
   return {
@@ -69,5 +76,6 @@ export function effectiveLimits(
     short: base.short + (roll.short ?? 0),
     produccion: base.produccion + (roll.produccion ?? 0),
     reunion: base.reunion + (roll.reunion ?? 0),
+    matriz_contenido: base.matriz_contenido,
   }
 }

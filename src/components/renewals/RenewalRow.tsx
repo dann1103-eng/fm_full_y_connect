@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { BillingCycle, BillingPeriod, CambiosPackage, ClientWithPlan, ContentType, ExtraContentItem, PlanLimits } from '@/types/db'
-import { CONTENT_TYPES, CONTENT_TYPE_LABELS, EXTRA_CONTENT_PRICES, effectiveLimits } from '@/lib/domain/plans'
+import { CONTENT_TYPES, CONTENT_TYPE_LABELS, EXTRA_CONTENT_PRICES, NON_CARRYOVER_TYPES, effectiveLimits } from '@/lib/domain/plans'
 import { nextCycleDates } from '@/lib/domain/cycles'
 import { computeTotals } from '@/lib/domain/requirement'
 import { migrateOpenPipelineItems } from '@/lib/domain/pipeline'
@@ -44,6 +44,7 @@ const CONTENT_TO_PLAN_KEY: Record<ContentType, keyof PlanLimits> = {
   short: 'shorts',
   produccion: 'producciones',
   reunion: 'reuniones',
+  matriz_contenido: 'matrices_contenido',
 }
 
 export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: RenewalRowProps) {
@@ -343,7 +344,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
                   <span className="font-normal text-[#747779] ml-1">(por defecto: no acumular)</span>
                 </p>
                 <div className="grid grid-cols-3 gap-2">
-                  {CONTENT_TYPES.filter((t) => limits[t] > 0 && t !== 'produccion' && t !== 'reunion').map((type) => (
+                  {CONTENT_TYPES.filter((t) => limits[t] > 0 && !NON_CARRYOVER_TYPES.includes(t)).map((type) => (
                     <label key={type} className="flex items-center gap-2 cursor-pointer bg-white rounded-lg px-3 py-2 border border-[#dfe3e6]">
                       <input
                         type="checkbox"
@@ -631,7 +632,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
                   <span className="font-normal text-[#747779] ml-1">(por defecto: no acumular)</span>
                 </p>
                 <div className="grid grid-cols-3 gap-2">
-                  {CONTENT_TYPES.filter((t) => limits[t] > 0 && t !== 'produccion' && t !== 'reunion').map((type) => (
+                  {CONTENT_TYPES.filter((t) => limits[t] > 0 && !NON_CARRYOVER_TYPES.includes(t)).map((type) => (
                     <label key={type} className="flex items-center gap-2 cursor-pointer bg-white rounded-lg px-3 py-2 border border-[#dfe3e6]">
                       <input
                         type="checkbox"

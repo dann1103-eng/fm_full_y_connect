@@ -123,11 +123,11 @@ export default async function ReportsPage() {
   // Production totals (sum across all active cycles per type)
   const productionTotals: Record<ContentType, number> = {
     historia: 0, estatico: 0, video_corto: 0, reel: 0,
-    short: 0, produccion: 0, reunion: 0,
+    short: 0, produccion: 0, reunion: 0, matriz_contenido: 0,
   }
   const productionLimits: Record<ContentType, number> = {
     historia: 0, estatico: 0, video_corto: 0, reel: 0,
-    short: 0, produccion: 0, reunion: 0,
+    short: 0, produccion: 0, reunion: 0, matriz_contenido: 0,
   }
   for (const cycle of currentCycles) {
     const cons = consByCycleId[cycle.id] ?? []

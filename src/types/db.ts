@@ -16,6 +16,7 @@ export type ContentType =
   | 'short'
   | 'produccion'
   | 'reunion'
+  | 'matriz_contenido'
 
 export type Phase =
   | 'pendiente'
@@ -59,6 +60,7 @@ export interface PlanLimits {
   producciones: number
   reuniones?: number              // opcional: ciclos anteriores a la migración no lo tienen
   reunion_duracion_horas?: number // opcional: ídem
+  matrices_contenido?: number     // opcional: ciclos anteriores a la migración no lo tienen
 }
 
 export interface CambiosPackage {

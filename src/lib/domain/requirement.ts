@@ -10,6 +10,7 @@ export function computeTotals(requirements: Requirement[]): RequirementTotals {
     short: 0,
     produccion: 0,
     reunion: 0,
+    matriz_contenido: 0,
   }
 
   for (const r of requirements) {
@@ -62,6 +63,7 @@ export function computeRollover(
 ): Partial<Record<ContentType, number>> {
   const rollover: Partial<Record<ContentType, number>> = {}
   const types: ContentType[] = ['historia', 'estatico', 'video_corto', 'reel', 'short', 'produccion', 'reunion']
+  // nota: matriz_contenido se excluye del rollover intencionalmente
 
   for (const type of types) {
     const unused = limits[type] - totals[type]

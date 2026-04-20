@@ -14,6 +14,7 @@ const CONTENT_ICONS: Record<ContentType, string> = {
   short: 'slideshow',
   produccion: 'video_camera_front',
   reunion: 'groups',
+  matriz_contenido: 'grid_view',
 }
 
 const AMBER_TYPES = new Set<ContentType>(['estatico', 'video_corto'])
@@ -26,6 +27,7 @@ const TYPE_ACTION: Record<ContentType, string> = {
   short: 'Short registrado',
   produccion: 'Producción registrada',
   reunion: 'Reunión registrada',
+  matriz_contenido: 'Matriz de contenido registrada',
 }
 
 function daysAgo(dateStr: string): string {

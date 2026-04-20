@@ -94,13 +94,14 @@ const PHASE_COLORS: Record<Phase, { bg: string; text: string }> = {
 }
 
 const ROLLOVER_KEY: Record<ContentType, keyof PlanLimits> = {
-  historia:    'historias',
-  estatico:    'estaticos',
-  video_corto: 'videos_cortos',
-  reel:        'reels',
-  short:       'shorts',
-  produccion:  'producciones',
-  reunion:     'reuniones',
+  historia:         'historias',
+  estatico:         'estaticos',
+  video_corto:      'videos_cortos',
+  reel:             'reels',
+  short:            'shorts',
+  produccion:       'producciones',
+  reunion:          'reuniones',
+  matriz_contenido: 'matrices_contenido',
 }
 
 // ── Styles ─────────────────────────────────────────────────────────────────
@@ -182,7 +183,7 @@ export function ClientCycleReport({ client, cycle, requirements, includeDetail, 
   })
 
   const totals: Record<ContentType, number> = {
-    historia: 0, estatico: 0, video_corto: 0, reel: 0, short: 0, produccion: 0, reunion: 0,
+    historia: 0, estatico: 0, video_corto: 0, reel: 0, short: 0, produccion: 0, reunion: 0, matriz_contenido: 0,
   }
   for (const r of requirements) {
     if (!r.voided) totals[r.content_type] = (totals[r.content_type] ?? 0) + 1
