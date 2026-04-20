@@ -12,7 +12,7 @@ interface ChatMessage {
   attachment_path: string | null
   attachment_type: string | null
   attachment_name: string | null
-  user: { full_name: string; role: string } | null
+  user: { full_name: string; role: string; avatar_url: string | null } | null
 }
 
 interface RequirementChatProps {
@@ -48,7 +48,7 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
     const supabase = createClient()
     const { data } = await supabase
       .from('requirement_messages')
-      .select('id, body, created_at, user_id, attachment_path, attachment_type, attachment_name, user:users(full_name, role)')
+      .select('id, body, created_at, user_id, attachment_path, attachment_type, attachment_name, user:users(full_name, role, avatar_url)')
       .eq('requirement_id', requirementId)
       .order('created_at', { ascending: true })
     setMessages((data ?? []) as ChatMessage[])
@@ -118,7 +118,7 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
         attachment_type: attachmentType,
         attachment_name: attachmentName,
       })
-      .select('id, body, created_at, user_id, attachment_path, attachment_type, attachment_name, user:users(full_name, role)')
+      .select('id, body, created_at, user_id, attachment_path, attachment_type, attachment_name, user:users(full_name, role, avatar_url)')
       .single()
     if (inserted) setMessages((prev) => [...prev, inserted as ChatMessage])
     setBody('')
@@ -158,6 +158,39 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
     return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
   }
 
+  // Renderiza texto con URLs convertidas en enlaces clickeables.
+  function renderWithLinks(text: string): React.ReactNode[] {
+    const URL_RE = /(https?:\/\/[^\s]+|www\.[^\s]+)/g
+    const nodes: React.ReactNode[] = []
+    let lastIndex = 0
+    let match: RegExpExecArray | null
+    let idx = 0
+    while ((match = URL_RE.exec(text)) !== null) {
+      const matchStart = match.index
+      if (matchStart > lastIndex) {
+        nodes.push(text.slice(lastIndex, matchStart))
+      }
+      const raw = match[0]
+      const href = raw.startsWith('http') ? raw : `https://${raw}`
+      nodes.push(
+        <a
+          key={`lnk-${idx++}`}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline decoration-dotted hover:opacity-80 break-all"
+        >
+          {raw}
+        </a>,
+      )
+      lastIndex = matchStart + raw.length
+    }
+    if (lastIndex < text.length) {
+      nodes.push(text.slice(lastIndex))
+    }
+    return nodes
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* Messages area */}
@@ -185,20 +218,30 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
                 const isMine = msg.user_id === currentUserId
                 const name = msg.user?.full_name ?? 'Usuario'
                 const role = msg.user?.role ?? ''
+                const avatarUrl = msg.user?.avatar_url ?? null
                 const imgUrl = msg.attachment_path ? publicUrlFor(msg.attachment_path) : null
                 return (
                   <div key={msg.id} className={`flex gap-2 items-end ${isMine ? 'flex-row-reverse' : ''}`}>
-                    {/* Avatar */}
-                    <div
-                      className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
-                      style={{
-                        background: isMine
-                          ? 'linear-gradient(135deg,#5c4a8a,#b89cff)'
-                          : 'linear-gradient(135deg,#00675c,#5bf4de)',
-                      }}
-                    >
-                      {initials(name)}
-                    </div>
+                    {/* Avatar (foto si existe, fallback a iniciales con gradiente) */}
+                    {avatarUrl ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={avatarUrl}
+                        alt={name}
+                        className="w-7 h-7 rounded-lg object-cover flex-shrink-0"
+                      />
+                    ) : (
+                      <div
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
+                        style={{
+                          background: isMine
+                            ? 'linear-gradient(135deg,#5c4a8a,#b89cff)'
+                            : 'linear-gradient(135deg,#00675c,#5bf4de)',
+                        }}
+                      >
+                        {initials(name)}
+                      </div>
+                    )}
 
                     <div className={`flex flex-col max-w-[75%] ${isMine ? 'items-end' : 'items-start'}`}>
                       <span className="text-[10px] text-[#abadaf] font-semibold mb-1">
@@ -230,7 +273,7 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
 
                       {msg.body && (
                         <div
-                          className={`px-3 py-2 rounded-2xl text-sm leading-relaxed ${
+                          className={`px-3 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
                             isMine
                               ? 'text-white rounded-br-sm'
                               : 'bg-[#f0f2f4] text-[#2c2f31] rounded-bl-sm'
@@ -241,7 +284,7 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
                               : undefined
                           }
                         >
-                          {msg.body}
+                          {renderWithLinks(msg.body)}
                         </div>
                       )}
                       <span className="text-[10px] text-[#c8cacc] mt-1">{formatTime(msg.created_at)}</span>
