@@ -156,22 +156,27 @@ function EntryRow({ entry }: { entry: TimeEntry }) {
     : ADMIN_CATEGORY_LABELS[entry.category as AdminCategory] ?? entry.title
 
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-[#f9fafb] hover:bg-[#f0f3f5] transition-colors">
-      <span
-        className="w-2 h-2 rounded-full flex-shrink-0"
-        style={{ backgroundColor: isReq ? '#00675c' : '#abadaf' }}
-      />
-      <p className="text-sm text-[#2c2f31] flex-1 truncate">{label}</p>
-      <p className="text-xs text-[#595c5e] tabular-nums">
-        {formatTime(entry.started_at)} – {entry.ended_at ? formatTime(entry.ended_at) : '…'}
-      </p>
-      <p className="text-xs font-bold text-[#2c2f31] tabular-nums w-14 text-right">
-        {entry.duration_seconds ? formatDuration(entry.duration_seconds) : '—'}
-      </p>
-      {isReq ? (
-        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#e8f5f3] text-[#00675c]">REQ</span>
-      ) : (
-        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#f0f2f4] text-[#595c5e]">ADM</span>
+    <div className="px-4 py-2.5 rounded-xl bg-[#f9fafb] hover:bg-[#f0f3f5] transition-colors">
+      <div className="flex items-center gap-3">
+        <span
+          className="w-2 h-2 rounded-full flex-shrink-0"
+          style={{ backgroundColor: isReq ? '#00675c' : '#abadaf' }}
+        />
+        <p className="text-sm text-[#2c2f31] flex-1 truncate">{label}</p>
+        <p className="text-xs text-[#595c5e] tabular-nums">
+          {formatTime(entry.started_at)} – {entry.ended_at ? formatTime(entry.ended_at) : '…'}
+        </p>
+        <p className="text-xs font-bold text-[#2c2f31] tabular-nums w-14 text-right">
+          {entry.duration_seconds ? formatDuration(entry.duration_seconds) : '—'}
+        </p>
+        {isReq ? (
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#e8f5f3] text-[#00675c]">REQ</span>
+        ) : (
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#f0f2f4] text-[#595c5e]">ADM</span>
+        )}
+      </div>
+      {entry.notes && (
+        <p className="text-xs text-[#747779] mt-1 ml-5 pl-0.5 truncate">{entry.notes}</p>
       )}
     </div>
   )

@@ -33,7 +33,7 @@ async function getActiveEntry(supabase: Awaited<ReturnType<typeof createClient>>
 
 // ── Start admin clock-in ───────────────────────────────────────────────────
 
-export async function startAdminEntry(category: AdminCategory) {
+export async function startAdminEntry(category: AdminCategory, notes?: string) {
   const { supabase, user } = await getAuthUser()
 
   const active = await getActiveEntry(supabase, user.id)
@@ -46,8 +46,25 @@ export async function startAdminEntry(category: AdminCategory) {
     phase: 'administrative',
     title: category,
     started_at: new Date().toISOString(),
+    notes: notes?.trim() || null,
   })
 
+  if (error) return { error: error.message }
+  revalidatePath('/tiempo')
+  return { success: true }
+}
+
+// ── Update notes on own active entry (no admin gate) ──────────────────────
+
+export async function updateMyActiveNotes(notes: string) {
+  const { supabase, user } = await getAuthUser()
+  const active = await getActiveEntry(supabase, user.id)
+  if (!active) return { error: 'No hay entrada activa.' }
+  const { error } = await supabase
+    .from('time_entries')
+    .update({ notes: notes.trim() || null })
+    .eq('id', active.id)
+    .eq('user_id', user.id)
   if (error) return { error: error.message }
   revalidatePath('/tiempo')
   return { success: true }

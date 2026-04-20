@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
-import { startAdminEntry, stopActiveEntry } from '@/app/actions/time'
+import { startAdminEntry, stopActiveEntry, updateMyActiveNotes } from '@/app/actions/time'
 import { ADMIN_CATEGORIES, ADMIN_CATEGORY_LABELS, formatDuration } from '@/lib/domain/time'
 import type { AdminCategory, TimeEntry } from '@/types/db'
 
@@ -12,6 +12,9 @@ interface Props {
 export function ClockInPanel({ initialActive }: Props) {
   const [active, setActive] = useState<TimeEntry | null>(initialActive)
   const [selectedCategory, setSelectedCategory] = useState<AdminCategory>('administrativa')
+  const [notes, setNotes] = useState('')
+  const [editingNotes, setEditingNotes] = useState(false)
+  const [activeNotesDraft, setActiveNotesDraft] = useState(initialActive?.notes ?? '')
   const [elapsed, setElapsed] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -31,9 +34,8 @@ export function ClockInPanel({ initialActive }: Props) {
   function handleStart() {
     setError(null)
     startTransition(async () => {
-      const res = await startAdminEntry(selectedCategory)
+      const res = await startAdminEntry(selectedCategory, notes)
       if (res.error) { setError(res.error); return }
-      // Optimistic: create a fake entry to show the timer immediately
       setActive({
         id: 'pending',
         user_id: '',
@@ -44,10 +46,19 @@ export function ClockInPanel({ initialActive }: Props) {
         started_at: new Date().toISOString(),
         ended_at: null,
         duration_seconds: null,
-        notes: null,
+        notes: notes.trim() || null,
         created_at: new Date().toISOString(),
         requirement_id: null,
       })
+      setActiveNotesDraft(notes.trim())
+      setNotes('')
+    })
+  }
+
+  function handleSaveActiveNotes() {
+    startTransition(async () => {
+      await updateMyActiveNotes(activeNotesDraft)
+      setEditingNotes(false)
     })
   }
 
@@ -72,54 +83,96 @@ export function ClockInPanel({ initialActive }: Props) {
 
       {active ? (
         /* ── Active entry ── */
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <div className="flex items-center gap-3">
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00675c] opacity-75" />
-              <span className="relative inline-flex h-3 w-3 rounded-full bg-[#00675c]" />
-            </span>
-            <div>
-              <p className="text-sm font-bold text-[#2c2f31]">{activeLabel}</p>
-              <p className="text-xs text-[#595c5e]">
-                Inició {new Date(active.started_at).toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit', hour12: false })}
-              </p>
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="flex items-center gap-3">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00675c] opacity-75" />
+                <span className="relative inline-flex h-3 w-3 rounded-full bg-[#00675c]" />
+              </span>
+              <div>
+                <p className="text-sm font-bold text-[#2c2f31]">{activeLabel}</p>
+                <p className="text-xs text-[#595c5e]">
+                  Inició {new Date(active.started_at).toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                </p>
+              </div>
             </div>
+            <div className="text-3xl font-black text-[#00675c] tabular-nums sm:ml-4">
+              {formatDuration(elapsed)}
+            </div>
+            <button
+              onClick={handleStop}
+              disabled={isPending}
+              className="sm:ml-auto flex items-center gap-2 px-5 py-2.5 bg-[#b31b25] text-white font-bold rounded-full hover:bg-[#8f141c] transition-all text-sm disabled:opacity-60"
+            >
+              <span className="material-symbols-outlined text-base">stop_circle</span>
+              Marcar salida
+            </button>
           </div>
 
-          <div className="text-3xl font-black text-[#00675c] tabular-nums sm:ml-4">
-            {formatDuration(elapsed)}
-          </div>
-
-          <button
-            onClick={handleStop}
-            disabled={isPending}
-            className="sm:ml-auto flex items-center gap-2 px-5 py-2.5 bg-[#b31b25] text-white font-bold rounded-full hover:bg-[#8f141c] transition-all text-sm disabled:opacity-60"
-          >
-            <span className="material-symbols-outlined text-base">stop_circle</span>
-            Marcar salida
-          </button>
+          {/* Notes on active entry */}
+          {editingNotes ? (
+            <div className="flex gap-2 items-end">
+              <textarea
+                value={activeNotesDraft}
+                onChange={e => setActiveNotesDraft(e.target.value)}
+                placeholder="Descripción (opcional)"
+                rows={2}
+                className="flex-1 border border-[#dfe3e6] rounded-xl px-3 py-2 text-sm text-[#2c2f31] bg-white focus:outline-none focus:ring-2 focus:ring-[#00675c]/30 resize-none"
+              />
+              <button onClick={handleSaveActiveNotes} disabled={isPending} className="px-3 py-2 bg-[#00675c] text-white text-xs font-bold rounded-xl disabled:opacity-60">
+                {isPending ? '…' : 'Guardar'}
+              </button>
+              <button onClick={() => setEditingNotes(false)} className="px-3 py-2 text-[#595c5e] text-xs font-bold rounded-xl border border-[#dfe3e6]">
+                Cancelar
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              {active.notes ? (
+                <p className="text-xs text-[#595c5e] flex-1">{active.notes}</p>
+              ) : (
+                <p className="text-xs text-[#abadaf] flex-1 italic">Sin descripción</p>
+              )}
+              <button
+                onClick={() => { setActiveNotesDraft(active.notes ?? ''); setEditingNotes(true) }}
+                className="text-xs text-[#595c5e] hover:text-[#00675c] flex items-center gap-1"
+              >
+                <span className="material-symbols-outlined text-sm">edit</span>
+                {active.notes ? 'Editar' : 'Agregar descripción'}
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         /* ── Clock-in form ── */
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <select
-            value={selectedCategory}
-            onChange={e => setSelectedCategory(e.target.value as AdminCategory)}
-            className="flex-1 border border-[#dfe3e6] rounded-xl px-4 py-2.5 text-sm text-[#2c2f31] bg-white focus:outline-none focus:ring-2 focus:ring-[#00675c]/30"
-          >
-            {ADMIN_CATEGORIES.map(cat => (
-              <option key={cat} value={cat}>{ADMIN_CATEGORY_LABELS[cat]}</option>
-            ))}
-          </select>
-
-          <button
-            onClick={handleStart}
-            disabled={isPending}
-            className="flex items-center gap-2 px-5 py-2.5 bg-[#00675c] text-white font-bold rounded-full hover:bg-[#005047] transition-all text-sm disabled:opacity-60 whitespace-nowrap"
-          >
-            <span className="material-symbols-outlined text-base">login</span>
-            Marcar entrada
-          </button>
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <select
+              value={selectedCategory}
+              onChange={e => setSelectedCategory(e.target.value as AdminCategory)}
+              className="flex-1 border border-[#dfe3e6] rounded-xl px-4 py-2.5 text-sm text-[#2c2f31] bg-white focus:outline-none focus:ring-2 focus:ring-[#00675c]/30"
+            >
+              {ADMIN_CATEGORIES.map(cat => (
+                <option key={cat} value={cat}>{ADMIN_CATEGORY_LABELS[cat]}</option>
+              ))}
+            </select>
+            <button
+              onClick={handleStart}
+              disabled={isPending}
+              className="flex items-center gap-2 px-5 py-2.5 bg-[#00675c] text-white font-bold rounded-full hover:bg-[#005047] transition-all text-sm disabled:opacity-60 whitespace-nowrap"
+            >
+              <span className="material-symbols-outlined text-base">login</span>
+              Marcar entrada
+            </button>
+          </div>
+          <textarea
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            placeholder="Descripción (opcional)"
+            rows={2}
+            className="w-full border border-[#dfe3e6] rounded-xl px-4 py-2.5 text-sm text-[#2c2f31] bg-white focus:outline-none focus:ring-2 focus:ring-[#00675c]/30 resize-none"
+          />
         </div>
       )}
 
