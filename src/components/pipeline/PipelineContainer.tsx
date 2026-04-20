@@ -23,17 +23,26 @@ export function PipelineContainer({ items, logsMap, currentUserId, canAssign, cl
   const [filterClientId, setFilterClientId] = useState('')
   const [filterPriority, setFilterPriority] = useState('')
   const [filterPhase, setFilterPhase] = useState('')
+  const [search, setSearch] = useState('')
 
-  const hasFilters = filterClientId || filterPriority || filterPhase
+  const hasFilters = filterClientId || filterPriority || filterPhase || search.trim()
 
   const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
     return items.filter(item => {
       if (filterClientId && item.client_id !== filterClientId) return false
       if (filterPriority && item.priority !== filterPriority) return false
       if (filterPhase && item.phase !== filterPhase) return false
+      if (q) {
+        const matches =
+          item.title?.toLowerCase().includes(q) ||
+          item.client_name?.toLowerCase().includes(q) ||
+          item.notes?.toLowerCase().includes(q)
+        if (!matches) return false
+      }
       return true
     })
-  }, [items, filterClientId, filterPriority, filterPhase])
+  }, [items, filterClientId, filterPriority, filterPhase, search])
 
   const byPhase = useMemo(() => {
     const map = Object.fromEntries(PHASES.map(p => [p, [] as PipelineItem[]])) as Record<Phase, PipelineItem[]>
@@ -62,6 +71,29 @@ export function PipelineContainer({ items, logsMap, currentUserId, canAssign, cl
               {v === 'kanban' ? 'Kanban' : 'Tabla'}
             </button>
           ))}
+        </div>
+
+        {/* Search */}
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[#abadaf] text-base pointer-events-none">
+            search
+          </span>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar…"
+            className="w-52 pl-9 pr-8 py-1.5 text-sm bg-white border border-[#dfe3e6] rounded-xl focus:outline-none focus:border-[#00675c]/50 focus:ring-2 focus:ring-[#5bf4de]/30 text-[#2c2f31] placeholder:text-[#abadaf]"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-[#abadaf] hover:text-[#595c5e]"
+              aria-label="Limpiar búsqueda"
+            >
+              <span className="material-symbols-outlined text-base">close</span>
+            </button>
+          )}
         </div>
 
         {/* Client filter */}
@@ -104,7 +136,7 @@ export function PipelineContainer({ items, logsMap, currentUserId, canAssign, cl
 
         {hasFilters && (
           <button
-            onClick={() => { setFilterClientId(''); setFilterPriority(''); setFilterPhase('') }}
+            onClick={() => { setFilterClientId(''); setFilterPriority(''); setFilterPhase(''); setSearch('') }}
             className="text-xs text-[#595c5e] hover:text-[#b31b25] px-2.5 py-1.5 rounded-lg border border-[#dfe3e6] transition-colors"
           >
             Limpiar
