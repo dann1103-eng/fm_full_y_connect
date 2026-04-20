@@ -125,12 +125,14 @@ export function PipelineContainer({ items, logsMap, currentUserId, canAssign, cl
           />
         </div>
       ) : (
-        <TableView
-          items={filtered}
-          logsMap={logsMap}
-          currentUserId={currentUserId}
-          canAssign={canAssign}
-        />
+        <div className="flex-1 overflow-y-auto">
+          <TableView
+            items={filtered}
+            logsMap={logsMap}
+            currentUserId={currentUserId}
+            canAssign={canAssign}
+          />
+        </div>
       )}
     </div>
   )
