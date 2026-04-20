@@ -169,15 +169,15 @@ export function RequirementModal({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="max-w-lg rounded-2xl border border-[#abadaf]/20 shadow-xl p-0 overflow-hidden">
-        <DialogHeader className="px-6 pt-6 pb-0">
+      <DialogContent className="max-w-lg rounded-2xl border border-[#abadaf]/20 shadow-xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-[#f0f3f5] flex-shrink-0">
           <DialogTitle className="text-lg font-semibold text-[#2c2f31]">
             Registrar requerimiento
           </DialogTitle>
           <p className="text-sm text-[#595c5e] mt-0.5">{client.name}</p>
         </DialogHeader>
 
-        <div className="px-6 pb-6 pt-4 space-y-4">
+        <div className="px-6 pt-4 pb-4 space-y-4 overflow-y-auto flex-1 min-h-0">
           {/* Type selector */}
           <div>
             <Label className="text-sm font-medium text-[#2c2f31] mb-2 block">
@@ -351,14 +351,16 @@ export function RequirementModal({
             </div>
           )}
 
+        </div>
+
+        {/* Footer fijo */}
+        <div className="px-6 py-4 border-t border-[#f0f3f5] flex-shrink-0 space-y-3">
           {error && (
             <p className="text-sm text-[#b31b25] bg-[#b31b25]/5 rounded-xl px-3 py-2 border border-[#b31b25]/20">
               {error}
             </p>
           )}
-
-          {/* Actions */}
-          <div className="flex gap-3 pt-1">
+          <div className="flex gap-3">
             <Button
               variant="outline"
               onClick={onClose}
