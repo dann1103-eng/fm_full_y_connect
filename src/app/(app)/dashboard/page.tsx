@@ -90,7 +90,7 @@ export default async function DashboardPage({
   const activeCount = clients.filter((c) => c.status === 'active').length
   const overdueCount = clients.filter((c) => c.status === 'overdue').length
   const renewalSoonCount = items.filter(
-    (i) => i.daysLeft !== null && i.daysLeft <= 7 && i.daysLeft >= 0
+    (i) => i.daysLeft !== null && i.daysLeft <= 7
   ).length
 
   // Plans for filter dropdown
@@ -126,7 +126,7 @@ export default async function DashboardPage({
             }
           />
           <KpiCard
-            label="Renuevan pronto"
+            label="Por renovar"
             value={renewalSoonCount}
             color="text-[#7a4f00]"
             bg="bg-amber-50"
