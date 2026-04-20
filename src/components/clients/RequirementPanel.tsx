@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { ClientWithPlan, BillingCycle, CambiosPackage, ExtraContentItem, Requirement, ContentType } from '@/types/db'
 import { CONTENT_TYPES, CONTENT_TYPE_LABELS, limitsToRecord } from '@/lib/domain/plans'
-import { groupByWeek, effectiveWeeklyTarget } from '@/lib/domain/requirement'
+import { groupByWeek, effectiveWeeklyTarget, resolveDistribution, computeWeeklyBreakdownWithCascade } from '@/lib/domain/requirement'
 import { RequirementModal } from './RequirementModal'
 import { RequirementHistory } from './RequirementHistory'
 
@@ -136,6 +136,14 @@ export function RequirementPanel({
     (new Date().getTime() - new Date(cycle.period_start).getTime()) / (1000 * 60 * 60 * 24)
   )
   const currentWeek = Math.min(Math.floor(daysSinceStart / 7), 3)
+
+  const weekDist = resolveDistribution(
+    (client as { weekly_distribution_json?: import('@/types/db').WeeklyDistribution | null }).weekly_distribution_json,
+    client.plan?.default_weekly_distribution_json,
+  )
+  const weekBreakdown = weekDist
+    ? computeWeeklyBreakdownWithCascade(requirements, weekDist, cycle.period_start, currentWeek)
+    : null
 
   return (
     <>
@@ -475,102 +483,124 @@ export function RequirementPanel({
           Desglose semanal
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[0, 1, 2, 3].map((weekIdx) => {
-            const weekKey = `S${weekIdx + 1}`
-            const weekLabel = `Semana ${weekIdx + 1}`
-            const items = weeklyGroups[weekKey] ?? []
-            const isCurrent = weekIdx === currentWeek
-            const isFuture = weekIdx > currentWeek
+          {weekBreakdown
+            ? weekBreakdown.map((week) => {
+                const weekLabel = `Semana ${week.label.slice(1)}`
+                const isFuture = !week.isCurrent && ['S1','S2','S3','S4'].indexOf(week.label) > currentWeek
+                const budgetTypes = pipelineTypes.filter(t => (week.budget[t] ?? 0) > 0)
+                const hasActivity = pipelineTypes.some(t => (week.counts[t] ?? 0) > 0 || (week.overflow[t] ?? 0) > 0)
 
-            // Future week with no requirements → hourglass
-            if (isFuture && items.length === 0) {
-              return (
-                <div
-                  key={weekKey}
-                  className="glass-panel p-5 rounded-[1.5rem] opacity-40 flex flex-col items-center justify-center gap-2 min-h-[140px]"
-                >
-                  <span className="material-symbols-outlined text-[#595c5e] text-3xl">
-                    hourglass_empty
-                  </span>
-                  <p className="text-[#595c5e] text-[11px] font-extrabold uppercase tracking-widest text-center">
-                    {weekLabel}
-                  </p>
-                  <p className="text-[11px] text-[#595c5e] text-center">Pendiente</p>
-                </div>
-              )
-            }
-
-            return (
-              <div
-                key={weekKey}
-                className="glass-panel p-5 rounded-[1.5rem]"
-                style={
-                  isCurrent
-                    ? {
-                        background: 'rgba(0, 103, 92, 0.05)',
-                        border: '2px solid rgba(0, 103, 92, 0.3)',
-                      }
-                    : {}
-                }
-              >
-                {/* Header */}
-                <div className="flex justify-between items-start mb-4">
-                  <p
-                    className="text-[11px] font-extrabold uppercase tracking-widest"
-                    style={{ color: isCurrent ? '#00675c' : '#595c5e' }}
+                return (
+                  <div
+                    key={week.label}
+                    className="glass-panel p-5 rounded-[1.5rem]"
+                    style={week.isCurrent ? { background: 'rgba(0,103,92,0.05)', border: '2px solid rgba(0,103,92,0.3)' } : {}}
                   >
-                    {weekLabel}
-                    {isCurrent && ' · Actual'}
-                  </p>
-                  {isCurrent && (
-                    <span className="flex h-2 w-2 rounded-full bg-[#00675c] animate-pulse flex-shrink-0" />
-                  )}
-                </div>
+                    <div className="flex justify-between items-start mb-4">
+                      <p className="text-[11px] font-extrabold uppercase tracking-widest" style={{ color: week.isCurrent ? '#00675c' : '#595c5e' }}>
+                        {weekLabel}{week.isCurrent && ' · Actual'}
+                      </p>
+                      {week.isCurrent && <span className="flex h-2 w-2 rounded-full bg-[#00675c] animate-pulse flex-shrink-0" />}
+                    </div>
 
-                {/* Per-type progress bars */}
-                {items.length === 0 ? (
-                  <p className="text-xs text-[#abadaf]">Sin requerimientos</p>
-                ) : (
-                  <div className="space-y-3">
-                    {pipelineTypes.map((type) => {
-                      const consumed = items.filter(
-                        (r) => r.content_type === type && !r.voided && !r.carried_over
-                      ).length
-                      const target = effectiveWeeklyTarget(type, limits[type], client.weekly_targets_json ?? null)
-                      const pct = target > 0 ? Math.min(100, Math.round((consumed / target) * 100)) : 0
-                      const weekBarColor =
-                        isFuture
-                          ? '#e5e9eb'
-                          : consumed >= target
-                          ? '#00675c'
-                          : '#f59e0b'
-
-                      return (
-                        <div key={type}>
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="flex items-center gap-1 text-[11px] text-[#595c5e] font-medium">
-                              <span className="material-symbols-outlined text-sm">{CONTENT_ICONS[type]}</span>
-                              {CONTENT_TYPE_LABELS[type]}
-                            </span>
-                            <span className="text-[11px] font-bold text-[#2c2f31]">
-                              {consumed}
-                              <span className="font-normal text-[#abadaf]">/{target}</span>
-                            </span>
-                          </div>
-                          <div className="w-full bg-[#e5e9eb] rounded-full h-1.5 overflow-hidden">
-                            <div
-                              className="h-full rounded-full transition-all duration-500"
-                              style={{ width: `${pct}%`, backgroundColor: weekBarColor }}
-                            />
-                          </div>
-                        </div>
-                      )
-                    })}
+                    {budgetTypes.length === 0 && !hasActivity ? (
+                      <p className="text-xs text-[#abadaf]">{isFuture ? 'Pendiente' : 'Sin actividad'}</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {(budgetTypes.length > 0 ? budgetTypes : pipelineTypes.filter(t => (week.counts[t] ?? 0) > 0)).map((type) => {
+                          const consumed = week.counts[type] ?? 0
+                          const budget = week.budget[type] ?? 0
+                          const extra = week.overflow[type] ?? 0
+                          const pct = budget > 0 ? Math.min(100, Math.round((consumed / budget) * 100)) : 0
+                          const weekBarColor = isFuture ? '#e5e9eb' : consumed >= budget && budget > 0 ? '#00675c' : '#f59e0b'
+                          return (
+                            <div key={type}>
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="flex items-center gap-1 text-[11px] text-[#595c5e] font-medium">
+                                  <span className="material-symbols-outlined text-sm">{CONTENT_ICONS[type]}</span>
+                                  {CONTENT_TYPE_LABELS[type]}
+                                </span>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[11px] font-bold text-[#2c2f31]">
+                                    {consumed}<span className="font-normal text-[#abadaf]">/{budget}</span>
+                                  </span>
+                                  {extra > 0 && (
+                                    <span className="text-[9px] font-bold px-1 py-0.5 rounded-full bg-[#b31b25]/10 text-[#b31b25]">
+                                      +{extra}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              {budget > 0 && (
+                                <div className="w-full bg-[#e5e9eb] rounded-full h-1.5 overflow-hidden">
+                                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: weekBarColor }} />
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            )
-          })}
+                )
+              })
+            : [0, 1, 2, 3].map((weekIdx) => {
+                const weekKey = `S${weekIdx + 1}`
+                const weekLabel = `Semana ${weekIdx + 1}`
+                const items = weeklyGroups[weekKey] ?? []
+                const isCurrent = weekIdx === currentWeek
+                const isFuture = weekIdx > currentWeek
+
+                if (isFuture && items.length === 0) {
+                  return (
+                    <div key={weekKey} className="glass-panel p-5 rounded-[1.5rem] opacity-40 flex flex-col items-center justify-center gap-2 min-h-[140px]">
+                      <span className="material-symbols-outlined text-[#595c5e] text-3xl">hourglass_empty</span>
+                      <p className="text-[#595c5e] text-[11px] font-extrabold uppercase tracking-widest text-center">{weekLabel}</p>
+                      <p className="text-[11px] text-[#595c5e] text-center">Pendiente</p>
+                    </div>
+                  )
+                }
+
+                return (
+                  <div key={weekKey} className="glass-panel p-5 rounded-[1.5rem]" style={isCurrent ? { background: 'rgba(0,103,92,0.05)', border: '2px solid rgba(0,103,92,0.3)' } : {}}>
+                    <div className="flex justify-between items-start mb-4">
+                      <p className="text-[11px] font-extrabold uppercase tracking-widest" style={{ color: isCurrent ? '#00675c' : '#595c5e' }}>
+                        {weekLabel}{isCurrent && ' · Actual'}
+                      </p>
+                      {isCurrent && <span className="flex h-2 w-2 rounded-full bg-[#00675c] animate-pulse flex-shrink-0" />}
+                    </div>
+                    {items.length === 0 ? (
+                      <p className="text-xs text-[#abadaf]">Sin requerimientos</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {pipelineTypes.map((type) => {
+                          const consumed = items.filter(r => r.content_type === type && !r.voided && !r.carried_over).length
+                          const target = effectiveWeeklyTarget(type, limits[type], client.weekly_targets_json ?? null)
+                          const pct = target > 0 ? Math.min(100, Math.round((consumed / target) * 100)) : 0
+                          const weekBarColor = isFuture ? '#e5e9eb' : consumed >= target ? '#00675c' : '#f59e0b'
+                          return (
+                            <div key={type}>
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="flex items-center gap-1 text-[11px] text-[#595c5e] font-medium">
+                                  <span className="material-symbols-outlined text-sm">{CONTENT_ICONS[type]}</span>
+                                  {CONTENT_TYPE_LABELS[type]}
+                                </span>
+                                <span className="text-[11px] font-bold text-[#2c2f31]">
+                                  {consumed}<span className="font-normal text-[#abadaf]">/{target}</span>
+                                </span>
+                              </div>
+                              <div className="w-full bg-[#e5e9eb] rounded-full h-1.5 overflow-hidden">
+                                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: weekBarColor }} />
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })
+          }
         </div>
       </section>
 

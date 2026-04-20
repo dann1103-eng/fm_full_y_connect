@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import type { BillingPeriod, Client, Plan, BillingCycle, ContentType, CambiosPackage, ExtraContentItem } from '@/types/db'
+import type { BillingPeriod, Client, Plan, BillingCycle, ContentType, CambiosPackage, ExtraContentItem, WeekKey, WeeklyDistribution } from '@/types/db'
 import { effectiveWeeklyTarget } from '@/lib/domain/requirement'
 import { limitsToRecord, CONTENT_TYPE_LABELS, EXTRA_CONTENT_PRICES } from '@/lib/domain/plans'
 import { LogoUploader } from '@/components/clients/LogoUploader'
@@ -30,6 +30,8 @@ export default function ClientEditPage() {
   const [cycleError, setCycleError] = useState<string | null>(null)
 
   const [weeklyTargets, setWeeklyTargets] = useState<Partial<Record<ContentType, number>>>({})
+  const [weeklyDist, setWeeklyDist] = useState<WeeklyDistribution>({})
+  const [activeWeekTab, setActiveWeekTab] = useState<WeekKey>('S1')
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
 
   // Client form
@@ -116,6 +118,7 @@ export default function ClientEditPage() {
       })
       setLogoUrl(clientData.logo_url ?? null)
       setWeeklyTargets(clientData.weekly_targets_json ?? {})
+      setWeeklyDist((clientData as Client & { weekly_distribution_json?: WeeklyDistribution | null }).weekly_distribution_json ?? {})
       setBillingPeriod(clientData.billing_period)
       setBillingDay2(clientData.billing_day_2?.toString() ?? '')
 
@@ -173,6 +176,7 @@ export default function ClientEditPage() {
         current_plan_id: form.current_plan_id,
         billing_day: parseInt(form.billing_day, 10),
         weekly_targets_json: buildWeeklyTargetsJson(weeklyTargets, limits),
+        weekly_distribution_json: Object.keys(weeklyDist).length > 0 ? weeklyDist : null,
         billing_period: billingPeriod,
         billing_day_2: billingPeriod === 'biweekly' && billingDay2 ? parseInt(billingDay2, 10) : null,
       })
@@ -404,43 +408,63 @@ export default function ClientEditPage() {
                     </div>
                   </div>
 
-                  {/* Objetivos semanales */}
+                  {/* Distribución semanal S1–S4 */}
                   {limits && (
                     <div className="col-span-2 pt-1">
-                      <p className="text-xs font-semibold text-[#abadaf] uppercase tracking-widest mb-3">
-                        Objetivos semanales{' '}
-                        <span className="normal-case font-normal text-[#747779]">
-                          (descriptivo, no restringe — default: límite ÷ 4)
-                        </span>
-                      </p>
+                      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                        <p className="text-xs font-semibold text-[#abadaf] uppercase tracking-widest">
+                          Distribución semanal{' '}
+                          <span className="normal-case font-normal text-[#747779]">(cuántas piezas por semana)</span>
+                        </p>
+                        {selectedPlan?.default_weekly_distribution_json && (
+                          <button
+                            type="button"
+                            onClick={() => setWeeklyDist(selectedPlan.default_weekly_distribution_json!)}
+                            className="text-xs text-[#00675c] hover:underline"
+                          >
+                            Restaurar defaults del plan
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Week tabs */}
+                      <div className="flex rounded-xl border border-[#dfe3e6] overflow-hidden mb-4 w-fit">
+                        {(['S1','S2','S3','S4'] as WeekKey[]).map(w => (
+                          <button
+                            key={w}
+                            type="button"
+                            onClick={() => setActiveWeekTab(w)}
+                            className={`px-4 py-1.5 text-sm font-semibold transition-colors ${
+                              activeWeekTab === w ? 'bg-[#00675c] text-white' : 'text-[#595c5e] hover:bg-[#f5f7f9]'
+                            }`}
+                          >
+                            {w}
+                          </button>
+                        ))}
+                      </div>
+
                       <div className="grid grid-cols-2 gap-3">
                         {(Object.entries(limits) as [ContentType, number][])
-                          .filter(([, lim]) => lim > 0)
-                          .map(([type, lim]) => {
-                            const defaultVal = effectiveWeeklyTarget(type, lim, null)
-                            return (
-                              <div key={type} className="space-y-1.5">
-                                <Label>
-                                  {CONTENT_TYPE_LABELS[type]}{' '}
-                                  <span className="text-[#abadaf] font-normal text-xs">(def. {defaultVal}/sem)</span>
-                                </Label>
-                                <Input
-                                  type="number" min={0}
-                                  placeholder={String(defaultVal)}
-                                  value={weeklyTargets[type] ?? ''}
-                                  onChange={(e) =>
-                                    setWeeklyTargets((prev) => {
-                                      const next = { ...prev }
-                                      if (e.target.value === '') { delete next[type] }
-                                      else { next[type] = Math.max(0, Number(e.target.value)) }
-                                      return next
-                                    })
-                                  }
-                                  className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
-                                />
-                              </div>
-                            )
-                          })}
+                          .filter(([type, lim]) => lim > 0 && !['produccion','reunion'].includes(type))
+                          .map(([type]) => (
+                            <div key={type} className="space-y-1.5">
+                              <Label>{CONTENT_TYPE_LABELS[type]}</Label>
+                              <Input
+                                type="number" min={0}
+                                placeholder="0"
+                                value={weeklyDist[activeWeekTab]?.[type] ?? ''}
+                                onChange={(e) =>
+                                  setWeeklyDist(prev => {
+                                    const weekSlot = { ...(prev[activeWeekTab] ?? {}) }
+                                    if (e.target.value === '') { delete weekSlot[type] }
+                                    else { weekSlot[type] = Math.max(0, Number(e.target.value)) }
+                                    return { ...prev, [activeWeekTab]: weekSlot }
+                                  })
+                                }
+                                className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                              />
+                            </div>
+                          ))}
                       </div>
                     </div>
                   )}

@@ -79,6 +79,9 @@ export interface ExtraContentItem {
 
 export type BillingPeriod = 'monthly' | 'biweekly'
 
+export type WeekKey = 'S1' | 'S2' | 'S3' | 'S4'
+export type WeeklyDistribution = Partial<Record<WeekKey, Partial<Record<ContentType, number>>>>
+
 export interface Database {
   public: {
     Tables: {
@@ -112,6 +115,7 @@ export interface Database {
           cambios_included: number
           active: boolean
           created_at: string
+          default_weekly_distribution_json: WeeklyDistribution | null
         }
         Insert: {
           id?: string
@@ -120,6 +124,7 @@ export interface Database {
           limits_json: PlanLimits
           cambios_included?: number
           active?: boolean
+          default_weekly_distribution_json?: WeeklyDistribution | null
         }
         Update: {
           name?: string
@@ -127,6 +132,7 @@ export interface Database {
           limits_json?: PlanLimits
           cambios_included?: number
           active?: boolean
+          default_weekly_distribution_json?: WeeklyDistribution | null
         }
         Relationships: []
       }
@@ -153,6 +159,7 @@ export interface Database {
           created_at: string
           updated_at: string
           weekly_targets_json: Partial<Record<ContentType, number>> | null
+          weekly_distribution_json: WeeklyDistribution | null
           billing_period: BillingPeriod
         }
         Insert: {
@@ -175,6 +182,7 @@ export interface Database {
           start_date: string
           status?: ClientStatus
           weekly_targets_json?: Partial<Record<ContentType, number>> | null
+          weekly_distribution_json?: WeeklyDistribution | null
           billing_period?: BillingPeriod
         }
         Update: {
@@ -196,6 +204,7 @@ export interface Database {
           start_date?: string
           status?: ClientStatus
           weekly_targets_json?: Partial<Record<ContentType, number>> | null
+          weekly_distribution_json?: WeeklyDistribution | null
           billing_period?: BillingPeriod
         }
         Relationships: [

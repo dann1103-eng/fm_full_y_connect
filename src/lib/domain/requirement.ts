@@ -1,4 +1,4 @@
-import type { Requirement, ContentType, RequirementTotals } from '@/types/db'
+import type { Requirement, ContentType, RequirementTotals, WeeklyDistribution, WeekKey } from '@/types/db'
 
 /** Count non-voided requirements by type */
 export function computeTotals(requirements: Requirement[]): RequirementTotals {
@@ -88,4 +88,79 @@ export function effectiveWeeklyTarget(
   clientTargets: Partial<Record<ContentType, number>> | null | undefined
 ): number {
   return clientTargets?.[type] ?? weeklyTarget(type, monthlyLimit)
+}
+
+/** Resolve the active weekly distribution: client override → plan default → null */
+export function resolveDistribution(
+  clientDist: WeeklyDistribution | null | undefined,
+  planDist: WeeklyDistribution | null | undefined,
+): WeeklyDistribution | null {
+  return clientDist ?? planDist ?? null
+}
+
+export interface WeekBreakdown {
+  label: WeekKey
+  counts: Partial<Record<ContentType, number>>
+  budget: Partial<Record<ContentType, number>>
+  overflow: Partial<Record<ContentType, number>>
+  isCurrent: boolean
+}
+
+/**
+ * Compute weekly breakdown with cascade overflow.
+ * Requirements registered in a given week consume that week's budget first;
+ * if exhausted, they spill into subsequent weeks. Surplus with nowhere to go is "overflow".
+ */
+export function computeWeeklyBreakdownWithCascade(
+  requirements: Requirement[],
+  distribution: WeeklyDistribution,
+  periodStart: string,
+  currentWeekIdx: number,
+): WeekBreakdown[] {
+  const WEEKS: WeekKey[] = ['S1', 'S2', 'S3', 'S4']
+
+  const remaining: WeeklyDistribution = {}
+  for (const w of WEEKS) {
+    remaining[w] = { ...(distribution[w] ?? {}) }
+  }
+
+  const counts: Partial<Record<ContentType, number>>[] = WEEKS.map(() => ({}))
+  const overflow: Partial<Record<ContentType, number>>[] = WEEKS.map(() => ({}))
+
+  const sorted = requirements
+    .filter(r => !r.voided && !r.carried_over)
+    .sort((a, b) => a.registered_at.localeCompare(b.registered_at))
+
+  for (const r of sorted) {
+    const type = r.content_type
+    const diffDays = Math.floor(
+      (new Date(r.registered_at).getTime() - new Date(periodStart).getTime()) / 86400000
+    )
+    const origWeekIdx = Math.min(Math.max(Math.floor(diffDays / 7), 0), 3)
+    let weekIdx = origWeekIdx
+    let consumed = false
+
+    while (weekIdx < 4) {
+      const budget = remaining[WEEKS[weekIdx]]?.[type] ?? 0
+      if (budget > 0) {
+        remaining[WEEKS[weekIdx]]![type] = budget - 1
+        counts[weekIdx][type] = (counts[weekIdx][type] ?? 0) + 1
+        consumed = true
+        break
+      }
+      weekIdx++
+    }
+
+    if (!consumed) {
+      overflow[origWeekIdx][type] = (overflow[origWeekIdx][type] ?? 0) + 1
+    }
+  }
+
+  return WEEKS.map((w, i) => ({
+    label: w,
+    counts: counts[i],
+    budget: distribution[w] ?? {},
+    overflow: overflow[i],
+    isCurrent: i === currentWeekIdx,
+  }))
 }
