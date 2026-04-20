@@ -107,14 +107,39 @@ export interface WeekBreakdown {
 }
 
 /**
+ * Build a full 4-week distribution by augmenting a base distribution with
+ * equitable fallbacks (limit ÷ 4) for any pipeline types not explicitly configured.
+ */
+export function augmentDistribution(
+  dist: WeeklyDistribution,
+  pipelineTypes: ContentType[],
+  limits: Record<ContentType, number>,
+): WeeklyDistribution {
+  const WEEKS: WeekKey[] = ['S1', 'S2', 'S3', 'S4']
+  const result: WeeklyDistribution = {}
+  for (const w of WEEKS) {
+    result[w] = {}
+    for (const type of pipelineTypes) {
+      const explicit = dist[w]?.[type]
+      if (explicit !== undefined) {
+        result[w]![type] = explicit
+      } else {
+        const fallback = Math.ceil(limits[type] / 4)
+        if (fallback > 0) result[w]![type] = fallback
+      }
+    }
+  }
+  return result
+}
+
+/**
  * Compute weekly breakdown with cascade overflow.
- * Requirements registered in a given week consume that week's budget first;
- * if exhausted, they spill into subsequent weeks. Surplus with nowhere to go is "overflow".
+ * Each requirement fills the earliest available budget slot (S1 → S2 → S3 → S4),
+ * regardless of the week it was registered in. Surplus with no room anywhere is "overflow" (shown in S4).
  */
 export function computeWeeklyBreakdownWithCascade(
   requirements: Requirement[],
   distribution: WeeklyDistribution,
-  periodStart: string,
   currentWeekIdx: number,
 ): WeekBreakdown[] {
   const WEEKS: WeekKey[] = ['S1', 'S2', 'S3', 'S4']
@@ -133,11 +158,7 @@ export function computeWeeklyBreakdownWithCascade(
 
   for (const r of sorted) {
     const type = r.content_type
-    const diffDays = Math.floor(
-      (new Date(r.registered_at).getTime() - new Date(periodStart).getTime()) / 86400000
-    )
-    const origWeekIdx = Math.min(Math.max(Math.floor(diffDays / 7), 0), 3)
-    let weekIdx = origWeekIdx
+    let weekIdx = 0  // always fill from S1 forward
     let consumed = false
 
     while (weekIdx < 4) {
@@ -152,7 +173,7 @@ export function computeWeeklyBreakdownWithCascade(
     }
 
     if (!consumed) {
-      overflow[origWeekIdx][type] = (overflow[origWeekIdx][type] ?? 0) + 1
+      overflow[3][type] = (overflow[3][type] ?? 0) + 1
     }
   }
 

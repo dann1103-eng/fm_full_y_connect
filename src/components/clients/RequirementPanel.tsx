@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { ClientWithPlan, BillingCycle, CambiosPackage, ExtraContentItem, Requirement, ContentType } from '@/types/db'
 import { CONTENT_TYPES, CONTENT_TYPE_LABELS, limitsToRecord } from '@/lib/domain/plans'
-import { groupByWeek, effectiveWeeklyTarget, resolveDistribution, computeWeeklyBreakdownWithCascade } from '@/lib/domain/requirement'
+import { groupByWeek, effectiveWeeklyTarget, resolveDistribution, augmentDistribution, computeWeeklyBreakdownWithCascade } from '@/lib/domain/requirement'
 import { RequirementModal } from './RequirementModal'
 import { RequirementHistory } from './RequirementHistory'
 
@@ -141,8 +141,11 @@ export function RequirementPanel({
     (client as { weekly_distribution_json?: import('@/types/db').WeeklyDistribution | null }).weekly_distribution_json,
     client.plan?.default_weekly_distribution_json,
   )
-  const weekBreakdown = weekDist
-    ? computeWeeklyBreakdownWithCascade(requirements, weekDist, cycle.period_start, currentWeek)
+  const effectiveDist = weekDist
+    ? augmentDistribution(weekDist, pipelineTypes, limits)
+    : null
+  const weekBreakdown = effectiveDist
+    ? computeWeeklyBreakdownWithCascade(requirements, effectiveDist, currentWeek)
     : null
 
   return (
