@@ -1,4 +1,11 @@
 -- Fase G: Reestructura de fases del pipeline (6 → 12)
+
+-- Eliminar constraints existentes (el nombre original viene de la tabla 'consumptions')
+ALTER TABLE requirements DROP CONSTRAINT IF EXISTS consumptions_phase_check;
+ALTER TABLE requirements DROP CONSTRAINT IF EXISTS requirements_phase_check;
+ALTER TABLE requirement_phase_logs DROP CONSTRAINT IF EXISTS requirement_phase_logs_to_phase_check;
+ALTER TABLE requirement_phase_logs DROP CONSTRAINT IF EXISTS requirement_phase_logs_from_phase_check;
+
 -- Mapear fases antiguas a las nuevas equivalentes
 UPDATE requirements SET phase = 'proceso_edicion'   WHERE phase = 'en_produccion';
 UPDATE requirements SET phase = 'publicado_entregado' WHERE phase = 'publicado';
