@@ -4,8 +4,17 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { useUser } from '@/contexts/UserContext'
+import type { UserRole } from '@/types/db'
 
-const navItems = [
+interface NavItem {
+  href: string
+  label: string
+  icon: React.ReactNode
+  badge?: boolean
+  allowedRoles?: UserRole[]
+}
+
+const navItems: NavItem[] = [
   {
     href: '/dashboard',
     label: 'Dashboard',
@@ -36,6 +45,7 @@ const navItems = [
   {
     href: '/reports',
     label: 'Reportes',
+    allowedRoles: ['admin', 'supervisor'],
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
         <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14H7v-2h5v2zm3-4H7v-2h8v2zm0-4H7V7h8v2z"/>
@@ -45,6 +55,7 @@ const navItems = [
   {
     href: '/renewals',
     label: 'Renovaciones',
+    allowedRoles: ['admin'],
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
@@ -64,9 +75,20 @@ const navItems = [
   {
     href: '/plans',
     label: 'Planes',
+    allowedRoles: ['admin', 'supervisor'],
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
         <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/>
+      </svg>
+    ),
+  },
+  {
+    href: '/users',
+    label: 'Usuarios',
+    allowedRoles: ['admin'],
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
       </svg>
     ),
   },
@@ -79,6 +101,10 @@ interface SidebarProps {
 export function Sidebar({ renewalCount = 0 }: SidebarProps) {
   const pathname = usePathname()
   const user = useUser()
+
+  const visibleItems = navItems.filter(
+    (item) => !item.allowedRoles || item.allowedRoles.includes(user.role)
+  )
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 w-64 flex flex-col bg-white border-r border-[#abadaf]/30 shadow-sm">
@@ -95,7 +121,7 @@ export function Sidebar({ renewalCount = 0 }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-0.5">
-        {navItems.map((item) => {
+        {visibleItems.map((item) => {
           const isActive =
             item.href === '/dashboard'
               ? pathname === '/dashboard'
@@ -124,25 +150,6 @@ export function Sidebar({ renewalCount = 0 }: SidebarProps) {
             </Link>
           )
         })}
-
-        {user.role === 'admin' && (
-          <Link
-            href="/users"
-            className={cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
-              pathname.startsWith('/users')
-                ? 'bg-[#00675c]/10 text-[#00675c]'
-                : 'text-[#595c5e] hover:bg-[#f5f7f9] hover:text-[#2c2f31]'
-            )}
-          >
-            <span className={pathname.startsWith('/users') ? 'text-[#00675c]' : 'text-[#747779]'}>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
-              </svg>
-            </span>
-            <span>Usuarios</span>
-          </Link>
-        )}
       </nav>
 
       {/* Bottom section */}

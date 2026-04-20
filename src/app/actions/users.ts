@@ -19,43 +19,61 @@ export async function createUser(payload: {
   fullName: string
   role: UserRole
 }) {
-  await assertAdmin()
+  try {
+    await assertAdmin()
 
-  const admin = createAdminClient()
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return { error: 'Falta SUPABASE_SERVICE_ROLE_KEY en variables de entorno.' }
+    }
 
-  const { data, error } = await admin.auth.admin.createUser({
-    email: payload.email,
-    password: payload.password,
-    email_confirm: true,
-    user_metadata: { full_name: payload.fullName },
-  })
+    const admin = createAdminClient()
 
-  if (error) return { error: error.message }
+    const { data, error } = await admin.auth.admin.createUser({
+      email: payload.email,
+      password: payload.password,
+      email_confirm: true,
+      user_metadata: { full_name: payload.fullName },
+    })
 
-  // Insert into public.users (trigger may not exist)
-  const { error: insertError } = await admin.from('users').upsert({
-    id: data.user.id,
-    email: payload.email,
-    full_name: payload.fullName,
-    role: payload.role,
-  })
+    if (error) return { error: error.message }
+    if (!data.user) return { error: 'No se recibió el usuario creado.' }
 
-  if (insertError) return { error: insertError.message }
+    const { error: insertError } = await admin.from('users').upsert({
+      id: data.user.id,
+      email: payload.email,
+      full_name: payload.fullName,
+      role: payload.role,
+    })
 
-  revalidatePath('/users')
-  return { success: true }
+    if (insertError) return { error: insertError.message }
+
+    revalidatePath('/users')
+    return { success: true }
+  } catch (e) {
+    console.error('createUser failed:', e)
+    return { error: e instanceof Error ? e.message : 'Error desconocido al crear usuario' }
+  }
 }
 
 export async function deleteUser(targetUserId: string) {
-  await assertAdmin()
+  try {
+    await assertAdmin()
 
-  const admin = createAdminClient()
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return { error: 'Falta SUPABASE_SERVICE_ROLE_KEY en variables de entorno.' }
+    }
 
-  const { error: authError } = await admin.auth.admin.deleteUser(targetUserId)
-  if (authError) return { error: authError.message }
+    const admin = createAdminClient()
 
-  await admin.from('users').delete().eq('id', targetUserId)
+    const { error: authError } = await admin.auth.admin.deleteUser(targetUserId)
+    if (authError) return { error: authError.message }
 
-  revalidatePath('/users')
-  return { success: true }
+    await admin.from('users').delete().eq('id', targetUserId)
+
+    revalidatePath('/users')
+    return { success: true }
+  } catch (e) {
+    console.error('deleteUser failed:', e)
+    return { error: e instanceof Error ? e.message : 'Error desconocido al eliminar usuario' }
+  }
 }

@@ -28,7 +28,7 @@ export async function updateUserRole(targetUserId: string, role: UserRole): Prom
   if (!targetUser) throw new Error('Usuario no encontrado')
 
   // Guard: prevent downgrading the last admin
-  if (role === 'operator' && targetUser.role === 'admin') {
+  if ((role === 'operator' || role === 'supervisor') && targetUser.role === 'admin') {
     const { count } = await supabase
       .from('users')
       .select('*', { count: 'exact', head: true })

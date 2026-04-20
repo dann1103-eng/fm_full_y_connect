@@ -80,7 +80,7 @@ export default function ClientEditPage() {
       const { data: appUser } = user
         ? await supabase.from('users').select('role').eq('id', user.id).single()
         : { data: null as { role: string } | null }
-      const adminUser = appUser?.role === 'admin'
+      const adminUser = appUser?.role === 'admin' || appUser?.role === 'supervisor'
       setIsAdmin(adminUser)
       if (!adminUser) {
         router.replace(`/clients/${id}`)

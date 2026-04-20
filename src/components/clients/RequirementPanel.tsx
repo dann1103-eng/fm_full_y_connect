@@ -66,6 +66,7 @@ interface RequirementPanelProps {
   limits: Record<ContentType, number>
   daysLeft: number | null
   isAdmin: boolean
+  canCreate?: boolean
   userMap: Record<string, string>
 }
 
@@ -77,6 +78,7 @@ export function RequirementPanel({
   limits,
   daysLeft,
   isAdmin,
+  canCreate = false,
   userMap,
 }: RequirementPanelProps) {
   const [modalOpen, setModalOpen] = useState(false)
@@ -264,15 +266,17 @@ export function RequirementPanel({
           >
             Editar cliente
           </Link>
-          <button
-            onClick={() => !isOverdue && setModalOpen(true)}
-            disabled={isOverdue}
-            className={`flex-1 md:flex-none px-5 py-2.5 text-white font-bold rounded-full flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 text-sm ${isOverdue ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-110'}`}
-            style={{ background: isOverdue ? '#b31b25' : 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)', boxShadow: '0 4px 15px rgba(0,103,92,0.25)' }}
-          >
-            <span className="material-symbols-outlined text-base">{isOverdue ? 'block' : 'add'}</span>
-            {isOverdue ? 'Cuenta vencida' : 'Registrar requerimiento'}
-          </button>
+          {canCreate && (
+            <button
+              onClick={() => !isOverdue && setModalOpen(true)}
+              disabled={isOverdue}
+              className={`flex-1 md:flex-none px-5 py-2.5 text-white font-bold rounded-full flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 text-sm ${isOverdue ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-110'}`}
+              style={{ background: isOverdue ? '#b31b25' : 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)', boxShadow: '0 4px 15px rgba(0,103,92,0.25)' }}
+            >
+              <span className="material-symbols-outlined text-base">{isOverdue ? 'block' : 'add'}</span>
+              {isOverdue ? 'Cuenta vencida' : 'Registrar requerimiento'}
+            </button>
+          )}
         </div>
       </section>
 

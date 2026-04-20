@@ -1,4 +1,5 @@
 // src/app/(app)/reports/page.tsx
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { TopNav } from '@/components/layout/TopNav'
 import { CsvDownloadButton } from '@/components/reports/CsvDownloadButton'
@@ -22,6 +23,11 @@ function barColor(pct: number): string {
 
 export default async function ReportsPage() {
   const supabase = await createClient()
+
+  const { data: { user: authUser } } = await supabase.auth.getUser()
+  if (!authUser) redirect('/login')
+  const { data: authUserRow } = await supabase.from('users').select('role').eq('id', authUser.id).single()
+  if (authUserRow?.role === 'operator') redirect('/')
 
   // 1. All clients
   const { data: clientsRaw } = await supabase

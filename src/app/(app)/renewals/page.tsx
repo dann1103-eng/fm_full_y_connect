@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { TopNav } from '@/components/layout/TopNav'
 import { RenewalRow } from '@/components/renewals/RenewalRow'
@@ -31,6 +32,7 @@ export default async function RenewalsPage({
     ? await supabase.from('users').select('role').eq('id', authUser.id).single()
     : { data: null }
   const isAdmin = appUser?.role === 'admin'
+  if (!isAdmin) redirect('/')
 
   const in7Days = new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000)
     .toISOString()

@@ -73,7 +73,7 @@ export default async function ClientDetailPage({
 
   const userMap: Record<string, string> = {}
   ;(users ?? []).forEach((u) => {
-    userMap[u.id] = u.full_name || (u.role === 'admin' ? 'Admin' : 'Operador')
+    userMap[u.id] = u.full_name || (u.role === 'admin' ? 'Admin' : u.role === 'supervisor' ? 'Supervisor' : 'Operador')
   })
 
   // Pipeline items del ciclo actual
@@ -141,6 +141,7 @@ export default async function ClientDetailPage({
     ? await supabase.from('users').select('role').eq('id', authUser.id).single()
     : { data: null }
   const isAdmin = appUser?.role === 'admin'
+  const canCreate = appUser?.role === 'admin' || appUser?.role === 'supervisor'
 
   return (
     <div className="flex flex-col h-full">
@@ -170,6 +171,7 @@ export default async function ClientDetailPage({
             limits={limits}
             daysLeft={daysLeft}
             isAdmin={isAdmin}
+            canCreate={canCreate}
             userMap={userMap}
           />
         ) : client.status === 'paused' && isAdmin ? (

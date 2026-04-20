@@ -33,6 +33,13 @@ function RoleBadge({ role }: { role: UserRole }) {
       </span>
     )
   }
+  if (role === 'supervisor') {
+    return (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
+        Supervisor
+      </span>
+    )
+  }
   return (
     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#595c5e]/10 text-[#595c5e]">
       Operador
@@ -113,6 +120,7 @@ function UserRow({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="admin">Admin</SelectItem>
+            <SelectItem value="supervisor">Supervisor</SelectItem>
             <SelectItem value="operator">Operador</SelectItem>
           </SelectContent>
         </Select>
@@ -216,7 +224,7 @@ function CreateUserModal({ onClose, onCreated }: {
           <div>
             <label className="text-xs font-bold text-[#595c5e] uppercase tracking-wide">Rol</label>
             <div className="flex gap-3 mt-1.5">
-              {(['operator', 'admin'] as UserRole[]).map(r => (
+              {(['operator', 'supervisor', 'admin'] as UserRole[]).map(r => (
                 <button
                   key={r}
                   onClick={() => setRole(r)}
@@ -226,7 +234,7 @@ function CreateUserModal({ onClose, onCreated }: {
                       : 'border-[#dfe3e6] text-[#595c5e] hover:border-[#00675c]/40'
                   }`}
                 >
-                  {r === 'operator' ? 'Operador' : 'Admin'}
+                  {r === 'operator' ? 'Operador' : r === 'supervisor' ? 'Supervisor' : 'Admin'}
                 </button>
               ))}
             </div>

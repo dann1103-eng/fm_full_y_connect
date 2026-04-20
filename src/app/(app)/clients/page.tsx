@@ -39,6 +39,7 @@ export default async function ClientsPage() {
     ? await supabase.from('users').select('role').eq('id', authUser.user.id).single()
     : { data: null }
   const isAdmin = appUser?.role === 'admin'
+  const canCreate = appUser?.role === 'admin' || appUser?.role === 'supervisor'
 
   const { data: clients } = await supabase
     .from('clients')
@@ -60,7 +61,7 @@ export default async function ClientsPage() {
           <p className="text-sm text-[#595c5e]">
             {clients?.length ?? 0} cliente{clients?.length !== 1 ? 's' : ''} registrado{clients?.length !== 1 ? 's' : ''}
           </p>
-          {isAdmin && <ClientForm plans={plans ?? []} />}
+          {canCreate && <ClientForm plans={plans ?? []} />}
         </div>
 
         {/* Table */}

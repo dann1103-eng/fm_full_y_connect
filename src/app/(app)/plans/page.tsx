@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { TopNav } from '@/components/layout/TopNav'
 import { CONTENT_TYPES, CONTENT_TYPE_LABELS, limitsToRecord } from '@/lib/domain/plans'
@@ -13,6 +14,8 @@ export default async function PlansPage() {
     ? await supabase.from('users').select('role').eq('id', authUser.id).single()
     : { data: null }
   const isAdmin = appUser?.role === 'admin'
+  const canViewPage = appUser?.role === 'admin' || appUser?.role === 'supervisor'
+  if (!canViewPage) redirect('/')
 
   const { data: plans } = await supabase
     .from('plans')
@@ -24,11 +27,7 @@ export default async function PlansPage() {
       <TopNav title="Planes" />
 
       <div className="flex-1 p-6 space-y-5">
-        {!isAdmin && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
-            Solo los administradores pueden modificar los planes.
-          </div>
-        )}
+        {/* Warning removed — operators are redirected to /, supervisors and admins can view */}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {(plans ?? []).map((plan: Plan) => {

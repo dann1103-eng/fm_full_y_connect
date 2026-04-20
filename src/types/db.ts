@@ -28,7 +28,7 @@ export type Phase =
 export type ClientStatus = 'active' | 'paused' | 'overdue'
 export type CycleStatus = 'current' | 'archived' | 'pending_renewal'
 export type PaymentStatus = 'paid' | 'unpaid'
-export type UserRole = 'admin' | 'operator'
+export type UserRole = 'admin' | 'supervisor' | 'operator'
 
 export interface PlanLimits {
   historias: number
