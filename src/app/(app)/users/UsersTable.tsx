@@ -176,6 +176,7 @@ function CreateUserModal({ onClose, onCreated }: {
         full_name: fullName.trim(),
         role,
         created_at: new Date().toISOString(),
+        avatar_url: null,
       })
       onClose()
     })

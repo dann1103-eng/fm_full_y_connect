@@ -92,17 +92,20 @@ export interface Database {
           full_name: string
           role: UserRole
           created_at: string
+          avatar_url: string | null
         }
         Insert: {
           id: string
           email: string
           full_name?: string
           role?: UserRole
+          avatar_url?: string | null
         }
         Update: {
           email?: string
           full_name?: string
           role?: UserRole
+          avatar_url?: string | null
         }
         Relationships: []
       }
