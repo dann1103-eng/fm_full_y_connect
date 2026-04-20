@@ -22,7 +22,7 @@ import { createClient } from '@/lib/supabase/client'
 import { PHASES, PHASE_LABELS, PHASE_CATEGORY, isPassiveTimerPhase } from '@/lib/domain/pipeline'
 import { movePhase } from '@/lib/domain/pipeline'
 import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
-import type { Phase, ContentType, RequirementPhaseLog, Priority } from '@/types/db'
+import type { Phase, ContentType, RequirementPhaseLog, RequirementCambioLog, Priority } from '@/types/db'
 import { PRIORITY_LABELS, PRIORITY_COLORS } from '@/types/db'
 import { RequirementChat } from './RequirementChat'
 import { RequirementTimesheet } from './RequirementTimesheet'
@@ -92,6 +92,9 @@ export function PhaseSheet({
   // Cambios
   const [localCambios, setLocalCambios] = useState(cambiosCount)
   const [incrementing, setIncrementing] = useState(false)
+  const [showCambioForm, setShowCambioForm] = useState(false)
+  const [cambioNote, setCambioNote] = useState('')
+  const [cambioLogs, setCambioLogs] = useState<RequirementCambioLog[]>([])
 
   // Passive timer (counts up while in any passive_timer phase)
   const [reviewElapsed, setReviewElapsed] = useState('')
@@ -134,6 +137,18 @@ export function PhaseSheet({
     })
   }, [canAssign])
 
+  // Load cambio logs when sheet opens
+  useEffect(() => {
+    if (!open) return
+    const supabase = createClient()
+    supabase
+      .from('requirement_cambio_logs')
+      .select('*')
+      .eq('requirement_id', requirementId)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setCambioLogs(data ?? []))
+  }, [open, requirementId])
+
   // Reset tab when sheet closes/opens
   useEffect(() => {
     if (open) {
@@ -147,6 +162,8 @@ export function PhaseSheet({
       setEditEstimatedTime(initialEstimatedTime?.toString() ?? '')
       setEditAssignedTo(initialAssignedTo ?? [])
       setLocalCambios(cambiosCount)
+      setShowCambioForm(false)
+      setCambioNote('')
     }
   }, [open, currentPhase, title, requirementNotes, cambiosCount, initialPriority, initialEstimatedTime, initialAssignedTo])
 
@@ -201,11 +218,29 @@ export function PhaseSheet({
   async function handleAddCambio() {
     setIncrementing(true)
     const supabase = createClient()
-    await supabase
-      .from('requirements')
-      .update({ cambios_count: localCambios + 1 })
-      .eq('id', requirementId)
+    const { data: { user } } = await supabase.auth.getUser()
+    const note = cambioNote.trim() || null
+
+    await Promise.all([
+      supabase.from('requirements').update({ cambios_count: localCambios + 1 }).eq('id', requirementId),
+      supabase.from('requirement_cambio_logs').insert({
+        requirement_id: requirementId,
+        notes: note,
+        created_by: user?.id ?? null,
+      }),
+    ])
+
+    const newLog: RequirementCambioLog = {
+      id: crypto.randomUUID(),
+      requirement_id: requirementId,
+      notes: note,
+      created_by: user?.id ?? null,
+      created_at: new Date().toISOString(),
+    }
+    setCambioLogs(prev => [newLog, ...prev])
     setLocalCambios((n) => n + 1)
+    setShowCambioForm(false)
+    setCambioNote('')
     setIncrementing(false)
     router.refresh()
   }
@@ -443,21 +478,73 @@ export function PhaseSheet({
               )}
 
               {/* Cambios */}
-              <div className="flex items-center justify-between bg-[#f5f7f9] rounded-xl px-4 py-3">
-                <div>
-                  <p className="text-xs text-[#595c5e] font-semibold">Cambios aplicados</p>
-                  <p className="text-[10px] text-[#abadaf] mt-0.5">se suman al total del ciclo</p>
+              <div className="bg-[#f5f7f9] rounded-xl px-4 py-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-[#595c5e] font-semibold">Cambios aplicados</p>
+                    <p className="text-[10px] text-[#abadaf] mt-0.5">se suman al total del ciclo</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg font-black text-[#2c2f31]">{localCambios}</span>
+                    <button
+                      onClick={() => setShowCambioForm(v => !v)}
+                      disabled={incrementing}
+                      className="text-xs font-bold px-2.5 py-1 rounded-lg transition-colors disabled:opacity-40 bg-[#00675c]/10 text-[#00675c] hover:bg-[#00675c]/20"
+                    >
+                      +1
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-lg font-black text-[#2c2f31]">{localCambios}</span>
-                  <button
-                    onClick={handleAddCambio}
-                    disabled={incrementing}
-                    className="text-xs font-bold px-2.5 py-1 rounded-lg transition-colors disabled:opacity-40 bg-[#00675c]/10 text-[#00675c] hover:bg-[#00675c]/20"
-                  >
-                    {incrementing ? '…' : '+1'}
-                  </button>
-                </div>
+
+                {/* Inline form for new cambio */}
+                {showCambioForm && (
+                  <div className="space-y-2 pt-1 border-t border-[#dfe3e6]">
+                    <Textarea
+                      value={cambioNote}
+                      onChange={e => setCambioNote(e.target.value)}
+                      placeholder="Descripción del cambio (opcional)"
+                      className="resize-none text-xs bg-white border-[#dfe3e6] focus:border-[#00675c] rounded-lg"
+                      rows={2}
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setShowCambioForm(false); setCambioNote('') }}
+                        className="flex-1 py-1.5 text-xs font-semibold border border-[#dfe3e6] rounded-lg text-[#595c5e] hover:bg-white"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handleAddCambio}
+                        disabled={incrementing}
+                        className="flex-1 py-1.5 text-xs font-semibold rounded-lg text-white bg-[#00675c] hover:bg-[#005047] disabled:opacity-50"
+                      >
+                        {incrementing ? 'Registrando…' : 'Registrar cambio'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Past cambio logs */}
+                {cambioLogs.length > 0 && (
+                  <div className="pt-1 border-t border-[#dfe3e6] space-y-2">
+                    {cambioLogs.map((log, i) => (
+                      <div key={log.id} className="flex gap-2 items-start">
+                        <span className="mt-1 w-1.5 h-1.5 rounded-full bg-[#abadaf] flex-shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-[10px] text-[#abadaf]">
+                            Cambio {cambioLogs.length - i} ·{' '}
+                            {new Date(log.created_at).toLocaleDateString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                          {log.notes ? (
+                            <p className="text-xs text-[#2c2f31] mt-0.5">{log.notes}</p>
+                          ) : (
+                            <p className="text-xs text-[#abadaf] italic">Sin descripción</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Timeline */}

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import type { ClientWithPlan, BillingCycle, CambiosPackage, ExtraContentItem, Requirement, ContentType } from '@/types/db'
+import type { ClientWithPlan, BillingCycle, CambiosPackage, ExtraContentItem, Requirement, RequirementCambioLog, ContentType } from '@/types/db'
 import { CONTENT_TYPES, CONTENT_TYPE_LABELS, limitsToRecord } from '@/lib/domain/plans'
 import { groupByWeek, effectiveWeeklyTarget, resolveDistribution, augmentDistribution, computeWeeklyBreakdownWithCascade } from '@/lib/domain/requirement'
 import { RequirementModal } from './RequirementModal'
@@ -70,6 +70,7 @@ interface RequirementPanelProps {
   canAssign?: boolean
   userMap: Record<string, string>
   assignableUsers?: { id: string; full_name: string }[]
+  cambioLogsMap?: Record<string, RequirementCambioLog[]>
 }
 
 export function RequirementPanel({
@@ -84,6 +85,7 @@ export function RequirementPanel({
   canAssign = false,
   userMap,
   assignableUsers = [],
+  cambioLogsMap = {},
 }: RequirementPanelProps) {
   const [modalOpen, setModalOpen] = useState(false)
   const [markingPaid, setMarkingPaid] = useState(false)
@@ -695,6 +697,7 @@ export function RequirementPanel({
             isAdmin={isAdmin}
             cycleId={cycle.id}
             userMap={userMap}
+            cambioLogsMap={cambioLogsMap}
           />
         </div>
 

@@ -12,7 +12,7 @@ import { daysUntilEnd } from '@/lib/domain/cycles'
 import { ClientPipelineTab } from '@/components/pipeline/ClientPipelineTab'
 import { PIPELINE_CONTENT_TYPES } from '@/lib/domain/pipeline'
 import type { PipelineItem } from '@/lib/domain/pipeline'
-import type { RequirementPhaseLog } from '@/types/db'
+import type { RequirementPhaseLog, RequirementCambioLog } from '@/types/db'
 import { DeleteClientButton } from '@/components/clients/DeleteClientButton'
 
 export const dynamic = 'force-dynamic'
@@ -77,6 +77,20 @@ export default async function ClientDetailPage({
     userMap[u.id] = u.full_name || (u.role === 'admin' ? 'Admin' : u.role === 'supervisor' ? 'Supervisor' : 'Operador')
     userAvatarMap[u.id] = u.avatar_url ?? null
   })
+
+  // Cambio logs for current cycle requirements
+  const cambioLogsMap: Record<string, RequirementCambioLog[]> = {}
+  if (requirements && requirements.length > 0) {
+    const { data: cambioLogsRaw } = await supabase
+      .from('requirement_cambio_logs')
+      .select('*')
+      .in('requirement_id', requirements.map(r => r.id))
+      .order('created_at', { ascending: false })
+    for (const log of cambioLogsRaw ?? []) {
+      if (!cambioLogsMap[log.requirement_id]) cambioLogsMap[log.requirement_id] = []
+      cambioLogsMap[log.requirement_id].push(log as RequirementCambioLog)
+    }
+  }
 
   // Pipeline items del ciclo actual
   const pipelineItems: PipelineItem[] = []
@@ -185,6 +199,7 @@ export default async function ClientDetailPage({
             userMap={userMap}
             assignableUsers={(users ?? []).map(u => ({ id: u.id, full_name: u.full_name || u.role }))}
             canAssign={canCreate}
+            cambioLogsMap={cambioLogsMap}
           />
         ) : client.status === 'paused' && isAdmin ? (
           <ReactivatePanel client={client} plans={(plans ?? []) as Plan[]} />

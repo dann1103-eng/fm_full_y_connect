@@ -378,6 +378,32 @@ export interface Database {
           }
         ]
       }
+      requirement_cambio_logs: {
+        Row: {
+          id: string
+          requirement_id: string
+          notes: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          requirement_id: string
+          notes?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: Record<string, never>
+        Relationships: [
+          {
+            foreignKeyName: 'requirement_cambio_logs_requirement_id_fkey'
+            columns: ['requirement_id']
+            isOneToOne: false
+            referencedRelation: 'requirements'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       requirement_messages: {
         Row: {
           id: string
@@ -468,6 +494,7 @@ export type Client = Database['public']['Tables']['clients']['Row']
 export type BillingCycle = Database['public']['Tables']['billing_cycles']['Row']
 export type Requirement = Database['public']['Tables']['requirements']['Row']
 export type RequirementPhaseLog = Database['public']['Tables']['requirement_phase_logs']['Row']
+export type RequirementCambioLog = Database['public']['Tables']['requirement_cambio_logs']['Row']
 export type RequirementMessage = Database['public']['Tables']['requirement_messages']['Row']
 export type TimeEntry = Database['public']['Tables']['time_entries']['Row']
 
