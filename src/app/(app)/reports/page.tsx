@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { TopNav } from '@/components/layout/TopNav'
 import { CsvDownloadButton } from '@/components/reports/CsvDownloadButton'
+import { TimesheetReport } from '@/components/reports/TimesheetReport'
 import { computeTotals } from '@/lib/domain/requirement'
 import { effectiveLimits } from '@/lib/domain/plans'
 import { daysUntilEnd } from '@/lib/domain/cycles'
@@ -28,6 +29,16 @@ export default async function ReportsPage() {
   if (!authUser) redirect('/login')
   const { data: authUserRow } = await supabase.from('users').select('role').eq('id', authUser.id).single()
   if (authUserRow?.role === 'operator') redirect('/')
+
+  // Users + clients list (para filtros del timesheet report)
+  const { data: usersList } = await supabase
+    .from('users')
+    .select('id, full_name, avatar_url')
+    .order('full_name')
+  const { data: clientsList } = await supabase
+    .from('clients')
+    .select('id, name')
+    .order('name')
 
   // 1. All clients
   const { data: clientsRaw } = await supabase
@@ -378,6 +389,18 @@ export default async function ReportsPage() {
               </table>
             </div>
           )}
+        </section>
+
+        {/* ── Section 5: Informes de hojas de tiempo ── */}
+        <section className="glass-panel rounded-[2rem] p-8 space-y-5">
+          <h2 className="text-xl font-extrabold tracking-tight text-[#2c2f31]">
+            Informes de hojas de tiempo
+          </h2>
+          <TimesheetReport
+            users={(usersList ?? []).map(u => ({ id: u.id, full_name: u.full_name, avatar_url: u.avatar_url }))}
+            clients={clientsList ?? []}
+            currentUserId={authUser.id}
+          />
         </section>
 
         {/* Empty state — no cycles at all */}

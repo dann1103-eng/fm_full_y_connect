@@ -9,6 +9,14 @@ export function formatDuration(seconds: number): string {
   return `${h}h ${m}m`
 }
 
+export function formatDurationHMS(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds))
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const ss = s % 60
+  return [h, m, ss].map(n => n.toString().padStart(2, '0')).join(':')
+}
+
 export function formatTime(iso: string): string {
   const d = new Date(iso)
   return d.toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit', hour12: false })
