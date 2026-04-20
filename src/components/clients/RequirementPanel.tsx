@@ -17,6 +17,7 @@ import { CONTENT_ICONS } from '@/lib/domain/content-icons'
 import { socialUrl, type SocialNetwork } from '@/lib/domain/social'
 import { RequirementModal } from './RequirementModal'
 import { RequirementHistory } from './RequirementHistory'
+import { renewContentPackage } from '@/app/actions/contentPackage'
 
 // Amber-toned types (estatico, video_corto) get amber icon styling
 const AMBER_TYPES = new Set<ContentType>(['estatico', 'video_corto'])
@@ -118,6 +119,7 @@ export function RequirementPanel({
   const [markingPaid, setMarkingPaid] = useState(false)
   const [notes, setNotes] = useState(client.notes ?? '')
   const [savingNotes, setSavingNotes] = useState(false)
+  const [renewingPackage, setRenewingPackage] = useState(false)
   const router = useRouter()
 
   const isOverdue = daysLeft !== null && daysLeft < 0 && cycle.payment_status === 'unpaid'
@@ -173,6 +175,19 @@ export function RequirementPanel({
   // Plan "Contenido" — pool unificado compartido entre tippables
   const poolUsage = unifiedPoolUsage(cycle.limits_snapshot_json, totals)
   const isUnifiedPool = poolUsage !== null
+  const isContentExhausted = isUnifiedPool && poolUsage !== null && poolUsage.used >= poolUsage.limit
+
+  async function handleRenewContentPackage() {
+    if (!confirm('¿Confirmar nuevo paquete de 10 contenidos?')) return
+    setRenewingPackage(true)
+    const res = await renewContentPackage(cycle.id, client.id, cycle.plan_id_snapshot ?? '')
+    setRenewingPackage(false)
+    if (res.error) {
+      alert(`Error: ${res.error}`)
+      return
+    }
+    router.refresh()
+  }
 
   // Ajustar límites: en plan unificado, cada tippable puede recibir hasta `remainingPool + totals[t]`
   const effectiveLimitsMap = isUnifiedPool
@@ -245,9 +260,18 @@ export function RequirementPanel({
 
             {/* Cycle date + payment */}
             <p className="text-[#595c5e] text-sm flex flex-wrap items-center justify-center md:justify-start gap-1.5">
-              <span className="material-symbols-outlined text-base">calendar_today</span>
-              Ciclo: {formatDateShort(cycle.period_start)} – {formatDateShort(cycle.period_end)}
-              &nbsp;·&nbsp; Pago: día {client.billing_day}{isBiweekly && client.billing_day_2 ? ` y ${client.billing_day_2}` : ''}
+              {isUnifiedPool ? (
+                <span className="flex items-center gap-1">
+                  <span className="material-symbols-outlined text-base">inventory_2</span>
+                  Paquete activo desde {formatDateShort(cycle.period_start)}
+                </span>
+              ) : (
+                <span className="flex items-center gap-1">
+                  <span className="material-symbols-outlined text-base">calendar_today</span>
+                  Ciclo: {formatDateShort(cycle.period_start)} – {formatDateShort(cycle.period_end)}
+                  &nbsp;·&nbsp; Pago: día {client.billing_day}{isBiweekly && client.billing_day_2 ? ` y ${client.billing_day_2}` : ''}
+                </span>
+              )}
               {/* 1er pago (o único en monthly) */}
               {cycle.payment_status === 'paid' ? (
                 <span className="px-2 py-0.5 bg-[#00675c]/10 text-[#00675c] text-[10px] font-extrabold rounded-full border border-[#00675c]/20">
@@ -371,13 +395,13 @@ export function RequirementPanel({
           </Link>
           {canCreate && (
             <button
-              onClick={() => !isOverdue && setModalOpen(true)}
-              disabled={isOverdue}
-              className={`flex-1 md:flex-none px-5 py-2.5 text-white font-bold rounded-full flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 text-sm ${isOverdue ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-110'}`}
-              style={{ background: isOverdue ? '#b31b25' : 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)', boxShadow: '0 4px 15px rgba(0,103,92,0.25)' }}
+              onClick={() => !isOverdue && !isContentExhausted && setModalOpen(true)}
+              disabled={isOverdue || isContentExhausted}
+              className={`flex-1 md:flex-none px-5 py-2.5 text-white font-bold rounded-full flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 text-sm ${(isOverdue || isContentExhausted) ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-110'}`}
+              style={{ background: (isOverdue || isContentExhausted) ? '#b31b25' : 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)', boxShadow: '0 4px 15px rgba(0,103,92,0.25)' }}
             >
-              <span className="material-symbols-outlined text-base">{isOverdue ? 'block' : 'add'}</span>
-              {isOverdue ? 'Cuenta vencida' : 'Registrar requerimiento'}
+              <span className="material-symbols-outlined text-base">{(isOverdue || isContentExhausted) ? 'block' : 'add'}</span>
+              {isOverdue ? 'Cuenta vencida' : isContentExhausted ? 'Paquete agotado' : 'Registrar requerimiento'}
             </button>
           )}
         </div>
@@ -397,6 +421,33 @@ export function RequirementPanel({
         </div>
       )}
 
+      {/* ── Package exhausted banner ── */}
+      {isContentExhausted && (
+        <div className="bg-[#00675c]/5 border border-[#00675c]/20 rounded-2xl px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-start gap-3">
+            <span className="material-symbols-outlined text-[#00675c] text-xl flex-shrink-0">task_alt</span>
+            <div>
+              <p className="text-sm font-semibold text-[#00675c]">Paquete de 10 contenidos completado</p>
+              <p className="text-xs text-[#595c5e] mt-0.5">
+                Se han registrado los {poolUsage!.limit} contenidos incluidos en el paquete.
+                {canCreate ? ' ¿El cliente desea contratar otro paquete?' : ''}
+              </p>
+            </div>
+          </div>
+          {canCreate && (
+            <button
+              onClick={handleRenewContentPackage}
+              disabled={renewingPackage}
+              className="flex items-center gap-2 px-5 py-2.5 text-white font-bold rounded-full text-sm disabled:opacity-60 flex-shrink-0"
+              style={{ background: 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)', boxShadow: '0 4px 15px rgba(0,103,92,0.25)' }}
+            >
+              <span className="material-symbols-outlined text-base">add_shopping_cart</span>
+              {renewingPackage ? 'Creando…' : 'Contratar nuevo paquete'}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* ── Requerimientos del ciclo ── */}
       <section className="space-y-5">
         <div>
@@ -405,20 +456,16 @@ export function RequirementPanel({
           </h2>
           <p className="text-[#595c5e] font-medium text-sm mt-1">
             {cycleMonthLabel}
-            {daysLeft !== null && (
+            {!isUnifiedPool && daysLeft !== null && (
               <>
                 {' '}·{' '}
-                <span
-                  className="font-bold"
-                  style={{ color: daysLeft < 0 ? '#b31b25' : daysLeft <= 3 ? '#b31b25' : '#00675c' }}
-                >
-                  {daysLeft < 0
-                    ? 'Vencido'
-                    : daysLeft === 0
-                    ? 'Vence hoy'
-                    : `${daysLeft} días restantes`}
+                <span style={{ color: daysLeft < 0 ? '#b31b25' : daysLeft <= 3 ? '#b31b25' : '#00675c' }}>
+                  {daysLeft < 0 ? 'Vencido' : daysLeft === 0 ? 'Vence hoy' : `${daysLeft} días restantes`}
                 </span>
               </>
+            )}
+            {isContentExhausted && (
+              <span className="font-bold text-[#b31b25] ml-2">· Paquete agotado</span>
             )}
           </p>
         </div>
@@ -622,7 +669,7 @@ export function RequirementPanel({
       </section>
 
       {/* ── Desglose semanal ── */}
-      <section className="space-y-5">
+      {!isUnifiedPool && <section className="space-y-5">
         <h3 className="text-xl font-extrabold tracking-tight text-[#2c2f31]">
           Desglose semanal
         </h3>
@@ -704,7 +751,7 @@ export function RequirementPanel({
               })
           }
         </div>
-      </section>
+      </section>}
 
       {/* ── Matriz, producciones y reuniones del mes ── */}
       {(simpleTypes.length > 0 || hasMatriz) && (

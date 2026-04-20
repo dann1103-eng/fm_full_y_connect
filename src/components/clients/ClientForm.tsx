@@ -20,6 +20,7 @@ interface Plan {
   id: string
   name: string
   price_usd: number
+  unified_content_limit?: number | null
 }
 
 interface ClientFormProps {
@@ -56,6 +57,9 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
     billing_day: existing?.billing_day?.toString() ?? '1',
     start_date: defaultCycleStart,
   })
+
+  const selectedPlan = plans.find(p => p.id === form.current_plan_id)
+  const isContentPlan = (selectedPlan?.unified_content_limit ?? null) != null
 
   function set(key: string, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -137,10 +141,16 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
         .single()
 
       if (plan) {
-        const { periodStart, periodEnd } = firstCycleDates(form.start_date, billingDay, {
+        const { periodStart, periodEnd: datePeriodEnd } = firstCycleDates(form.start_date, billingDay, {
           billingPeriod,
           billingDay2: billingPeriod === 'biweekly' && billingDay2 ? parseInt(billingDay2, 10) : null,
         })
+
+        // Plan Contenido: expiración por consumo, no por fecha
+        const periodEnd = plan.unified_content_limit != null
+          ? new Date(new Date(periodStart + 'T12:00:00').getTime() + 10 * 365 * 24 * 60 * 60 * 1000)
+              .toISOString().split('T')[0]
+          : datePeriodEnd
 
         // Copia el unified_content_limit del plan al snapshot (plan "Contenido")
         const snapshot = plan.unified_content_limit != null
@@ -213,45 +223,57 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
               </select>
             </div>
 
-            <div className="space-y-1.5">
-              <Label>Día de facturación *</Label>
-              <Input
-                required
-                type="number"
-                min={1}
-                max={31}
-                value={form.billing_day}
-                onChange={(e) => set('billing_day', e.target.value)}
-                className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Período de facturación</Label>
-              <select
-                value={billingPeriod}
-                onChange={(e) => setBillingPeriod(e.target.value as BillingPeriod)}
-                className="w-full py-2 px-3 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl text-[#2c2f31] focus:outline-none focus:border-[#00675c]"
-              >
-                <option value="monthly">Mensual</option>
-                <option value="biweekly">Quincenal</option>
-              </select>
-            </div>
-
-            {billingPeriod === 'biweekly' && (
-              <div className="space-y-1.5">
-                <Label>2° día de facturación *</Label>
-                <Input
-                  required
-                  type="number"
-                  min={1}
-                  max={31}
-                  value={billingDay2}
-                  onChange={(e) => setBillingDay2(e.target.value)}
-                  placeholder="ej. 15"
-                  className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
-                />
+            {isContentPlan ? (
+              <div className="col-span-2 rounded-2xl bg-[#5bf4de]/10 border border-[#00675c]/20 px-4 py-3 flex items-start gap-3">
+                <span className="material-symbols-outlined text-[#00675c] text-base flex-shrink-0 mt-0.5">inventory_2</span>
+                <div>
+                  <p className="text-xs font-bold text-[#00675c]">Paquete de consumo</p>
+                  <p className="text-xs text-[#595c5e] mt-0.5">El paquete expira al registrar los 10 contenidos incluidos, sin límite de fecha.</p>
+                </div>
               </div>
+            ) : (
+              <>
+                <div className="space-y-1.5">
+                  <Label>Día de facturación *</Label>
+                  <Input
+                    required
+                    type="number"
+                    min={1}
+                    max={31}
+                    value={form.billing_day}
+                    onChange={(e) => set('billing_day', e.target.value)}
+                    className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Período de facturación</Label>
+                  <select
+                    value={billingPeriod}
+                    onChange={(e) => setBillingPeriod(e.target.value as BillingPeriod)}
+                    className="w-full py-2 px-3 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl text-[#2c2f31] focus:outline-none focus:border-[#00675c]"
+                  >
+                    <option value="monthly">Mensual</option>
+                    <option value="biweekly">Quincenal</option>
+                  </select>
+                </div>
+
+                {billingPeriod === 'biweekly' && (
+                  <div className="space-y-1.5">
+                    <Label>2° día de facturación *</Label>
+                    <Input
+                      required
+                      type="number"
+                      min={1}
+                      max={31}
+                      value={billingDay2}
+                      onChange={(e) => setBillingDay2(e.target.value)}
+                      placeholder="ej. 15"
+                      className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                    />
+                  </div>
+                )}
+              </>
             )}
 
             {!existing && (
@@ -264,7 +286,7 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
                   onChange={(e) => set('start_date', e.target.value)}
                   className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
                 />
-                {form.start_date && (() => {
+                {!isContentPlan && form.start_date && (() => {
                   const bd = parseInt(form.billing_day, 10)
                   if (!bd || bd < 1 || bd > 31) return null
                   const { periodEnd } = firstCycleDates(form.start_date, bd, {
