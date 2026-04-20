@@ -85,7 +85,7 @@ export function RequirementModal({
   const [notes, setNotes] = useState('')
   const [priority, setPriority] = useState<Priority>('media')
   const [estimatedTime, setEstimatedTime] = useState('')
-  const [assignedTo, setAssignedTo] = useState('')
+  const [assignedTo, setAssignedTo] = useState<string[]>([])
   const [forceOverLimit, setForceOverLimit] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -133,7 +133,7 @@ export function RequirementModal({
         over_limit: !allowed,
         priority,
         estimated_time_minutes: estMins && !isNaN(estMins) ? estMins : null,
-        assigned_to: assignedTo || null,
+        assigned_to: assignedTo.length > 0 ? assignedTo : null,
       })
       .select('id')
       .single()
@@ -158,7 +158,7 @@ export function RequirementModal({
     setNotes('')
     setPriority('media')
     setEstimatedTime('')
-    setAssignedTo('')
+    setAssignedTo([])
     setForceOverLimit(false)
     onClose()
     router.refresh()
@@ -309,23 +309,30 @@ export function RequirementModal({
                 />
               </div>
 
-              {/* Assign to — only for admin/supervisor */}
+              {/* Assign to — multi-select checkboxes for admin/supervisor */}
               {canAssign && assignableUsers.length > 0 && (
                 <div>
-                  <Label htmlFor="assigned-to" className="text-sm font-medium text-[#2c2f31] mb-1.5 block">
+                  <Label className="text-sm font-medium text-[#2c2f31] mb-1.5 block">
                     Asignar a <span className="text-[#747779] font-normal">(opcional)</span>
                   </Label>
-                  <select
-                    id="assigned-to"
-                    value={assignedTo}
-                    onChange={(e) => setAssignedTo(e.target.value)}
-                    className="w-full px-3 py-2 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl outline-none focus:border-[#00675c] text-[#2c2f31]"
-                  >
-                    <option value="">Sin asignar</option>
-                    {assignableUsers.map((u) => (
-                      <option key={u.id} value={u.id}>{u.full_name}</option>
-                    ))}
-                  </select>
+                  <div className="bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl px-3 py-2 space-y-1.5 max-h-32 overflow-y-auto">
+                    {assignableUsers.map((u) => {
+                      const checked = assignedTo.includes(u.id)
+                      return (
+                        <label key={u.id} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => setAssignedTo(prev =>
+                              checked ? prev.filter(id => id !== u.id) : [...prev, u.id]
+                            )}
+                            className="rounded accent-[#00675c]"
+                          />
+                          <span className="text-sm text-[#2c2f31]">{u.full_name}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
             </>

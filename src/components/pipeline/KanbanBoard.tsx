@@ -136,7 +136,7 @@ export function KanbanBoard({ byPhase, logsMap, currentUserId, canAssign = false
           priority={activeDetailItem.priority}
           estimatedTimeMinutes={activeDetailItem.estimated_time_minutes}
           assignedTo={activeDetailItem.assigned_to}
-          assigneeName={activeDetailItem.assignee_name}
+          assignees={activeDetailItem.assignees}
           canAssign={canAssign}
         />
       )}

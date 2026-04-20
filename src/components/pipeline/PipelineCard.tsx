@@ -111,10 +111,22 @@ export function CardBody({
               ⏱ {item.estimated_time_minutes}m
             </span>
           )}
-          {item.assignee_name && (
-            <span title={item.assignee_name}>
-              <UserAvatar name={item.assignee_name} avatarUrl={item.assignee_avatar_url} size="xs" />
-            </span>
+          {item.assignees.length > 0 && (
+            <div className="flex items-center">
+              {item.assignees.slice(0, 3).map((a, i) => (
+                <span
+                  key={a.id}
+                  title={a.name}
+                  className="block"
+                  style={{ marginLeft: i === 0 ? 0 : '-6px', zIndex: item.assignees.length - i }}
+                >
+                  <UserAvatar name={a.name} avatarUrl={a.avatar_url} size="xs" />
+                </span>
+              ))}
+              {item.assignees.length > 3 && (
+                <span className="ml-0.5 text-[9px] font-bold text-[#595c5e]">+{item.assignees.length - 3}</span>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -195,7 +207,7 @@ export function PipelineCard({
         priority={item.priority as Priority}
         estimatedTimeMinutes={item.estimated_time_minutes}
         assignedTo={item.assigned_to}
-        assigneeName={item.assignee_name}
+        assignees={item.assignees}
         canAssign={canAssign}
       />
     </>

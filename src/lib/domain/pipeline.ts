@@ -80,9 +80,8 @@ export interface PipelineItem {
   review_started_at: string | null
   priority: Priority
   estimated_time_minutes: number | null
-  assigned_to: string | null
-  assignee_name: string | null
-  assignee_avatar_url: string | null
+  assigned_to: string[] | null
+  assignees: { id: string; name: string; avatar_url: string | null }[]
 }
 
 /**
@@ -179,7 +178,7 @@ export async function migrateOpenPipelineItems(
   // 1. Obtener requerimientos abiertos del ciclo anterior
   const { data: openItems } = await supabase
     .from('requirements')
-    .select('id, content_type, phase, title, review_started_at')
+    .select('id, content_type, phase, title, review_started_at, assigned_to')
     .eq('billing_cycle_id', previousCycleId)
     .eq('voided', false)
     .neq('phase', 'publicado_entregado')
@@ -201,6 +200,7 @@ export async function migrateOpenPipelineItems(
         voided: false,
         title: item.title ?? '',
         review_started_at: item.review_started_at ?? null,
+        assigned_to: (item.assigned_to as string[] | null) ?? null,
       })
       .select('id')
       .single()

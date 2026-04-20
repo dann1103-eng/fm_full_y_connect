@@ -45,8 +45,8 @@ interface PhaseSheetProps {
   showMoveSection?: boolean
   priority?: Priority
   estimatedTimeMinutes?: number | null
-  assignedTo?: string | null
-  assigneeName?: string | null
+  assignedTo?: string[] | null
+  assignees?: { id: string; name: string; avatar_url: string | null }[]
   canAssign?: boolean
 }
 
@@ -67,7 +67,7 @@ export function PhaseSheet({
   priority: initialPriority = 'media',
   estimatedTimeMinutes: initialEstimatedTime = null,
   assignedTo: initialAssignedTo = null,
-  assigneeName: initialAssigneeName = null,
+  assignees: initialAssignees = [],
   canAssign = false,
 }: PhaseSheetProps) {
   const router = useRouter()
@@ -84,7 +84,7 @@ export function PhaseSheet({
   const [editNotes, setEditNotes] = useState(requirementNotes ?? '')
   const [editPriority, setEditPriority] = useState<Priority>(initialPriority)
   const [editEstimatedTime, setEditEstimatedTime] = useState(initialEstimatedTime?.toString() ?? '')
-  const [editAssignedTo, setEditAssignedTo] = useState(initialAssignedTo ?? '')
+  const [editAssignedTo, setEditAssignedTo] = useState<string[]>(initialAssignedTo ?? [])
   const [savingEdit, setSavingEdit] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [assignableUsers, setAssignableUsers] = useState<{ id: string; full_name: string }[]>([])
@@ -145,7 +145,7 @@ export function PhaseSheet({
       setEditNotes(requirementNotes ?? '')
       setEditPriority(initialPriority)
       setEditEstimatedTime(initialEstimatedTime?.toString() ?? '')
-      setEditAssignedTo(initialAssignedTo ?? '')
+      setEditAssignedTo(initialAssignedTo ?? [])
       setLocalCambios(cambiosCount)
     }
   }, [open, currentPhase, title, requirementNotes, cambiosCount, initialPriority, initialEstimatedTime, initialAssignedTo])
@@ -189,7 +189,7 @@ export function PhaseSheet({
         notes: editNotes.trim() || null,
         priority: editPriority,
         estimated_time_minutes: estMins && !isNaN(estMins) ? estMins : null,
-        assigned_to: canAssign ? (editAssignedTo || null) : undefined,
+        assigned_to: canAssign ? (editAssignedTo.length > 0 ? editAssignedTo : null) : undefined,
       })
       .eq('id', requirementId)
     setSavingEdit(false)
@@ -351,33 +351,50 @@ export function PhaseSheet({
                   />
                 </div>
 
-                {/* Assignee */}
+                {/* Assignees — multi-select checkboxes for admin/supervisor */}
                 {canAssign && assignableUsers.length > 0 && (
                   <div className="space-y-1">
                     <Label className="text-xs font-semibold text-[#595c5e]">Asignado a</Label>
-                    <select
-                      value={editAssignedTo}
-                      onChange={(e) => setEditAssignedTo(e.target.value)}
-                      className="w-full px-3 py-2 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl outline-none focus:border-[#00675c] text-[#2c2f31]"
-                    >
-                      <option value="">Sin asignar</option>
-                      {assignableUsers.map((u) => (
-                        <option key={u.id} value={u.id}>{u.full_name}</option>
-                      ))}
-                    </select>
+                    <div className="bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl px-3 py-2 space-y-1.5 max-h-36 overflow-y-auto">
+                      {assignableUsers.map((u) => {
+                        const checked = editAssignedTo.includes(u.id)
+                        return (
+                          <label key={u.id} className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => setEditAssignedTo(prev =>
+                                checked ? prev.filter(id => id !== u.id) : [...prev, u.id]
+                              )}
+                              className="rounded accent-[#00675c]"
+                            />
+                            <span className="text-sm text-[#2c2f31]">{u.full_name}</span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                    {editAssignedTo.length === 0 && (
+                      <p className="text-[10px] text-[#abadaf]">Sin asignar</p>
+                    )}
                   </div>
                 )}
 
                 {/* Read-only assignee display for operators */}
-                {!canAssign && initialAssigneeName && (
-                  <div className="flex items-center gap-2 bg-[#f5f7f9] rounded-xl px-3 py-2">
-                    <span className="w-6 h-6 rounded-full bg-[#00675c]/15 flex items-center justify-center text-[9px] font-bold text-[#00675c]">
-                      {initialAssigneeName.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()}
-                    </span>
-                    <div>
-                      <p className="text-[10px] text-[#abadaf] font-semibold uppercase tracking-wide">Asignado a</p>
-                      <p className="text-xs font-semibold text-[#2c2f31]">{initialAssigneeName}</p>
-                    </div>
+                {!canAssign && initialAssignees.length > 0 && (
+                  <div className="bg-[#f5f7f9] rounded-xl px-3 py-2 space-y-1.5">
+                    <p className="text-[10px] text-[#abadaf] font-semibold uppercase tracking-wide">Asignado a</p>
+                    {initialAssignees.map((a) => (
+                      <div key={a.id} className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-[#00675c]/15 flex items-center justify-center text-[9px] font-bold text-[#00675c] overflow-hidden flex-shrink-0">
+                          {a.avatar_url ? (
+                            <img src={a.avatar_url} alt={a.name} className="w-full h-full object-cover" />
+                          ) : (
+                            a.name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+                          )}
+                        </span>
+                        <p className="text-xs font-semibold text-[#2c2f31]">{a.name}</p>
+                      </div>
+                    ))}
                   </div>
                 )}
 

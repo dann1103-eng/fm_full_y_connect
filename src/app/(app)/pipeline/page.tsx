@@ -40,7 +40,7 @@ export default async function PipelinePage() {
       .limit(200)
 
     if (isOperator) {
-      reqQuery = reqQuery.eq('assigned_to', authUser.id)
+      reqQuery = reqQuery.contains('assigned_to', [authUser.id])
     }
 
     const { data: requirementsRaw } = await reqQuery
@@ -83,9 +83,12 @@ export default async function PipelinePage() {
         review_started_at: c.review_started_at ?? null,
         priority: (c.priority ?? 'media') as import('@/types/db').Priority,
         estimated_time_minutes: c.estimated_time_minutes ?? null,
-        assigned_to: c.assigned_to ?? null,
-        assignee_name: c.assigned_to ? (usersMap[c.assigned_to]?.name ?? null) : null,
-        assignee_avatar_url: c.assigned_to ? (usersMap[c.assigned_to]?.avatar_url ?? null) : null,
+        assigned_to: (c.assigned_to as string[] | null) ?? null,
+        assignees: ((c.assigned_to as string[] | null) ?? []).map(uid => ({
+          id: uid,
+          name: usersMap[uid]?.name ?? uid,
+          avatar_url: usersMap[uid]?.avatar_url ?? null,
+        })),
       })
     }
 

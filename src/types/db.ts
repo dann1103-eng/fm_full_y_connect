@@ -298,7 +298,7 @@ export interface Database {
           review_started_at: string | null
           priority: Priority
           estimated_time_minutes: number | null
-          assigned_to: string | null
+          assigned_to: string[] | null
         }
         Insert: {
           id?: string
@@ -318,7 +318,7 @@ export interface Database {
           review_started_at?: string | null
           priority?: Priority
           estimated_time_minutes?: number | null
-          assigned_to?: string | null
+          assigned_to?: string[] | null
         }
         Update: {
           billing_cycle_id?: string
@@ -336,7 +336,7 @@ export interface Database {
           review_started_at?: string | null
           priority?: Priority
           estimated_time_minutes?: number | null
-          assigned_to?: string | null
+          assigned_to?: string[] | null
         }
         Relationships: [
           {

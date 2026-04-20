@@ -26,7 +26,7 @@ function sortItems(items: PipelineItem[], field: SortField, dir: SortDir): Pipel
       case 'client':     cmp = a.client_name.localeCompare(b.client_name); break
       case 'phase':      cmp = PHASE_ORDER.indexOf(a.phase) - PHASE_ORDER.indexOf(b.phase); break
       case 'priority':   cmp = PRIORITY_ORDER[a.priority as Priority] - PRIORITY_ORDER[b.priority as Priority]; break
-      case 'assignee':   cmp = (a.assignee_name ?? '').localeCompare(b.assignee_name ?? ''); break
+      case 'assignee':   cmp = (a.assignees[0]?.name ?? '').localeCompare(b.assignees[0]?.name ?? ''); break
       case 'time':       cmp = (a.estimated_time_minutes ?? 0) - (b.estimated_time_minutes ?? 0); break
       case 'last_moved': cmp = a.last_moved_at.localeCompare(b.last_moved_at); break
     }
@@ -162,14 +162,31 @@ export function TableView({ items, logsMap, currentUserId, canAssign }: TableVie
                     </span>
                   </td>
 
-                  {/* Assignee */}
+                  {/* Assignee(s) */}
                   <td className="px-3 py-2.5 hidden sm:table-cell">
-                    {item.assignee_name ? (
+                    {item.assignees.length > 0 ? (
                       <div className="flex items-center gap-1.5">
-                        <span className="w-5 h-5 rounded-full bg-[#00675c]/15 flex items-center justify-center text-[9px] font-bold text-[#00675c]">
-                          {item.assignee_name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()}
-                        </span>
-                        <span className="text-xs text-[#595c5e] truncate max-w-[80px]">{item.assignee_name}</span>
+                        <div className="flex items-center">
+                          {item.assignees.slice(0, 3).map((a, i) => (
+                            <span
+                              key={a.id}
+                              title={a.name}
+                              style={{ marginLeft: i === 0 ? 0 : '-6px', zIndex: item.assignees.length - i, position: 'relative' }}
+                              className="w-5 h-5 rounded-full bg-[#00675c]/15 flex items-center justify-center text-[9px] font-bold text-[#00675c] border border-white overflow-hidden flex-shrink-0"
+                            >
+                              {a.avatar_url ? (
+                                <img src={a.avatar_url} alt={a.name} className="w-full h-full object-cover" />
+                              ) : (
+                                a.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+                              )}
+                            </span>
+                          ))}
+                        </div>
+                        {item.assignees.length === 1 ? (
+                          <span className="text-xs text-[#595c5e] truncate max-w-[80px]">{item.assignees[0].name}</span>
+                        ) : item.assignees.length > 3 ? (
+                          <span className="text-[10px] font-bold text-[#595c5e]">+{item.assignees.length - 3}</span>
+                        ) : null}
                       </div>
                     ) : (
                       <span className="text-xs text-[#abadaf]">—</span>
@@ -210,7 +227,7 @@ export function TableView({ items, logsMap, currentUserId, canAssign }: TableVie
           priority={selectedItem.priority as Priority}
           estimatedTimeMinutes={selectedItem.estimated_time_minutes}
           assignedTo={selectedItem.assigned_to}
-          assigneeName={selectedItem.assignee_name}
+          assignees={selectedItem.assignees}
           canAssign={canAssign}
         />
       )}

@@ -109,9 +109,12 @@ export default async function ClientDetailPage({
         review_started_at: c.review_started_at ?? null,
         priority: (c.priority ?? 'media') as import('@/types/db').Priority,
         estimated_time_minutes: c.estimated_time_minutes ?? null,
-        assigned_to: c.assigned_to ?? null,
-        assignee_name: c.assigned_to ? (userMap[c.assigned_to] ?? null) : null,
-        assignee_avatar_url: c.assigned_to ? (userAvatarMap[c.assigned_to] ?? null) : null,
+        assigned_to: (c.assigned_to as string[] | null) ?? null,
+        assignees: ((c.assigned_to as string[] | null) ?? []).map(uid => ({
+          id: uid,
+          name: userMap[uid] ?? uid,
+          avatar_url: userAvatarMap[uid] ?? null,
+        })),
       })
     }
 
