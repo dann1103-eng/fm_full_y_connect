@@ -20,7 +20,7 @@ export default async function TiempoPage() {
     .single()
   if (!appUser) redirect('/login')
 
-  const isAdmin = appUser.role === 'admin'
+  const canViewTeam = appUser.role === 'admin' || appUser.role === 'supervisor'
 
   // Active entry for this user
   const { data: activeEntryRaw } = await supabase
@@ -46,9 +46,9 @@ export default async function TiempoPage() {
     .order('started_at', { ascending: false })
   const entries = (entriesRaw ?? []) as TimeEntry[]
 
-  // All users (admin only)
+  // All users (admin + supervisor)
   let allUsers: AppUser[] = []
-  if (isAdmin) {
+  if (canViewTeam) {
     const { data: usersRaw } = await supabase
       .from('users')
       .select('*')
@@ -62,8 +62,7 @@ export default async function TiempoPage() {
 
       <div className="flex-1 p-6 max-w-4xl mx-auto w-full space-y-6">
 
-        {/* ── Tab header ── */}
-        {isAdmin ? (
+        {canViewTeam ? (
           <TiempoTabs
             userId={authUser.id}
             activeEntry={activeEntry}

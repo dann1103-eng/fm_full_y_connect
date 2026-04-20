@@ -20,6 +20,11 @@ async function assertAdmin(supabase: Awaited<ReturnType<typeof createClient>>, u
   if (data?.role !== 'admin') throw new Error('Sin permisos')
 }
 
+async function assertAdminOrSupervisor(supabase: Awaited<ReturnType<typeof createClient>>, userId: string) {
+  const { data } = await supabase.from('users').select('role').eq('id', userId).single()
+  if (data?.role !== 'admin' && data?.role !== 'supervisor') throw new Error('Sin permisos')
+}
+
 /** Returns the active (ended_at IS NULL) entry for a user, or null */
 async function getActiveEntry(supabase: Awaited<ReturnType<typeof createClient>>, userId: string) {
   const { data } = await supabase
@@ -134,7 +139,7 @@ export async function adminAddEntry(payload: {
   endedAt: string
 }) {
   const { supabase, user } = await getAuthUser()
-  await assertAdmin(supabase, user.id)
+  await assertAdminOrSupervisor(supabase, user.id)
 
   const startedAt = new Date(payload.startedAt)
   const endedAt = new Date(payload.endedAt)
@@ -169,7 +174,7 @@ export async function adminEditEntry(entryId: string, payload: {
   notes?: string | null
 }) {
   const { supabase, user } = await getAuthUser()
-  await assertAdmin(supabase, user.id)
+  await assertAdminOrSupervisor(supabase, user.id)
 
   const update: TimeEntryUpdate = {}
   if (payload.title !== undefined) update.title = payload.title
@@ -196,7 +201,7 @@ export async function adminEditEntry(entryId: string, payload: {
 
 export async function adminDeleteEntry(entryId: string) {
   const { supabase, user } = await getAuthUser()
-  await assertAdmin(supabase, user.id)
+  await assertAdminOrSupervisor(supabase, user.id)
 
   const { error } = await supabase.from('time_entries').delete().eq('id', entryId)
   if (error) return { error: error.message }
