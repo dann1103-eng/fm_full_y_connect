@@ -32,7 +32,7 @@ type RawTimeEntry = {
     billing_cycles: {
       id: string
       client_id: string
-      clients: { id: string; name: string } | null
+      clients: { id: string; name: string; logo_url: string | null } | null
     } | null
   } | null
 }
@@ -64,7 +64,7 @@ export async function fetchTimesheetEntries(
           id, title,
           billing_cycles (
             id, client_id,
-            clients ( id, name )
+            clients ( id, name, logo_url )
           )
         )
       `,
@@ -102,6 +102,7 @@ export async function fetchTimesheetEntries(
         user_avatar_url: r.users?.avatar_url ?? null,
         client_id: client?.id ?? null,
         client_name: client?.name ?? null,
+        client_logo_url: client?.logo_url ?? null,
         requirement_id: r.requirement_id,
         requirement_title: r.requirements?.title ?? null,
         entry_type: r.entry_type,

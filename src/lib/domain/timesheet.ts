@@ -12,6 +12,7 @@ export interface TimesheetEntry {
   user_avatar_url: string | null
   client_id: string | null
   client_name: string | null
+  client_logo_url: string | null
   requirement_id: string | null
   requirement_title: string | null
   entry_type: 'requirement' | 'administrative'
@@ -69,14 +70,14 @@ function keyForPrimary(primary: PrimaryGroup, e: TimesheetEntry): { key: string;
   return {
     key: `c:${e.client_id}`,
     label: e.client_name || '— Sin nombre —',
-    meta: { client_id: e.client_id, kind: 'client' },
+    meta: { client_id: e.client_id, kind: 'client', avatar_url: e.client_logo_url },
   }
 }
 
 function keyForSecondary(secondary: SecondaryGroup, e: TimesheetEntry): { key: string; label: string; meta: TimesheetGroup['meta'] } {
   if (secondary === 'client') {
     if (!e.client_id) return { key: 'c:none', label: 'Interno FM', meta: { kind: 'client' } }
-    return { key: `c:${e.client_id}`, label: e.client_name ?? '—', meta: { client_id: e.client_id, kind: 'client' } }
+    return { key: `c:${e.client_id}`, label: e.client_name ?? '—', meta: { client_id: e.client_id, kind: 'client', avatar_url: e.client_logo_url } }
   }
   if (secondary === 'member') {
     return { key: `m:${e.user_id}`, label: e.user_name, meta: { user_id: e.user_id, kind: 'member', avatar_url: e.user_avatar_url } }

@@ -136,10 +136,31 @@ export function TimesheetReport({ users, clients, currentUserId }: Props) {
   )
 
   // Build tree client-side
-  const { groups, totalSeconds } = useMemo(
+  const { groups: rawGroups, totalSeconds } = useMemo(
     () => buildTimesheetTree(displayEntries, primary, secondary),
     [displayEntries, primary, secondary],
   )
+
+  // Cuando el primary es 'client', separar "Interno FM" (c:none) de los clientes
+  // reales y recalcular sus porcentajes sobre el tiempo de clientes únicamente.
+  const { groups, internalGroup, clientOnlyTotalSeconds } = useMemo(() => {
+    if (primary !== 'client') {
+      return { groups: rawGroups, internalGroup: null, clientOnlyTotalSeconds: totalSeconds }
+    }
+    const internal = rawGroups.find((g) => g.key === 'c:none') ?? null
+    const realGroups = rawGroups.filter((g) => g.key !== 'c:none')
+    const realTotal = realGroups.reduce((s, g) => s + g.durationSeconds, 0)
+    // Recompute percentages relative to real-client total
+    const realGroupsWithPct = realGroups.map((g) => ({
+      ...g,
+      percentage: realTotal > 0 ? (g.durationSeconds / realTotal) * 100 : 0,
+    }))
+    return {
+      groups: realGroupsWithPct,
+      internalGroup: internal,
+      clientOnlyTotalSeconds: realTotal,
+    }
+  }, [rawGroups, primary, totalSeconds])
 
   function toggleExpand(key: string) {
     setExpandedKeys((prev) => {
@@ -352,10 +373,12 @@ export function TimesheetReport({ users, clients, currentUserId }: Props) {
       ) : (
         <TimesheetTree
           groups={groups}
-          totalSeconds={totalSeconds}
+          totalSeconds={clientOnlyTotalSeconds}
           expandedKeys={expandedKeys}
           onToggle={toggleExpand}
           onRequirementClick={handleRequirementClick}
+          internalGroup={internalGroup}
+          internalTotalSeconds={clientOnlyTotalSeconds}
         />
       )}
 

@@ -13,6 +13,9 @@ interface Props {
   expandedKeys: Set<string>
   onToggle: (key: string) => void
   onRequirementClick: (reqId: string) => void
+  /** Grupo "Interno FM" separado del árbol principal (solo aplica cuando primary=client) */
+  internalGroup?: TimesheetGroup | null
+  internalTotalSeconds?: number
 }
 
 function fmtEntryWhen(iso: string): string {
@@ -52,6 +55,16 @@ function GroupIcon({ group }: { group: TimesheetGroup }) {
     return <UserAvatar name={group.label} avatarUrl={group.meta?.avatar_url ?? null} size="sm" />
   }
   if (kind === 'client') {
+    if (group.meta?.avatar_url) {
+      return (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={group.meta.avatar_url}
+          alt={group.label}
+          className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-[#dfe3e6]"
+        />
+      )
+    }
     return (
       <div className="w-8 h-8 rounded-full bg-[#5bf4de]/30 flex items-center justify-center font-bold text-[#00675c] text-xs flex-shrink-0">
         {group.label.slice(0, 2).toUpperCase()}
@@ -210,8 +223,8 @@ function GroupNode({
   )
 }
 
-export function TimesheetTree({ groups, totalSeconds, expandedKeys, onToggle, onRequirementClick }: Props) {
-  if (groups.length === 0) {
+export function TimesheetTree({ groups, totalSeconds, expandedKeys, onToggle, onRequirementClick, internalGroup, internalTotalSeconds }: Props) {
+  if (groups.length === 0 && !internalGroup) {
     return (
       <div className="p-8 text-center text-sm text-[#595c5e]">
         Sin entradas de tiempo en el rango seleccionado.
@@ -219,30 +232,74 @@ export function TimesheetTree({ groups, totalSeconds, expandedKeys, onToggle, on
     )
   }
 
+  const grandTotal = totalSeconds + (internalGroup?.durationSeconds ?? 0)
+  const internalPct = grandTotal > 0 ? ((internalGroup?.durationSeconds ?? 0) / grandTotal) * 100 : 0
+
   return (
-    <div className="border border-[#dfe3e6] rounded-2xl overflow-hidden bg-white">
-      <div className="grid grid-cols-[1fr_auto_180px] gap-4 px-4 py-2 border-b border-[#dfe3e6] bg-[#f5f7f9]">
-        <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#595c5e]">Título</span>
-        <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#595c5e]">Duración</span>
-        <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#595c5e]">%</span>
-      </div>
-      {groups.map((g) => (
-        <GroupNode
-          key={g.key}
-          group={g}
-          depth={0}
-          expandedKeys={expandedKeys}
-          onToggle={onToggle}
-          onRequirementClick={onRequirementClick}
-        />
-      ))}
-      <div className="grid grid-cols-[1fr_auto_180px] gap-4 px-4 py-3 bg-[#f5f7f9] border-t border-[#dfe3e6]">
-        <span className="text-sm font-extrabold text-[#2c2f31]">Total</span>
-        <span className="text-sm font-extrabold tabular-nums text-[#2c2f31]">
-          {formatDurationHMS(totalSeconds)}
-        </span>
-        <span className="text-sm font-extrabold text-[#2c2f31]">100.0%</span>
-      </div>
+    <div className="space-y-4">
+      {/* ── Árbol de clientes reales ── */}
+      {groups.length > 0 && (
+        <div className="border border-[#dfe3e6] rounded-2xl overflow-hidden bg-white">
+          <div className="grid grid-cols-[1fr_auto_180px] gap-4 px-4 py-2 border-b border-[#dfe3e6] bg-[#f5f7f9]">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#595c5e]">
+              {internalGroup ? 'Clientes' : 'Título'}
+            </span>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#595c5e]">Duración</span>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#595c5e]">
+              {internalGroup ? '% sobre clientes' : '%'}
+            </span>
+          </div>
+          {groups.map((g) => (
+            <GroupNode
+              key={g.key}
+              group={g}
+              depth={0}
+              expandedKeys={expandedKeys}
+              onToggle={onToggle}
+              onRequirementClick={onRequirementClick}
+            />
+          ))}
+          <div className="grid grid-cols-[1fr_auto_180px] gap-4 px-4 py-3 bg-[#f5f7f9] border-t border-[#dfe3e6]">
+            <span className="text-sm font-extrabold text-[#2c2f31]">
+              {internalGroup ? 'Subtotal clientes' : 'Total'}
+            </span>
+            <span className="text-sm font-extrabold tabular-nums text-[#2c2f31]">
+              {formatDurationHMS(internalTotalSeconds ?? totalSeconds)}
+            </span>
+            <span className="text-sm font-extrabold text-[#2c2f31]">100.0%</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Sección Interno FM separada ── */}
+      {internalGroup && (
+        <div className="border border-[#dfe3e6] rounded-2xl overflow-hidden bg-white opacity-80">
+          <div className="grid grid-cols-[1fr_auto_180px] gap-4 px-4 py-2 border-b border-[#dfe3e6] bg-[#f5f7f9]">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[#abadaf] text-sm">home_work</span>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#abadaf]">
+                Tiempo Interno FM
+              </span>
+            </div>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#abadaf]">Duración</span>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#abadaf]">% del total</span>
+          </div>
+          <GroupNode
+            group={internalGroup}
+            depth={0}
+            expandedKeys={expandedKeys}
+            onToggle={onToggle}
+            onRequirementClick={onRequirementClick}
+          />
+          <div className="grid grid-cols-[1fr_auto_180px] gap-4 px-4 py-3 bg-[#f5f7f9] border-t border-[#dfe3e6]">
+            <span className="text-sm font-extrabold text-[#abadaf]">Interno FM</span>
+            <span className="text-sm font-extrabold tabular-nums text-[#abadaf]">
+              {formatDurationHMS(internalGroup.durationSeconds)}
+            </span>
+            <span className="text-sm font-extrabold text-[#abadaf]">{internalPct.toFixed(1)}%</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
