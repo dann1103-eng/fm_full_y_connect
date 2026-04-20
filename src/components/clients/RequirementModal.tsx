@@ -12,7 +12,8 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase/client'
-import type { ClientWithPlan, BillingCycle, ContentType } from '@/types/db'
+import type { ClientWithPlan, BillingCycle, ContentType, Priority } from '@/types/db'
+import { PRIORITY_LABELS, PRIORITY_COLORS } from '@/types/db'
 import { CONTENT_TYPES, CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import { canRegister } from '@/lib/domain/requirement'
 import { insertInitialPhaseLog } from '@/lib/domain/pipeline'
@@ -63,6 +64,8 @@ interface RequirementModalProps {
   totals: Record<ContentType, number>
   limits: Record<ContentType, number>
   isAdmin: boolean
+  canAssign?: boolean
+  assignableUsers?: { id: string; full_name: string }[]
 }
 
 export function RequirementModal({
@@ -73,11 +76,16 @@ export function RequirementModal({
   totals,
   limits,
   isAdmin,
+  canAssign = false,
+  assignableUsers = [],
 }: RequirementModalProps) {
   const router = useRouter()
   const [selectedType, setSelectedType] = useState<ContentType | null>(null)
   const [title, setTitle] = useState('')
   const [notes, setNotes] = useState('')
+  const [priority, setPriority] = useState<Priority>('media')
+  const [estimatedTime, setEstimatedTime] = useState('')
+  const [assignedTo, setAssignedTo] = useState('')
   const [forceOverLimit, setForceOverLimit] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -112,6 +120,7 @@ export function RequirementModal({
       return
     }
 
+    const estMins = estimatedTime.trim() ? parseInt(estimatedTime.trim(), 10) : null
     const { data: newRequirement, error: insertError } = await supabase
       .from('requirements')
       .insert({
@@ -122,6 +131,9 @@ export function RequirementModal({
         notes: notes.trim() || null,
         voided: false,
         over_limit: !allowed,
+        priority,
+        estimated_time_minutes: estMins && !isNaN(estMins) ? estMins : null,
+        assigned_to: assignedTo || null,
       })
       .select('id')
       .single()
@@ -144,6 +156,9 @@ export function RequirementModal({
     setSelectedType(null)
     setTitle('')
     setNotes('')
+    setPriority('media')
+    setEstimatedTime('')
+    setAssignedTo('')
     setForceOverLimit(false)
     onClose()
     router.refresh()
@@ -253,6 +268,66 @@ export function RequirementModal({
                   rows={3}
                 />
               </div>
+
+              {/* Priority */}
+              <div>
+                <Label className="text-sm font-medium text-[#2c2f31] mb-1.5 block">Prioridad</Label>
+                <div className="flex gap-2">
+                  {(['baja', 'media', 'alta'] as Priority[]).map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setPriority(p)}
+                      className={`flex-1 py-2 rounded-xl text-sm font-bold border-2 transition-all flex items-center justify-center gap-1.5 ${
+                        priority === p ? 'border-current' : 'border-[#dfe3e6] text-[#595c5e]'
+                      }`}
+                      style={priority === p ? { color: PRIORITY_COLORS[p], background: PRIORITY_COLORS[p] + '15' } : {}}
+                    >
+                      <span
+                        className="w-2 h-2 rounded-full"
+                        style={{ background: PRIORITY_COLORS[p] }}
+                      />
+                      {PRIORITY_LABELS[p]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Estimated time */}
+              <div>
+                <Label htmlFor="est-time" className="text-sm font-medium text-[#2c2f31] mb-1.5 block">
+                  Tiempo estimado <span className="text-[#747779] font-normal">(min, opcional)</span>
+                </Label>
+                <input
+                  id="est-time"
+                  type="number"
+                  min="1"
+                  value={estimatedTime}
+                  onChange={(e) => setEstimatedTime(e.target.value)}
+                  placeholder="ej. 90"
+                  className="w-full px-3 py-2 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl focus:outline-none focus:border-[#00675c] text-[#2c2f31]"
+                />
+              </div>
+
+              {/* Assign to — only for admin/supervisor */}
+              {canAssign && assignableUsers.length > 0 && (
+                <div>
+                  <Label htmlFor="assigned-to" className="text-sm font-medium text-[#2c2f31] mb-1.5 block">
+                    Asignar a <span className="text-[#747779] font-normal">(opcional)</span>
+                  </Label>
+                  <select
+                    id="assigned-to"
+                    value={assignedTo}
+                    onChange={(e) => setAssignedTo(e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl outline-none focus:border-[#00675c] text-[#2c2f31]"
+                  >
+                    <option value="">Sin asignar</option>
+                    {assignableUsers.map((u) => (
+                      <option key={u.id} value={u.id}>{u.full_name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </>
           )}
 

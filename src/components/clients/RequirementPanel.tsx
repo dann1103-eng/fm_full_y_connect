@@ -67,7 +67,9 @@ interface RequirementPanelProps {
   daysLeft: number | null
   isAdmin: boolean
   canCreate?: boolean
+  canAssign?: boolean
   userMap: Record<string, string>
+  assignableUsers?: { id: string; full_name: string }[]
 }
 
 export function RequirementPanel({
@@ -79,7 +81,9 @@ export function RequirementPanel({
   daysLeft,
   isAdmin,
   canCreate = false,
+  canAssign = false,
   userMap,
+  assignableUsers = [],
 }: RequirementPanelProps) {
   const [modalOpen, setModalOpen] = useState(false)
   const [markingPaid, setMarkingPaid] = useState(false)
@@ -700,6 +704,8 @@ export function RequirementPanel({
         totals={totals}
         limits={limits}
         isAdmin={isAdmin}
+        canAssign={canAssign}
+        assignableUsers={assignableUsers}
       />
     </>
   )

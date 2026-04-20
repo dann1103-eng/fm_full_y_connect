@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Phase, ContentType, Database } from '@/types/db'
+import type { Phase, ContentType, Priority, Database } from '@/types/db'
 
 /** Tipos de contenido que participan en el pipeline (excluye produccion) */
 export const PIPELINE_CONTENT_TYPES: ContentType[] = [
@@ -77,7 +77,11 @@ export interface PipelineItem {
   carried_over: boolean
   title: string
   cambios_count: number
-  review_started_at: string | null  // set when phase enters revision_cliente
+  review_started_at: string | null
+  priority: Priority
+  estimated_time_minutes: number | null
+  assigned_to: string | null
+  assignee_name: string | null
 }
 
 /**

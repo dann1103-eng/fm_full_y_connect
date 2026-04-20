@@ -19,6 +19,9 @@ export default async function PipelinePage({
   const { data: { user: authUser } } = await supabase.auth.getUser()
   if (!authUser) return null
 
+  const { data: appUser } = await supabase.from('users').select('role').eq('id', authUser.id).single()
+  const canAssign = appUser?.role === 'admin' || appUser?.role === 'supervisor'
+
   // 1. Ciclos activos (current), opcionalmente filtrados por cliente
   let cyclesQuery = supabase
     .from('billing_cycles')
@@ -37,7 +40,7 @@ export default async function PipelinePage({
   if (currentCycleIds.length > 0) {
     const { data: requirementsRaw } = await supabase
       .from('requirements')
-      .select('id, content_type, phase, carried_over, billing_cycle_id, registered_at, notes, title, cambios_count, review_started_at')
+      .select('id, content_type, phase, carried_over, billing_cycle_id, registered_at, notes, title, cambios_count, review_started_at, priority, estimated_time_minutes, assigned_to')
       .eq('voided', false)
       .in('content_type', PIPELINE_CONTENT_TYPES)
       .in('billing_cycle_id', currentCycleIds)
@@ -56,6 +59,10 @@ export default async function PipelinePage({
 
     const clientMap: Record<string, Pick<Client, 'id' | 'name' | 'logo_url'>> = {}
     for (const cl of clientsRaw ?? []) clientMap[cl.id] = cl
+
+    const { data: usersRaw } = await supabase.from('users').select('id, full_name')
+    const usersMap: Record<string, string> = {}
+    for (const u of usersRaw ?? []) usersMap[u.id] = u.full_name
 
     // Armar PipelineItem
     for (const c of requirementsRaw ?? []) {
@@ -78,6 +85,10 @@ export default async function PipelinePage({
         title: c.title ?? '',
         cambios_count: c.cambios_count ?? 0,
         review_started_at: c.review_started_at ?? null,
+        priority: (c.priority ?? 'media') as import('@/types/db').Priority,
+        estimated_time_minutes: c.estimated_time_minutes ?? null,
+        assigned_to: c.assigned_to ?? null,
+        assignee_name: c.assigned_to ? (usersMap[c.assigned_to] ?? null) : null,
       })
     }
 
@@ -153,6 +164,7 @@ export default async function PipelinePage({
             byPhase={byPhase}
             logsMap={logsMap}
             currentUserId={authUser.id}
+            canAssign={canAssign}
           />
         </div>
       </div>

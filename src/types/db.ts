@@ -31,6 +31,20 @@ export type Phase =
   | 'pendiente_publicar'
   | 'publicado_entregado'
 
+export type Priority = 'baja' | 'media' | 'alta'
+
+export const PRIORITY_LABELS: Record<Priority, string> = {
+  baja:  'Baja',
+  media: 'Media',
+  alta:  'Alta',
+}
+
+export const PRIORITY_COLORS: Record<Priority, string> = {
+  baja:  '#27ae60',
+  media: '#f2c94c',
+  alta:  '#b31b25',
+}
+
 export type ClientStatus = 'active' | 'paused' | 'overdue'
 export type CycleStatus = 'current' | 'archived' | 'pending_renewal'
 export type PaymentStatus = 'paid' | 'unpaid'
@@ -270,6 +284,9 @@ export interface Database {
           title: string
           cambios_count: number
           review_started_at: string | null
+          priority: Priority
+          estimated_time_minutes: number | null
+          assigned_to: string | null
         }
         Insert: {
           id?: string
@@ -287,6 +304,9 @@ export interface Database {
           title?: string
           cambios_count?: number
           review_started_at?: string | null
+          priority?: Priority
+          estimated_time_minutes?: number | null
+          assigned_to?: string | null
         }
         Update: {
           billing_cycle_id?: string
@@ -302,6 +322,9 @@ export interface Database {
           title?: string
           cambios_count?: number
           review_started_at?: string | null
+          priority?: Priority
+          estimated_time_minutes?: number | null
+          assigned_to?: string | null
         }
         Relationships: [
           {

@@ -22,7 +22,8 @@ import { createClient } from '@/lib/supabase/client'
 import { PHASES, PHASE_LABELS, PHASE_CATEGORY, isPassiveTimerPhase } from '@/lib/domain/pipeline'
 import { movePhase } from '@/lib/domain/pipeline'
 import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
-import type { Phase, ContentType, RequirementPhaseLog } from '@/types/db'
+import type { Phase, ContentType, RequirementPhaseLog, Priority } from '@/types/db'
+import { PRIORITY_LABELS, PRIORITY_COLORS } from '@/types/db'
 import { RequirementChat } from './RequirementChat'
 import { RequirementTimesheet } from './RequirementTimesheet'
 
@@ -42,6 +43,11 @@ interface PhaseSheetProps {
   cambiosCount: number
   reviewStartedAt: string | null
   showMoveSection?: boolean
+  priority?: Priority
+  estimatedTimeMinutes?: number | null
+  assignedTo?: string | null
+  assigneeName?: string | null
+  canAssign?: boolean
 }
 
 export function PhaseSheet({
@@ -58,6 +64,11 @@ export function PhaseSheet({
   cambiosCount,
   reviewStartedAt,
   showMoveSection,
+  priority: initialPriority = 'media',
+  estimatedTimeMinutes: initialEstimatedTime = null,
+  assignedTo: initialAssignedTo = null,
+  assigneeName: initialAssigneeName = null,
+  canAssign = false,
 }: PhaseSheetProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>('fases')
@@ -71,8 +82,12 @@ export function PhaseSheet({
   // Edit requirement state
   const [editTitle, setEditTitle] = useState(title)
   const [editNotes, setEditNotes] = useState(requirementNotes ?? '')
+  const [editPriority, setEditPriority] = useState<Priority>(initialPriority)
+  const [editEstimatedTime, setEditEstimatedTime] = useState(initialEstimatedTime?.toString() ?? '')
+  const [editAssignedTo, setEditAssignedTo] = useState(initialAssignedTo ?? '')
   const [savingEdit, setSavingEdit] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
+  const [assignableUsers, setAssignableUsers] = useState<{ id: string; full_name: string }[]>([])
 
   // Cambios
   const [localCambios, setLocalCambios] = useState(cambiosCount)
@@ -110,6 +125,15 @@ export function PhaseSheet({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPhase, passiveTimerStart])
 
+  // Fetch assignable users when canAssign
+  useEffect(() => {
+    if (!canAssign) return
+    const supabase = createClient()
+    supabase.from('users').select('id, full_name').then(({ data }) => {
+      setAssignableUsers(data ?? [])
+    })
+  }, [canAssign])
+
   // Reset tab when sheet closes/opens
   useEffect(() => {
     if (open) {
@@ -119,9 +143,12 @@ export function PhaseSheet({
       setMoveError(null)
       setEditTitle(title)
       setEditNotes(requirementNotes ?? '')
+      setEditPriority(initialPriority)
+      setEditEstimatedTime(initialEstimatedTime?.toString() ?? '')
+      setEditAssignedTo(initialAssignedTo ?? '')
       setLocalCambios(cambiosCount)
     }
-  }, [open, currentPhase, title, requirementNotes, cambiosCount])
+  }, [open, currentPhase, title, requirementNotes, cambiosCount, initialPriority, initialEstimatedTime, initialAssignedTo])
 
   async function handleMove() {
     if (toPhase === currentPhase) {
@@ -153,10 +180,17 @@ export function PhaseSheet({
     }
     setEditError(null)
     setSavingEdit(true)
+    const estMins = editEstimatedTime.trim() ? parseInt(editEstimatedTime.trim(), 10) : null
     const supabase = createClient()
     const { error } = await supabase
       .from('requirements')
-      .update({ title: editTitle.trim(), notes: editNotes.trim() || null })
+      .update({
+        title: editTitle.trim(),
+        notes: editNotes.trim() || null,
+        priority: editPriority,
+        estimated_time_minutes: estMins && !isNaN(estMins) ? estMins : null,
+        assigned_to: canAssign ? (editAssignedTo || null) : undefined,
+      })
       .eq('id', requirementId)
     setSavingEdit(false)
     if (error) { setEditError('Error al guardar.'); return }
@@ -281,6 +315,72 @@ export function PhaseSheet({
                     rows={2}
                   />
                 </div>
+                {/* Priority */}
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-[#595c5e]">Prioridad</Label>
+                  <div className="flex gap-1.5">
+                    {(['baja', 'media', 'alta'] as Priority[]).map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setEditPriority(p)}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-bold border-2 transition-all flex items-center justify-center gap-1 ${
+                          editPriority === p ? 'border-current' : 'border-[#dfe3e6] text-[#595c5e]'
+                        }`}
+                        style={editPriority === p ? { color: PRIORITY_COLORS[p], background: PRIORITY_COLORS[p] + '15' } : {}}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: PRIORITY_COLORS[p] }} />
+                        {PRIORITY_LABELS[p]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Estimated time */}
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-[#595c5e]">
+                    Tiempo estimado <span className="text-[#abadaf] font-normal">(min)</span>
+                  </Label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editEstimatedTime}
+                    onChange={(e) => setEditEstimatedTime(e.target.value)}
+                    placeholder="ej. 90"
+                    className="w-full px-3 py-2 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl focus:outline-none focus:border-[#00675c] text-[#2c2f31]"
+                  />
+                </div>
+
+                {/* Assignee */}
+                {canAssign && assignableUsers.length > 0 && (
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-[#595c5e]">Asignado a</Label>
+                    <select
+                      value={editAssignedTo}
+                      onChange={(e) => setEditAssignedTo(e.target.value)}
+                      className="w-full px-3 py-2 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl outline-none focus:border-[#00675c] text-[#2c2f31]"
+                    >
+                      <option value="">Sin asignar</option>
+                      {assignableUsers.map((u) => (
+                        <option key={u.id} value={u.id}>{u.full_name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Read-only assignee display for operators */}
+                {!canAssign && initialAssigneeName && (
+                  <div className="flex items-center gap-2 bg-[#f5f7f9] rounded-xl px-3 py-2">
+                    <span className="w-6 h-6 rounded-full bg-[#00675c]/15 flex items-center justify-center text-[9px] font-bold text-[#00675c]">
+                      {initialAssigneeName.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()}
+                    </span>
+                    <div>
+                      <p className="text-[10px] text-[#abadaf] font-semibold uppercase tracking-wide">Asignado a</p>
+                      <p className="text-xs font-semibold text-[#2c2f31]">{initialAssigneeName}</p>
+                    </div>
+                  </div>
+                )}
+
                 {editError && (
                   <p className="text-xs text-[#b31b25] bg-[#b31b25]/5 rounded-lg px-3 py-1.5 border border-[#b31b25]/20">
                     {editError}

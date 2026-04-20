@@ -9,9 +9,10 @@ interface ClientPipelineTabProps {
   items: PipelineItem[]
   logsMap: Record<string, RequirementPhaseLog[]>
   currentUserId: string
+  canAssign?: boolean
 }
 
-export function ClientPipelineTab({ items, logsMap, currentUserId }: ClientPipelineTabProps) {
+export function ClientPipelineTab({ items, logsMap, currentUserId, canAssign = false }: ClientPipelineTabProps) {
   const byPhase = Object.fromEntries(PHASES.map(p => [p, [] as PipelineItem[]])) as Record<Phase, PipelineItem[]>
   for (const item of items) {
     byPhase[item.phase as Phase]?.push(item)
@@ -45,6 +46,7 @@ export function ClientPipelineTab({ items, logsMap, currentUserId }: ClientPipel
                 logs={logsMap[item.id] ?? []}
                 currentUserId={currentUserId}
                 showClient={false}
+                canAssign={canAssign}
               />
             ))}
           </div>

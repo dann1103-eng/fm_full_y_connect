@@ -29,9 +29,10 @@ interface KanbanBoardProps {
   byPhase: Record<Phase, PipelineItem[]>
   logsMap: Record<string, RequirementPhaseLog[]>
   currentUserId: string
+  canAssign?: boolean
 }
 
-export function KanbanBoard({ byPhase, logsMap, currentUserId }: KanbanBoardProps) {
+export function KanbanBoard({ byPhase, logsMap, currentUserId, canAssign = false }: KanbanBoardProps) {
   const [activeItem, setActiveItem] = useState<PipelineItem | null>(null)
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null)
   const [activeDetailItem, setActiveDetailItem] = useState<PipelineItem | null>(null)
@@ -132,6 +133,11 @@ export function KanbanBoard({ byPhase, logsMap, currentUserId }: KanbanBoardProp
           cambiosCount={activeDetailItem.cambios_count}
           reviewStartedAt={activeDetailItem.review_started_at}
           showMoveSection={false}
+          priority={activeDetailItem.priority}
+          estimatedTimeMinutes={activeDetailItem.estimated_time_minutes}
+          assignedTo={activeDetailItem.assigned_to}
+          assigneeName={activeDetailItem.assignee_name}
+          canAssign={canAssign}
         />
       )}
     </>

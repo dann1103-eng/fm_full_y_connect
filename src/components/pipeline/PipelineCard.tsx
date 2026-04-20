@@ -6,7 +6,8 @@ import { CSS } from '@dnd-kit/utilities'
 import { PhaseSheet } from './PhaseSheet'
 import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import type { PipelineItem } from '@/lib/domain/pipeline'
-import type { RequirementPhaseLog, ContentType, Phase } from '@/types/db'
+import type { RequirementPhaseLog, ContentType, Phase, Priority } from '@/types/db'
+import { PRIORITY_COLORS } from '@/types/db'
 
 const CONTENT_TYPE_COLORS: Record<ContentType, string> = {
   historia:    'bg-purple-100 text-purple-700',
@@ -22,11 +23,10 @@ interface PipelineCardProps {
   item: PipelineItem
   logs: RequirementPhaseLog[]
   currentUserId: string
-  /** Si true, muestra el nombre del cliente en la card (vista global) */
   showClient?: boolean
-  /** Si true, la card es arrastrable (solo en KanbanBoard del pipeline global) */
   draggable?: boolean
   onDoubleClick?: () => void
+  canAssign?: boolean
 }
 
 /** Exported so KanbanBoard can render it directly inside DragOverlay without
@@ -60,32 +60,29 @@ export function CardBody({
 
   const children = (
     <>
-      {showClient && (
-        <div className="flex items-center gap-2 mb-2">
-          {item.client_logo_url ? (
-            <img
-              src={item.client_logo_url}
-              alt={item.client_name}
-              className="h-5 w-5 rounded-full object-cover"
-            />
-          ) : (
-            <div className="h-5 w-5 rounded-full bg-[#00675c]/20 flex items-center justify-center">
-              <span className="text-[8px] font-bold text-[#00675c]">
-                {item.client_name.slice(0, 2).toUpperCase()}
-              </span>
-            </div>
-          )}
-          <span className="text-xs font-medium text-[#2c2f31] truncate">
-            {item.client_name}
-          </span>
-        </div>
-      )}
+      {/* Top row: client (if shown) + priority dot */}
+      <div className="flex items-center justify-between mb-2">
+        {showClient ? (
+          <div className="flex items-center gap-2 min-w-0">
+            {item.client_logo_url ? (
+              <img src={item.client_logo_url} alt={item.client_name} className="h-5 w-5 rounded-full object-cover flex-shrink-0" />
+            ) : (
+              <div className="h-5 w-5 rounded-full bg-[#00675c]/20 flex items-center justify-center flex-shrink-0">
+                <span className="text-[8px] font-bold text-[#00675c]">{item.client_name.slice(0, 2).toUpperCase()}</span>
+              </div>
+            )}
+            <span className="text-xs font-medium text-[#2c2f31] truncate">{item.client_name}</span>
+          </div>
+        ) : <div />}
+        {/* Priority dot */}
+        <span
+          title={item.priority === 'alta' ? 'Alta' : item.priority === 'media' ? 'Media' : 'Baja'}
+          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+          style={{ background: PRIORITY_COLORS[item.priority as Priority] }}
+        />
+      </div>
 
-      <span
-        className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full mb-2 ${
-          CONTENT_TYPE_COLORS[item.content_type]
-        }`}
-      >
+      <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full mb-2 ${CONTENT_TYPE_COLORS[item.content_type]}`}>
         {CONTENT_TYPE_LABELS[item.content_type]}
       </span>
       {item.carried_over && (
@@ -94,17 +91,35 @@ export function CardBody({
         </span>
       )}
 
-      {/* Title — primary text */}
+      {/* Title */}
       {item.title ? (
         <p className="text-sm font-semibold text-[#2c2f31] mb-1 line-clamp-2">{item.title}</p>
       ) : null}
 
-      {/* Notes — secondary */}
+      {/* Notes */}
       {item.notes && (
         <p className="text-xs text-[#595c5e] line-clamp-2 mb-2">{item.notes}</p>
       )}
 
-      <p className="text-xs text-[#abadaf]">{relativeDate(item.last_moved_at)}</p>
+      {/* Bottom row: date + time chip + assignee */}
+      <div className="flex items-center justify-between gap-2 mt-1">
+        <p className="text-xs text-[#abadaf]">{relativeDate(item.last_moved_at)}</p>
+        <div className="flex items-center gap-1.5">
+          {item.estimated_time_minutes != null && (
+            <span className="text-[10px] font-semibold text-[#595c5e] bg-[#f5f7f9] px-1.5 py-0.5 rounded-md">
+              ⏱ {item.estimated_time_minutes}m
+            </span>
+          )}
+          {item.assignee_name && (
+            <span
+              title={item.assignee_name}
+              className="w-5 h-5 rounded-full bg-[#00675c]/15 flex items-center justify-center text-[9px] font-bold text-[#00675c] flex-shrink-0"
+            >
+              {item.assignee_name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()}
+            </span>
+          )}
+        </div>
+      </div>
     </>
   )
 
@@ -129,6 +144,7 @@ export function PipelineCard({
   showClient = true,
   draggable = false,
   onDoubleClick,
+  canAssign = false,
 }: PipelineCardProps) {
   const [sheetOpen, setSheetOpen] = useState(false)
 
@@ -178,6 +194,11 @@ export function PipelineCard({
         cambiosCount={item.cambios_count}
         reviewStartedAt={item.review_started_at}
         showMoveSection={true}
+        priority={item.priority as Priority}
+        estimatedTimeMinutes={item.estimated_time_minutes}
+        assignedTo={item.assigned_to}
+        assigneeName={item.assignee_name}
+        canAssign={canAssign}
       />
     </>
   )

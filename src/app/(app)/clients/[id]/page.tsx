@@ -83,7 +83,7 @@ export default async function ClientDetailPage({
   if (currentCycle) {
     const { data: pipelineCons } = await supabase
       .from('requirements')
-      .select('id, content_type, phase, carried_over, billing_cycle_id, registered_at, notes, title, cambios_count, review_started_at')
+      .select('id, content_type, phase, carried_over, billing_cycle_id, registered_at, notes, title, cambios_count, review_started_at, priority, estimated_time_minutes, assigned_to')
       .eq('billing_cycle_id', currentCycle.id)
       .eq('voided', false)
       .in('content_type', PIPELINE_CONTENT_TYPES)
@@ -105,6 +105,10 @@ export default async function ClientDetailPage({
         title: c.title ?? '',
         cambios_count: c.cambios_count ?? 0,
         review_started_at: c.review_started_at ?? null,
+        priority: (c.priority ?? 'media') as import('@/types/db').Priority,
+        estimated_time_minutes: c.estimated_time_minutes ?? null,
+        assigned_to: c.assigned_to ?? null,
+        assignee_name: c.assigned_to ? (userMap[c.assigned_to] ?? null) : null,
       })
     }
 
@@ -173,6 +177,8 @@ export default async function ClientDetailPage({
             isAdmin={isAdmin}
             canCreate={canCreate}
             userMap={userMap}
+            assignableUsers={(users ?? []).map(u => ({ id: u.id, full_name: u.full_name || u.role }))}
+            canAssign={canCreate}
           />
         ) : client.status === 'paused' && isAdmin ? (
           <ReactivatePanel client={client} plans={(plans ?? []) as Plan[]} />
@@ -200,6 +206,7 @@ export default async function ClientDetailPage({
               items={pipelineItems}
               logsMap={pipelineLogsMap}
               currentUserId={authUser?.id ?? ''}
+              canAssign={canCreate}
             />
           </div>
         )}
