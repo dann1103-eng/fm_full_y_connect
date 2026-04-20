@@ -1,5 +1,6 @@
 'use server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import type { UserRole } from '@/types/db'
 
@@ -37,7 +38,8 @@ export async function updateUserRole(targetUserId: string, role: UserRole): Prom
       }
     }
 
-    const { error: updateError } = await supabase
+    const adminClient = createAdminClient()
+    const { error: updateError } = await adminClient
       .from('users')
       .update({ role })
       .eq('id', targetUserId)

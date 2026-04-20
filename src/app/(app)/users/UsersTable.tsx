@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import type { AppUser, UserRole } from '@/types/db'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { updateUserRole } from '@/app/actions/updateUserRole'
@@ -52,11 +53,14 @@ function UserRow({
   user,
   isCurrentUser,
   onDeleted,
+  onRoleChanged,
 }: {
   user: AppUser
   isCurrentUser: boolean
   onDeleted: (id: string) => void
+  onRoleChanged: (id: string, role: UserRole) => void
 }) {
+  const router = useRouter()
   const [isPending, setIsPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isDeleting, startDeleteTransition] = useTransition()
@@ -67,7 +71,12 @@ function UserRow({
     setIsPending(true)
     updateUserRole(user.id, newRole as UserRole).then((res) => {
       setIsPending(false)
-      if (res.error) setError(res.error)
+      if (res.error) {
+        setError(res.error)
+      } else {
+        onRoleChanged(user.id, newRole as UserRole)
+        router.refresh()
+      }
     })
   }
 
@@ -296,6 +305,7 @@ export function UsersTable({ users: initialUsers, currentUserId }: UsersTablePro
               user={user}
               isCurrentUser={user.id === currentUserId}
               onDeleted={(id) => setUsers(prev => prev.filter(u => u.id !== id))}
+              onRoleChanged={(id, role) => setUsers(prev => prev.map(u => u.id === id ? { ...u, role } : u))}
             />
           ))
         )}
