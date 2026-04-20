@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Phase } from '@/types/db'
-import { PHASE_LABELS } from '@/lib/domain/pipeline'
+import { PHASE_LABELS, PHASES, isUserTrackedPhase, isPassiveTimerPhase } from '@/lib/domain/pipeline'
 
 interface TimeEntryRow {
   id: string
@@ -25,7 +25,7 @@ interface ActiveTimer {
 
 const TIMER_KEY = (reqId: string, userId: string) => `fm_crm_timer_${reqId}_${userId}`
 
-const WORK_PHASES: Phase[] = ['pendiente', 'en_produccion', 'revision_interna', 'aprobado']
+const USER_TRACKED_PHASES = PHASES.filter(isUserTrackedPhase)
 
 function parseDuration(str: string): number | null {
   str = str.trim().toLowerCase()
@@ -81,7 +81,7 @@ export function RequirementTimesheet({
   const [elapsed, setElapsed] = useState(0)
   const [newTitle, setNewTitle] = useState('')
   const [newPhase, setNewPhase] = useState<string>(
-    WORK_PHASES.includes(currentPhase as Phase) ? currentPhase : 'en_produccion'
+    isUserTrackedPhase(currentPhase) ? currentPhase : 'proceso_edicion'
   )
   const [manualTime, setManualTime] = useState('')
   const [showManual, setShowManual] = useState(false)
@@ -90,7 +90,8 @@ export function RequirementTimesheet({
   const [globalActiveWarning, setGlobalActiveWarning] = useState<string | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const isReviewPhase = currentPhase === 'revision_cliente'
+  const canTrackTime = isUserTrackedPhase(currentPhase)
+  const isPassiveTimer = isPassiveTimerPhase(currentPhase)
 
   useEffect(() => {
     loadEntries()
@@ -241,12 +242,18 @@ export function RequirementTimesheet({
     .reduce((sum, e) => sum + (e.duration_seconds ?? 0), 0)
 
   const phaseColor: Record<string, string> = {
-    pendiente: '#abadaf',
-    en_produccion: '#00675c',
-    revision_interna: '#6366f1',
-    revision_cliente: '#f59e0b',
-    aprobado: '#22c55e',
-    publicado: '#2c2f31',
+    pendiente:           '#abadaf',
+    proceso_edicion:     '#00675c',
+    proceso_diseno:      '#0891b2',
+    proceso_animacion:   '#7c3aed',
+    cambios:             '#ea580c',
+    pausa:               '#f59e0b',
+    revision_interna:    '#6366f1',
+    revision_diseno:     '#a855f7',
+    revision_cliente:    '#f59e0b',
+    aprobado:            '#22c55e',
+    pendiente_publicar:  '#84cc16',
+    publicado_entregado: '#2c2f31',
   }
 
   return (
@@ -266,25 +273,27 @@ export function RequirementTimesheet({
         ))}
       </div>
 
-      {/* Review phase — blocked state */}
-      {isReviewPhase && (
+      {/* Non-trackable phase — info block */}
+      {!canTrackTime && (
         <div className="flex gap-3 items-start bg-[#f5f7f9] border border-[#dfe3e6] rounded-2xl p-4 flex-shrink-0">
           <svg viewBox="0 0 24 24" className="w-5 h-5 fill-[#abadaf] flex-shrink-0 mt-0.5">
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
           </svg>
           <div>
-            <p className="text-sm font-semibold text-[#595c5e]">En revisión del cliente</p>
+            <p className="text-sm font-semibold text-[#595c5e]">
+              {isPassiveTimer ? 'Cronómetro automático' : 'Sin seguimiento de tiempo'}
+            </p>
             <p className="text-xs text-[#747779] mt-1 leading-relaxed">
-              Las entradas de tiempo se registran durante trabajo interno del equipo.
-              El tiempo en esta fase se mide automáticamente como referencia en la pestaña{' '}
-              <strong>Fases</strong>.
+              {isPassiveTimer
+                ? 'Esta fase tiene cronómetro automático; el tiempo transcurrido se registra desde la entrada a la fase. No requiere marcación manual.'
+                : 'Esta fase no acumula tiempo de trabajo activo.'}
             </p>
           </div>
         </div>
       )}
 
       {/* Active timer */}
-      {!isReviewPhase && activeTimer && (
+      {canTrackTime && activeTimer && (
         <div className="rounded-2xl p-4 border border-[#00675c]/30 flex-shrink-0"
           style={{ background: 'linear-gradient(135deg,#00675c08,#5bf4de10)' }}>
           <div className="flex items-start justify-between gap-3">
@@ -320,8 +329,8 @@ export function RequirementTimesheet({
         </div>
       )}
 
-      {/* New entry form (hidden in revision_cliente or while timer runs) */}
-      {!isReviewPhase && !activeTimer && !globalActiveWarning && (
+      {/* New entry form (hidden for non-trackable phases or while timer runs) */}
+      {canTrackTime && !activeTimer && !globalActiveWarning && (
         <div className="border border-dashed border-[#dfe3e6] rounded-2xl p-4 space-y-3 flex-shrink-0">
           <p className="text-[10px] font-bold text-[#abadaf] uppercase tracking-wider">
             Nueva entrada de tiempo
@@ -347,7 +356,7 @@ export function RequirementTimesheet({
             onChange={(e) => setNewPhase(e.target.value)}
             className="w-full px-3 py-2 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl outline-none text-[#2c2f31]"
           >
-            {WORK_PHASES.map((p) => (
+            {USER_TRACKED_PHASES.map((p) => (
               <option key={p} value={p}>{PHASE_LABELS[p]}</option>
             ))}
           </select>

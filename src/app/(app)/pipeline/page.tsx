@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { TopNav } from '@/components/layout/TopNav'
 import { KanbanBoard } from '@/components/pipeline/KanbanBoard'
-import { PIPELINE_CONTENT_TYPES } from '@/lib/domain/pipeline'
+import { PIPELINE_CONTENT_TYPES, PHASES } from '@/lib/domain/pipeline'
 import type { PipelineItem } from '@/lib/domain/pipeline'
 import type { Phase, RequirementPhaseLog, Client } from '@/types/db'
 
@@ -105,14 +105,7 @@ export default async function PipelinePage({
   }
 
   // Agrupar por fase
-  const byPhase: Record<Phase, PipelineItem[]> = {
-    pendiente: [],
-    en_produccion: [],
-    revision_interna: [],
-    revision_cliente: [],
-    aprobado: [],
-    publicado: [],
-  }
+  const byPhase = Object.fromEntries(PHASES.map(p => [p, [] as PipelineItem[]])) as Record<Phase, PipelineItem[]>
   for (const item of items) {
     byPhase[item.phase as Phase]?.push(item)
   }

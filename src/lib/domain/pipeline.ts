@@ -13,21 +13,54 @@ export const PIPELINE_CONTENT_TYPES: ContentType[] = [
 /** Fases en orden de flujo normal */
 export const PHASES: Phase[] = [
   'pendiente',
-  'en_produccion',
+  'proceso_edicion',
+  'proceso_diseno',
+  'proceso_animacion',
+  'cambios',
+  'pausa',
   'revision_interna',
+  'revision_diseno',
   'revision_cliente',
   'aprobado',
-  'publicado',
+  'pendiente_publicar',
+  'publicado_entregado',
 ]
 
 export const PHASE_LABELS: Record<Phase, string> = {
-  pendiente: 'Pendiente',
-  en_produccion: 'En Producción',
-  revision_interna: 'Revisión Interna',
-  revision_cliente: 'Revisión Cliente',
-  aprobado: 'Aprobado',
-  publicado: 'Publicado',
+  pendiente:           'Pendiente',
+  proceso_edicion:     'Proceso de Edición',
+  proceso_diseno:      'Proceso de Diseño',
+  proceso_animacion:   'Proceso de Animación',
+  cambios:             'Cambios',
+  pausa:               'Pausa',
+  revision_interna:    'Revisión Interna',
+  revision_diseno:     'Revisión de Diseño',
+  revision_cliente:    'Revisión Cliente',
+  aprobado:            'Aprobado',
+  pendiente_publicar:  'Pendiente de Publicar',
+  publicado_entregado: 'Publicado / Entregado',
 }
+
+export type PhaseCategory = 'user_tracked' | 'passive_timer' | 'timestamp_only'
+
+export const PHASE_CATEGORY: Record<Phase, PhaseCategory> = {
+  pendiente:           'passive_timer',
+  proceso_edicion:     'user_tracked',
+  proceso_diseno:      'user_tracked',
+  proceso_animacion:   'user_tracked',
+  cambios:             'user_tracked',
+  pausa:               'passive_timer',
+  revision_interna:    'user_tracked',
+  revision_diseno:     'user_tracked',
+  revision_cliente:    'passive_timer',
+  aprobado:            'timestamp_only',
+  pendiente_publicar:  'timestamp_only',
+  publicado_entregado: 'timestamp_only',
+}
+
+export const isUserTrackedPhase  = (p: Phase): boolean => PHASE_CATEGORY[p] === 'user_tracked'
+export const isPassiveTimerPhase = (p: Phase): boolean => PHASE_CATEGORY[p] === 'passive_timer'
+export const isTimestampOnlyPhase = (p: Phase): boolean => PHASE_CATEGORY[p] === 'timestamp_only'
 
 /** Shape plana que usan las vistas de pipeline */
 export interface PipelineItem {
@@ -76,7 +109,7 @@ export async function movePhase(
     return { error: 'Fase no válida.' }
   }
 
-  // When entering revision_cliente, record the timestamp (reference timer for client response time)
+  // When entering revision_cliente, record the timestamp (passive timer reference)
   type RequirementUpdate = Database['public']['Tables']['requirements']['Update']
   const phaseUpdate: RequirementUpdate = { phase: toPhase }
   if (toPhase === 'revision_cliente') {
@@ -144,7 +177,7 @@ export async function migrateOpenPipelineItems(
     .select('id, content_type, phase, title, review_started_at')
     .eq('billing_cycle_id', previousCycleId)
     .eq('voided', false)
-    .neq('phase', 'publicado')
+    .neq('phase', 'publicado_entregado')
     .in('content_type', PIPELINE_CONTENT_TYPES)
 
   if (!openItems || openItems.length === 0) return

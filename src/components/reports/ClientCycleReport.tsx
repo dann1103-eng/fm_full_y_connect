@@ -64,21 +64,33 @@ function barColor(pct: number): string {
 }
 
 const PHASE_LABELS: Record<Phase, string> = {
-  pendiente: 'Pendiente',
-  en_produccion: 'En producción',
-  revision_interna: 'Revisión interna',
-  revision_cliente: 'Revisión cliente',
-  aprobado: 'Aprobado',
-  publicado: 'Publicado',
+  pendiente:           'Pendiente',
+  proceso_edicion:     'Proceso de Edición',
+  proceso_diseno:      'Proceso de Diseño',
+  proceso_animacion:   'Proceso de Animación',
+  cambios:             'Cambios',
+  pausa:               'Pausa',
+  revision_interna:    'Revisión Interna',
+  revision_diseno:     'Revisión de Diseño',
+  revision_cliente:    'Revisión Cliente',
+  aprobado:            'Aprobado',
+  pendiente_publicar:  'Pendiente de Publicar',
+  publicado_entregado: 'Publicado / Entregado',
 }
 
 const PHASE_COLORS: Record<Phase, { bg: string; text: string }> = {
-  pendiente:        { bg: '#f2f4f6', text: '#abadaf' },
-  en_produccion:    { bg: '#fff7e6', text: '#d97706' },
-  revision_interna: { bg: '#f2f4f6', text: '#595c5e' },
-  revision_cliente: { bg: '#e8f0fb', text: '#3b6fd4' },
-  aprobado:         { bg: '#f0f7e8', text: '#4a6319' },
-  publicado:        { bg: '#e8f5f3', text: '#00675c' },
+  pendiente:           { bg: '#f2f4f6', text: '#abadaf' },
+  proceso_edicion:     { bg: '#e8f5f3', text: '#00675c' },
+  proceso_diseno:      { bg: '#e0f5fb', text: '#0891b2' },
+  proceso_animacion:   { bg: '#f3f0ff', text: '#7c3aed' },
+  cambios:             { bg: '#fff4ed', text: '#ea580c' },
+  pausa:               { bg: '#fffbeb', text: '#d97706' },
+  revision_interna:    { bg: '#eef2ff', text: '#6366f1' },
+  revision_diseno:     { bg: '#faf5ff', text: '#a855f7' },
+  revision_cliente:    { bg: '#e8f0fb', text: '#3b6fd4' },
+  aprobado:            { bg: '#f0f7e8', text: '#4a6319' },
+  pendiente_publicar:  { bg: '#f7fee7', text: '#65a30d' },
+  publicado_entregado: { bg: '#e8f5f3', text: '#00675c' },
 }
 
 const ROLLOVER_KEY: Record<ContentType, keyof PlanLimits> = {

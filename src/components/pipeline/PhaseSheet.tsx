@@ -19,7 +19,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { createClient } from '@/lib/supabase/client'
-import { PHASES, PHASE_LABELS, movePhase } from '@/lib/domain/pipeline'
+import { PHASES, PHASE_LABELS, PHASE_CATEGORY, isPassiveTimerPhase } from '@/lib/domain/pipeline'
+import { movePhase } from '@/lib/domain/pipeline'
 import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import type { Phase, ContentType, RequirementPhaseLog } from '@/types/db'
 import { RequirementChat } from './RequirementChat'
@@ -77,24 +78,37 @@ export function PhaseSheet({
   const [localCambios, setLocalCambios] = useState(cambiosCount)
   const [incrementing, setIncrementing] = useState(false)
 
-  // Review timer (counts up while in revision_cliente)
+  // Passive timer (counts up while in any passive_timer phase)
   const [reviewElapsed, setReviewElapsed] = useState('')
+  const isPassiveTimer = isPassiveTimerPhase(currentPhase)
+
+  // Timer start: revision_cliente uses reviewStartedAt; other passive phases use last log
+  const passiveTimerStart = !isPassiveTimer ? null
+    : currentPhase === 'revision_cliente' ? reviewStartedAt
+    : (logs[logs.length - 1]?.created_at ?? null)
+
+  const passiveTimerLabel: Record<string, string> = {
+    pendiente: 'En espera',
+    pausa: 'En pausa',
+    revision_cliente: 'Esperando respuesta del cliente',
+  }
 
   useEffect(() => {
-    if (currentPhase !== 'revision_cliente' || !reviewStartedAt) {
+    if (!isPassiveTimer || !passiveTimerStart) {
       setReviewElapsed('')
       return
     }
     function tick() {
-      const diff = Date.now() - new Date(reviewStartedAt!).getTime()
+      const diff = Date.now() - new Date(passiveTimerStart!).getTime()
       const h = Math.floor(diff / 3600000)
       const m = Math.floor((diff % 3600000) / 60000)
       setReviewElapsed(`${h}h ${m}m`)
     }
     tick()
-    const id = setInterval(tick, 60000) // update every minute
+    const id = setInterval(tick, 60000)
     return () => clearInterval(id)
-  }, [currentPhase, reviewStartedAt])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPhase, passiveTimerStart])
 
   // Reset tab when sheet closes/opens
   useEffect(() => {
@@ -163,7 +177,6 @@ export function PhaseSheet({
   }
 
   const showMove = showMoveSection ?? true
-  const isReviewPhase = currentPhase === 'revision_cliente'
 
   return (
     <Sheet open={open} onOpenChange={(v) => { if (!v) onClose() }}>
@@ -177,14 +190,16 @@ export function PhaseSheet({
             </span>
             <span
               className={`text-xs font-bold px-2.5 py-1 rounded-full ${
-                isReviewPhase
+                isPassiveTimer
                   ? 'bg-amber-100 text-amber-700'
+                  : PHASE_CATEGORY[currentPhase] === 'timestamp_only'
+                  ? 'bg-green-100 text-green-700'
                   : 'bg-[#f5f7f9] text-[#595c5e]'
               }`}
             >
               {PHASE_LABELS[currentPhase]}
             </span>
-            {isReviewPhase && reviewElapsed && (
+            {isPassiveTimer && reviewElapsed && (
               <span className="text-xs font-bold text-amber-700 flex items-center gap-1">
                 <svg viewBox="0 0 24 24" className="w-3 h-3 fill-current">
                   <path d="M6 2v6l2 2-2 2v6h12v-6l-2-2 2-2V2H6zm10 14.5V20H8v-3.5l4-4 4 4zm-4-5l-4-4V4h8v3.5l-4 4z"/>
@@ -281,8 +296,8 @@ export function PhaseSheet({
                 </button>
               </div>
 
-              {/* Review timer (solo en revision_cliente) */}
-              {isReviewPhase && (
+              {/* Passive timer — all passive_timer phases */}
+              {isPassiveTimer && (
                 <div className="rounded-2xl p-4 border border-[#f59e0b]/30 bg-amber-50">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -291,18 +306,18 @@ export function PhaseSheet({
                           <path d="M6 2v6l2 2-2 2v6h12v-6l-2-2 2-2V2H6zm10 14.5V20H8v-3.5l4-4 4 4zm-4-5l-4-4V4h8v3.5l-4 4z"/>
                         </svg>
                         <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">
-                          Esperando respuesta del cliente
+                          {passiveTimerLabel[currentPhase] ?? 'Tiempo automático'}
                         </span>
                         <span className="text-[9px] font-bold bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded-full">
-                          REFERENCIA
+                          AUTO
                         </span>
                       </div>
                       <p className="text-2xl font-black text-amber-700 tabular-nums">
                         {reviewElapsed || '—'}
                       </p>
-                      {reviewStartedAt && (
+                      {passiveTimerStart && (
                         <p className="text-xs text-amber-600 mt-0.5">
-                          Desde {new Date(reviewStartedAt).toLocaleDateString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          Desde {new Date(passiveTimerStart).toLocaleDateString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                         </p>
                       )}
                     </div>
@@ -343,7 +358,9 @@ export function PhaseSheet({
                           <div
                             className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1"
                             style={{
-                              background: log.to_phase === 'revision_cliente' ? '#f59e0b' : '#00675c',
+                              background: isPassiveTimerPhase(log.to_phase as Phase) ? '#f59e0b'
+                                : PHASE_CATEGORY[log.to_phase as Phase] === 'timestamp_only' ? '#22c55e'
+                                : '#00675c',
                             }}
                           />
                           {idx < logs.length - 1 && (

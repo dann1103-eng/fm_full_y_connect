@@ -19,11 +19,17 @@ export type ContentType =
 
 export type Phase =
   | 'pendiente'
-  | 'en_produccion'
+  | 'proceso_edicion'
+  | 'proceso_diseno'
+  | 'proceso_animacion'
+  | 'cambios'
+  | 'pausa'
   | 'revision_interna'
+  | 'revision_diseno'
   | 'revision_cliente'
   | 'aprobado'
-  | 'publicado'
+  | 'pendiente_publicar'
+  | 'publicado_entregado'
 
 export type ClientStatus = 'active' | 'paused' | 'overdue'
 export type CycleStatus = 'current' | 'archived' | 'pending_renewal'

@@ -12,14 +12,7 @@ interface ClientPipelineTabProps {
 }
 
 export function ClientPipelineTab({ items, logsMap, currentUserId }: ClientPipelineTabProps) {
-  const byPhase: Record<Phase, PipelineItem[]> = {
-    pendiente: [],
-    en_produccion: [],
-    revision_interna: [],
-    revision_cliente: [],
-    aprobado: [],
-    publicado: [],
-  }
+  const byPhase = Object.fromEntries(PHASES.map(p => [p, [] as PipelineItem[]])) as Record<Phase, PipelineItem[]>
   for (const item of items) {
     byPhase[item.phase as Phase]?.push(item)
   }
