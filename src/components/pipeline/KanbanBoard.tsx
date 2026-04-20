@@ -37,6 +37,7 @@ export function KanbanBoard({ byPhase, logsMap, currentUserId, canAssign = false
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null)
   const [activeDetailItem, setActiveDetailItem] = useState<PipelineItem | null>(null)
   const [detailLogs, setDetailLogs] = useState<RequirementPhaseLog[]>([])
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     if (!activeDetailItem) return
@@ -77,15 +78,55 @@ export function KanbanBoard({ byPhase, logsMap, currentUserId, canAssign = false
     })
   }
 
+  // Filtrar por búsqueda (título, cliente, notas)
+  const q = search.trim().toLowerCase()
+  const filteredByPhase = q
+    ? Object.fromEntries(
+        PHASES.map((phase) => [
+          phase,
+          (byPhase[phase] ?? []).filter(
+            (item) =>
+              item.title?.toLowerCase().includes(q) ||
+              item.client_name?.toLowerCase().includes(q) ||
+              item.notes?.toLowerCase().includes(q)
+          ),
+        ])
+      ) as Record<Phase, PipelineItem[]>
+    : byPhase
+
   return (
     <>
+      {/* Barra de búsqueda */}
+      <div className="flex-shrink-0 pb-3">
+        <div className="relative max-w-xs">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[#abadaf] text-base pointer-events-none">
+            search
+          </span>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por título o cliente…"
+            className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-[#dfe3e6] rounded-xl focus:outline-none focus:border-[#00675c]/50 focus:ring-2 focus:ring-[#5bf4de]/30 text-[#2c2f31] placeholder:text-[#abadaf]"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#abadaf] hover:text-[#595c5e]"
+            >
+              <span className="material-symbols-outlined text-base">close</span>
+            </button>
+          )}
+        </div>
+      </div>
+
       <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
         <div className="flex gap-4 min-w-max h-full">
           {PHASES.map((phase) => (
             <KanbanColumn
               key={phase}
               phase={phase}
-              items={byPhase[phase]}
+              items={filteredByPhase[phase]}
               logsMap={logsMap}
               currentUserId={currentUserId}
               draggableCards

@@ -14,6 +14,8 @@ import { PIPELINE_CONTENT_TYPES } from '@/lib/domain/pipeline'
 import type { PipelineItem } from '@/lib/domain/pipeline'
 import type { RequirementPhaseLog, RequirementCambioLog } from '@/types/db'
 import { DeleteClientButton } from '@/components/clients/DeleteClientButton'
+import { RequirementHistory } from '@/components/clients/RequirementHistory'
+import { ClientNotesPanel } from '@/components/clients/ClientNotesPanel'
 
 export const dynamic = 'force-dynamic'
 
@@ -185,7 +187,7 @@ export default async function ClientDetailPage({
           <span className="font-semibold text-[#2c2f31]">{client.name}</span>
         </nav>
 
-        {/* Current cycle requirement panel (includes client header card) */}
+        {/* 1 — Requerimientos del ciclo (sin historial al final) */}
         {cycle && limits ? (
           <RequirementPanel
             client={client}
@@ -204,6 +206,7 @@ export default async function ClientDetailPage({
             }))}
             canAssign={canCreate}
             cambioLogsMap={cambioLogsMap}
+            hideHistorySection
           />
         ) : client.status === 'paused' && isAdmin ? (
           <ReactivatePanel client={client} plans={(plans ?? []) as Plan[]} />
@@ -213,7 +216,7 @@ export default async function ClientDetailPage({
           </div>
         )}
 
-        {/* Pipeline del ciclo actual */}
+        {/* 2 — Pipeline del ciclo actual */}
         {cycle && (
           <div className="glass-panel rounded-[2rem] p-6 space-y-4">
             <h3 className="text-base font-semibold text-[#2c2f31]">Pipeline</h3>
@@ -226,7 +229,31 @@ export default async function ClientDetailPage({
           </div>
         )}
 
-        {/* Past cycles */}
+        {/* 3 — Historial del ciclo + Notas internas */}
+        {cycle && (
+          <section className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className="lg:col-span-7 space-y-4">
+              <h3 className="text-xl font-extrabold tracking-tight text-[#2c2f31]">
+                Historial del ciclo
+              </h3>
+              <RequirementHistory
+                requirements={reqs}
+                isAdmin={isAdmin}
+                cycleId={cycle.id}
+                userMap={userMap}
+                cambioLogsMap={cambioLogsMap}
+              />
+            </div>
+            <div className="lg:col-span-5 space-y-4">
+              <h3 className="text-xl font-extrabold tracking-tight text-[#2c2f31]">
+                Notas internas
+              </h3>
+              <ClientNotesPanel clientId={client.id} initialNotes={client.notes ?? null} />
+            </div>
+          </section>
+        )}
+
+        {/* 4 — Historial de ciclos pasados */}
         {pastCycles && pastCycles.length > 0 && (
           <CycleHistory
             cycles={pastCycles as BillingCycle[]}

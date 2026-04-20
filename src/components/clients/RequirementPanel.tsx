@@ -94,6 +94,9 @@ interface RequirementPanelProps {
   userMap: Record<string, string>
   assignableUsers?: { id: string; full_name: string; default_assignee?: boolean }[]
   cambioLogsMap?: Record<string, RequirementCambioLog[]>
+  /** Si true, omite la sección "Historial del ciclo + Notas internas" al final del panel.
+   *  Útil cuando el padre quiere renderizarla en una posición diferente. */
+  hideHistorySection?: boolean
 }
 
 export function RequirementPanel({
@@ -109,6 +112,7 @@ export function RequirementPanel({
   userMap,
   assignableUsers = [],
   cambioLogsMap = {},
+  hideHistorySection = false,
 }: RequirementPanelProps) {
   const [modalOpen, setModalOpen] = useState(false)
   const [markingPaid, setMarkingPaid] = useState(false)
@@ -789,51 +793,53 @@ export function RequirementPanel({
         </section>
       )}
 
-      {/* ── History + Notes grid ── */}
-      <section className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Cycle history — col-span-7 */}
-        <div className="lg:col-span-7 space-y-4">
-          <h3 className="text-xl font-extrabold tracking-tight text-[#2c2f31]">
-            Historial del ciclo
-          </h3>
-          <RequirementHistory
-            requirements={requirements}
-            isAdmin={isAdmin}
-            cycleId={cycle.id}
-            userMap={userMap}
-            cambioLogsMap={cambioLogsMap}
-          />
-        </div>
-
-        {/* Internal notes — col-span-5 */}
-        <div className="lg:col-span-5 space-y-4">
-          <h3 className="text-xl font-extrabold tracking-tight text-[#2c2f31]">
-            Notas internas
-          </h3>
-          <div className="glass-panel p-6 rounded-[2rem] flex flex-col" style={{ minHeight: '340px' }}>
-            <textarea
-              className="flex-1 w-full bg-transparent border border-[#abadaf]/30 rounded-2xl p-4 text-sm text-[#2c2f31] placeholder:text-[#747779]/50 resize-none outline-none transition-all focus:border-[#00675c]/50 focus:ring-2 focus:ring-[#5bf4de]/40"
-              rows={8}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Notas internas sobre el cliente..."
+      {/* ── History + Notes grid (omitido cuando hideHistorySection=true) ── */}
+      {!hideHistorySection && (
+        <section className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Cycle history — col-span-7 */}
+          <div className="lg:col-span-7 space-y-4">
+            <h3 className="text-xl font-extrabold tracking-tight text-[#2c2f31]">
+              Historial del ciclo
+            </h3>
+            <RequirementHistory
+              requirements={requirements}
+              isAdmin={isAdmin}
+              cycleId={cycle.id}
+              userMap={userMap}
+              cambioLogsMap={cambioLogsMap}
             />
-            <div className="mt-4 flex justify-end">
-              <button
-                onClick={handleSaveNotes}
-                disabled={savingNotes}
-                className="px-6 py-2.5 text-white font-bold rounded-full shadow-lg hover:scale-[1.02] transition-transform active:scale-95 text-sm disabled:opacity-60"
-                style={{
-                  background: 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)',
-                  boxShadow: '0 4px 15px rgba(0,103,92,0.2)',
-                }}
-              >
-                {savingNotes ? 'Guardando...' : 'Guardar cambios'}
-              </button>
+          </div>
+
+          {/* Internal notes — col-span-5 */}
+          <div className="lg:col-span-5 space-y-4">
+            <h3 className="text-xl font-extrabold tracking-tight text-[#2c2f31]">
+              Notas internas
+            </h3>
+            <div className="glass-panel p-6 rounded-[2rem] flex flex-col" style={{ minHeight: '340px' }}>
+              <textarea
+                className="flex-1 w-full bg-transparent border border-[#abadaf]/30 rounded-2xl p-4 text-sm text-[#2c2f31] placeholder:text-[#747779]/50 resize-none outline-none transition-all focus:border-[#00675c]/50 focus:ring-2 focus:ring-[#5bf4de]/40"
+                rows={8}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Notas internas sobre el cliente..."
+              />
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={handleSaveNotes}
+                  disabled={savingNotes}
+                  className="px-6 py-2.5 text-white font-bold rounded-full shadow-lg hover:scale-[1.02] transition-transform active:scale-95 text-sm disabled:opacity-60"
+                  style={{
+                    background: 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)',
+                    boxShadow: '0 4px 15px rgba(0,103,92,0.2)',
+                  }}
+                >
+                  {savingNotes ? 'Guardando...' : 'Guardar cambios'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Requirement modal */}
       <RequirementModal
