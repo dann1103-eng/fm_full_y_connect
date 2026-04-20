@@ -276,7 +276,7 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
               </>
             )}
 
-            {!existing && (
+            {!existing && !isContentPlan && (
               <div className="col-span-2 space-y-1.5">
                 <Label>Inicio del primer ciclo *</Label>
                 <Input
