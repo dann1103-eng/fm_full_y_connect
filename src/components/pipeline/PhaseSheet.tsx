@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { createClient } from '@/lib/supabase/client'
-import { PHASES, PHASE_LABELS, PHASE_CATEGORY, isPassiveTimerPhase } from '@/lib/domain/pipeline'
+import { PHASES, PHASE_LABELS, PHASE_CATEGORY, isPassiveTimerPhase, isUserTrackedPhase } from '@/lib/domain/pipeline'
 import { movePhase } from '@/lib/domain/pipeline'
 import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import type { Phase, ContentType, RequirementPhaseLog, RequirementCambioLog, Priority } from '@/types/db'
@@ -128,21 +128,38 @@ export function PhaseSheet({
   const showLiveCounter = isPassiveTimer && currentPhase !== 'revision_cliente'
 
   useEffect(() => {
-    if (!showLiveCounter || !passiveTimerStart) {
-      setReviewElapsed('')
-      return
-    }
+    if (!showLiveCounter || !passiveTimerStart) return
     function tick() {
-      const diff = Date.now() - new Date(passiveTimerStart!).getTime()
+      const diff = new Date().getTime() - new Date(passiveTimerStart!).getTime()
       const h = Math.floor(diff / 3600000)
       const m = Math.floor((diff % 3600000) / 60000)
       setReviewElapsed(`${h}h ${m}m`)
     }
     tick()
     const id = setInterval(tick, 60000)
-    return () => clearInterval(id)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => { clearInterval(id); setReviewElapsed('') }
   }, [currentPhase, passiveTimerStart, showLiveCounter])
+
+  // Productive-phase elapsed timer — shows how long req has been in the current
+  // user_tracked phase (from the most-recent log whose to_phase === currentPhase)
+  const [phaseElapsedStr, setPhaseElapsedStr] = useState('')
+  const isUserTracked = isUserTrackedPhase(currentPhase)
+  const currentPhaseLogStart = isUserTracked
+    ? ([...logs].reverse().find(l => l.to_phase === currentPhase)?.created_at ?? null)
+    : null
+
+  useEffect(() => {
+    if (!currentPhaseLogStart) return
+    function tickPhase() {
+      const diff = new Date().getTime() - new Date(currentPhaseLogStart!).getTime()
+      const h = Math.floor(diff / 3600000)
+      const m = Math.floor((diff % 3600000) / 60000)
+      setPhaseElapsedStr(h > 0 ? `${h}h ${m}m` : `${m}m`)
+    }
+    tickPhase()
+    const id = setInterval(tickPhase, 60000)
+    return () => { clearInterval(id); setPhaseElapsedStr('') }
+  }, [currentPhase, currentPhaseLogStart])
 
   // Fetch assignable users when canAssign
   useEffect(() => {
@@ -168,6 +185,7 @@ export function PhaseSheet({
   // Reset tab when sheet closes/opens
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTab('fases')
       setToPhase(currentPhase)
       setMoveNotes('')
@@ -498,6 +516,28 @@ export function PhaseSheet({
                       )}
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Productive-phase elapsed time */}
+              {isUserTracked && currentPhaseLogStart && (
+                <div className="rounded-2xl p-4 border border-[#00675c]/25 bg-[#00675c]/5">
+                  <div className="flex items-start gap-2 mb-1">
+                    <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-[#00675c] flex-shrink-0 mt-0.5">
+                      <path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61 1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42C16.07 4.74 14.12 4 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/>
+                    </svg>
+                    <span className="text-[10px] font-bold text-[#00675c] uppercase tracking-wider">
+                      Tiempo en esta fase
+                    </span>
+                  </div>
+                  <p className="text-2xl font-black text-[#00675c] tabular-nums">
+                    {phaseElapsedStr || '—'}
+                  </p>
+                  <p className="text-xs text-[#00675c]/60 mt-0.5">
+                    Desde {new Date(currentPhaseLogStart).toLocaleDateString('es', {
+                      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+                    })}
+                  </p>
                 </div>
               )}
 
