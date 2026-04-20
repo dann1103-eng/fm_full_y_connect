@@ -187,3 +187,72 @@ export function buildTimesheetTree(
 }
 
 export { isEntries }
+
+/**
+ * Cuenta cuántos valores distintos del eje `secondary` aparecen para cada
+ * primary-id (user_id o client_id), en base a una lista de entries.
+ *
+ * Ej: `childCountsByPrimary(entries, 'member', 'requirement')` devuelve
+ * `{ [user_id]: distinctRequirementCount }` — útil para mostrar "Juan · 5 requerimientos"
+ * en los filtros del reporte.
+ *
+ * Cuando `secondary === 'entry'`, devuelve el total de entries por primary.
+ * Cuando `primary === secondary` (ej. member/member), cuenta 1 por grupo.
+ */
+export function childCountsByPrimary(
+  entries: TimesheetEntry[],
+  primary: PrimaryGroup,
+  secondary: SecondaryGroup,
+): Record<string, number> {
+  const counts: Record<string, number> = {}
+  const sets: Record<string, Set<string>> = {}
+
+  function primaryId(e: TimesheetEntry): string | null {
+    if (primary === 'member') return e.user_id
+    return e.client_id ?? '__internal__'
+  }
+
+  function secondaryValue(e: TimesheetEntry): string {
+    switch (secondary) {
+      case 'client':
+        return e.client_id ?? '__internal__'
+      case 'member':
+        return e.user_id
+      case 'requirement':
+        if (e.entry_type === 'administrative') return `admin:${e.category ?? 'other'}`
+        return e.requirement_id ?? '__no_req__'
+      case 'entry':
+        return e.id
+    }
+  }
+
+  for (const e of entries) {
+    const pid = primaryId(e)
+    if (!pid) continue
+    if (secondary === 'entry') {
+      counts[pid] = (counts[pid] ?? 0) + 1
+      continue
+    }
+    if (!sets[pid]) sets[pid] = new Set()
+    sets[pid].add(secondaryValue(e))
+  }
+
+  if (secondary !== 'entry') {
+    for (const [pid, s] of Object.entries(sets)) {
+      counts[pid] = s.size
+    }
+  }
+
+  return counts
+}
+
+/** Palabra para mostrar junto al count según el `secondary`. */
+export function wordForSecondary(secondary: SecondaryGroup, count: number): string {
+  const plural = count !== 1
+  switch (secondary) {
+    case 'client':      return plural ? 'clientes' : 'cliente'
+    case 'member':      return plural ? 'miembros' : 'miembro'
+    case 'requirement': return plural ? 'requerimientos' : 'requerimiento'
+    case 'entry':       return plural ? 'entradas' : 'entrada'
+  }
+}

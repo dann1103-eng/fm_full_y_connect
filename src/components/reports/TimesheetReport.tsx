@@ -5,7 +5,9 @@ import { createClient } from '@/lib/supabase/client'
 import { fetchTimesheetEntries } from '@/app/actions/fetchTimesheet'
 import {
   buildTimesheetTree,
+  childCountsByPrimary,
   secondaryOptionsFor,
+  wordForSecondary,
   type EntryTypeFilter,
   type PrimaryGroup,
   type SecondaryGroup,
@@ -86,7 +88,8 @@ export function TimesheetReport({ users, clients, currentUserId }: Props) {
     if (!allowed.includes(secondary)) setSecondary(allowed[0])
   }, [primary, secondary])
 
-  // Fetch entries when server-affecting filters change
+  // Fetch entries (sin filtros de user/client para poder calcular counts
+  // por cada opción; el filtro se aplica client-side más abajo).
   useEffect(() => {
     let cancelled = false
     setLoading(true)
@@ -94,8 +97,6 @@ export function TimesheetReport({ users, clients, currentUserId }: Props) {
     fetchTimesheetEntries({
       startIso: dateRange.start,
       endIso: dateRange.end,
-      userIds: userFilter.length > 0 ? userFilter : undefined,
-      clientIds: clientFilter.length > 0 ? clientFilter : undefined,
       entryType: entryTypeFilter,
     }).then((res) => {
       if (cancelled) return
@@ -108,12 +109,36 @@ export function TimesheetReport({ users, clients, currentUserId }: Props) {
       setLoading(false)
     })
     return () => { cancelled = true }
-  }, [dateRange, userFilter, clientFilter, entryTypeFilter])
+  }, [dateRange, entryTypeFilter])
+
+  // Entries filtradas client-side para display (tree + totals + counts del resumen)
+  const displayEntries = useMemo(() => {
+    return entries.filter((e) => {
+      if (userFilter.length > 0 && !userFilter.includes(e.user_id)) return false
+      if (clientFilter.length > 0) {
+        if (!e.client_id) return false
+        if (!clientFilter.includes(e.client_id)) return false
+      }
+      return true
+    })
+  }, [entries, userFilter, clientFilter])
+
+  // Counts contextuales para los chips (se basan en el universo completo de
+  // entries del rango/tipo, no en el filtro actual — así cada opción muestra
+  // cuánto aportaría al expandirla).
+  const userCounts = useMemo(
+    () => childCountsByPrimary(entries, 'member', secondary),
+    [entries, secondary],
+  )
+  const clientCounts = useMemo(
+    () => childCountsByPrimary(entries, 'client', secondary),
+    [entries, secondary],
+  )
 
   // Build tree client-side
   const { groups, totalSeconds } = useMemo(
-    () => buildTimesheetTree(entries, primary, secondary),
-    [entries, primary, secondary],
+    () => buildTimesheetTree(displayEntries, primary, secondary),
+    [displayEntries, primary, secondary],
   )
 
   function toggleExpand(key: string) {
@@ -197,14 +222,14 @@ export function TimesheetReport({ users, clients, currentUserId }: Props) {
   }, [])
 
   const summary = useMemo(() => {
-    const memberSet = new Set(entries.map((e) => e.user_id))
-    const clientSet = new Set(entries.filter((e) => e.client_id).map((e) => e.client_id as string))
+    const memberSet = new Set(displayEntries.map((e) => e.user_id))
+    const clientSet = new Set(displayEntries.filter((e) => e.client_id).map((e) => e.client_id as string))
     return {
-      count: entries.length,
+      count: displayEntries.length,
       members: memberSet.size,
       clients: clientSet.size,
     }
-  }, [entries])
+  }, [displayEntries])
 
   // CSV rows — flatten tree
   const { csvHeaders, csvRows } = useMemo(() => {
@@ -274,7 +299,12 @@ export function TimesheetReport({ users, clients, currentUserId }: Props) {
           <MultiFilterChip
             label="Miembros"
             selected={userFilter}
-            options={users.map((u) => ({ id: u.id, label: u.full_name }))}
+            options={users.map((u) => ({
+              id: u.id,
+              label: u.full_name,
+              count: userCounts[u.id] ?? 0,
+              countLabel: wordForSecondary(secondary, userCounts[u.id] ?? 0),
+            }))}
             onToggle={toggleUserFilter}
             onClear={() => setUserFilter([])}
           />
@@ -284,7 +314,12 @@ export function TimesheetReport({ users, clients, currentUserId }: Props) {
           <MultiFilterChip
             label="Clientes"
             selected={clientFilter}
-            options={clients.map((c) => ({ id: c.id, label: c.name }))}
+            options={clients.map((c) => ({
+              id: c.id,
+              label: c.name,
+              count: clientCounts[c.id] ?? 0,
+              countLabel: wordForSecondary(secondary, clientCounts[c.id] ?? 0),
+            }))}
             onToggle={toggleClientFilter}
             onClear={() => setClientFilter([])}
           />
@@ -427,7 +462,7 @@ function FilterSelect({ label, value, onChange, options }: FilterSelectProps) {
 interface MultiFilterChipProps {
   label: string
   selected: string[]
-  options: { id: string; label: string }[]
+  options: { id: string; label: string; count?: number; countLabel?: string }[]
   onToggle: (id: string) => void
   onClear: () => void
 }
@@ -464,6 +499,7 @@ function MultiFilterChip({ label, selected, options, onToggle, onClear }: MultiF
               )}
               {options.map((o) => {
                 const active = selected.includes(o.id)
+                const showCount = typeof o.count === 'number'
                 return (
                   <button
                     key={o.id}
@@ -476,7 +512,12 @@ function MultiFilterChip({ label, selected, options, onToggle, onClear }: MultiF
                     <span className={`material-symbols-outlined text-sm ${active ? 'text-[#00675c]' : 'text-[#abadaf]'}`}>
                       {active ? 'check_box' : 'check_box_outline_blank'}
                     </span>
-                    {o.label}
+                    <span className="flex-1 truncate">{o.label}</span>
+                    {showCount && (
+                      <span className={`text-[10px] tabular-nums whitespace-nowrap ${active ? 'text-[#00675c]' : 'text-[#abadaf]'}`}>
+                        {o.count} {o.countLabel}
+                      </span>
+                    )}
                   </button>
                 )
               })}
