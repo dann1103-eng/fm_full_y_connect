@@ -88,3 +88,9 @@ export function formatDeadlineDate(deadline: string): string {
   const d = new Date(`${deadline}T12:00:00`)
   return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`
 }
+
+/** Short badge format: "abr 20", "oct 19" — month first for inline display */
+export function formatDeadlineBadge(deadline: string): string {
+  const d = new Date(`${deadline}T12:00:00`)
+  return `${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}`
+}

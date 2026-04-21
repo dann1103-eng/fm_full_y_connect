@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { KanbanBoard } from './KanbanBoard'
 import { TableView } from './TableView'
+import { NewRequirementFromPipeline } from './NewRequirementFromPipeline'
 import { PHASES, PHASE_LABELS } from '@/lib/domain/pipeline'
 import type { PipelineItem } from '@/lib/domain/pipeline'
 import type { Phase, Priority, RequirementPhaseLog } from '@/types/db'
@@ -15,10 +16,11 @@ interface PipelineContainerProps {
   logsMap: Record<string, RequirementPhaseLog[]>
   currentUserId: string
   canAssign: boolean
+  isAdmin: boolean
   clients: { id: string; name: string }[]
 }
 
-export function PipelineContainer({ items, logsMap, currentUserId, canAssign, clients }: PipelineContainerProps) {
+export function PipelineContainer({ items, logsMap, currentUserId, canAssign, isAdmin, clients }: PipelineContainerProps) {
   const [view, setView] = useState<ViewMode>('kanban')
   const [filterClientId, setFilterClientId] = useState('')
   const [filterPriority, setFilterPriority] = useState('')
@@ -56,6 +58,11 @@ export function PipelineContainer({ items, logsMap, currentUserId, canAssign, cl
     <div className="flex flex-col h-full gap-4">
       {/* Toolbar */}
       <div className="flex items-center gap-2 flex-wrap">
+        {/* New requirement button — visible to admin/supervisor */}
+        {(isAdmin || canAssign) && clients.length > 0 && (
+          <NewRequirementFromPipeline clients={clients} isAdmin={isAdmin} canAssign={canAssign} />
+        )}
+
         {/* View switcher */}
         <div className="flex rounded-xl border border-[#dfe3e6] overflow-hidden bg-white text-sm mr-1">
           {(['kanban', 'table'] as const).map(v => (

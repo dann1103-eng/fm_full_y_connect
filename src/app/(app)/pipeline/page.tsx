@@ -15,6 +15,7 @@ export default async function PipelinePage() {
 
   const { data: appUser } = await supabase.from('users').select('role').eq('id', authUser.id).single()
   const role = appUser?.role ?? 'operator'
+  const isAdmin = role === 'admin'
   const canAssign = role === 'admin' || role === 'supervisor'
   const isOperator = role === 'operator'
 
@@ -130,6 +131,7 @@ export default async function PipelinePage() {
           logsMap={logsMap}
           currentUserId={authUser.id}
           canAssign={canAssign}
+          isAdmin={isAdmin}
           clients={pipelineClients ?? []}
         />
       </div>

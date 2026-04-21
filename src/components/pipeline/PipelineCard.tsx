@@ -9,7 +9,7 @@ import type { PipelineItem } from '@/lib/domain/pipeline'
 import type { RequirementPhaseLog, ContentType, Phase, Priority } from '@/types/db'
 import { PRIORITY_COLORS } from '@/types/db'
 import { UserAvatar } from '@/components/ui/UserAvatar'
-import { getDeadlineStatus, deadlineIconClasses, formatDeadlineLabel, formatDeadlineDate } from '@/lib/domain/deadline'
+import { getDeadlineStatus, deadlineIconClasses, formatDeadlineLabel, formatDeadlineDate, formatDeadlineBadge } from '@/lib/domain/deadline'
 import { getPhaseTimerColor, phaseTimerBgClass } from '@/lib/domain/phaseTimer'
 
 const CONTENT_TYPE_COLORS: Record<ContentType, string> = {
@@ -173,15 +173,16 @@ export function CardBody({
         </div>
       </div>
 
-      {/* Deadline calendar icon — bottom-left corner, color per semaphore */}
+      {/* Deadline badge — bottom-left corner, color per semaphore */}
       {deadlineInfo.status !== 'none' && item.deadline && (
         <span
-          className={`absolute bottom-2 left-2 inline-flex items-center justify-center w-5 h-5 rounded ${deadlineIconClasses(deadlineInfo.status)}`}
+          className={`absolute bottom-2 left-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded ${deadlineIconClasses(deadlineInfo.status)}`}
           title={`Entrega ${formatDeadlineDate(item.deadline)} · ${formatDeadlineLabel(deadlineInfo.daysLeft ?? 0)}`}
         >
-          <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current" aria-hidden="true">
+          <svg viewBox="0 0 24 24" className="w-3 h-3 fill-current flex-shrink-0" aria-hidden="true">
             <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14a2 2 0 002 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z" />
           </svg>
+          <span className="text-[10px] font-bold leading-none">{formatDeadlineBadge(item.deadline)}</span>
         </span>
       )}
     </>

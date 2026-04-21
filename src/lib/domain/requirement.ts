@@ -206,7 +206,7 @@ export function augmentDistribution(
     result[w] = {}
     for (const type of pipelineTypes) {
       const explicit = dist[w]?.[type]
-      if (explicit !== undefined) {
+      if (explicit !== undefined && explicit > 0) {
         result[w]![type] = explicit
       } else {
         const fallback = Math.ceil(limits[type] / 4)
