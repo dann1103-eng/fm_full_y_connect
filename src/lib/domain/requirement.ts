@@ -67,7 +67,10 @@ export function dominantCycleMonth(startIso: string, endIso: string): { year: nu
   return { year: y, month: m }
 }
 
-/** Count non-voided requirements by type */
+/** Count non-voided requirements by type.
+ *  When a requirement has `includes_story = true`, it also adds +1 to `historia`,
+ *  because the derived story is produced alongside the main deliverable and
+ *  counts toward the monthly story quota without being a separate requirement. */
 export function computeTotals(requirements: Requirement[]): RequirementTotals {
   const totals: RequirementTotals = {
     historia: 0,
@@ -81,12 +84,25 @@ export function computeTotals(requirements: Requirement[]): RequirementTotals {
   }
 
   for (const r of requirements) {
-    if (!r.voided && !r.carried_over) {
-      totals[r.content_type]++
-    }
+    if (r.voided || r.carried_over) continue
+    totals[r.content_type]++
+    if (r.includes_story) totals.historia++
   }
 
   return totals
+}
+
+/** Breakdown of historia consumption: how many are standalone requirements
+ *  vs. derived stories piggybacked on other content via `includes_story`. */
+export function historiaBreakdown(requirements: Requirement[]): { propias: number; derivadas: number } {
+  let propias = 0
+  let derivadas = 0
+  for (const r of requirements) {
+    if (r.voided || r.carried_over) continue
+    if (r.content_type === 'historia') propias++
+    if (r.includes_story) derivadas++
+  }
+  return { propias, derivadas }
 }
 
 /** Check if adding one more of a type would exceed the effective limit.

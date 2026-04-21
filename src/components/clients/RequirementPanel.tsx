@@ -12,6 +12,7 @@ import {
   computeWeeklyBreakdownWithCascade,
   dominantCycleMonth,
   isWeekUnlocked,
+  historiaBreakdown,
 } from '@/lib/domain/requirement'
 import { CONTENT_ICONS } from '@/lib/domain/content-icons'
 import { socialUrl, type SocialNetwork } from '@/lib/domain/social'
@@ -526,6 +527,7 @@ export function RequirementPanel({
         {/* Requirement cards (tippables ocultos en plan unificado — solo counter-only y specials) */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {activeTypes.filter((t) => !isUnifiedPool || !TIPPABLE_CONTENT_TYPES.includes(t)).map((type) => {
+            const historiaBd = type === 'historia' ? historiaBreakdown(requirements) : null
             const consumed = totals[type]
             const snapshotLimits = limitsToRecord(cycle.limits_snapshot_json)
             const overrides = cycle.content_limits_override_json as Partial<Record<ContentType, number>> | null
@@ -603,6 +605,15 @@ export function RequirementPanel({
                 <p className="text-[11px] font-bold" style={{ color: availableColor }}>
                   {available} disponibles
                 </p>
+
+                {/* Historia breakdown: propias + derivadas */}
+                {historiaBd && historiaBd.derivadas > 0 && (
+                  <p className="text-[10px] text-[#595c5e] leading-tight">
+                    <span className="font-bold">{historiaBd.propias}</span> propias
+                    {' + '}
+                    <span className="font-bold text-purple-600">{historiaBd.derivadas}</span> derivadas
+                  </p>
+                )}
               </div>
             )
           })}

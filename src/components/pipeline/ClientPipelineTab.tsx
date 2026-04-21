@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { PipelineCard } from './PipelineCard'
 import { PHASES, PHASE_LABELS } from '@/lib/domain/pipeline'
 import type { PipelineItem } from '@/lib/domain/pipeline'
@@ -13,6 +14,13 @@ interface ClientPipelineTabProps {
 }
 
 export function ClientPipelineTab({ items, logsMap, currentUserId, canAssign = false }: ClientPipelineTabProps) {
+  const [nowMs, setNowMs] = useState<number>(() => new Date().getTime())
+
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(new Date().getTime()), 60_000)
+    return () => clearInterval(id)
+  }, [])
+
   const byPhase = Object.fromEntries(PHASES.map(p => [p, [] as PipelineItem[]])) as Record<Phase, PipelineItem[]>
   for (const item of items) {
     byPhase[item.phase as Phase]?.push(item)
@@ -47,6 +55,7 @@ export function ClientPipelineTab({ items, logsMap, currentUserId, canAssign = f
                 currentUserId={currentUserId}
                 showClient={false}
                 canAssign={canAssign}
+                nowMs={nowMs}
               />
             ))}
           </div>

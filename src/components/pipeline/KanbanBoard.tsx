@@ -12,10 +12,12 @@ import {
 } from '@dnd-kit/core'
 import { KanbanColumn } from './KanbanColumn'
 import { CardBody } from './PipelineCard'
+import { KanbanAccordion } from './KanbanAccordion'
 import { MovePhaseModal } from './MovePhaseModal'
 import { PhaseSheet } from './PhaseSheet'
 import { createClient } from '@/lib/supabase/client'
 import { PHASES } from '@/lib/domain/pipeline'
+import { useIsMobile } from '@/lib/hooks/useMediaQuery'
 import type { PipelineItem } from '@/lib/domain/pipeline'
 import type { Phase, RequirementPhaseLog } from '@/types/db'
 
@@ -37,6 +39,14 @@ export function KanbanBoard({ byPhase, logsMap, currentUserId, canAssign = false
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null)
   const [activeDetailItem, setActiveDetailItem] = useState<PipelineItem | null>(null)
   const [detailLogs, setDetailLogs] = useState<RequirementPhaseLog[]>([])
+  const [nowMs, setNowMs] = useState<number>(() => new Date().getTime())
+  const isMobile = useIsMobile()
+
+  // Tick every 60s so all cards update their phase-timer color in sync.
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(new Date().getTime()), 60_000)
+    return () => clearInterval(id)
+  }, [])
 
   useEffect(() => {
     if (!activeDetailItem) return
@@ -77,6 +87,18 @@ export function KanbanBoard({ byPhase, logsMap, currentUserId, canAssign = false
     })
   }
 
+  if (isMobile) {
+    return (
+      <KanbanAccordion
+        byPhase={byPhase}
+        logsMap={logsMap}
+        currentUserId={currentUserId}
+        canAssign={canAssign}
+        nowMs={nowMs}
+      />
+    )
+  }
+
   return (
     <>
       <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
@@ -90,6 +112,7 @@ export function KanbanBoard({ byPhase, logsMap, currentUserId, canAssign = false
               currentUserId={currentUserId}
               draggableCards
               onDoubleClick={(item) => setActiveDetailItem(item)}
+              nowMs={nowMs}
             />
           ))}
         </div>
@@ -101,7 +124,7 @@ export function KanbanBoard({ byPhase, logsMap, currentUserId, canAssign = false
         <DragOverlay>
           {activeItem ? (
             <div className="rotate-1 scale-105 opacity-90">
-              <CardBody item={activeItem} showClient />
+              <CardBody item={activeItem} showClient nowMs={nowMs} />
             </div>
           ) : null}
         </DragOverlay>
@@ -138,6 +161,8 @@ export function KanbanBoard({ byPhase, logsMap, currentUserId, canAssign = false
           assignedTo={activeDetailItem.assigned_to}
           assignees={activeDetailItem.assignees}
           canAssign={canAssign}
+          includesStory={activeDetailItem.includes_story}
+          deadline={activeDetailItem.deadline}
         />
       )}
     </>

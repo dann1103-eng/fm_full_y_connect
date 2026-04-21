@@ -69,7 +69,7 @@ function clientGradient(name: string): string {
 }
 
 export function ClientCard({ item }: { item: ClientDashboardItem }) {
-  const { client, cycle, totals, limits, daysLeft } = item
+  const { client, cycle, totals, limits, daysLeft, isContentPackage } = item
   const pct = overallProgress(totals, limits)
   const barColor =
     pct >= 90 ? 'bg-[#b31b25]' : pct >= 70 ? 'bg-amber-400' : 'bg-[#00675c]'
@@ -85,7 +85,7 @@ export function ClientCard({ item }: { item: ClientDashboardItem }) {
       className="block bg-white rounded-2xl border border-[#abadaf]/20 hover:border-[#00675c]/40 hover:shadow-md transition-all duration-200 overflow-hidden group"
     >
       {/* Card header */}
-      <div className="p-5 pb-3">
+      <div className="p-4 sm:p-5 pb-3">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-3 min-w-0">
             {client.logo_url ? (
@@ -136,7 +136,7 @@ export function ClientCard({ item }: { item: ClientDashboardItem }) {
 
       {/* Content type mini-counters */}
       {visibleTypes.length > 0 && (
-        <div className="px-5 pb-3 grid grid-cols-3 gap-2">
+        <div className="px-4 sm:px-5 pb-3 grid grid-cols-3 gap-2">
           {visibleTypes.map((type) => {
             const consumed = totals[type] ?? 0
             const limit = limits[type] ?? 0
@@ -167,8 +167,10 @@ export function ClientCard({ item }: { item: ClientDashboardItem }) {
       )}
 
       {/* Footer */}
-      <div className="px-5 py-3 bg-[#f5f7f9] border-t border-[#abadaf]/10 flex items-center justify-between">
-        {daysLeft !== null ? (
+      <div className="px-4 sm:px-5 py-3 bg-[#f5f7f9] border-t border-[#abadaf]/10 flex items-center justify-between">
+        {isContentPackage ? (
+          <span className="text-xs text-[#595c5e]">Paquete activo · sin vencimiento</span>
+        ) : daysLeft !== null ? (
           <span
             className={`text-xs font-medium ${daysLeft <= 3 ? 'text-[#b31b25]' : daysLeft <= 7 ? 'text-amber-600' : 'text-[#595c5e]'}`}
           >

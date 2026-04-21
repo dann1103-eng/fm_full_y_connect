@@ -15,6 +15,7 @@ export interface ClientDashboardItem {
   totals: Record<string, number>
   limits: Record<string, number>
   daysLeft: number | null
+  isContentPackage: boolean
 }
 
 export default async function DashboardPage({
@@ -81,9 +82,10 @@ export default async function DashboardPage({
     const limits = cycle
       ? effectiveLimits(cycle.limits_snapshot_json, cycle.rollover_from_previous_json)
       : limitsToRecord(client.plan.limits_json)
-    const daysLeft = cycle ? daysUntilEnd(cycle.period_end) : null
+    const isContentPackage = cycle?.limits_snapshot_json?.unified_content_limit != null
+    const daysLeft = cycle && !isContentPackage ? daysUntilEnd(cycle.period_end) : null
 
-    return { client, cycle, totals, limits, daysLeft }
+    return { client, cycle, totals, limits, daysLeft, isContentPackage }
   })
 
   // KPI counts
@@ -100,9 +102,9 @@ export default async function DashboardPage({
     <div className="flex flex-col h-full">
       <TopNav title="Dashboard" />
 
-      <div className="flex-1 p-6 space-y-6">
+      <div className="flex-1 p-4 sm:p-6 space-y-4 sm:space-y-6">
         {/* KPI row */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
           <KpiCard
             label="Clientes activos"
             value={activeCount}
@@ -151,7 +153,7 @@ export default async function DashboardPage({
             <p className="text-sm mt-1">Intenta con otros filtros.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
             {items.map((item) => (
               <ClientCard key={item.client.id} item={item} />
             ))}

@@ -314,6 +314,8 @@ export interface Database {
           priority: Priority
           estimated_time_minutes: number | null
           assigned_to: string[] | null
+          includes_story: boolean
+          deadline: string | null
         }
         Insert: {
           id?: string
@@ -334,6 +336,8 @@ export interface Database {
           priority?: Priority
           estimated_time_minutes?: number | null
           assigned_to?: string[] | null
+          includes_story?: boolean
+          deadline?: string | null
         }
         Update: {
           billing_cycle_id?: string
@@ -352,6 +356,8 @@ export interface Database {
           priority?: Priority
           estimated_time_minutes?: number | null
           assigned_to?: string[] | null
+          includes_story?: boolean
+          deadline?: string | null
         }
         Relationships: [
           {

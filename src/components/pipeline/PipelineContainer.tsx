@@ -148,7 +148,7 @@ export function PipelineContainer({ items, logsMap, currentUserId, canAssign, cl
 
       {/* View */}
       {view === 'kanban' ? (
-        <div className="flex-1 overflow-x-auto">
+        <div className="flex-1 overflow-auto">
           <KanbanBoard
             byPhase={byPhase}
             logsMap={logsMap}

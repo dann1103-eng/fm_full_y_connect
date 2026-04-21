@@ -92,6 +92,8 @@ export function RequirementModal({
   const [estimatedTime, setEstimatedTime] = useState('')
   const [assignedTo, setAssignedTo] = useState<string[]>([])
   const [forceOverLimit, setForceOverLimit] = useState(false)
+  const [deadline, setDeadline] = useState('')
+  const [includesStory, setIncludesStory] = useState(true)
 
   // Pre-seleccionar usuarios con `default_assignee=true` cada vez que se abre el modal,
   // solo si el usuario aún no ha tocado la selección (assignedTo vacío).
@@ -110,6 +112,15 @@ export function RequirementModal({
 
   const activeTypes = CONTENT_TYPES.filter((t) => limits[t] > 0)
   const isSimpleType = selectedType === 'produccion' || selectedType === 'reunion'
+  const STORY_APPLICABLE_TYPES: ContentType[] = ['estatico', 'video_corto', 'reel', 'short']
+  const storyApplicable = selectedType !== null && STORY_APPLICABLE_TYPES.includes(selectedType)
+
+  // Reset default del switch cada vez que cambia a un tipo aplicable.
+  // Para tipos no aplicables, se oculta el control y se fuerza a false al insert.
+  useEffect(() => {
+    if (storyApplicable) setIncludesStory(true)
+    else setIncludesStory(false)
+  }, [storyApplicable])
 
   async function handleSubmit() {
     if (!selectedType) return
@@ -165,6 +176,8 @@ export function RequirementModal({
         priority,
         estimated_time_minutes: estMins && !isNaN(estMins) ? estMins : null,
         assigned_to: assignedTo.length > 0 ? assignedTo : null,
+        includes_story: storyApplicable ? includesStory : false,
+        deadline: deadline.trim() || null,
       })
       .select('id')
       .single()
@@ -191,6 +204,8 @@ export function RequirementModal({
     setEstimatedTime('')
     setAssignedTo([])
     setForceOverLimit(false)
+    setDeadline('')
+    setIncludesStory(true)
     onClose()
     router.refresh()
   }
@@ -340,6 +355,47 @@ export function RequirementModal({
                 />
               </div>
 
+              {/* Deadline */}
+              <div>
+                <Label htmlFor="deadline" className="text-sm font-medium text-[#2c2f31] mb-1.5 block">
+                  Fecha de entrega <span className="text-[#747779] font-normal">(opcional)</span>
+                </Label>
+                <input
+                  id="deadline"
+                  type="date"
+                  value={deadline}
+                  onChange={(e) => setDeadline(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl focus:outline-none focus:border-[#00675c] text-[#2c2f31]"
+                />
+              </div>
+
+              {/* Includes story switch — solo tipos aplicables */}
+              {storyApplicable && (
+                <div className="flex items-start gap-3 p-3 bg-[#f5f7f9] rounded-xl border border-[#dfe3e6]">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={includesStory}
+                    onClick={() => setIncludesStory(!includesStory)}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors mt-0.5 ${
+                      includesStory ? 'bg-[#00675c]' : 'bg-[#abadaf]'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                        includesStory ? 'translate-x-5' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </button>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-[#2c2f31]">Incluye story</p>
+                    <p className="text-xs text-[#747779] mt-0.5">
+                      Suma 1 a historias sin crear un requerimiento aparte. Desactívalo si la story requiere producción propia.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Assign to — multi-select checkboxes for admin/supervisor */}
               {canAssign && assignableUsers.length > 0 && (
                 <div>
@@ -381,6 +437,15 @@ export function RequirementModal({
                   <span className="text-[#595c5e] font-normal"> /{limits[selectedType]}</span>
                 </span>
               </div>
+              {storyApplicable && includesStory && (
+                <div className="flex items-center justify-between pt-1 border-t border-[#dfe3e6]/60">
+                  <span className="text-sm text-[#595c5e]">Historias (derivada)</span>
+                  <span className="text-sm font-semibold text-[#2c2f31]">
+                    {totals.historia} → <span className="text-[#00675c]">{totals.historia + 1}</span>
+                    <span className="text-[#595c5e] font-normal"> /{limits.historia}</span>
+                  </span>
+                </div>
+              )}
               {selectedType === 'reunion' && cycle.limits_snapshot_json.reunion_duracion_horas && (
                 <p className="text-xs text-[#747779]">
                   Duración por reunión: <span className="font-semibold">{cycle.limits_snapshot_json.reunion_duracion_horas}h</span>

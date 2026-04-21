@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Sidebar } from '@/components/layout/Sidebar'
+import { MobileSidebar } from '@/components/layout/MobileSidebar'
+import { MobileSidebarProvider } from '@/components/layout/MobileSidebarProvider'
 import { UserProvider } from '@/contexts/UserContext'
 
 interface AppLayoutProps {
@@ -50,12 +52,15 @@ export default async function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <UserProvider user={appUser}>
-      <div className="flex h-screen overflow-hidden bg-[#f5f7f9]">
-        <Sidebar renewalCount={renewalCount} agencyLogoUrl={agencyLogoUrl} />
-        <div className="flex flex-col flex-1 ml-64 overflow-hidden">
-          <main className="flex-1 overflow-y-auto">{children}</main>
+      <MobileSidebarProvider>
+        <div className="flex h-screen overflow-hidden bg-[#f5f7f9]">
+          <Sidebar renewalCount={renewalCount} agencyLogoUrl={agencyLogoUrl} />
+          <MobileSidebar renewalCount={renewalCount} agencyLogoUrl={agencyLogoUrl} />
+          <div className="flex flex-col flex-1 md:ml-64 overflow-hidden">
+            <main className="flex-1 overflow-y-auto">{children}</main>
+          </div>
         </div>
-      </div>
+      </MobileSidebarProvider>
     </UserProvider>
   )
 }

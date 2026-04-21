@@ -14,6 +14,7 @@ interface KanbanColumnProps {
   /** Si true, las cards son arrastrables (solo en KanbanBoard global) */
   draggableCards?: boolean
   onDoubleClick?: (item: PipelineItem) => void
+  nowMs?: number
 }
 
 export function KanbanColumn({
@@ -23,6 +24,7 @@ export function KanbanColumn({
   currentUserId,
   draggableCards = false,
   onDoubleClick,
+  nowMs,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: phase })
 
@@ -67,6 +69,7 @@ export function KanbanColumn({
               showClient
               draggable={draggableCards}
               onDoubleClick={onDoubleClick ? () => onDoubleClick(item) : undefined}
+              nowMs={nowMs}
             />
           ))
         )}

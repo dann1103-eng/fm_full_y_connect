@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { adminAddEntry } from '@/app/actions/time'
 import type { Phase } from '@/types/db'
 import { PHASE_LABELS, PHASES, isUserTrackedPhase, isPassiveTimerPhase } from '@/lib/domain/pipeline'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 
 interface TimeEntryRow {
   id: string
@@ -14,7 +15,7 @@ interface TimeEntryRow {
   started_at: string
   ended_at: string | null
   user_id: string
-  user: { full_name: string } | null
+  user: { full_name: string; avatar_url: string | null } | null
 }
 
 interface ActiveTimer {
@@ -147,7 +148,7 @@ export function RequirementTimesheet({
     const supabase = createClient()
     const { data } = await supabase
       .from('time_entries')
-      .select('id, title, phase, duration_seconds, started_at, ended_at, user_id, user:users(full_name)')
+      .select('id, title, phase, duration_seconds, started_at, ended_at, user_id, user:users(full_name, avatar_url)')
       .eq('requirement_id', requirementId)
       .not('ended_at', 'is', null)  // only completed entries in list
       .order('created_at', { ascending: false })
@@ -513,9 +514,11 @@ export function RequirementTimesheet({
                   {entry.user?.full_name ?? 'Tú'}
                 </p>
               </div>
-              <span className="text-[10px] bg-[#f0f2f4] text-[#595c5e] rounded-md px-1.5 py-0.5 font-semibold flex-shrink-0">
-                {(entry.user?.full_name ?? 'Yo').split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()}
-              </span>
+              <UserAvatar
+                name={entry.user?.full_name ?? 'Yo'}
+                avatarUrl={entry.user?.avatar_url ?? null}
+                size="xs"
+              />
               <span className="text-sm font-black text-[#2c2f31] tabular-nums flex-shrink-0">
                 {formatDuration(entry.duration_seconds ?? 0)}
               </span>

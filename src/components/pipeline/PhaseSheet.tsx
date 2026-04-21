@@ -59,6 +59,8 @@ interface PhaseSheetProps {
   assignedTo?: string[] | null
   assignees?: { id: string; name: string; avatar_url: string | null }[]
   canAssign?: boolean
+  includesStory?: boolean
+  deadline?: string | null
 }
 
 export function PhaseSheet({
@@ -80,7 +82,11 @@ export function PhaseSheet({
   assignedTo: initialAssignedTo = null,
   assignees: initialAssignees = [],
   canAssign = false,
+  includesStory: initialIncludesStory = false,
+  deadline: initialDeadline = null,
 }: PhaseSheetProps) {
+  const STORY_APPLICABLE_TYPES: ContentType[] = ['estatico', 'video_corto', 'reel', 'short']
+  const storyApplicable = STORY_APPLICABLE_TYPES.includes(contentType)
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>('fases')
 
@@ -96,6 +102,8 @@ export function PhaseSheet({
   const [editPriority, setEditPriority] = useState<Priority>(initialPriority)
   const [editEstimatedTime, setEditEstimatedTime] = useState(initialEstimatedTime?.toString() ?? '')
   const [editAssignedTo, setEditAssignedTo] = useState<string[]>(initialAssignedTo ?? [])
+  const [editIncludesStory, setEditIncludesStory] = useState(initialIncludesStory)
+  const [editDeadline, setEditDeadline] = useState(initialDeadline ?? '')
   const [savingEdit, setSavingEdit] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [assignableUsers, setAssignableUsers] = useState<{ id: string; full_name: string }[]>([])
@@ -195,11 +203,13 @@ export function PhaseSheet({
       setEditPriority(initialPriority)
       setEditEstimatedTime(initialEstimatedTime?.toString() ?? '')
       setEditAssignedTo(initialAssignedTo ?? [])
+      setEditIncludesStory(initialIncludesStory)
+      setEditDeadline(initialDeadline ?? '')
       setLocalCambios(cambiosCount)
       setShowCambioForm(false)
       setCambioNote('')
     }
-  }, [open, currentPhase, title, requirementNotes, cambiosCount, initialPriority, initialEstimatedTime, initialAssignedTo])
+  }, [open, currentPhase, title, requirementNotes, cambiosCount, initialPriority, initialEstimatedTime, initialAssignedTo, initialIncludesStory, initialDeadline])
 
   async function handleMove() {
     if (toPhase === currentPhase) {
@@ -241,6 +251,8 @@ export function PhaseSheet({
         priority: editPriority,
         estimated_time_minutes: estMins && !isNaN(estMins) ? estMins : null,
         assigned_to: canAssign ? (editAssignedTo.length > 0 ? editAssignedTo : null) : undefined,
+        includes_story: storyApplicable ? editIncludesStory : false,
+        deadline: editDeadline.trim() || null,
       })
       .eq('id', requirementId)
     setSavingEdit(false)
@@ -419,6 +431,46 @@ export function PhaseSheet({
                     className="w-full px-3 py-2 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl focus:outline-none focus:border-[#00675c] text-[#2c2f31]"
                   />
                 </div>
+
+                {/* Deadline */}
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-[#595c5e]">
+                    Fecha de entrega <span className="text-[#abadaf] font-normal">(opcional)</span>
+                  </Label>
+                  <input
+                    type="date"
+                    value={editDeadline}
+                    onChange={(e) => setEditDeadline(e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl focus:outline-none focus:border-[#00675c] text-[#2c2f31]"
+                  />
+                </div>
+
+                {/* Includes story — solo para tipos aplicables */}
+                {storyApplicable && (
+                  <div className="flex items-start gap-3 p-3 bg-[#f5f7f9] rounded-xl border border-[#dfe3e6]">
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={editIncludesStory}
+                      onClick={() => setEditIncludesStory(!editIncludesStory)}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors mt-0.5 ${
+                        editIncludesStory ? 'bg-[#00675c]' : 'bg-[#abadaf]'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                          editIncludesStory ? 'translate-x-5' : 'translate-x-0.5'
+                        }`}
+                      />
+                    </button>
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold text-[#2c2f31]">Incluye story</p>
+                      <p className="text-[11px] text-[#747779] mt-0.5 leading-snug">
+                        Suma 1 a historias del ciclo sin crear un requerimiento aparte.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Assignees — multi-select checkboxes for admin/supervisor */}
                 {canAssign && assignableUsers.length > 0 && (

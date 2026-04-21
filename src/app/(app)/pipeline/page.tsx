@@ -32,7 +32,7 @@ export default async function PipelinePage() {
   if (currentCycleIds.length > 0) {
     let reqQuery = supabase
       .from('requirements')
-      .select('id, content_type, phase, carried_over, billing_cycle_id, registered_at, notes, title, cambios_count, review_started_at, priority, estimated_time_minutes, assigned_to')
+      .select('id, content_type, phase, carried_over, billing_cycle_id, registered_at, notes, title, cambios_count, review_started_at, priority, estimated_time_minutes, assigned_to, includes_story, deadline')
       .eq('voided', false)
       .in('content_type', PIPELINE_CONTENT_TYPES)
       .in('billing_cycle_id', currentCycleIds)
@@ -89,6 +89,8 @@ export default async function PipelinePage() {
           name: usersMap[uid]?.name ?? uid,
           avatar_url: usersMap[uid]?.avatar_url ?? null,
         })),
+        includes_story: c.includes_story ?? false,
+        deadline: c.deadline ?? null,
       })
     }
 

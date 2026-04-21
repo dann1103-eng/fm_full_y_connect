@@ -1,0 +1,90 @@
+import type { Phase } from '@/types/db'
+
+export type DeadlineStatus = 'none' | 'green' | 'yellow' | 'amber' | 'red' | 'overdue'
+
+const TERMINAL_PHASES: Phase[] = ['publicado_entregado']
+
+export function getDeadlineStatus(
+  deadline: string | null | undefined,
+  phase: Phase,
+  now: Date = new Date(),
+): { status: DeadlineStatus; daysLeft: number | null } {
+  if (!deadline) return { status: 'none', daysLeft: null }
+
+  // Interpret stored date as end-of-day local to avoid marking today as overdue.
+  const end = new Date(`${deadline}T23:59:59`)
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const diffDays = Math.ceil((end.getTime() - today.getTime()) / 86400000)
+
+  if (diffDays < 0) {
+    if (TERMINAL_PHASES.includes(phase)) {
+      return { status: 'none', daysLeft: diffDays }
+    }
+    return { status: 'overdue', daysLeft: diffDays }
+  }
+  if (diffDays <= 1) return { status: 'red', daysLeft: diffDays }
+  if (diffDays <= 3) return { status: 'amber', daysLeft: diffDays }
+  if (diffDays <= 7) return { status: 'yellow', daysLeft: diffDays }
+  return { status: 'green', daysLeft: diffDays }
+}
+
+export function deadlineIconClasses(status: DeadlineStatus): string {
+  switch (status) {
+    case 'green':
+      return 'bg-green-100 text-green-700'
+    case 'yellow':
+      return 'bg-yellow-100 text-yellow-700'
+    case 'amber':
+      return 'bg-orange-100 text-orange-700'
+    case 'red':
+      return 'bg-red-100 text-red-700'
+    case 'overdue':
+      return 'bg-[#b31b25] text-white'
+    default:
+      return 'bg-gray-100 text-gray-500'
+  }
+}
+
+export function deadlineChipClasses(status: DeadlineStatus): string {
+  switch (status) {
+    case 'green':
+      return 'bg-green-100 text-green-700 border-green-200'
+    case 'yellow':
+      return 'bg-yellow-100 text-yellow-700 border-yellow-200'
+    case 'amber':
+      return 'bg-orange-100 text-orange-700 border-orange-200'
+    case 'red':
+      return 'bg-red-100 text-red-700 border-red-200'
+    case 'overdue':
+      return 'bg-[#b31b25] text-white border-[#b31b25]'
+    default:
+      return 'bg-gray-100 text-gray-600 border-gray-200'
+  }
+}
+
+export function formatDeadlineLabel(daysLeft: number): string {
+  if (daysLeft < 0) return `vencido ${Math.abs(daysLeft)}d`
+  if (daysLeft === 0) return 'hoy'
+  if (daysLeft === 1) return 'mañana'
+  return `en ${daysLeft}d`
+}
+
+const MONTHS_SHORT = [
+  'ene',
+  'feb',
+  'mar',
+  'abr',
+  'may',
+  'jun',
+  'jul',
+  'ago',
+  'sep',
+  'oct',
+  'nov',
+  'dic',
+]
+
+export function formatDeadlineDate(deadline: string): string {
+  const d = new Date(`${deadline}T12:00:00`)
+  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`
+}

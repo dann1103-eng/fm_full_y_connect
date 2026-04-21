@@ -7,8 +7,9 @@ import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import type { PipelineItem } from '@/lib/domain/pipeline'
 import type { Phase, Priority, RequirementPhaseLog } from '@/types/db'
 import { PRIORITY_COLORS, PRIORITY_LABELS } from '@/types/db'
+import { getDeadlineStatus, deadlineChipClasses, formatDeadlineLabel, formatDeadlineDate } from '@/lib/domain/deadline'
 
-type SortField = 'title' | 'client' | 'phase' | 'priority' | 'assignee' | 'time' | 'last_moved'
+type SortField = 'title' | 'client' | 'phase' | 'priority' | 'assignee' | 'time' | 'last_moved' | 'deadline'
 type SortDir = 'asc' | 'desc'
 
 const PRIORITY_ORDER: Record<Priority, number> = { alta: 0, media: 1, baja: 2 }
@@ -29,6 +30,12 @@ function sortItems(items: PipelineItem[], field: SortField, dir: SortDir): Pipel
       case 'assignee':   cmp = (a.assignees[0]?.name ?? '').localeCompare(b.assignees[0]?.name ?? ''); break
       case 'time':       cmp = (a.estimated_time_minutes ?? 0) - (b.estimated_time_minutes ?? 0); break
       case 'last_moved': cmp = a.last_moved_at.localeCompare(b.last_moved_at); break
+      case 'deadline': {
+        const ad = a.deadline ?? '9999-12-31'
+        const bd = b.deadline ?? '9999-12-31'
+        cmp = ad.localeCompare(bd)
+        break
+      }
     }
     return dir === 'asc' ? cmp : -cmp
   })
@@ -86,6 +93,7 @@ export function TableView({ items, logsMap, currentUserId, canAssign }: TableVie
               {th('title',      'Título')}
               {th('client',     'Cliente')}
               {th('phase',      'Fase')}
+              {th('deadline',   'Entrega')}
               {th('priority',   'Prioridad')}
               {th('assignee',   'Asignado', 'hidden sm:table-cell')}
               {th('time',       '⏱ Est.',  'hidden md:table-cell')}
@@ -103,6 +111,8 @@ export function TableView({ items, logsMap, currentUserId, canAssign }: TableVie
                 (Date.now() - new Date(item.last_moved_at).getTime()) / 86400000
               )
               const relLabel = relDays === 0 ? 'hoy' : relDays === 1 ? 'hace 1d' : `hace ${relDays}d`
+              const deadlineInfo = getDeadlineStatus(item.deadline, item.phase as Phase)
+              const isOverdue = deadlineInfo.status === 'overdue'
 
               return (
                 <tr
@@ -123,6 +133,14 @@ export function TableView({ items, logsMap, currentUserId, canAssign }: TableVie
                     </div>
                     <p className="text-[10px] text-[#abadaf] ml-4 mt-0.5">
                       {CONTENT_TYPE_LABELS[item.content_type]}
+                      {item.includes_story && (
+                        <span
+                          title="Incluye story (suma 1 a historias del ciclo)"
+                          className="inline-block ml-1 text-[9px] font-semibold px-1 py-px rounded-full bg-purple-50 text-purple-600 border border-purple-200"
+                        >
+                          +story
+                        </span>
+                      )}
                     </p>
                   </td>
 
@@ -147,6 +165,27 @@ export function TableView({ items, logsMap, currentUserId, canAssign }: TableVie
                     <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${phaseBadgeClass}`}>
                       {PHASE_LABELS[item.phase as Phase]}
                     </span>
+                  </td>
+
+                  {/* Deadline */}
+                  <td className="px-3 py-2.5">
+                    {deadlineInfo.status === 'none' || !item.deadline ? (
+                      <span className="text-xs text-[#abadaf]">—</span>
+                    ) : isOverdue ? (
+                      <span
+                        className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap bg-[#b31b25] text-white uppercase tracking-wide"
+                        title={`Fecha de entrega: ${formatDeadlineDate(item.deadline)}`}
+                      >
+                        ⚠ Vencido
+                      </span>
+                    ) : (
+                      <span
+                        className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap border ${deadlineChipClasses(deadlineInfo.status)}`}
+                        title={`Entrega ${formatDeadlineDate(item.deadline)}`}
+                      >
+                        {formatDeadlineLabel(deadlineInfo.daysLeft ?? 0)}
+                      </span>
+                    )}
                   </td>
 
                   {/* Priority */}
@@ -229,6 +268,8 @@ export function TableView({ items, logsMap, currentUserId, canAssign }: TableVie
           assignedTo={selectedItem.assigned_to}
           assignees={selectedItem.assignees}
           canAssign={canAssign}
+          includesStory={selectedItem.includes_story}
+          deadline={selectedItem.deadline}
         />
       )}
     </>

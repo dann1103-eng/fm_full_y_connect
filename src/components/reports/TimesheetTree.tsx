@@ -35,14 +35,14 @@ function isGroupArray(c: TimesheetGroup['children']): c is TimesheetGroup[] {
 
 function Progress({ pct }: { pct: number }) {
   return (
-    <div className="flex items-center gap-2 min-w-[140px]">
+    <div className="flex items-center gap-2 min-w-[60px] sm:min-w-[140px]">
       <div className="flex-1 bg-[#e5e9eb] rounded-full h-1.5 overflow-hidden">
         <div
           className="h-full rounded-full bg-[#00675c]"
           style={{ width: `${Math.min(100, pct)}%` }}
         />
       </div>
-      <span className="text-xs font-bold text-[#595c5e] tabular-nums w-10 text-right">
+      <span className="hidden sm:inline text-xs font-bold text-[#595c5e] tabular-nums w-10 text-right">
         {pct.toFixed(1)}%
       </span>
     </div>
@@ -105,13 +105,17 @@ function EntryRow({
     <Tag
       type={clickable ? 'button' : undefined}
       onClick={clickable ? () => onRequirementClick(entry.requirement_id!) : undefined}
-      className={`w-full grid grid-cols-[1fr_auto_180px] items-center gap-4 px-4 py-2 border-b border-[#f0f3f5] text-left ${
+      className={`w-full grid grid-cols-[1fr_auto_72px] sm:grid-cols-[1fr_auto_180px] items-center gap-4 px-4 py-2 border-b border-[#f0f3f5] text-left ${
         clickable ? 'hover:bg-[#f5f7f9] cursor-pointer' : ''
       }`}
       style={{ paddingLeft: `${depth * 24 + 16}px` }}
     >
       <div className="flex items-center gap-2 min-w-0">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#abadaf] flex-shrink-0" />
+        <UserAvatar
+          name={entry.user_name}
+          avatarUrl={entry.user_avatar_url}
+          size="xs"
+        />
         <div className="min-w-0">
           <p className="text-sm text-[#2c2f31] truncate">{label}</p>
           {entry.notes && entry.notes.trim().length > 0 && (
@@ -172,7 +176,7 @@ function GroupNode({
         type="button"
         onClick={handleGroupClick}
         aria-expanded={isExpanded}
-        className={`w-full grid grid-cols-[1fr_auto_180px] items-center gap-4 px-4 py-3 border-b border-[#f0f3f5] hover:bg-[#f5f7f9] text-left transition-colors ${
+        className={`w-full grid grid-cols-[1fr_auto_72px] sm:grid-cols-[1fr_auto_180px] items-center gap-4 px-4 py-3 border-b border-[#f0f3f5] hover:bg-[#f5f7f9] text-left transition-colors ${
           depth === 0 ? 'bg-white' : 'bg-[#fafbfc]'
         }`}
         style={{ paddingLeft: `${depth * 24 + 16}px` }}
@@ -189,6 +193,14 @@ function GroupNode({
           <span className={`truncate ${depth === 0 ? 'text-sm font-bold text-[#2c2f31]' : 'text-sm text-[#2c2f31]'}`}>
             {group.label}
           </span>
+          {hasChildren && !isRequirementLeaf && (
+            <span
+              title={`${group.children.length} ${group.children.length === 1 ? 'elemento' : 'elementos'}`}
+              className="ml-1 inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full bg-[#f5f7f9] text-[10px] font-bold text-[#595c5e] border border-[#dfe3e6] flex-shrink-0"
+            >
+              {group.children.length}
+            </span>
+          )}
         </div>
         <span className="text-sm font-bold tabular-nums text-[#2c2f31]">
           {formatDurationHMS(group.durationSeconds)}
@@ -240,7 +252,7 @@ export function TimesheetTree({ groups, totalSeconds, expandedKeys, onToggle, on
       {/* ── Árbol de clientes reales ── */}
       {groups.length > 0 && (
         <div className="border border-[#dfe3e6] rounded-2xl overflow-hidden bg-white">
-          <div className="grid grid-cols-[1fr_auto_180px] gap-4 px-4 py-2 border-b border-[#dfe3e6] bg-[#f5f7f9]">
+          <div className="grid grid-cols-[1fr_auto_72px] sm:grid-cols-[1fr_auto_180px] gap-4 px-4 py-2 border-b border-[#dfe3e6] bg-[#f5f7f9]">
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#595c5e]">
               {internalGroup ? 'Clientes' : 'Título'}
             </span>
@@ -259,7 +271,7 @@ export function TimesheetTree({ groups, totalSeconds, expandedKeys, onToggle, on
               onRequirementClick={onRequirementClick}
             />
           ))}
-          <div className="grid grid-cols-[1fr_auto_180px] gap-4 px-4 py-3 bg-[#f5f7f9] border-t border-[#dfe3e6]">
+          <div className="grid grid-cols-[1fr_auto_72px] sm:grid-cols-[1fr_auto_180px] gap-4 px-4 py-3 bg-[#f5f7f9] border-t border-[#dfe3e6]">
             <span className="text-sm font-extrabold text-[#2c2f31]">
               {internalGroup ? 'Subtotal clientes' : 'Total'}
             </span>
@@ -274,7 +286,7 @@ export function TimesheetTree({ groups, totalSeconds, expandedKeys, onToggle, on
       {/* ── Sección Interno FM separada ── */}
       {internalGroup && (
         <div className="border border-[#dfe3e6] rounded-2xl overflow-hidden bg-white opacity-80">
-          <div className="grid grid-cols-[1fr_auto_180px] gap-4 px-4 py-2 border-b border-[#dfe3e6] bg-[#f5f7f9]">
+          <div className="grid grid-cols-[1fr_auto_72px] sm:grid-cols-[1fr_auto_180px] gap-4 px-4 py-2 border-b border-[#dfe3e6] bg-[#f5f7f9]">
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-[#abadaf] text-sm">home_work</span>
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#abadaf]">
@@ -291,7 +303,7 @@ export function TimesheetTree({ groups, totalSeconds, expandedKeys, onToggle, on
             onToggle={onToggle}
             onRequirementClick={onRequirementClick}
           />
-          <div className="grid grid-cols-[1fr_auto_180px] gap-4 px-4 py-3 bg-[#f5f7f9] border-t border-[#dfe3e6]">
+          <div className="grid grid-cols-[1fr_auto_72px] sm:grid-cols-[1fr_auto_180px] gap-4 px-4 py-3 bg-[#f5f7f9] border-t border-[#dfe3e6]">
             <span className="text-sm font-extrabold text-[#abadaf]">Interno FM</span>
             <span className="text-sm font-extrabold tabular-nums text-[#abadaf]">
               {formatDurationHMS(internalGroup.durationSeconds)}

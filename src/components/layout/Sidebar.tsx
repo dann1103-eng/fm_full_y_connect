@@ -101,7 +101,11 @@ interface SidebarProps {
   agencyLogoUrl?: string | null
 }
 
-export function Sidebar({ renewalCount = 0, agencyLogoUrl }: SidebarProps) {
+export function SidebarContent({
+  renewalCount = 0,
+  agencyLogoUrl,
+  onNavigate,
+}: SidebarProps & { onNavigate?: () => void }) {
   const pathname = usePathname()
   const user = useUser()
   const [logoError, setLogoError] = useState(false)
@@ -111,7 +115,7 @@ export function Sidebar({ renewalCount = 0, agencyLogoUrl }: SidebarProps) {
   )
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 w-64 flex flex-col bg-white border-r border-[#abadaf]/30 shadow-sm">
+    <div className="flex h-full flex-col">
       {/* Logo */}
       <div className="flex items-center gap-3 px-6 py-5 border-b border-[#abadaf]/20">
         <div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0 signature-gradient flex items-center justify-center">
@@ -134,7 +138,7 @@ export function Sidebar({ renewalCount = 0, agencyLogoUrl }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5">
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {visibleItems.map((item) => {
           const isActive =
             item.href === '/dashboard'
@@ -145,6 +149,7 @@ export function Sidebar({ renewalCount = 0, agencyLogoUrl }: SidebarProps) {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
                 isActive
@@ -171,6 +176,7 @@ export function Sidebar({ renewalCount = 0, agencyLogoUrl }: SidebarProps) {
         {/* User card → profile */}
         <Link
           href="/profile"
+          onClick={onNavigate}
           className={cn(
             'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150',
             pathname === '/profile'
@@ -197,6 +203,14 @@ export function Sidebar({ renewalCount = 0, agencyLogoUrl }: SidebarProps) {
           </button>
         </form>
       </div>
+    </div>
+  )
+}
+
+export function Sidebar(props: SidebarProps) {
+  return (
+    <aside className="fixed inset-y-0 left-0 z-40 w-64 hidden md:flex flex-col bg-white border-r border-[#abadaf]/30 shadow-sm">
+      <SidebarContent {...props} />
     </aside>
   )
 }
