@@ -268,6 +268,21 @@ export async function markConversationRead(conversationId: string) {
   }
 }
 
+export async function markAllConversationsRead() {
+  try {
+    const { supabase, userId } = await getCurrentUser()
+    const { error } = await supabase
+      .from('conversation_members')
+      .update({ last_read_at: new Date().toISOString() })
+      .eq('user_id', userId)
+    if (error) return { error: error.message }
+    return { success: true }
+  } catch (e) {
+    console.error('markAllConversationsRead failed:', e)
+    return { error: e instanceof Error ? e.message : 'Error desconocido' }
+  }
+}
+
 export async function leaveChannel(conversationId: string) {
   try {
     const { supabase, userId } = await getCurrentUser()

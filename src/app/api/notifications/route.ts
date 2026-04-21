@@ -83,7 +83,7 @@ export async function GET() {
       mentioned_by:users!requirement_mentions_mentioned_by_user_id_fkey(id, full_name, avatar_url)
     `)
     .eq('mentioned_user_id', user.id)
-    .or(`read_at.is.null,created_at.gte.${new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()}`)
+    .or(`read_at.is.null,created_at.gte.${new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString()}`)
     .order('created_at', { ascending: false })
     .limit(50)
 
@@ -201,7 +201,7 @@ export async function GET() {
       .not('phase', 'in', `(${TERMINAL_PHASES.map((p) => `"${p}"`).join(',')})`)
       .eq('voided', false)
       .order('deadline', { ascending: true })
-      .limit(50)
+      .limit(20)
 
     for (const r of (overdueRaw ?? []) as unknown as OverdueReqRow[]) {
       const daysOverdue = Math.floor(

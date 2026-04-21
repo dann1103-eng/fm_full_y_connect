@@ -7,6 +7,7 @@ import { es } from 'date-fns/locale'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { useNotifications } from '@/hooks/useNotifications'
 import { markAllMentionsRead, markMentionRead } from '@/app/actions/requirement-messages'
+import { markAllConversationsRead } from '@/app/actions/inbox'
 import type { NotificationItem } from '@/types/db'
 
 export function NotificationsDropdown() {
@@ -36,12 +37,14 @@ export function NotificationsDropdown() {
 
   function handleMarkAll() {
     startTransition(async () => {
-      await markAllMentionsRead()
+      await Promise.all([markAllMentionsRead(), markAllConversationsRead()])
       refresh()
     })
   }
 
-  const hasMentions = items.some((it) => it.kind === 'mention' && !it.read)
+  const hasUnread = items.some(
+    (it) => it.kind === 'overdue' || !it.read || (it.unread_count ?? 0) > 0,
+  )
 
   return (
     <div className="relative">
@@ -65,13 +68,13 @@ export function NotificationsDropdown() {
           <div className="absolute right-0 top-full mt-2 z-50 w-[360px] max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-xl ring-1 ring-black/10 overflow-hidden flex flex-col max-h-[80vh]">
             <div className="flex items-center justify-between px-4 py-3 border-b border-[#dfe3e6]">
               <div className="text-sm font-bold text-[#2c2f31]">Notificaciones</div>
-              {hasMentions && (
+              {hasUnread && (
                 <button
                   type="button"
                   onClick={handleMarkAll}
                   className="text-[11px] font-semibold text-[#00675c] hover:underline"
                 >
-                  Marcar todas leídas
+                  Marcar todo leído
                 </button>
               )}
             </div>
