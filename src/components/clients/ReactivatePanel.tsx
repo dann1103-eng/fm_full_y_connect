@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { ClientWithPlan, Plan } from '@/types/db'
 import { firstCycleDates } from '@/lib/domain/cycles'
+import { today as todayString } from '@/lib/domain/dates'
 import { migrateOpenPipelineItems } from '@/lib/domain/pipeline'
 
 interface ReactivatePanelProps {
@@ -15,7 +16,7 @@ interface ReactivatePanelProps {
 export function ReactivatePanel({ client, plans }: ReactivatePanelProps) {
   const router = useRouter()
   const [selectedPlanId, setSelectedPlanId] = useState(client.current_plan_id)
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0])
+  const [startDate, setStartDate] = useState(todayString())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -40,7 +41,7 @@ export function ReactivatePanel({ client, plans }: ReactivatePanelProps) {
       .limit(1)
       .maybeSingle()
 
-    const { periodStart, periodEnd } = firstCycleDates(startDate, client.billing_day)
+    const { periodStart, periodEnd } = firstCycleDates(startDate)
 
     // Copia el unified_content_limit del plan al snapshot (plan "Contenido")
     const snapshot = plan.unified_content_limit != null

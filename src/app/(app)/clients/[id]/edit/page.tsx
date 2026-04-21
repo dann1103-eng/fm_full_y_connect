@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import type { BillingPeriod, Client, Plan, BillingCycle, ContentType, CambiosPackage, ExtraContentItem, WeekKey, WeeklyDistribution } from '@/types/db'
 import { effectiveWeeklyTarget } from '@/lib/domain/requirement'
 import { limitsToRecord, CONTENT_TYPE_LABELS, EXTRA_CONTENT_PRICES } from '@/lib/domain/plans'
+import { augmentDistribution, buildProrateOverride, buildAccumulateOverride } from '@/lib/domain/weekly-distribution'
 import { LogoUploader } from '@/components/clients/LogoUploader'
 
 export default function ClientEditPage() {
@@ -55,6 +56,8 @@ export default function ClientEditPage() {
   const [cambiosPackages, setCambiosPackages] = useState<CambiosPackage[]>([])
   const [extraContent, setExtraContent] = useState<ExtraContentItem[]>([])
   const [contentOverride, setContentOverride] = useState<Partial<Record<ContentType, number>>>({})
+  type DistStrategy = { mode: 'prorate' } | { mode: 'accumulate'; week: WeekKey }
+  const [distStrategy, setDistStrategy] = useState<Partial<Record<ContentType, DistStrategy>>>({})
   const [pkgQty, setPkgQty] = useState('5')
   const [pkgPrice, setPkgPrice] = useState('')
   const [pkgNote, setPkgNote] = useState('')
@@ -128,6 +131,8 @@ export default function ClientEditPage() {
         setExtraContent((cycle.extra_content_json as ExtraContentItem[]) ?? [])
         setContentOverride((cycle.content_limits_override_json as Partial<Record<ContentType, number>>) ?? {})
       }
+      // Los defaults del distStrategy se infieren de la UI — el override guardado
+      // se regenera al guardar de nuevo. No se restauran estrategias por simplicidad.
 
       setFetching(false)
     }
@@ -192,6 +197,42 @@ export default function ClientEditPage() {
     router.refresh()
   }
 
+  // Distribución base para el preview del override semanal.
+  // Usa la distribución del cliente o la default del plan como punto de partida,
+  // rellena con ceil(limit/4) los tipos faltantes.
+  const baseDistForOverride = useMemo<WeeklyDistribution>(() => {
+    if (!limits) return {}
+    const base = Object.keys(weeklyDist).length > 0
+      ? weeklyDist
+      : selectedPlan?.default_weekly_distribution_json ?? {}
+    const pipelineTypes = (Object.entries(limits) as [ContentType, number][])
+      .filter(([t, v]) => v > 0 && !['produccion', 'reunion', 'matriz_contenido'].includes(t))
+      .map(([t]) => t)
+    return augmentDistribution(base, pipelineTypes, limits)
+  }, [limits, weeklyDist, selectedPlan])
+
+  // Preview del override semanal aplicando la estrategia de cada tipo modificado.
+  const weeklyOverridePreview = useMemo<WeeklyDistribution | null>(() => {
+    if (!limits) return null
+    let result = baseDistForOverride
+    let modified = false
+
+    for (const [type, overrideVal] of Object.entries(contentOverride) as [ContentType, number][]) {
+      const baseVal = limits[type] ?? 0
+      const delta = overrideVal - baseVal
+      if (delta === 0) continue
+      const strategy = distStrategy[type] ?? { mode: 'prorate' }
+      if (strategy.mode === 'prorate') {
+        result = buildProrateOverride(result, { [type]: delta })
+      } else {
+        result = buildAccumulateOverride(result, { [type]: delta }, strategy.week)
+      }
+      modified = true
+    }
+
+    return modified ? result : null
+  }, [limits, baseDistForOverride, contentOverride, distStrategy])
+
   // ── Admin: save cycle config ──
   async function handleSaveCycle() {
     if (!currentCycle) return
@@ -209,6 +250,7 @@ export default function ClientEditPage() {
         cambios_packages_json: cambiosPackages,
         extra_content_json: extraContent,
         content_limits_override_json: Object.keys(contentOverride).length > 0 ? contentOverride : null,
+        weekly_distribution_override_json: weeklyOverridePreview,
       })
       .eq('id', currentCycle.id)
 
@@ -740,6 +782,86 @@ export default function ClientEditPage() {
                     })}
                   </div>
                 </div>
+
+                {/* 3.b Distribución semanal del delta — sólo si hay overrides que difieren del plan */}
+                {(() => {
+                  const modifiedTypes = (Object.entries(contentOverride) as [ContentType, number][])
+                    .filter(([type, val]) => {
+                      const base = limits?.[type] ?? 0
+                      return val !== undefined && val !== base
+                    })
+                    .map(([type, val]) => ({ type, delta: val - (limits?.[type] ?? 0) }))
+
+                  if (modifiedTypes.length === 0) return null
+
+                  return (
+                    <div>
+                      <div className="h-px bg-[#dfe3e6] mb-5" />
+                      <p className="text-[11px] font-bold text-[#abadaf] uppercase tracking-wider mb-1">
+                        Distribución semanal del cambio
+                      </p>
+                      <p className="text-[10px] text-[#747779] mb-3">
+                        Para cada tipo modificado, elige cómo repartir la diferencia entre las 4 semanas.
+                      </p>
+
+                      <div className="space-y-3">
+                        {modifiedTypes.map(({ type, delta }) => {
+                          const strategy = distStrategy[type] ?? { mode: 'prorate' as const }
+                          return (
+                            <div key={type} className="rounded-xl border border-[#00675c]/20 bg-[#00675c]/04 p-3"
+                              style={{ background: 'rgba(0,103,92,.04)' }}>
+                              <p className="text-xs font-semibold text-[#00675c] mb-2">
+                                {CONTENT_TYPE_LABELS[type]} — {delta > 0 ? `+${delta}` : delta}
+                              </p>
+
+                              <div className="flex flex-wrap items-center gap-3 text-xs mb-2">
+                                <label className="flex items-center gap-1.5 text-[#2c2f31]">
+                                  <input
+                                    type="radio"
+                                    checked={strategy.mode === 'prorate'}
+                                    onChange={() => setDistStrategy(prev => ({ ...prev, [type]: { mode: 'prorate' } }))}
+                                  />
+                                  Prorratear
+                                </label>
+                                <label className="flex items-center gap-1.5 text-[#2c2f31]">
+                                  <input
+                                    type="radio"
+                                    checked={strategy.mode === 'accumulate'}
+                                    onChange={() => setDistStrategy(prev => ({ ...prev, [type]: { mode: 'accumulate', week: 'S1' } }))}
+                                  />
+                                  Acumular en
+                                </label>
+                                {strategy.mode === 'accumulate' && (
+                                  <select
+                                    value={strategy.week}
+                                    onChange={e => setDistStrategy(prev => ({ ...prev, [type]: { mode: 'accumulate', week: e.target.value as WeekKey } }))}
+                                    className="h-7 px-2 rounded-lg border border-[#dfe3e6] bg-white text-xs"
+                                  >
+                                    {(['S1', 'S2', 'S3', 'S4'] as WeekKey[]).map(w => (
+                                      <option key={w} value={w}>{w}</option>
+                                    ))}
+                                  </select>
+                                )}
+                              </div>
+
+                              {weeklyOverridePreview && (
+                                <p className="text-[11px] text-[#595c5e]">
+                                  Preview:{' '}
+                                  {(['S1', 'S2', 'S3', 'S4'] as WeekKey[]).map(w => (
+                                    <span key={w} className="mr-2">
+                                      <strong className="text-[#2c2f31]">{w}</strong>=
+                                      <strong className="text-[#00675c]">{weeklyOverridePreview[w]?.[type] ?? 0}</strong>
+                                    </span>
+                                  ))}
+                                </p>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })()}
 
                 {cycleError && (
                   <p className="text-sm text-[#b31b25] bg-[#b31b25]/5 rounded-xl px-3 py-2 border border-[#b31b25]/20">

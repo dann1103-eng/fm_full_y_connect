@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { createClient } from '@/lib/supabase/client'
 import { currentCycleDates, firstCycleDates } from '@/lib/domain/cycles'
+import { addDaysString, formatDateEs } from '@/lib/domain/dates'
 import type { BillingPeriod, Client } from '@/types/db'
 
 interface Plan {
@@ -112,9 +113,8 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
           .single()
 
         if (plan) {
-          const { periodStart, periodEnd } = firstCycleDates(form.start_date, billingDay, {
+          const { periodStart, periodEnd } = firstCycleDates(form.start_date, {
             billingPeriod,
-            billingDay2: billingPeriod === 'biweekly' && billingDay2 ? parseInt(billingDay2, 10) : null,
           })
 
           await supabase
@@ -169,15 +169,13 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
         .single()
 
       if (plan) {
-        const { periodStart, periodEnd: datePeriodEnd } = firstCycleDates(form.start_date, billingDay, {
+        const { periodStart, periodEnd: datePeriodEnd } = firstCycleDates(form.start_date, {
           billingPeriod,
-          billingDay2: billingPeriod === 'biweekly' && billingDay2 ? parseInt(billingDay2, 10) : null,
         })
 
-        // Plan Contenido: expiración por consumo, no por fecha
+        // Plan Contenido: expiración por consumo, no por fecha (+10 años para no vencer)
         const periodEnd = plan.unified_content_limit != null
-          ? new Date(new Date(periodStart + 'T12:00:00').getTime() + 10 * 365 * 24 * 60 * 60 * 1000)
-              .toISOString().split('T')[0]
+          ? addDaysString(periodStart, 365 * 10)
           : datePeriodEnd
 
         // Copia el unified_content_limit del plan al snapshot (plan "Contenido")
@@ -317,14 +315,10 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
                 {!isContentPlan && form.start_date && (() => {
                   const bd = parseInt(form.billing_day, 10)
                   if (!bd || bd < 1 || bd > 31) return null
-                  const { periodEnd } = firstCycleDates(form.start_date, bd, {
+                  const { periodEnd } = firstCycleDates(form.start_date, {
                     billingPeriod,
-                    billingDay2: billingPeriod === 'biweekly' && billingDay2 ? parseInt(billingDay2, 10) : null,
                   })
-                  const fmt = (d: string) =>
-                    new Date(d + 'T12:00:00').toLocaleDateString('es-ES', {
-                      day: 'numeric', month: 'long', year: 'numeric',
-                    })
+                  const fmt = (d: string) => formatDateEs(d)
                   return (
                     <p className="text-xs text-[#595c5e] flex items-center gap-1 mt-1">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-[#00675c] flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">

@@ -1,5 +1,14 @@
 import type { Requirement, ContentType, RequirementTotals, WeeklyDistribution, WeekKey, BillingCycle, Client } from '@/types/db'
 
+// Re-export desde el nuevo módulo para mantener compatibilidad con los imports existentes.
+export {
+  augmentDistribution,
+  applyOverride,
+  addRollover,
+  buildProrateOverride,
+  buildAccumulateOverride,
+} from './weekly-distribution'
+
 /**
  * Biweekly unlock: retorna true si la semana dada está desbloqueada por el pago correspondiente.
  * - Monthly: siempre true (el pago del ciclo cubre las 4 semanas).
@@ -189,32 +198,6 @@ export interface WeekBreakdown {
   budget: Partial<Record<ContentType, number>>
   overflow: Partial<Record<ContentType, number>>
   isCurrent: boolean
-}
-
-/**
- * Build a full 4-week distribution by augmenting a base distribution with
- * equitable fallbacks (limit ÷ 4) for any pipeline types not explicitly configured.
- */
-export function augmentDistribution(
-  dist: WeeklyDistribution,
-  pipelineTypes: ContentType[],
-  limits: Record<ContentType, number>,
-): WeeklyDistribution {
-  const WEEKS: WeekKey[] = ['S1', 'S2', 'S3', 'S4']
-  const result: WeeklyDistribution = {}
-  for (const w of WEEKS) {
-    result[w] = {}
-    for (const type of pipelineTypes) {
-      const explicit = dist[w]?.[type]
-      if (explicit !== undefined && explicit > 0) {
-        result[w]![type] = explicit
-      } else {
-        const fallback = Math.ceil(limits[type] / 4)
-        if (fallback > 0) result[w]![type] = fallback
-      }
-    }
-  }
-  return result
 }
 
 /**

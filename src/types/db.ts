@@ -248,6 +248,7 @@ export interface Database {
           cambios_packages_json: CambiosPackage[]
           extra_content_json: ExtraContentItem[]
           content_limits_override_json: Partial<Record<ContentType, number>> | null
+          weekly_distribution_override_json: WeeklyDistribution | null
         }
         Insert: {
           id?: string
@@ -266,6 +267,7 @@ export interface Database {
           cambios_packages_json?: CambiosPackage[]
           extra_content_json?: ExtraContentItem[]
           content_limits_override_json?: Partial<Record<ContentType, number>> | null
+          weekly_distribution_override_json?: WeeklyDistribution | null
         }
         Update: {
           client_id?: string
@@ -283,6 +285,7 @@ export interface Database {
           cambios_packages_json?: CambiosPackage[]
           extra_content_json?: ExtraContentItem[]
           content_limits_override_json?: Partial<Record<ContentType, number>> | null
+          weekly_distribution_override_json?: WeeklyDistribution | null
         }
         Relationships: [
           {

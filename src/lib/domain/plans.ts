@@ -39,6 +39,34 @@ export const NON_CARRYOVER_TYPES: ContentType[] = ['produccion', 'reunion', 'mat
  *  En planes con `unified_content_limit`, estos tipos comparten un pool común. */
 export const TIPPABLE_CONTENT_TYPES: ContentType[] = ['estatico', 'video_corto', 'reel', 'short']
 
+/** Mapeo ContentType → llave del PlanLimits (`historia` → `historias`). */
+export const CONTENT_TO_PLAN_KEY: Record<ContentType, keyof PlanLimits> = {
+  historia: 'historias',
+  estatico: 'estaticos',
+  video_corto: 'videos_cortos',
+  reel: 'reels',
+  short: 'shorts',
+  produccion: 'producciones',
+  reunion: 'reuniones',
+  matriz_contenido: 'matrices_contenido',
+}
+
+/** Convierte un rollover con llaves de PlanLimits a llaves de ContentType. */
+export function rolloverToContentType(
+  rollover: Partial<PlanLimits> | null | undefined,
+): Partial<Record<ContentType, number>> {
+  if (!rollover) return {}
+  return {
+    historia: rollover.historias ?? 0,
+    estatico: rollover.estaticos ?? 0,
+    video_corto: rollover.videos_cortos ?? 0,
+    reel: rollover.reels ?? 0,
+    short: rollover.shorts ?? 0,
+    produccion: rollover.producciones ?? 0,
+    reunion: rollover.reuniones ?? 0,
+  }
+}
+
 /** Convert PlanLimits JSON to ContentType-keyed record */
 export function limitsToRecord(limits: PlanLimits): Record<ContentType, number> {
   return {
