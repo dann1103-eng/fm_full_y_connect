@@ -224,11 +224,9 @@ export function computeWeeklyBreakdownWithCascade(
     .filter(r => !r.voided && !r.carried_over)
     .sort((a, b) => a.registered_at.localeCompare(b.registered_at))
 
-  for (const r of sorted) {
-    const type = r.content_type
-    let weekIdx = 0  // always fill from S1 forward
+  function fillCascade(type: ContentType) {
+    let weekIdx = 0
     let consumed = false
-
     while (weekIdx < 4) {
       const budget = remaining[WEEKS[weekIdx]]?.[type] ?? 0
       if (budget > 0) {
@@ -239,10 +237,13 @@ export function computeWeeklyBreakdownWithCascade(
       }
       weekIdx++
     }
+    if (!consumed) overflow[3][type] = (overflow[3][type] ?? 0) + 1
+  }
 
-    if (!consumed) {
-      overflow[3][type] = (overflow[3][type] ?? 0) + 1
-    }
+  for (const r of sorted) {
+    fillCascade(r.content_type)
+    // Historias derivadas: un reel/video con includes_story consume un slot de historia
+    if (r.includes_story) fillCascade('historia')
   }
 
   return WEEKS.map((w, i) => ({
