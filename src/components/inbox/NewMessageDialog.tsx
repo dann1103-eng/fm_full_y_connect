@@ -13,13 +13,13 @@ import type { AppUser } from '@/types/db'
 interface NewMessageDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  isAdmin: boolean
+  canCreateChannels: boolean
   allUsers: Pick<AppUser, 'id' | 'full_name' | 'avatar_url' | 'role'>[]
 }
 
 type Tab = 'dm' | 'channel'
 
-export function NewMessageDialog({ open, onOpenChange, isAdmin, allUsers }: NewMessageDialogProps) {
+export function NewMessageDialog({ open, onOpenChange, canCreateChannels, allUsers }: NewMessageDialogProps) {
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('dm')
   const [query, setQuery] = useState('')
@@ -106,7 +106,7 @@ export function NewMessageDialog({ open, onOpenChange, isAdmin, allUsers }: NewM
           <DialogTitle>Nuevo mensaje</DialogTitle>
         </DialogHeader>
 
-        {isAdmin && (
+        {canCreateChannels && (
           <div className="flex border border-[#dfe3e6] rounded-lg p-0.5 text-sm">
             <button
               type="button"

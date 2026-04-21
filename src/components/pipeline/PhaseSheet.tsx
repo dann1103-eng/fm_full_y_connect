@@ -26,6 +26,7 @@ import type { Phase, ContentType, RequirementPhaseLog, RequirementCambioLog, Pri
 import { PRIORITY_LABELS, PRIORITY_COLORS } from '@/types/db'
 import { RequirementChat } from './RequirementChat'
 import { RequirementTimesheet } from './RequirementTimesheet'
+import { ShareRequirementDialog } from './ShareRequirementDialog'
 
 type Tab = 'fases' | 'chat' | 'tiempo'
 
@@ -295,10 +296,29 @@ export function PhaseSheet({
 
   return (
     <Sheet open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <SheetContent className="w-full sm:max-w-md flex flex-col p-0 gap-0 overflow-hidden">
+      <SheetContent
+        fullScreenOnMobile
+        className="w-full sm:max-w-md flex flex-col p-0 gap-0 overflow-hidden"
+      >
+
+        {/* Share button — posicionado junto al botón de cerrar */}
+        <div className="absolute top-3 right-12 z-10">
+          <ShareRequirementDialog
+            requirementId={requirementId}
+            requirementTitle={title || CONTENT_TYPE_LABELS[contentType]}
+            trigger={
+              <span
+                className="inline-flex items-center justify-center w-8 h-8 rounded-md text-[#595c5e] hover:bg-[#f5f7f9] cursor-pointer"
+                title="Compartir requerimiento"
+              >
+                <span className="material-symbols-outlined text-[20px]">share</span>
+              </span>
+            }
+          />
+        </div>
 
         {/* ── Header (fixed) ── */}
-        <SheetHeader className="px-5 pt-5 pb-3 border-b border-[#dfe3e6] pr-14 flex-shrink-0">
+        <SheetHeader className="px-5 pt-5 pb-3 border-b border-[#dfe3e6] pr-24 flex-shrink-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#00675c]/10 text-[#00675c]">
               {CONTENT_TYPE_LABELS[contentType]}

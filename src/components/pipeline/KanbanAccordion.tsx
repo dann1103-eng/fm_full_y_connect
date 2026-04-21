@@ -1,10 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { PipelineCard } from './PipelineCard'
+import { PhaseSheet } from './PhaseSheet'
 import { PHASES, PHASE_LABELS, PHASE_CATEGORY } from '@/lib/domain/pipeline'
 import type { PipelineItem } from '@/lib/domain/pipeline'
-import type { Phase, RequirementPhaseLog } from '@/types/db'
+import type { Phase, Priority, RequirementPhaseLog } from '@/types/db'
 
 interface KanbanAccordionProps {
   byPhase: Record<Phase, PipelineItem[]>
@@ -12,6 +14,7 @@ interface KanbanAccordionProps {
   currentUserId: string
   canAssign?: boolean
   nowMs?: number
+  initialOpenRequirementId?: string | null
 }
 
 export function KanbanAccordion({
@@ -20,9 +23,26 @@ export function KanbanAccordion({
   currentUserId,
   canAssign = false,
   nowMs,
+  initialOpenRequirementId = null,
 }: KanbanAccordionProps) {
+  const router = useRouter()
   const firstNonEmpty = PHASES.find((p) => byPhase[p].length > 0) ?? PHASES[0]
   const [openPhase, setOpenPhase] = useState<Phase | null>(firstNonEmpty)
+  const [deepLinkItem, setDeepLinkItem] = useState<PipelineItem | null>(null)
+
+  useEffect(() => {
+    if (!initialOpenRequirementId) return
+    for (const phase of PHASES) {
+      const match = byPhase[phase]?.find((it) => it.id === initialOpenRequirementId)
+      if (match) {
+        setOpenPhase(phase)
+        setDeepLinkItem(match)
+        break
+      }
+    }
+    router.replace('/pipeline')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialOpenRequirementId])
 
   return (
     <div className="space-y-2">
@@ -90,6 +110,31 @@ export function KanbanAccordion({
           </div>
         )
       })}
+
+      {deepLinkItem && (
+        <PhaseSheet
+          open={true}
+          onClose={() => setDeepLinkItem(null)}
+          requirementId={deepLinkItem.id}
+          contentType={deepLinkItem.content_type}
+          currentPhase={deepLinkItem.phase as Phase}
+          clientName={deepLinkItem.client_name}
+          logs={logsMap[deepLinkItem.id] ?? []}
+          currentUserId={currentUserId}
+          title={deepLinkItem.title}
+          requirementNotes={deepLinkItem.notes}
+          cambiosCount={deepLinkItem.cambios_count}
+          reviewStartedAt={deepLinkItem.review_started_at}
+          showMoveSection={true}
+          priority={deepLinkItem.priority as Priority}
+          estimatedTimeMinutes={deepLinkItem.estimated_time_minutes}
+          assignedTo={deepLinkItem.assigned_to}
+          assignees={deepLinkItem.assignees}
+          canAssign={canAssign}
+          includesStory={deepLinkItem.includes_story}
+          deadline={deepLinkItem.deadline}
+        />
+      )}
     </div>
   )
 }

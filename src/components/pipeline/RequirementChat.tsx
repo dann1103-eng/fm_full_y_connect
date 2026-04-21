@@ -3,6 +3,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { uploadRequirementAttachment } from '@/lib/supabase/upload-req-attachment'
+import { sendRequirementMessage } from '@/app/actions/requirement-messages'
+import { MentionAutocomplete } from '@/components/requirements/MentionAutocomplete'
+import type { AppUser } from '@/types/db'
+
+type MentionableUser = Pick<AppUser, 'id' | 'full_name' | 'avatar_url' | 'role'>
 
 interface ChatMessage {
   id: string
@@ -34,6 +39,8 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
   const [pendingPreview, setPendingPreview] = useState<string | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [lightbox, setLightbox] = useState<string | null>(null)
+  const [users, setUsers] = useState<MentionableUser[]>([])
+  const [mentionIds, setMentionIds] = useState<string[]>([])
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -42,6 +49,17 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
     loadMessages()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requirementId])
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from('users')
+      .select('id, full_name, avatar_url, role')
+      .neq('id', currentUserId)
+      .then(({ data }) => {
+        setUsers((data ?? []) as MentionableUser[])
+      })
+  }, [currentUserId])
 
   async function loadMessages() {
     setLoading(true)
@@ -107,21 +125,24 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
       }
     }
 
-    const supabase = createClient()
-    const { data: inserted } = await supabase
-      .from('requirement_messages')
-      .insert({
-        requirement_id: requirementId,
-        user_id: currentUserId,
-        body: trimmed,
-        attachment_path: attachmentPath,
-        attachment_type: attachmentType,
-        attachment_name: attachmentName,
-      })
-      .select('id, body, created_at, user_id, attachment_path, attachment_type, attachment_name, user:users(full_name, role, avatar_url)')
-      .single()
-    if (inserted) setMessages((prev) => [...prev, inserted as ChatMessage])
+    const res = await sendRequirementMessage({
+      requirementId,
+      body: trimmed,
+      attachmentPath,
+      attachmentType,
+      attachmentName,
+      mentionedUserIds: mentionIds,
+    })
+    if ('error' in res && res.error) {
+      setUploadError(res.error)
+      setSending(false)
+      return
+    }
+    if ('message' in res && res.message) {
+      setMessages((prev) => [...prev, res.message as ChatMessage])
+    }
     setBody('')
+    setMentionIds([])
     clearPendingFile()
     setSending(false)
     inputRef.current?.focus()
@@ -158,31 +179,56 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
     return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
   }
 
-  // Renderiza texto con URLs convertidas en enlaces clickeables.
-  function renderWithLinks(text: string): React.ReactNode[] {
-    const URL_RE = /(https?:\/\/[^\s]+|www\.[^\s]+)/g
+  // Renderiza texto con URLs como enlaces y @menciones resaltadas en teal.
+  function renderWithLinks(text: string, isMine: boolean): React.ReactNode[] {
+    const TOKEN_RE = /(https?:\/\/[^\s]+|www\.[^\s]+|@[\p{L}][\p{L}\p{M}0-9_.'-]*(?:\s[\p{L}][\p{L}\p{M}0-9_.'-]*)?)/gu
     const nodes: React.ReactNode[] = []
     let lastIndex = 0
     let match: RegExpExecArray | null
     let idx = 0
-    while ((match = URL_RE.exec(text)) !== null) {
+    const knownNames = new Set(
+      users.map((u) => (u.full_name ?? '').toLowerCase()).filter(Boolean),
+    )
+    while ((match = TOKEN_RE.exec(text)) !== null) {
       const matchStart = match.index
       if (matchStart > lastIndex) {
         nodes.push(text.slice(lastIndex, matchStart))
       }
       const raw = match[0]
-      const href = raw.startsWith('http') ? raw : `https://${raw}`
-      nodes.push(
-        <a
-          key={`lnk-${idx++}`}
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline decoration-dotted hover:opacity-80 break-all"
-        >
-          {raw}
-        </a>,
-      )
+      if (raw.startsWith('@')) {
+        const candidate = raw.slice(1).toLowerCase()
+        const isKnown = Array.from(knownNames).some(
+          (name) => candidate === name || candidate.startsWith(name),
+        )
+        if (isKnown) {
+          nodes.push(
+            <span
+              key={`mention-${idx++}`}
+              className={
+                'font-semibold ' +
+                (isMine ? 'text-white underline decoration-white/60' : 'text-[#00675c]')
+              }
+            >
+              {raw}
+            </span>,
+          )
+        } else {
+          nodes.push(raw)
+        }
+      } else {
+        const href = raw.startsWith('http') ? raw : `https://${raw}`
+        nodes.push(
+          <a
+            key={`lnk-${idx++}`}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-dotted hover:opacity-80 break-all"
+          >
+            {raw}
+          </a>,
+        )
+      }
       lastIndex = matchStart + raw.length
     }
     if (lastIndex < text.length) {
@@ -284,7 +330,7 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
                               : undefined
                           }
                         >
-                          {renderWithLinks(msg.body)}
+                          {renderWithLinks(msg.body, isMine)}
                         </div>
                       )}
                       <span className="text-[10px] text-[#c8cacc] mt-1">{formatTime(msg.created_at)}</span>
@@ -328,7 +374,15 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
       )}
 
       {/* Input bar */}
-      <div className="flex gap-2 items-end px-5 py-3 border-t border-[#eef1f3] flex-shrink-0">
+      <div className="relative flex gap-2 items-end px-5 py-3 border-t border-[#eef1f3] flex-shrink-0">
+        <MentionAutocomplete
+          textareaRef={inputRef}
+          value={body}
+          onChange={setBody}
+          users={users}
+          currentMentionIds={mentionIds}
+          onMentionsChange={setMentionIds}
+        />
         <input
           ref={fileInputRef}
           type="file"

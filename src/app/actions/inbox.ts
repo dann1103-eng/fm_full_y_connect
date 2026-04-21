@@ -23,6 +23,14 @@ async function assertAdmin() {
   return ctx
 }
 
+async function assertAdminOrSupervisor() {
+  const ctx = await getCurrentUser()
+  if (ctx.role !== 'admin' && ctx.role !== 'supervisor') {
+    throw new Error('Sin permisos (admin o supervisor requerido)')
+  }
+  return ctx
+}
+
 /* ─────────────────────────────────────────────────────────────────
  * createOrGetDM — idempotente
  * Busca un DM existente entre currentUser y otherUserId; si no, lo crea
@@ -89,7 +97,7 @@ export async function createChannel(payload: {
   memberIds: string[]
 }) {
   try {
-    const { userId } = await assertAdmin()
+    const { userId } = await assertAdminOrSupervisor()
 
     const name = payload.name.trim().toLowerCase().replace(/\s+/g, '-')
     if (!name) return { error: 'El nombre del canal es obligatorio.' }
@@ -282,7 +290,7 @@ export async function leaveChannel(conversationId: string) {
 
 export async function addChannelMembers(conversationId: string, userIds: string[]) {
   try {
-    await assertAdmin()
+    await assertAdminOrSupervisor()
 
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
       return { error: 'Falta SUPABASE_SERVICE_ROLE_KEY en variables de entorno.' }
@@ -313,7 +321,7 @@ export async function addChannelMembers(conversationId: string, userIds: string[
 
 export async function removeChannelMember(conversationId: string, targetUserId: string) {
   try {
-    const { userId } = await assertAdmin()
+    const { userId } = await assertAdminOrSupervisor()
     if (targetUserId === userId) {
       return { error: 'Usa "Salir del canal" para removerte a ti mismo.' }
     }
@@ -347,7 +355,7 @@ export async function removeChannelMember(conversationId: string, targetUserId: 
  * ───────────────────────────────────────────────────────────────── */
 export async function deleteChannel(conversationId: string) {
   try {
-    await assertAdmin()
+    await assertAdminOrSupervisor()
 
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
       return { error: 'Falta SUPABASE_SERVICE_ROLE_KEY en variables de entorno.' }
@@ -430,6 +438,42 @@ export async function deleteAttachment(attachmentId: string) {
   }
 }
 
+/* ─────────────────────────────────────────────────────────────────
+ * shareRequirementToConversation — envía un mensaje con un marcador
+ * especial <<<req-share:{id}:{title}>>> que el cliente renderiza como card.
+ * ───────────────────────────────────────────────────────────────── */
+export async function shareRequirementToConversation(payload: {
+  conversationId: string
+  requirementId: string
+  requirementTitle: string
+}) {
+  try {
+    const { supabase, userId } = await getCurrentUser()
+
+    const safeTitle = payload.requirementTitle.replace(/[\r\n<>]/g, ' ').trim() || 'Sin título'
+    const body = `<<<req-share:${payload.requirementId}:${safeTitle}>>>`
+
+    const { data: msg, error } = await supabase
+      .from('messages')
+      .insert({
+        conversation_id: payload.conversationId,
+        user_id: userId,
+        body,
+      })
+      .select('id')
+      .single()
+
+    if (error || !msg) return { error: error?.message ?? 'No se pudo compartir el requerimiento' }
+
+    revalidatePath(`/inbox/${payload.conversationId}`)
+    revalidatePath('/inbox')
+    return { messageId: msg.id }
+  } catch (e) {
+    console.error('shareRequirementToConversation failed:', e)
+    return { error: e instanceof Error ? e.message : 'Error desconocido' }
+  }
+}
+
 export async function updateChannelMeta(payload: {
   conversationId: string
   name?: string
@@ -437,7 +481,7 @@ export async function updateChannelMeta(payload: {
   topic?: string | null
 }) {
   try {
-    await assertAdmin()
+    await assertAdminOrSupervisor()
 
     const update: {
       name?: string

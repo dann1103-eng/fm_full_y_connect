@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useUser } from '@/contexts/UserContext'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { useMobileSidebar } from '@/components/layout/MobileSidebarProvider'
+import { NotificationsDropdown } from '@/components/layout/NotificationsDropdown'
 
 interface TopNavProps {
   title: string
@@ -28,16 +29,19 @@ export function TopNav({ title }: TopNavProps) {
         <h1 className="text-lg font-semibold text-[#2c2f31] truncate">{title}</h1>
       </div>
 
-      <Link
-        href="/profile"
-        className="flex items-center gap-3 hover:opacity-80 transition-opacity flex-shrink-0"
-      >
-        <div className="text-right hidden sm:block">
-          <p className="text-sm font-medium text-[#2c2f31] leading-tight">{displayName}</p>
-          <p className="text-xs text-[#595c5e] capitalize">{user.role}</p>
-        </div>
-        <UserAvatar name={displayName} avatarUrl={user.avatar_url} size="sm" />
-      </Link>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <NotificationsDropdown />
+        <Link
+          href="/profile"
+          className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+        >
+          <div className="text-right hidden sm:block">
+            <p className="text-sm font-medium text-[#2c2f31] leading-tight">{displayName}</p>
+            <p className="text-xs text-[#595c5e] capitalize">{user.role}</p>
+          </div>
+          <UserAvatar name={displayName} avatarUrl={user.avatar_url} size="sm" />
+        </Link>
+      </div>
     </header>
   )
 }

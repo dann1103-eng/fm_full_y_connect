@@ -5,6 +5,15 @@ import type { ConversationListItem } from '@/types/db'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+function formatSharePreview(body: string): string {
+  if (body.startsWith('<<<req-share:')) {
+    const m = body.match(/^<<<req-share:[^:]+:(.+)>>>$/)
+    const title = m?.[1]?.trim() || 'requerimiento'
+    return `Compartió el requerimiento: ${title}`
+  }
+  return body
+}
+
 type ConvRow = {
   id: string
   type: 'dm' | 'channel'
@@ -96,7 +105,7 @@ export async function GET() {
   const previewByConv = new Map<string, string>()
   for (const m of lastMsgs) {
     if (!previewByConv.has(m.conversation_id)) {
-      previewByConv.set(m.conversation_id, m.body)
+      previewByConv.set(m.conversation_id, formatSharePreview(m.body))
     }
   }
 

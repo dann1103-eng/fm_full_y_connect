@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   DndContext,
   DragOverlay,
@@ -32,15 +33,36 @@ interface KanbanBoardProps {
   logsMap: Record<string, RequirementPhaseLog[]>
   currentUserId: string
   canAssign?: boolean
+  initialOpenRequirementId?: string | null
 }
 
-export function KanbanBoard({ byPhase, logsMap, currentUserId, canAssign = false }: KanbanBoardProps) {
+export function KanbanBoard({
+  byPhase,
+  logsMap,
+  currentUserId,
+  canAssign = false,
+  initialOpenRequirementId = null,
+}: KanbanBoardProps) {
+  const router = useRouter()
   const [activeItem, setActiveItem] = useState<PipelineItem | null>(null)
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null)
   const [activeDetailItem, setActiveDetailItem] = useState<PipelineItem | null>(null)
   const [detailLogs, setDetailLogs] = useState<RequirementPhaseLog[]>([])
   const [nowMs, setNowMs] = useState<number>(() => new Date().getTime())
   const isMobile = useIsMobile()
+
+  useEffect(() => {
+    if (!initialOpenRequirementId) return
+    for (const phase of PHASES) {
+      const match = byPhase[phase]?.find((it) => it.id === initialOpenRequirementId)
+      if (match) {
+        setActiveDetailItem(match)
+        break
+      }
+    }
+    router.replace('/pipeline')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialOpenRequirementId])
 
   // Tick every 60s so all cards update their phase-timer color in sync.
   useEffect(() => {
@@ -95,6 +117,7 @@ export function KanbanBoard({ byPhase, logsMap, currentUserId, canAssign = false
         currentUserId={currentUserId}
         canAssign={canAssign}
         nowMs={nowMs}
+        initialOpenRequirementId={initialOpenRequirementId}
       />
     )
   }

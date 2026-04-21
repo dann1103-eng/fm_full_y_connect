@@ -7,7 +7,15 @@ import type { Phase, RequirementPhaseLog, Client } from '@/types/db'
 
 export const dynamic = 'force-dynamic'
 
-export default async function PipelinePage() {
+interface PipelinePageProps {
+  searchParams?: Promise<{ req?: string | string[] }>
+}
+
+export default async function PipelinePage({ searchParams }: PipelinePageProps) {
+  const params = (await searchParams) ?? {}
+  const reqParam = Array.isArray(params.req) ? params.req[0] : params.req
+  const initialOpenRequirementId = reqParam?.trim() || null
+
   const supabase = await createClient()
 
   const { data: { user: authUser } } = await supabase.auth.getUser()
@@ -133,6 +141,7 @@ export default async function PipelinePage() {
           canAssign={canAssign}
           isAdmin={isAdmin}
           clients={pipelineClients ?? []}
+          initialOpenRequirementId={initialOpenRequirementId}
         />
       </div>
     </div>

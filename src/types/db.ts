@@ -657,6 +657,45 @@ export interface Database {
           }
         ]
       }
+      requirement_mentions: {
+        Row: {
+          id: string
+          message_id: string
+          requirement_id: string
+          mentioned_user_id: string
+          mentioned_by_user_id: string | null
+          read_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          message_id: string
+          requirement_id: string
+          mentioned_user_id: string
+          mentioned_by_user_id?: string | null
+          read_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          read_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'requirement_mentions_message_id_fkey'
+            columns: ['message_id']
+            isOneToOne: false
+            referencedRelation: 'requirement_messages'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'requirement_mentions_requirement_id_fkey'
+            columns: ['requirement_id']
+            isOneToOne: false
+            referencedRelation: 'requirements'
+            referencedColumns: ['id']
+          }
+        ]
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -678,6 +717,28 @@ export type Conversation = Database['public']['Tables']['conversations']['Row']
 export type ConversationMember = Database['public']['Tables']['conversation_members']['Row']
 export type Message = Database['public']['Tables']['messages']['Row']
 export type MessageAttachment = Database['public']['Tables']['message_attachments']['Row']
+export type RequirementMention = Database['public']['Tables']['requirement_mentions']['Row']
+
+/** Item unificado para el dropdown de notificaciones (TopNav). */
+export interface NotificationItem {
+  kind: 'mention' | 'dm' | 'channel'
+  /** mention.id para menciones; conversation.id para dm/channel */
+  id: string
+  created_at: string
+  read: boolean
+  /* Para 'mention' */
+  requirement_id?: string
+  requirement_title?: string
+  message_preview?: string
+  mentioned_by?: Pick<AppUser, 'id' | 'full_name' | 'avatar_url'>
+  /* Para 'dm' | 'channel' */
+  conversation_id?: string
+  conversation_name?: string | null
+  conversation_type?: ConversationType
+  counterpart?: Pick<AppUser, 'id' | 'full_name' | 'avatar_url'> | null
+  unread_count?: number
+  last_message_preview?: string | null
+}
 
 /** Mensaje enriquecido con autor y adjuntos para UI */
 export interface MessageWithMeta extends Message {

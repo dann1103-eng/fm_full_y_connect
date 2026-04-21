@@ -18,9 +18,18 @@ interface PipelineContainerProps {
   canAssign: boolean
   isAdmin: boolean
   clients: { id: string; name: string }[]
+  initialOpenRequirementId?: string | null
 }
 
-export function PipelineContainer({ items, logsMap, currentUserId, canAssign, isAdmin, clients }: PipelineContainerProps) {
+export function PipelineContainer({
+  items,
+  logsMap,
+  currentUserId,
+  canAssign,
+  isAdmin,
+  clients,
+  initialOpenRequirementId = null,
+}: PipelineContainerProps) {
   const [view, setView] = useState<ViewMode>('kanban')
   const [filterClientId, setFilterClientId] = useState('')
   const [filterPriority, setFilterPriority] = useState('')
@@ -161,6 +170,7 @@ export function PipelineContainer({ items, logsMap, currentUserId, canAssign, is
             logsMap={logsMap}
             currentUserId={currentUserId}
             canAssign={canAssign}
+            initialOpenRequirementId={initialOpenRequirementId}
           />
         </div>
       ) : (

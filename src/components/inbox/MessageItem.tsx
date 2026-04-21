@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { AttachmentPreview } from './AttachmentPreview'
 import { editMessage, deleteMessage, deleteAttachment } from '@/app/actions/inbox'
+import { RequirementShareCard, parseReqShareBody } from './RequirementShareCard'
 import type { MessageWithMeta } from '@/types/db'
 
 interface MessageItemProps {
@@ -115,20 +116,32 @@ export function MessageItem({ message, currentUserId, onUpdated, onDeleted }: Me
               </button>
             </div>
           </div>
-        ) : (
-          message.body.trim() !== '' && (
-            <div
-              className={cn(
-                'p-3 rounded-lg text-sm max-w-[80%] break-words whitespace-pre-wrap',
-                isMine
-                  ? 'bg-[#00675c] text-white rounded-tr-none'
-                  : 'bg-white border border-[#dfe3e6] text-[#2c2f31] rounded-tl-none'
-              )}
-            >
-              {message.body}
-            </div>
+        ) : (() => {
+          const share = parseReqShareBody(message.body)
+          if (share) {
+            return (
+              <RequirementShareCard
+                requirementId={share.requirementId}
+                title={share.title}
+                isMine={isMine}
+              />
+            )
+          }
+          return (
+            message.body.trim() !== '' && (
+              <div
+                className={cn(
+                  'p-3 rounded-lg text-sm max-w-[80%] break-words whitespace-pre-wrap',
+                  isMine
+                    ? 'bg-[#00675c] text-white rounded-tr-none'
+                    : 'bg-white border border-[#dfe3e6] text-[#2c2f31] rounded-tl-none'
+                )}
+              >
+                {message.body}
+              </div>
+            )
           )
-        )}
+        })()}
 
         {message.attachments.length > 0 && (
           <div className={cn('space-y-1', isMine && 'flex flex-col items-end')}>

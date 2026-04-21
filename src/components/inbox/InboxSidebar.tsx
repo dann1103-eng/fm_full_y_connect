@@ -23,7 +23,7 @@ export function InboxSidebar({ initialList, allUsers }: InboxSidebarProps) {
   const { data } = useInboxList(initialList)
   const [dialogOpen, setDialogOpen] = useState(false)
 
-  const isAdmin = user.role === 'admin'
+  const canCreateChannels = user.role === 'admin' || user.role === 'supervisor'
 
   const { channels, dms } = useMemo(() => {
     const channels = data.filter((c) => c.type === 'channel')
@@ -88,7 +88,7 @@ export function InboxSidebar({ initialList, allUsers }: InboxSidebarProps) {
       <NewMessageDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        isAdmin={isAdmin}
+        canCreateChannels={canCreateChannels}
         allUsers={allUsers.filter((u) => u.id !== user.id)}
       />
     </aside>

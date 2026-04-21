@@ -2,6 +2,15 @@ import { createClient } from '@/lib/supabase/server'
 import { InboxSidebar } from '@/components/inbox/InboxSidebar'
 import type { AppUser, ConversationListItem } from '@/types/db'
 
+function formatSharePreview(body: string): string {
+  if (body.startsWith('<<<req-share:')) {
+    const m = body.match(/^<<<req-share:[^:]+:(.+)>>>$/)
+    const title = m?.[1]?.trim() || 'requerimiento'
+    return `Compartió el requerimiento: ${title}`
+  }
+  return body
+}
+
 async function loadInitialList(): Promise<ConversationListItem[]> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -60,7 +69,7 @@ async function loadInitialList(): Promise<ConversationListItem[]> {
     .limit(500)
   const previewByConv = new Map<string, string>()
   for (const m of (lastMsgsRaw ?? []) as Array<{ conversation_id: string; body: string; created_at: string }>) {
-    if (!previewByConv.has(m.conversation_id)) previewByConv.set(m.conversation_id, m.body)
+    if (!previewByConv.has(m.conversation_id)) previewByConv.set(m.conversation_id, formatSharePreview(m.body))
   }
 
   const items: ConversationListItem[] = []
