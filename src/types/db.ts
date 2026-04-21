@@ -721,8 +721,8 @@ export type RequirementMention = Database['public']['Tables']['requirement_menti
 
 /** Item unificado para el dropdown de notificaciones (TopNav). */
 export interface NotificationItem {
-  kind: 'mention' | 'dm' | 'channel'
-  /** mention.id para menciones; conversation.id para dm/channel */
+  kind: 'mention' | 'dm' | 'channel' | 'overdue'
+  /** mention.id | conversation.id | requirement.id */
   id: string
   created_at: string
   read: boolean
@@ -738,6 +738,11 @@ export interface NotificationItem {
   counterpart?: Pick<AppUser, 'id' | 'full_name' | 'avatar_url'> | null
   unread_count?: number
   last_message_preview?: string | null
+  /* Para 'overdue' */
+  overdue_requirement_id?: string
+  overdue_requirement_title?: string
+  overdue_client_name?: string
+  overdue_days?: number
 }
 
 /** Mensaje enriquecido con autor y adjuntos para UI */

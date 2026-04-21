@@ -50,10 +50,28 @@ function formatSharePreview(body: string): string {
   return body
 }
 
+type OverdueReqRow = {
+  id: string
+  title: string
+  deadline: string
+  billing_cycle: { client: { name: string } | null } | null
+}
+
+const TERMINAL_PHASES = ['publicado_entregado']
+
 export async function GET() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  /* ── Role check ────────────────────────────────────────────── */
+  const { data: appUser } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+  const isAdminOrSupervisor =
+    appUser?.role === 'admin' || appUser?.role === 'supervisor'
 
   /* ── Menciones ─────────────────────────────────────────────── */
   const { data: mentionsRaw } = await supabase
@@ -172,10 +190,42 @@ export async function GET() {
     }
   }
 
-  /* ── Merge y sort ──────────────────────────────────────────── */
-  const items = [...mentionItems, ...convItems].sort((a, b) =>
-    a.created_at < b.created_at ? 1 : -1,
-  )
+  /* ── Requerimientos vencidos (solo admin/supervisor) ───────── */
+  const overdueItems: NotificationItem[] = []
+  if (isAdminOrSupervisor) {
+    const today = new Date().toISOString().split('T')[0]
+    const { data: overdueRaw } = await supabase
+      .from('requirements')
+      .select('id, title, deadline, billing_cycle:billing_cycles!requirements_billing_cycle_id_fkey(client:clients!billing_cycles_client_id_fkey(name))')
+      .lt('deadline', today)
+      .not('phase', 'in', `(${TERMINAL_PHASES.map((p) => `"${p}"`).join(',')})`)
+      .eq('voided', false)
+      .order('deadline', { ascending: true })
+      .limit(50)
+
+    for (const r of (overdueRaw ?? []) as unknown as OverdueReqRow[]) {
+      const daysOverdue = Math.floor(
+        (new Date().getTime() - new Date(`${r.deadline}T23:59:59`).getTime()) / 86400000,
+      )
+      overdueItems.push({
+        kind: 'overdue',
+        id: r.id,
+        created_at: `${r.deadline}T23:59:59.000Z`,
+        read: false,
+        overdue_requirement_id: r.id,
+        overdue_requirement_title: r.title || 'Sin título',
+        overdue_client_name: r.billing_cycle?.client?.name ?? '',
+        overdue_days: daysOverdue,
+      })
+    }
+  }
+
+  /* ── Merge y sort: vencidos al frente, luego por fecha ─────── */
+  const items = [...overdueItems, ...mentionItems, ...convItems].sort((a, b) => {
+    if (a.kind === 'overdue' && b.kind !== 'overdue') return -1
+    if (a.kind !== 'overdue' && b.kind === 'overdue') return 1
+    return a.created_at < b.created_at ? 1 : -1
+  })
 
   return NextResponse.json(items)
 }

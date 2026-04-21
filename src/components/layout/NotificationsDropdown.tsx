@@ -17,6 +17,10 @@ export function NotificationsDropdown() {
 
   function handleItemClick(item: NotificationItem) {
     setOpen(false)
+    if (item.kind === 'overdue' && item.overdue_requirement_id) {
+      router.push(`/pipeline?req=${item.overdue_requirement_id}`)
+      return
+    }
     if (item.kind === 'mention' && item.requirement_id) {
       startTransition(async () => {
         await markMentionRead(item.id)
@@ -103,7 +107,40 @@ function NotificationRow({ item, onClick }: { item: NotificationItem; onClick: (
     }
   })()
 
+  const isOverdue = item.kind === 'overdue'
   const isMention = item.kind === 'mention'
+
+  if (isOverdue) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-[#b31b25]/10 transition-colors border-b border-[#dfe3e6]/60 last:border-b-0 bg-[#b31b25]/5 border-l-4 border-l-[#b31b25]"
+      >
+        <span className="w-8 h-8 rounded-full bg-[#b31b25]/10 flex items-center justify-center flex-shrink-0">
+          <span className="material-symbols-outlined text-[18px] text-[#b31b25]">warning</span>
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <div className="text-xs leading-tight">
+              <span className="font-bold text-[#b31b25] uppercase tracking-wide text-[10px]">Vencido</span>
+              {item.overdue_days != null && item.overdue_days > 0 && (
+                <span className="ml-1 text-[10px] text-[#b31b25]/80">
+                  hace {item.overdue_days}d
+                </span>
+              )}
+              <div className="font-semibold text-[#2c2f31] mt-0.5 truncate">
+                {item.overdue_requirement_title}
+              </div>
+              {item.overdue_client_name && (
+                <div className="text-[#595c5e]/70 text-[11px]">{item.overdue_client_name}</div>
+              )}
+            </div>
+          </div>
+        </div>
+      </button>
+    )
+  }
 
   return (
     <button

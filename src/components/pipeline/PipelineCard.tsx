@@ -85,18 +85,8 @@ export function CardBody({
 
   const children = (
     <>
-      {/* Overdue bubble — top-right, most prominent */}
-      {isOverdue && (
-        <span
-          className="absolute top-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#b31b25] text-white uppercase tracking-wide shadow-sm z-10"
-          title={item.deadline ? `Fecha de entrega: ${formatDeadlineDate(item.deadline)}` : undefined}
-        >
-          ⚠ Vencido
-        </span>
-      )}
-
       {/* Top row: client (if shown) + priority dot */}
-      <div className={`flex items-center justify-between mb-2 ${isOverdue ? 'pr-16' : ''}`}>
+      <div className="flex items-center justify-between mb-2">
         {showClient ? (
           <div className="flex items-center gap-2 min-w-0">
             {item.client_logo_url ? (
@@ -144,9 +134,16 @@ export function CardBody({
         <p className="text-xs text-[#595c5e] line-clamp-2 mb-2">{item.notes}</p>
       )}
 
-      {/* Bottom row: date + time chip + assignee */}
+      {/* Bottom row: date + vencido chip + time chip + assignee */}
       <div className="flex items-center justify-between gap-2 mt-1">
-        <p className="text-xs text-[#abadaf]">{relativeDate(item.last_moved_at)}</p>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <p className="text-xs text-[#abadaf] whitespace-nowrap">{relativeDate(item.last_moved_at)}</p>
+          {isOverdue && (
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#b31b25] text-white whitespace-nowrap">
+              ⚠ Vencido
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-1.5">
           {item.estimated_time_minutes != null && (
             <span className="text-[10px] font-semibold text-[#595c5e] bg-[#f5f7f9] px-1.5 py-0.5 rounded-md">

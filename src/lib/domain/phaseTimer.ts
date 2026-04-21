@@ -19,10 +19,10 @@ export function getPhaseTimerColor(phase: Phase, elapsedMs: number): PhaseTimerC
 
 export function phaseTimerBgClass(color: PhaseTimerColor): string {
   switch (color) {
-    case 'green':  return 'bg-green-50 border-green-200'
-    case 'yellow': return 'bg-yellow-50 border-yellow-300'
-    case 'orange': return 'bg-orange-50 border-orange-300'
-    case 'red':    return 'bg-red-50 border-red-300'
+    case 'green':  return 'bg-green-50 border-2 border-green-400'
+    case 'yellow': return 'bg-yellow-50 border-2 border-yellow-500'
+    case 'orange': return 'bg-orange-50 border-2 border-orange-500'
+    case 'red':    return 'bg-red-50 border-2 border-red-500'
     default:       return ''
   }
 }

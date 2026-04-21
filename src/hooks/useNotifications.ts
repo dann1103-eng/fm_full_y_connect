@@ -56,6 +56,7 @@ export function useNotifications() {
   }, [fetchItems])
 
   const unreadCount = items.reduce((sum, it) => {
+    if (it.kind === 'overdue') return sum + 1
     if (it.kind === 'mention') return sum + (it.read ? 0 : 1)
     return sum + (it.unread_count ?? 0)
   }, 0)
