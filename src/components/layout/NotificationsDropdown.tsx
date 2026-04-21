@@ -38,12 +38,16 @@ export function NotificationsDropdown() {
   function handleMarkAll() {
     startTransition(async () => {
       await Promise.all([markAllMentionsRead(), markAllConversationsRead()])
-      refresh()
+      await refresh()
+      setOpen(false)
     })
   }
 
+  // Los ítems 'overdue' son siempre read:false (estado en vivo), no cuentan para el botón
   const hasUnread = items.some(
-    (it) => it.kind === 'overdue' || !it.read || (it.unread_count ?? 0) > 0,
+    (it) =>
+      it.kind !== 'overdue' &&
+      (it.kind === 'mention' ? !it.read : (it.unread_count ?? 0) > 0),
   )
 
   return (
