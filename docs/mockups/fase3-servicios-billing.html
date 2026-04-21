@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FM CRM — Phase 3: Servicios, Quincenal, Plan Override (Mockup)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: #f5f7f9; color: #2c2f31; min-height: 100vh; display: flex; }
+
+  .sidebar { width: 220px; min-height: 100vh; background: white; border-right: 1px solid #dfe3e6; padding: 20px 12px; display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+  .sidebar-logo { font-size: 15px; font-weight: 700; color: #00675c; padding: 0 8px 16px; border-bottom: 1px solid #dfe3e6; margin-bottom: 8px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; font-size: 13px; color: #595c5e; cursor: pointer; text-decoration: none; }
+  .nav-item.active { background: rgba(0,103,92,.08); color: #00675c; font-weight: 600; }
+  .nav-item .material-symbols-outlined { font-size: 18px; }
+
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .topnav { height: 56px; background: white; border-bottom: 1px solid #dfe3e6; display: flex; align-items: center; padding: 0 24px; gap: 8px; font-size: 14px; color: #595c5e; flex-shrink: 0; }
+  .topnav strong { color: #2c2f31; font-weight: 600; }
+
+  /* Tabs */
+  .page-tabs { background: white; border-bottom: 1px solid #dfe3e6; display: flex; padding: 0 24px; gap: 0; flex-shrink: 0; }
+  .page-tab { padding: 12px 16px; font-size: 13px; font-weight: 600; border-bottom: 2px solid transparent; cursor: pointer; color: #747779; white-space: nowrap; }
+  .page-tab.active { color: #00675c; border-bottom-color: #00675c; }
+
+  .content { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+
+  .pane { display: none; flex-direction: column; gap: 16px; }
+  .pane.active { display: flex; }
+
+  .card { background: white; border-radius: 1.5rem; border: 1px solid #dfe3e6; padding: 20px 24px; box-shadow: 0 1px 4px rgba(0,0,0,.04); }
+  .card-title { font-size: 15px; font-weight: 600; color: #2c2f31; margin-bottom: 4px; }
+  .card-sub { font-size: 12px; color: #747779; margin-bottom: 16px; }
+
+  .section-title { font-size: 11px; font-weight: 700; color: #abadaf; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+  .section-title .material-symbols-outlined { font-size: 15px; color: #595c5e; }
+  .divider { height: 1px; background: #dfe3e6; margin: 4px 0; }
+
+  /* Forms */
+  .form-row { display: flex; gap: 8px; align-items: flex-end; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+  .form-group label { font-size: 11px; font-weight: 500; color: #595c5e; }
+  input, select, textarea { height: 34px; padding: 0 10px; border: 1px solid #dfe3e6; border-radius: 10px; font-size: 13px; font-family: inherit; color: #2c2f31; background: #f5f7f9; outline: none; width: 100%; }
+  input:focus, select:focus { border-color: #00675c; background: white; }
+  textarea { height: auto; padding: 8px 10px; resize: none; }
+
+  /* Buttons */
+  .btn { height: 34px; padding: 0 14px; border-radius: 10px; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-primary { background: linear-gradient(135deg, #00675c, #5bf4de 200%); color: white; }
+  .btn-outline { background: white; border: 1.5px solid #00675c; color: #00675c; }
+  .btn-ghost { background: none; border: 1px solid #dfe3e6; color: #595c5e; cursor: pointer; font-family: inherit; font-size: 13px; height: 34px; padding: 0 12px; border-radius: 10px; }
+  .btn .material-symbols-outlined { font-size: 15px; }
+
+  /* List rows */
+  .list-row { display: flex; align-items: center; gap: 10px; font-size: 12px; padding: 8px 12px; background: #f5f7f9; border-radius: 10px; border: 1px solid #dfe3e6; }
+  .list-row .info { flex: 1; }
+  .list-row .info strong { display: block; font-size: 13px; color: #2c2f31; }
+  .list-row .info span { color: #595c5e; }
+  .list-row .price { font-weight: 700; color: #00675c; white-space: nowrap; }
+  .list-row .del { background: none; border: none; cursor: pointer; color: #b31b25; opacity: .6; display: flex; padding: 2px; }
+  .list-row .del:hover { opacity: 1; }
+  .list-row .del .material-symbols-outlined { font-size: 15px; }
+  .list-total { font-size: 12px; color: #595c5e; padding: 6px 12px; background: rgba(0,103,92,.05); border: 1px solid rgba(0,103,92,.15); border-radius: 8px; }
+
+  /* Toggle switch */
+  .toggle-wrap { display: flex; align-items: center; gap: 10px; }
+  .toggle { position: relative; width: 40px; height: 22px; background: #dfe3e6; border-radius: 999px; cursor: pointer; border: none; flex-shrink: 0; transition: background .2s; }
+  .toggle.on { background: #00675c; }
+  .toggle::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; background: white; border-radius: 50%; transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+  .toggle.on::after { transform: translateX(18px); }
+
+  /* Billing type selector */
+  .billing-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .billing-option { border: 2px solid #dfe3e6; border-radius: 14px; padding: 14px 16px; cursor: pointer; transition: all .15s; background: white; text-align: left; }
+  .billing-option:hover { border-color: #00675c40; }
+  .billing-option.selected { border-color: #00675c; background: rgba(0,103,92,.04); }
+  .billing-option .opt-title { font-size: 14px; font-weight: 600; color: #2c2f31; margin-bottom: 3px; }
+  .billing-option .opt-sub { font-size: 11px; color: #747779; line-height: 1.4; }
+  .billing-option .opt-icon { font-size: 22px; margin-bottom: 8px; }
+
+  /* Plan override */
+  .plan-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+  .plan-card { border: 2px solid #dfe3e6; border-radius: 14px; padding: 14px; cursor: pointer; transition: all .15s; background: white; text-align: center; }
+  .plan-card:hover { border-color: #00675c40; }
+  .plan-card.selected { border-color: #00675c; background: rgba(0,103,92,.04); }
+  .plan-card .pc-name { font-size: 13px; font-weight: 700; color: #2c2f31; margin-bottom: 2px; }
+  .plan-card .pc-price { font-size: 12px; color: #595c5e; margin-bottom: 4px; }
+  .plan-card .pc-cambios { font-size: 11px; color: #00675c; font-weight: 600; }
+
+  .override-notice { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; background: rgba(245,158,11,.06); border: 1px solid rgba(245,158,11,.25); border-radius: 10px; font-size: 12px; color: #92400e; line-height: 1.5; }
+  .override-notice .material-symbols-outlined { font-size: 16px; color: #d97706; flex-shrink: 0; margin-top: 1px; }
+
+  /* Status chips */
+  .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 999px; }
+  .chip-teal { background: rgba(0,103,92,.1); color: #00675c; }
+  .chip-amber { background: rgba(245,158,11,.1); color: #92400e; }
+  .chip-gray { background: rgba(89,92,94,.1); color: #595c5e; }
+
+  /* Summary row */
+  .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .summary-box { background: #f5f7f9; border: 1px solid #dfe3e6; border-radius: 12px; padding: 12px 14px; }
+  .summary-box label { font-size: 11px; color: #595c5e; display: block; margin-bottom: 3px; }
+  .summary-box .val { font-size: 20px; font-weight: 700; color: #2c2f31; }
+  .summary-box .val.accent { color: #00675c; }
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">FM CRM</div>
+  <a class="nav-item active"><span class="material-symbols-outlined">people</span> Clientes</a>
+  <a class="nav-item"><span class="material-symbols-outlined">view_kanban</span> Pipeline</a>
+  <a class="nav-item"><span class="material-symbols-outlined">dashboard</span> Dashboard</a>
+  <a class="nav-item"><span class="material-symbols-outlined">receipt_long</span> Renovaciones</a>
+</aside>
+
+<div class="main">
+  <nav class="topnav">
+    <span class="material-symbols-outlined" style="font-size:16px">arrow_back</span>
+    <a href="#" style="color:#595c5e;text-decoration:none">Clientes</a>
+    <span style="color:#dfe3e6">/</span>
+    <a href="#" style="color:#595c5e;text-decoration:none">Café Orgánico</a>
+    <span style="color:#dfe3e6">/</span>
+    <strong>Editar</strong>
+  </nav>
+
+  <!-- Page-level tabs (showing Phase 3 additions) -->
+  <div class="page-tabs">
+    <div class="page-tab" onclick="switchTab('datos')">Datos del cliente</div>
+    <div class="page-tab" onclick="switchTab('ciclo')">Ciclo actual <span class="chip chip-teal" style="margin-left:4px">Admin</span></div>
+    <div class="page-tab active" onclick="switchTab('fase3')">Servicios y facturación <span class="chip chip-teal" style="margin-left:4px">Admin</span></div>
+  </div>
+
+  <div class="content">
+
+    <!-- ══ FASE 3 pane ══ -->
+    <div class="pane active" id="pane-fase3">
+
+      <!-- 1. Servicios personalizados del ciclo -->
+      <div class="card">
+        <div class="card-title">Servicios personalizados</div>
+        <div class="card-sub">Cobros adicionales fuera del plan — fotografía, diseño, consultorías, etc. Se registran en este ciclo.</div>
+
+        <div class="form-row" style="margin-bottom:10px">
+          <div class="form-group" style="flex:2">
+            <label>Descripción del servicio *</label>
+            <input type="text" id="svc-desc" placeholder="ej. Sesión fotográfica de producto">
+          </div>
+          <div class="form-group" style="flex:0 0 110px">
+            <label>Precio (USD) *</label>
+            <input type="number" id="svc-price" placeholder="0.00" step="0.01" min="0">
+          </div>
+          <div class="form-group" style="flex:0 0 90px">
+            <label>Cantidad</label>
+            <input type="number" id="svc-qty" value="1" min="1">
+          </div>
+          <div style="padding-top:17px">
+            <button class="btn btn-outline" onclick="addService()">
+              <span class="material-symbols-outlined">add</span> Agregar
+            </button>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:6px" id="svc-list">
+          <div class="list-row">
+            <div class="info">
+              <strong>Sesión fotográfica catálogo</strong>
+              <span>1 × $180.00 · 8 abr 2026</span>
+            </div>
+            <span class="price">$180.00</span>
+            <button class="del" onclick="this.closest('.list-row').remove(); updateSvcTotal()">
+              <span class="material-symbols-outlined">delete</span>
+            </button>
+          </div>
+          <div class="list-row">
+            <div class="info">
+              <strong>Diseño de identidad visual</strong>
+              <span>1 × $250.00 · 3 abr 2026</span>
+            </div>
+            <span class="price">$250.00</span>
+            <button class="del" onclick="this.closest('.list-row').remove(); updateSvcTotal()">
+              <span class="material-symbols-outlined">delete</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="list-total" style="margin-top:8px" id="svc-total">
+          Total servicios este ciclo: <strong>$430.00</strong>
+        </div>
+      </div>
+
+      <!-- 2. Tipo de facturación -->
+      <div class="card">
+        <div class="card-title">Tipo de facturación</div>
+        <div class="card-sub">Define si este cliente paga mensual o quincenal. Afecta la duración de los ciclos.</div>
+
+        <div class="billing-options">
+          <button class="billing-option selected" onclick="selectBilling(this, 'mensual')">
+            <div class="opt-icon">📅</div>
+            <div class="opt-title">Mensual</div>
+            <div class="opt-sub">Un ciclo por mes. Fecha de corte según el día de facturación del cliente.</div>
+          </button>
+          <button class="billing-option" onclick="selectBilling(this, 'quincenal')">
+            <div class="opt-icon">📆</div>
+            <div class="opt-title">Quincenal</div>
+            <div class="opt-sub">Dos ciclos por mes. Los límites de contenido se dividen a la mitad por ciclo.</div>
+          </button>
+        </div>
+
+        <div id="biweekly-note" style="display:none">
+          <div class="override-notice">
+            <span class="material-symbols-outlined">info</span>
+            <span>
+              Al activar facturación quincenal, cada ciclo dura ~15 días y los límites del plan se dividen entre 2 automáticamente.
+              El precio mensual se cobra en dos pagos. Aplica al próximo ciclo al renovar.
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Plan override del ciclo actual -->
+      <div class="card">
+        <div class="card-title">Plan override — ciclo actual</div>
+        <div class="card-sub">Aplica un plan diferente solo para este ciclo sin cambiar el plan base del cliente.</div>
+
+        <div class="plan-cards" id="plan-cards">
+          <div class="plan-card" onclick="selectPlan(this,'basico')">
+            <div class="pc-name">Básico</div>
+            <div class="pc-price">$200 / mes</div>
+            <div class="pc-cambios">8 cambios</div>
+          </div>
+          <div class="plan-card selected" onclick="selectPlan(this,'profesional')">
+            <div class="pc-name">Profesional</div>
+            <div class="pc-price">$300 / mes</div>
+            <div class="pc-cambios">20 cambios</div>
+          </div>
+          <div class="plan-card" onclick="selectPlan(this,'premium')">
+            <div class="pc-name">Premium</div>
+            <div class="pc-price">$400 / mes</div>
+            <div class="pc-cambios">26 cambios</div>
+          </div>
+        </div>
+
+        <div class="override-notice" id="plan-override-notice" style="display:none">
+          <span class="material-symbols-outlined">warning</span>
+          <span id="plan-override-text"></span>
+        </div>
+
+        <div style="margin-top:14px;display:flex;align-items:center;justify-content:space-between">
+          <p style="font-size:12px;color:#747779">Plan base del cliente: <strong style="color:#2c2f31">Profesional</strong></p>
+          <button class="btn btn-ghost" onclick="resetPlan()">Restaurar plan base</button>
+        </div>
+      </div>
+
+      <!-- Resumen del ciclo -->
+      <div class="card" style="background:rgba(0,103,92,.03);border-color:rgba(0,103,92,.15)">
+        <div class="card-title" style="color:#00675c">Resumen de facturación del ciclo</div>
+        <div class="summary-grid" style="margin-bottom:12px">
+          <div class="summary-box">
+            <label>Plan aplicado</label>
+            <div class="val" style="font-size:16px">Profesional</div>
+          </div>
+          <div class="summary-box">
+            <label>Servicios extra</label>
+            <div class="val accent">$430</div>
+          </div>
+          <div class="summary-box">
+            <label>Contenido extra</label>
+            <div class="val accent">$65</div>
+          </div>
+        </div>
+        <div style="font-size:13px;color:#595c5e;padding:10px 14px;background:white;border-radius:10px;border:1px solid #dfe3e6">
+          Total estimado este ciclo: <strong style="font-size:16px;color:#00675c">$795.00</strong>
+          <span style="font-size:11px;color:#abadaf;margin-left:8px">(plan $300 + servicios $430 + contenido extra $65)</span>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" style="flex:0">Cancelar</button>
+        <button class="btn btn-primary" style="flex:1" onclick="savePhase3()">
+          <span class="material-symbols-outlined">check</span>
+          Guardar configuración
+        </button>
+      </div>
+
+    </div><!-- /pane-fase3 -->
+
+  </div>
+</div>
+
+<script>
+  function switchTab(tab) {
+    document.querySelectorAll('.page-tab').forEach((t, i) => {
+      t.classList.toggle('active', ['datos','ciclo','fase3'][i] === tab)
+    })
+    document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'))
+    const pane = document.getElementById('pane-' + tab)
+    if (pane) pane.classList.add('active')
+  }
+
+  let svcTotal = 430
+  function addService() {
+    const desc = document.getElementById('svc-desc').value.trim()
+    const price = parseFloat(document.getElementById('svc-price').value) || 0
+    const qty = parseInt(document.getElementById('svc-qty').value) || 1
+    if (!desc || !price) return
+    const total = price * qty
+    svcTotal += total
+    const row = document.createElement('div')
+    row.className = 'list-row'
+    const today = new Date().toLocaleDateString('es-SV', { day: 'numeric', month: 'short', year: 'numeric' })
+    row.innerHTML = `
+      <div class="info">
+        <strong>${desc}</strong>
+        <span>${qty} × $${price.toFixed(2)} · ${today}</span>
+      </div>
+      <span class="price">$${total.toFixed(2)}</span>
+      <button class="del" onclick="this.closest('.list-row').remove(); updateSvcTotal(-${total})">
+        <span class="material-symbols-outlined">delete</span>
+      </button>`
+    document.getElementById('svc-list').appendChild(row)
+    document.getElementById('svc-total').innerHTML = `Total servicios este ciclo: <strong>$${svcTotal.toFixed(2)}</strong>`
+    document.getElementById('svc-desc').value = ''
+    document.getElementById('svc-price').value = ''
+    document.getElementById('svc-qty').value = '1'
+  }
+
+  function updateSvcTotal(delta) {
+    if (delta) { svcTotal += delta }
+    else {
+      svcTotal = 0
+      document.querySelectorAll('#svc-list .price').forEach(el => {
+        svcTotal += parseFloat(el.textContent.replace('$','')) || 0
+      })
+    }
+    document.getElementById('svc-total').innerHTML = `Total servicios este ciclo: <strong>$${svcTotal.toFixed(2)}</strong>`
+  }
+
+  function selectBilling(btn, type) {
+    document.querySelectorAll('.billing-option').forEach(b => b.classList.remove('selected'))
+    btn.classList.add('selected')
+    document.getElementById('biweekly-note').style.display = type === 'quincenal' ? 'block' : 'none'
+  }
+
+  let currentPlan = 'profesional'
+  function selectPlan(card, plan) {
+    document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('selected'))
+    card.classList.add('selected')
+    currentPlan = plan
+    const notice = document.getElementById('plan-override-notice')
+    const text = document.getElementById('plan-override-text')
+    if (plan !== 'profesional') {
+      const names = { basico: 'Básico', premium: 'Premium' }
+      text.textContent = `Override activo: se aplicará el plan ${names[plan]} para este ciclo en lugar del plan base (Profesional).`
+      notice.style.display = 'flex'
+    } else {
+      notice.style.display = 'none'
+    }
+  }
+
+  function resetPlan() {
+    document.querySelectorAll('.plan-card').forEach((c, i) => c.classList.toggle('selected', i === 1))
+    currentPlan = 'profesional'
+    document.getElementById('plan-override-notice').style.display = 'none'
+  }
+
+  function savePhase3() {
+    const btn = event.target.closest('.btn')
+    const orig = btn.innerHTML
+    btn.textContent = '✓ Guardado'
+    setTimeout(() => btn.innerHTML = orig, 2000)
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mockup — Detalle de Requerimiento</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #e8ebed;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    /* ─────────────────────────────────────────
+       SHELL — fixed-height card, no page scroll
+    ───────────────────────────────────────── */
+    .sheet {
+      background: #fff;
+      border-radius: 24px;
+      width: 100%;
+      max-width: 660px;
+      box-shadow: 0 12px 48px rgba(0,0,0,.14);
+      display: flex;
+      flex-direction: column;
+      height: 90vh;        /* fixed height — makes flex children shrink/scroll */
+      overflow: hidden;
+    }
+
+    /* ─── HEADER (never scrolls) ─── */
+    .sheet-header {
+      padding: 20px 24px 0;
+      flex-shrink: 0;
+    }
+    .hdr-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .client-chip { display: flex; align-items: center; gap: 9px; }
+    .avatar {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg,#00675c,#5bf4de);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 800; font-size: 12px; flex-shrink: 0;
+    }
+    .client-name  { font-size: 13px; font-weight: 700; color: #2c2f31; line-height: 1.2; }
+    .client-plan  { font-size: 11px; color: #747779; }
+    .phase-pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 11px; border-radius: 999px;
+      font-size: 11px; font-weight: 700;
+      background: #fff3cd; color: #7a4f00;
+      border: 1px solid #f59e0b40;
+      white-space: nowrap;
+    }
+    .type-pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 10px; border-radius: 999px;
+      font-size: 11px; font-weight: 700; background: #00675c14; color: #00675c;
+      white-space: nowrap;
+    }
+
+    .req-title {
+      font-size: 18px; font-weight: 800; color: #2c2f31;
+      margin-bottom: 6px; line-height: 1.25;
+    }
+    .req-meta {
+      display: flex; gap: 14px; flex-wrap: wrap;
+      font-size: 11px; color: #747779; margin-bottom: 14px;
+    }
+    .req-meta span { display: flex; align-items: center; gap: 4px; }
+    .req-meta svg  { width: 12px; height: 12px; fill: #abadaf; flex-shrink: 0; }
+
+    /* Phase strip */
+    .phase-strip {
+      display: flex; gap: 3px; padding-bottom: 0;
+    }
+    .ps-step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .ps-bar  { width: 100%; height: 4px; border-radius: 3px; background: #eef1f3; }
+    .ps-bar.done   { background: #00675c; }
+    .ps-bar.active { background: #f59e0b; }
+    .ps-label {
+      font-size: 9px; color: #abadaf; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .03em; text-align: center;
+    }
+    .ps-label.active { color: #7a4f00; }
+
+    /* ─── TABS (never scrolls) ─── */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #eef1f3;
+      padding: 0 24px;
+      flex-shrink: 0;
+      margin-top: 12px;
+    }
+    .tab {
+      display: flex; align-items: center; gap: 6px;
+      padding: 11px 14px;
+      font-size: 13px; font-weight: 600; color: #747779;
+      cursor: pointer; border-bottom: 2px solid transparent;
+      transition: color .15s, border-color .15s;
+      white-space: nowrap; user-select: none;
+    }
+    .tab svg  { width: 15px; height: 15px; fill: currentColor; flex-shrink: 0; }
+    .tab.active { color: #00675c; border-bottom-color: #00675c; }
+    .tab:hover:not(.active) { color: #2c2f31; }
+    .tab-badge {
+      font-size: 10px; font-weight: 800;
+      background: #00675c1a; color: #00675c;
+      border-radius: 999px; padding: 1px 6px;
+    }
+    .tab-badge.amber { background: #f59e0b1a; color: #b45309; }
+
+    /* ─── CONTENT AREA (scrolls independently) ─── */
+    .tab-content {
+      flex: 1;
+      min-height: 0;   /* critical: lets flex child shrink below its content size */
+      position: relative;
+      overflow: hidden;
+    }
+    .pane {
+      display: none;
+      position: absolute;
+      inset: 0;              /* fill the tab-content box exactly */
+      overflow-y: auto;      /* THIS is where scrolling happens */
+      padding: 18px 24px 20px;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .pane.active { display: flex; }
+
+    /* ─── FOOTER (never scrolls) ─── */
+    .sheet-footer {
+      padding: 12px 24px;
+      border-top: 1px solid #eef1f3;
+      display: flex; gap: 8px; justify-content: flex-end;
+      flex-shrink: 0;
+    }
+    .fbtn {
+      padding: 8px 16px; border-radius: 11px;
+      font-size: 13px; font-weight: 700; cursor: pointer; border: none;
+    }
+    .fbtn.ghost  { background: #f5f7f9; color: #595c5e; border: 1.5px solid #dfe3e6; }
+    .fbtn.danger { background: #b31b2510; color: #b31b25; border: 1.5px solid #b31b2530; }
+
+    /* ═══════════════════════════
+       PANE 1 — FASES
+    ═══════════════════════════ */
+    .card {
+      background: #f8fafb; border: 1px solid #eef1f3;
+      border-radius: 16px; padding: 14px 16px;
+    }
+    .card.teal {
+      background: linear-gradient(135deg,#00675c08,#5bf4de0f);
+      border-color: #00675c30;
+    }
+    .card.amber {
+      background: #fffbeb; border-color: #f59e0b40;
+    }
+
+    .row-between { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .lbl-sm { font-size: 10px; font-weight: 700; text-transform: uppercase;
+              letter-spacing: .06em; color: #747779; margin-bottom: 3px; }
+    .val-lg  { font-size: 17px; font-weight: 800; }
+    .val-lg.teal  { color: #00675c; }
+    .val-lg.amber { color: #b45309; }
+
+    .move-btn {
+      display: flex; align-items: center; gap: 6px;
+      background: linear-gradient(135deg,#00675c,#5bf4de);
+      color: #fff; border: none; border-radius: 11px;
+      padding: 9px 16px; font-size: 13px; font-weight: 700; cursor: pointer;
+      white-space: nowrap;
+    }
+    .move-btn svg { width: 14px; height: 14px; fill: #fff; }
+
+    .timer-clock { font-size: 28px; font-weight: 900; color: #b45309;
+      font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+    .timer-sub   { font-size: 11px; color: #92400e; margin-top: 1px; }
+
+    .cambios-bar-wrap { flex: 1; }
+    .cambios-bg { background: #eef1f3; border-radius: 99px; height: 6px; overflow: hidden; margin-top: 5px; }
+    .cambios-fill { height: 100%; border-radius: 99px; background: #f59e0b; }
+    .cambios-label { font-size: 11px; color: #595c5e; }
+
+    /* Timeline */
+    .section-label {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .06em; color: #abadaf; margin-bottom: 8px;
+    }
+    .timeline { display: flex; flex-direction: column; }
+    .tl-row { display: flex; gap: 12px; }
+    .tl-spine { display: flex; flex-direction: column; align-items: center; width: 16px; flex-shrink: 0; }
+    .tl-dot  { width: 10px; height: 10px; border-radius: 50%; background: #00675c; flex-shrink: 0; margin-top: 4px; }
+    .tl-dot.grey { background: #c8cacc; }
+    .tl-dot.amber{ background: #f59e0b; }
+    .tl-line { width: 2px; flex: 1; background: #eef1f3; min-height: 16px; margin-top: 3px; }
+    .tl-body { flex: 1; padding-bottom: 16px; }
+    .tl-title{ font-size: 13px; font-weight: 600; color: #2c2f31; }
+    .tl-meta { font-size: 11px; color: #747779; margin-top: 1px; }
+    .tl-note {
+      font-size: 12px; color: #595c5e; background: #f0f3f5;
+      border-radius: 8px; padding: 6px 10px; margin-top: 6px; line-height: 1.45;
+    }
+
+    /* ═══════════════════════════
+       PANE 2 — CHAT
+    ═══════════════════════════ */
+    #pane-chat {
+      padding: 0;
+      display: none;
+    }
+    #pane-chat.active { display: flex; flex-direction: column; }
+    .chat-msgs {
+      flex: 1; overflow-y: auto;
+      padding: 16px 24px;
+      display: flex; flex-direction: column; gap: 12px;
+      min-height: 0;
+    }
+    .date-sep {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 10px; color: #abadaf; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .05em;
+    }
+    .date-sep::before,.date-sep::after { content:''; flex:1; height:1px; background:#eef1f3; }
+    .msg { display: flex; gap: 8px; align-items: flex-end; }
+    .msg.mine { flex-direction: row-reverse; }
+    .msg-av {
+      width: 26px; height: 26px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 10px; color: #fff; flex-shrink: 0;
+    }
+    .msg-av.op  { background: linear-gradient(135deg,#00675c,#5bf4de); }
+    .msg-av.adm { background: linear-gradient(135deg,#5c4a8a,#b89cff); }
+    .msg-wrap { display: flex; flex-direction: column; max-width: 72%; }
+    .msg.mine .msg-wrap { align-items: flex-end; }
+    .msg-sender { font-size: 10px; color: #abadaf; font-weight: 600; margin-bottom: 2px; }
+    .bubble {
+      padding: 9px 13px; border-radius: 14px;
+      font-size: 13px; line-height: 1.5; color: #2c2f31;
+      background: #f0f2f4;
+    }
+    .msg.mine .bubble {
+      background: linear-gradient(135deg,#00675c,#029e90);
+      color: #fff; border-bottom-right-radius: 4px;
+    }
+    .msg:not(.mine) .bubble { border-bottom-left-radius: 4px; }
+    .msg-time { font-size: 10px; color: #abadaf; margin-top: 3px; }
+
+    .chat-bar {
+      display: flex; gap: 8px; align-items: flex-end;
+      padding: 10px 24px 14px;
+      border-top: 1px solid #eef1f3;
+      flex-shrink: 0;
+    }
+    .chat-input {
+      flex: 1; background: #f5f7f9; border: 1.5px solid #dfe3e6;
+      border-radius: 13px; padding: 9px 13px; font-size: 13px;
+      font-family: inherit; color: #2c2f31; resize: none; outline: none;
+      min-height: 40px; max-height: 96px;
+    }
+    .chat-input:focus { border-color: #00675c; }
+    .send-btn {
+      width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
+      background: linear-gradient(135deg,#00675c,#5bf4de);
+      border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .send-btn svg { fill: #fff; width: 17px; height: 17px; }
+
+    /* ═══════════════════════════
+       PANE 3 — HOJA DE TIEMPO
+    ═══════════════════════════ */
+    .kpi-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .kpi {
+      background: #f5f7f9; border-radius: 14px;
+      padding: 12px 14px; text-align: center;
+    }
+    .kpi-val   { font-size: 19px; font-weight: 900; color: #2c2f31; }
+    .kpi-label { font-size: 10px; color: #747779; text-transform: uppercase;
+                 letter-spacing: .05em; font-weight: 700; margin-top: 2px; }
+
+    /* Active timer */
+    .active-timer-card {
+      background: linear-gradient(135deg,#00675c0d,#5bf4de14);
+      border: 1.5px solid #00675c30; border-radius: 16px;
+      padding: 14px 16px;
+    }
+    .atc-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .atc-clock {
+      font-size: 32px; font-weight: 900; color: #00675c;
+      font-variant-numeric: tabular-nums; letter-spacing: -.03em;
+    }
+    .atc-label { font-size: 10px; font-weight: 700; color: #595c5e;
+      text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+    .atc-title { font-size: 15px; font-weight: 700; color: #2c2f31; }
+    .atc-phase { font-size: 11px; color: #00675c; font-weight: 600; margin-top: 2px; }
+    .stop-btn {
+      display: flex; align-items: center; gap: 5px;
+      background: #b31b25; color: #fff; border: none; border-radius: 10px;
+      padding: 7px 13px; font-size: 12px; font-weight: 700; cursor: pointer;
+      margin-top: 10px; width: fit-content;
+    }
+    .stop-btn svg { width: 12px; height: 12px; fill: #fff; }
+
+    /* Start timer prompt */
+    .start-prompt {
+      border: 1.5px dashed #dfe3e6; border-radius: 16px;
+      padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
+    }
+    .sp-row { display: flex; gap: 8px; align-items: center; }
+    .sp-label { font-size: 12px; font-weight: 700; color: #595c5e; min-width: 46px; }
+    .sp-input {
+      flex: 1; background: #f5f7f9; border: 1.5px solid #dfe3e6;
+      border-radius: 10px; padding: 7px 11px; font-size: 13px;
+      font-family: inherit; color: #2c2f31; outline: none;
+    }
+    .sp-input:focus { border-color: #00675c; }
+    .sp-select {
+      flex: 1; background: #f5f7f9; border: 1.5px solid #dfe3e6;
+      border-radius: 10px; padding: 7px 11px; font-size: 13px;
+      color: #2c2f31; outline: none; cursor: pointer;
+    }
+    .sp-btns { display: flex; gap: 8px; }
+    .btn-start {
+      display: flex; align-items: center; gap: 6px;
+      background: linear-gradient(135deg,#00675c,#5bf4de);
+      color: #fff; border: none; border-radius: 10px;
+      padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: pointer;
+    }
+    .btn-start svg { width: 13px; height: 13px; fill: #fff; }
+    .btn-add-manual {
+      display: flex; align-items: center; gap: 6px;
+      background: #f5f7f9; border: 1.5px solid #dfe3e6;
+      color: #595c5e; border-radius: 10px;
+      padding: 8px 14px; font-size: 13px; font-weight: 700; cursor: pointer;
+    }
+    .btn-add-manual svg { width: 13px; height: 13px; fill: #595c5e; }
+
+    /* Entries */
+    .entry {
+      display: flex; gap: 12px; align-items: center;
+      background: #fff; border: 1px solid #eef1f3;
+      border-radius: 12px; padding: 10px 14px;
+    }
+    .entry-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      flex-shrink: 0; margin-top: 1px;
+    }
+    .entry-dot.prod    { background: #00675c; }
+    .entry-dot.rev-int { background: #6366f1; }
+    .entry-dot.rev-cli { background: #f59e0b; }
+    .entry-body { flex: 1; min-width: 0; }
+    .entry-title { font-size: 13px; font-weight: 600; color: #2c2f31;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .entry-meta  { font-size: 11px; color: #747779; margin-top: 1px; }
+    .chip {
+      font-size: 10px; background: #f0f2f4; color: #595c5e;
+      border-radius: 6px; padding: 2px 7px; font-weight: 600; flex-shrink: 0;
+    }
+    .entry-dur { font-size: 14px; font-weight: 800; color: #2c2f31;
+      font-variant-numeric: tabular-nums; flex-shrink: 0; }
+
+    /* Scrollbar styling */
+    .pane::-webkit-scrollbar,
+    .chat-msgs::-webkit-scrollbar { width: 4px; }
+    .pane::-webkit-scrollbar-track,
+    .chat-msgs::-webkit-scrollbar-track { background: transparent; }
+    .pane::-webkit-scrollbar-thumb,
+    .chat-msgs::-webkit-scrollbar-thumb { background: #dfe3e6; border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+<div class="sheet">
+
+  <!-- ══ HEADER ══ -->
+  <div class="sheet-header">
+    <div class="hdr-top">
+      <div class="client-chip">
+        <div class="avatar">FB</div>
+        <div>
+          <div class="client-name">Ferretería Bermúdez</div>
+          <div class="client-plan">Plan Pro · Ciclo Abr 2026</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+        <!-- Reel icon -->
+        <span class="type-pill">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/></svg>
+          Reel
+        </span>
+        <span class="phase-pill">
+          <!-- Clock icon -->
+          <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>
+          Revisión Cliente
+        </span>
+      </div>
+    </div>
+
+    <div class="req-title">Reel de lanzamiento temporada verano</div>
+    <div class="req-meta">
+      <span>
+        <svg viewBox="0 0 24 24"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg>
+        14 abr 2026
+      </span>
+      <span>
+        <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+        Ana López
+      </span>
+      <span>
+        <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
+        2 cambios / 3 máx.
+      </span>
+    </div>
+
+    <!-- Phase progress -->
+    <div class="phase-strip">
+      <div class="ps-step"><div class="ps-bar done"></div><div class="ps-label">Pendiente</div></div>
+      <div class="ps-step"><div class="ps-bar done"></div><div class="ps-label">Producción</div></div>
+      <div class="ps-step"><div class="ps-bar done"></div><div class="ps-label">Rev. Interna</div></div>
+      <div class="ps-step"><div class="ps-bar active"></div><div class="ps-label active">Rev. Cliente</div></div>
+      <div class="ps-step"><div class="ps-bar"></div><div class="ps-label">Aprobado</div></div>
+      <div class="ps-step"><div class="ps-bar"></div><div class="ps-label">Publicado</div></div>
+    </div>
+  </div>
+
+  <!-- ══ TABS ══ -->
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('fases',this)">
+      <!-- layers icon -->
+      <svg viewBox="0 0 24 24"><path d="M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z"/></svg>
+      Fases
+    </div>
+    <div class="tab" onclick="switchTab('chat',this)">
+      <!-- chat bubble icon -->
+      <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+      Chat
+      <span class="tab-badge" id="chat-badge">3</span>
+    </div>
+    <div class="tab" onclick="switchTab('tiempo',this)">
+      <!-- timer icon -->
+      <svg viewBox="0 0 24 24"><path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42C16.07 4.74 14.12 4 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
+      Hoja de tiempo
+      <span class="tab-badge amber" id="time-badge">2h 40m</span>
+    </div>
+  </div>
+
+  <!-- ══ CONTENT ══ -->
+  <div class="tab-content">
+
+    <!-- ──────────── FASES ──────────── -->
+    <div id="pane-fases" class="pane active">
+
+      <!-- Current phase + move -->
+      <div class="card teal">
+        <div class="row-between">
+          <div>
+            <div class="lbl-sm">Fase actual</div>
+            <div class="val-lg teal">Revisión Cliente</div>
+          </div>
+          <button class="move-btn">
+            <svg viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+            Mover fase
+          </button>
+        </div>
+      </div>
+
+      <!-- Review client timer (solo referencia — no genera entrada de tiempo) -->
+      <div class="card amber">
+        <div class="row-between">
+          <div>
+            <div class="lbl-sm" style="color:#92400e;display:flex;align-items:center;gap:4px;">
+              <svg viewBox="0 0 24 24" width="11" height="11" style="fill:#92400e;flex-shrink:0;"><path d="M6 2v6l2 2-2 2v6h12v-6l-2-2 2-2V2H6zm10 14.5V20H8v-3.5l4-4 4 4zm-4-5l-4-4V4h8v3.5l-4 4z"/></svg>
+              Esperando respuesta del cliente
+              <span style="font-size:9px;background:#f59e0b30;color:#92400e;padding:1px 6px;border-radius:99px;font-weight:700;letter-spacing:.04em;margin-left:2px;">REFERENCIA</span>
+            </div>
+            <div class="timer-clock">18h 34m</div>
+            <div class="timer-sub">Entró a esta fase el 17 abr · promedio del cliente: 12h</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:10px;color:#92400e;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Estado</div>
+            <div style="font-size:13px;font-weight:800;color:#b45309;margin-top:2px;">Demorado</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cambios -->
+      <div class="card" style="padding:12px 16px;">
+        <div class="row-between" style="gap:16px;">
+          <div style="flex:1;">
+            <div class="lbl-sm">Cambios aplicados</div>
+            <div class="cambios-bg" style="margin-top:7px;"><div class="cambios-fill" style="width:66.6%;"></div></div>
+          </div>
+          <div style="font-size:20px;font-weight:900;color:#2c2f31;flex-shrink:0;">
+            2 <span style="font-size:13px;color:#abadaf;font-weight:500;">/ 3</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Timeline -->
+      <div>
+        <div class="section-label">Historial de fases</div>
+        <div class="timeline">
+
+          <div class="tl-row">
+            <div class="tl-spine"><div class="tl-dot amber"></div><div class="tl-line"></div></div>
+            <div class="tl-body">
+              <div class="tl-title">Revisión Cliente</div>
+              <div class="tl-meta">17 abr · Ana López · hace 1 día</div>
+            </div>
+          </div>
+
+          <div class="tl-row">
+            <div class="tl-spine"><div class="tl-dot"></div><div class="tl-line"></div></div>
+            <div class="tl-body">
+              <div class="tl-title">Revisión Interna</div>
+              <div class="tl-meta">16 abr · Daniel M. · hace 2 días</div>
+              <div class="tl-note">Ajustados colores del logo y timing de los textos.</div>
+            </div>
+          </div>
+
+          <div class="tl-row">
+            <div class="tl-spine"><div class="tl-dot"></div><div class="tl-line"></div></div>
+            <div class="tl-body">
+              <div class="tl-title">En Producción</div>
+              <div class="tl-meta">15 abr · Ana López · hace 3 días</div>
+            </div>
+          </div>
+
+          <div class="tl-row">
+            <div class="tl-spine"><div class="tl-dot grey"></div></div>
+            <div class="tl-body">
+              <div class="tl-title">Requerimiento creado</div>
+              <div class="tl-meta">14 abr · Ana López</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div><!-- /pane-fases -->
+
+    <!-- ──────────── CHAT ──────────── -->
+    <div id="pane-chat" class="pane" style="padding:0;gap:0;overflow-y:hidden;">
+      <div class="chat-msgs" id="chat-msgs">
+        <div class="date-sep">16 abr 2026</div>
+
+        <div class="msg">
+          <div class="msg-av op">AL</div>
+          <div class="msg-wrap">
+            <div class="msg-sender">Ana López · Operador</div>
+            <div class="bubble">Ya terminé los ajustes de color. El timing de los títulos lo reviso mañana antes de pasar a revisión interna.</div>
+            <div class="msg-time">10:22 AM</div>
+          </div>
+        </div>
+
+        <div class="msg mine">
+          <div class="msg-av adm">DM</div>
+          <div class="msg-wrap">
+            <div class="msg-sender">Daniel M. · Admin</div>
+            <div class="bubble">Perfecto. El cliente pidió que el logo quede más grande en los últimos 3 segundos. Tómalo en cuenta.</div>
+            <div class="msg-time">11:45 AM</div>
+          </div>
+        </div>
+
+        <div class="date-sep">17 abr 2026</div>
+
+        <div class="msg">
+          <div class="msg-av op">AL</div>
+          <div class="msg-wrap">
+            <div class="msg-sender">Ana López · Operador</div>
+            <div class="bubble">Listo, ajusté el timing y el logo. Pasando a Revisión Cliente.</div>
+            <div class="msg-time">09:10 AM</div>
+          </div>
+        </div>
+
+        <div class="msg mine">
+          <div class="msg-av adm">DM</div>
+          <div class="msg-wrap">
+            <div class="msg-sender">Daniel M. · Admin</div>
+            <div class="bubble">Bien. Le mando el link al cliente ahora.</div>
+            <div class="msg-time">09:18 AM</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-bar">
+        <textarea id="chat-input" class="chat-input" placeholder="Escribe un mensaje interno…" rows="1"
+          onkeydown="handleChatKey(event)"></textarea>
+        <button class="send-btn" onclick="sendMsg()">
+          <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        </button>
+      </div>
+    </div><!-- /pane-chat -->
+
+    <!-- ──────────── HOJA DE TIEMPO ──────────── -->
+    <div id="pane-tiempo" class="pane">
+
+      <!-- KPIs -->
+      <div class="kpi-row">
+        <div class="kpi"><div class="kpi-val" id="kpi-total">2h 40m</div><div class="kpi-label">Total req.</div></div>
+        <div class="kpi"><div class="kpi-val">1h 15m</div><div class="kpi-label">Mi tiempo</div></div>
+        <div class="kpi"><div class="kpi-val">1h 25m</div><div class="kpi-label">Equipo</div></div>
+      </div>
+
+      <!-- Active timer OR start prompt -->
+      <div id="timer-running" class="active-timer-card" style="display:none;">
+        <div class="atc-top">
+          <div>
+            <div class="atc-label">
+              <svg viewBox="0 0 24 24" width="11" height="11" style="fill:#595c5e;vertical-align:middle;margin-right:3px;"><path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42C16.07 4.74 14.12 4 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
+              Timer activo
+            </div>
+            <div class="atc-title" id="timer-entry-title">—</div>
+            <div class="atc-phase" id="timer-entry-phase">—</div>
+          </div>
+          <div class="atc-clock" id="timer-clock">00:00:00</div>
+        </div>
+        <button class="stop-btn" onclick="stopTimer()">
+          <svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
+          Detener y guardar
+        </button>
+      </div>
+
+      <!-- Blocked notice: shown when phase = Revisión Cliente -->
+      <div id="timer-blocked" style="
+        background:#f5f7f9; border:1.5px solid #dfe3e6;
+        border-radius:16px; padding:16px 18px;
+        display:flex; align-items:flex-start; gap:12px;">
+        <svg viewBox="0 0 24 24" width="20" height="20" style="fill:#abadaf;flex-shrink:0;margin-top:1px;">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+        </svg>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#595c5e;margin-bottom:3px;">
+            En revisión del cliente
+          </div>
+          <div style="font-size:12px;color:#747779;line-height:1.5;">
+            Las entradas de tiempo se registran durante el trabajo interno del equipo
+            (Producción, Revisión Interna, etc.).<br>
+            El tiempo en esta fase se mide automáticamente en la pestaña
+            <strong>Fases</strong> como referencia de respuesta del cliente.
+          </div>
+        </div>
+      </div>
+
+      <!-- Start prompt (hidden while in Revisión Cliente) -->
+      <div id="timer-idle" class="start-prompt" style="display:none;">
+        <div class="section-label">Nueva entrada de tiempo</div>
+        <div class="sp-row">
+          <span class="sp-label">Título</span>
+          <input id="new-entry-title" class="sp-input" placeholder="Ej. Edición final + color grading" />
+        </div>
+        <div class="sp-row">
+          <span class="sp-label">Fase</span>
+          <select id="new-entry-phase" class="sp-select">
+            <option>Pendiente</option>
+            <option>En Producción</option>
+            <option selected>Revisión Interna</option>
+            <option>Aprobado</option>
+          </select>
+        </div>
+        <div class="sp-btns">
+          <button class="btn-start" onclick="startTimer()">
+            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            Iniciar timer
+          </button>
+          <button class="btn-add-manual" onclick="addManual()">
+            <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-02-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
+            Entrada manual
+          </button>
+        </div>
+        <!-- Manual time input (hidden until btn clicked) -->
+        <div id="manual-row" style="display:none;" class="sp-row">
+          <span class="sp-label">Tiempo</span>
+          <input id="manual-time" class="sp-input" placeholder="ej. 1h 30m  ó  90m" style="max-width:140px;" />
+          <button onclick="confirmManual()"
+            style="background:#00675c;color:#fff;border:none;border-radius:10px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;margin-left:4px;">
+            Agregar
+          </button>
+        </div>
+      </div>
+
+      <!-- Entries list -->
+      <div>
+        <div class="section-label" style="margin-bottom:8px;">Entradas registradas</div>
+        <div id="entries-list" style="display:flex;flex-direction:column;gap:8px;">
+
+          <div class="entry">
+            <div class="entry-dot prod"></div>
+            <div class="entry-body">
+              <div class="entry-title">Motion del logo y créditos finales</div>
+              <div class="entry-meta">En Producción · 16 abr · Ana López</div>
+            </div>
+            <span class="chip">AL</span>
+            <div class="entry-dur">1h 25m</div>
+          </div>
+
+          <div class="entry">
+            <div class="entry-dot rev-int"></div>
+            <div class="entry-body">
+              <div class="entry-title">Ajuste timing + logo grande final</div>
+              <div class="entry-meta">Revisión Interna · 16 abr · Daniel M.</div>
+            </div>
+            <span class="chip">DM</span>
+            <div class="entry-dur">35m</div>
+          </div>
+
+          <div class="entry">
+            <div class="entry-dot prod"></div>
+            <div class="entry-body">
+              <div class="entry-title">Corrección de colores corporativos</div>
+              <div class="entry-meta">En Producción · 15 abr · Ana López</div>
+            </div>
+            <span class="chip">AL</span>
+            <div class="entry-dur">40m</div>
+          </div>
+
+        </div>
+      </div>
+    </div><!-- /pane-tiempo -->
+
+  </div><!-- /tab-content -->
+
+  <!-- ══ FOOTER ══ -->
+  <div class="sheet-footer">
+    <button class="fbtn danger">
+      Anular requerimiento
+    </button>
+    <button class="fbtn ghost">Cerrar</button>
+  </div>
+
+</div><!-- /sheet -->
+
+<script>
+  /* ─── Tab switching ─── */
+  function switchTab(name, el) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
+    document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'))
+    el.classList.add('active')
+    document.getElementById('pane-' + name).classList.add('active')
+  }
+
+  /* ─── Chat send ─── */
+  let chatCount = 3
+  function sendMsg() {
+    const inp = document.getElementById('chat-input')
+    const text = inp.value.trim()
+    if (!text) return
+    const container = document.getElementById('chat-msgs')
+    const div = document.createElement('div')
+    div.className = 'msg mine'
+    div.innerHTML = `
+      <div class="msg-av adm">DM</div>
+      <div class="msg-wrap">
+        <div class="msg-sender">Daniel M. · Admin</div>
+        <div class="bubble">${text.replace(/</g,'&lt;')}</div>
+        <div class="msg-time">${new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'})}</div>
+      </div>`
+    container.appendChild(div)
+    inp.value = ''
+    container.scrollTop = container.scrollHeight
+    chatCount++
+    document.getElementById('chat-badge').textContent = chatCount
+  }
+  function handleChatKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
+  }
+
+  /* ─── Timer ─── */
+  let timerInterval = null
+  let timerSeconds  = 0
+  let timerRunning  = false
+
+  function startTimer() {
+    const title = document.getElementById('new-entry-title').value.trim()
+    const phase = document.getElementById('new-entry-phase').value
+    if (!title) {
+      document.getElementById('new-entry-title').focus()
+      document.getElementById('new-entry-title').style.borderColor = '#b31b25'
+      setTimeout(() => document.getElementById('new-entry-title').style.borderColor = '', 1500)
+      return
+    }
+    document.getElementById('timer-entry-title').textContent = title
+    document.getElementById('timer-entry-phase').textContent = phase
+    document.getElementById('timer-idle').style.display    = 'none'
+    document.getElementById('timer-running').style.display = 'block'
+    timerRunning = true
+    timerSeconds = 0
+    timerInterval = setInterval(() => {
+      timerSeconds++
+      const h = String(Math.floor(timerSeconds/3600)).padStart(2,'0')
+      const m = String(Math.floor((timerSeconds%3600)/60)).padStart(2,'0')
+      const s = String(timerSeconds%60).padStart(2,'0')
+      document.getElementById('timer-clock').textContent = `${h}:${m}:${s}`
+    }, 1000)
+  }
+
+  function stopTimer() {
+    if (!timerRunning) return
+    clearInterval(timerInterval)
+    timerRunning = false
+    const title = document.getElementById('timer-entry-title').textContent
+    const phase = document.getElementById('timer-entry-phase').textContent
+    const dur   = formatDur(timerSeconds)
+    addEntry(title, phase, dur, 'DM', 'rev-cli')
+    document.getElementById('timer-running').style.display = 'none'
+    document.getElementById('timer-idle').style.display    = 'flex'
+    document.getElementById('new-entry-title').value = ''
+    timerSeconds = 0
+    document.getElementById('timer-clock').textContent = '00:00:00'
+  }
+
+  function formatDur(s) {
+    const h = Math.floor(s/3600)
+    const m = Math.floor((s%3600)/60)
+    const sc = s%60
+    if (h > 0) return `${h}h ${m}m`
+    if (m > 0) return `${m}m ${sc}s`
+    return `${sc}s`
+  }
+
+  /* ─── Manual entry ─── */
+  function addManual() {
+    const row = document.getElementById('manual-row')
+    row.style.display = row.style.display === 'none' ? 'flex' : 'none'
+    if (row.style.display === 'flex') document.getElementById('manual-time').focus()
+  }
+
+  function confirmManual() {
+    const timeStr = document.getElementById('manual-time').value.trim()
+    const title   = document.getElementById('new-entry-title').value.trim() || 'Entrada manual'
+    const phase   = document.getElementById('new-entry-phase').value
+    if (!timeStr) return
+    addEntry(title, phase, timeStr, 'DM', 'rev-cli')
+    document.getElementById('manual-time').value = ''
+    document.getElementById('manual-row').style.display = 'none'
+    document.getElementById('new-entry-title').value = ''
+  }
+
+  function addEntry(title, phase, dur, initials, dotClass) {
+    const list = document.getElementById('entries-list')
+    const today = new Date().toLocaleDateString('es',{day:'numeric',month:'short'})
+    const div = document.createElement('div')
+    div.className = 'entry'
+    div.style.animation = 'none'
+    div.innerHTML = `
+      <div class="entry-dot ${dotClass}"></div>
+      <div class="entry-body">
+        <div class="entry-title">${title.replace(/</g,'&lt;')}</div>
+        <div class="entry-meta">${phase} · ${today} · Tú</div>
+      </div>
+      <span class="chip">${initials}</span>
+      <div class="entry-dur">${dur}</div>`
+    list.insertBefore(div, list.firstChild)
+  }
+</script>
+</body>
+</html>

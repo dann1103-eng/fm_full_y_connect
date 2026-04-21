@@ -50,6 +50,7 @@ export type ClientStatus = 'active' | 'paused' | 'overdue'
 export type CycleStatus = 'current' | 'archived' | 'pending_renewal'
 export type PaymentStatus = 'paid' | 'unpaid'
 export type UserRole = 'admin' | 'supervisor' | 'operator'
+export type ConversationType = 'dm' | 'channel'
 
 export interface PlanLimits {
   historias: number
@@ -537,6 +538,125 @@ export interface Database {
         }
         Relationships: []
       }
+      conversations: {
+        Row: {
+          id: string
+          type: ConversationType
+          name: string | null
+          description: string | null
+          topic: string | null
+          created_by: string | null
+          created_at: string
+          last_message_at: string
+        }
+        Insert: {
+          id?: string
+          type: ConversationType
+          name?: string | null
+          description?: string | null
+          topic?: string | null
+          created_by?: string | null
+          created_at?: string
+          last_message_at?: string
+        }
+        Update: {
+          name?: string | null
+          description?: string | null
+          topic?: string | null
+          last_message_at?: string
+        }
+        Relationships: []
+      }
+      conversation_members: {
+        Row: {
+          conversation_id: string
+          user_id: string
+          joined_at: string
+          last_read_at: string
+        }
+        Insert: {
+          conversation_id: string
+          user_id: string
+          joined_at?: string
+          last_read_at?: string
+        }
+        Update: {
+          last_read_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'conversation_members_conversation_id_fkey'
+            columns: ['conversation_id']
+            isOneToOne: false
+            referencedRelation: 'conversations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      messages: {
+        Row: {
+          id: string
+          conversation_id: string
+          user_id: string | null
+          body: string
+          edited_at: string | null
+          deleted_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          conversation_id: string
+          user_id?: string | null
+          body?: string
+          edited_at?: string | null
+          deleted_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          body?: string
+          edited_at?: string | null
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'messages_conversation_id_fkey'
+            columns: ['conversation_id']
+            isOneToOne: false
+            referencedRelation: 'conversations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      message_attachments: {
+        Row: {
+          id: string
+          message_id: string
+          storage_path: string
+          file_name: string
+          file_size: number | null
+          mime_type: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          message_id: string
+          storage_path: string
+          file_name: string
+          file_size?: number | null
+          mime_type?: string | null
+          created_at?: string
+        }
+        Update: Record<string, never>
+        Relationships: [
+          {
+            foreignKeyName: 'message_attachments_message_id_fkey'
+            columns: ['message_id']
+            isOneToOne: false
+            referencedRelation: 'messages'
+            referencedColumns: ['id']
+          }
+        ]
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -554,6 +674,28 @@ export type RequirementPhaseLog = Database['public']['Tables']['requirement_phas
 export type RequirementCambioLog = Database['public']['Tables']['requirement_cambio_logs']['Row']
 export type RequirementMessage = Database['public']['Tables']['requirement_messages']['Row']
 export type TimeEntry = Database['public']['Tables']['time_entries']['Row']
+export type Conversation = Database['public']['Tables']['conversations']['Row']
+export type ConversationMember = Database['public']['Tables']['conversation_members']['Row']
+export type Message = Database['public']['Tables']['messages']['Row']
+export type MessageAttachment = Database['public']['Tables']['message_attachments']['Row']
+
+/** Mensaje enriquecido con autor y adjuntos para UI */
+export interface MessageWithMeta extends Message {
+  author: Pick<AppUser, 'id' | 'full_name' | 'avatar_url'> | null
+  attachments: MessageAttachment[]
+}
+
+/** Item de la lista de bandeja: conversación + metadata para sidebar */
+export interface ConversationListItem {
+  id: string
+  type: ConversationType
+  name: string | null
+  last_message_at: string
+  unread_count: number
+  /** Para DMs: el otro usuario; null para canales */
+  counterpart: Pick<AppUser, 'id' | 'full_name' | 'avatar_url'> | null
+  last_message_preview: string | null
+}
 
 export const ADMIN_CATEGORY_LABELS: Record<AdminCategory, string> = {
   administrativa:          'Administrativa',

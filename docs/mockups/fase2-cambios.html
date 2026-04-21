@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FM CRM — Phase 2: Edit Cliente + Panel Admin (Mockup)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: #f5f7f9; color: #2c2f31; min-height: 100vh; display: flex; }
+
+  .sidebar { width: 220px; min-height: 100vh; background: white; border-right: 1px solid #dfe3e6; padding: 20px 12px; display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+  .sidebar-logo { font-size: 15px; font-weight: 700; color: #00675c; padding: 0 8px 16px; border-bottom: 1px solid #dfe3e6; margin-bottom: 8px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; font-size: 13px; color: #595c5e; cursor: pointer; text-decoration: none; }
+  .nav-item:hover { background: #f5f7f9; color: #2c2f31; }
+  .nav-item.active { background: rgba(0,103,92,.08); color: #00675c; font-weight: 600; }
+  .nav-item .material-symbols-outlined { font-size: 18px; }
+
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .topnav { height: 56px; background: white; border-bottom: 1px solid #dfe3e6; display: flex; align-items: center; padding: 0 24px; gap: 8px; font-size: 14px; color: #595c5e; }
+  .topnav strong { color: #2c2f31; font-weight: 600; }
+  .topnav .sep { color: #dfe3e6; }
+  .content { flex: 1; overflow-y: auto; padding: 24px; display: flex; gap: 16px; align-items: flex-start; }
+  .content-left { display: flex; flex-direction: column; gap: 16px; flex: 0 0 420px; }
+  .content-right { flex: 1; min-width: 0; }
+
+  .card { background: white; border-radius: 1.5rem; border: 1px solid #dfe3e6; padding: 20px 24px; box-shadow: 0 1px 4px rgba(0,0,0,.04); }
+  .card-title { font-size: 15px; font-weight: 600; color: #2c2f31; margin-bottom: 16px; }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-group.full { grid-column: 1 / -1; }
+  .form-group label { font-size: 12px; font-weight: 500; color: #595c5e; }
+  input, select, textarea { height: 36px; padding: 0 10px; border: 1px solid #dfe3e6; border-radius: 10px; font-size: 13px; font-family: inherit; color: #2c2f31; background: #f5f7f9; outline: none; width: 100%; }
+  textarea { height: auto; padding: 8px 10px; resize: none; }
+  input:focus, select:focus, textarea:focus { border-color: #00675c; background: white; }
+
+  .btn { height: 36px; padding: 0 16px; border-radius: 10px; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; transition: opacity .15s; white-space: nowrap; }
+  .btn:hover { opacity: .85; }
+  .btn-primary { background: linear-gradient(135deg, #00675c, #5bf4de 200%); color: white; }
+  .btn-outline { background: white; border: 1.5px solid #00675c; color: #00675c; }
+  .btn-ghost { background: none; border: none; color: #595c5e; cursor: pointer; font-family: inherit; font-size: 13px; }
+  .btn .material-symbols-outlined { font-size: 15px; }
+  .btn-row { display: flex; gap: 8px; margin-top: 16px; }
+
+  /* Admin panel */
+  .admin-card { border: 1.5px solid rgba(179,27,37,.2); border-radius: 1.5rem; background: white; box-shadow: 0 1px 4px rgba(0,0,0,.04); overflow: hidden; }
+  .admin-toggle { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; cursor: pointer; user-select: none; background: rgba(179,27,37,.03); }
+  .admin-toggle:hover { background: rgba(179,27,37,.06); }
+  .admin-toggle-left { display: flex; align-items: center; gap: 10px; }
+  .admin-toggle-left .label { font-size: 14px; font-weight: 600; color: #2c2f31; }
+  .badge-admin { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: rgba(179,27,37,.08); color: #b31b25; display: flex; align-items: center; gap: 3px; }
+  .chevron { font-size: 18px; color: #595c5e; transition: transform .2s; }
+  .chevron.open { transform: rotate(180deg); }
+  .admin-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 22px; }
+
+  .section-title { font-size: 11px; font-weight: 700; color: #abadaf; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+  .section-title .material-symbols-outlined { font-size: 15px; color: #595c5e; }
+  .divider { height: 1px; background: #dfe3e6; }
+
+  /* Cambios del ciclo */
+  .cambios-info { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .cambios-included { background: rgba(0,103,92,.07); border: 1px solid rgba(0,103,92,.18); border-radius: 10px; padding: 10px 14px; flex: 1; }
+  .cambios-included .lbl { font-size: 11px; color: #595c5e; margin-bottom: 2px; }
+  .cambios-included .num { font-size: 22px; font-weight: 700; color: #00675c; }
+  .cambios-included .sub { font-size: 11px; color: #747779; }
+
+  /* Package list */
+  .pkg-form { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 8px; }
+  .pkg-form .form-group { flex: 1; min-width: 0; }
+  .pkg-list { display: flex; flex-direction: column; gap: 5px; }
+  .pkg-row { display: flex; align-items: center; gap: 10px; font-size: 12px; padding: 7px 10px; background: #f5f7f9; border-radius: 8px; border: 1px solid #dfe3e6; }
+  .pkg-row .info { flex: 1; color: #2c2f31; }
+  .pkg-row .date { color: #abadaf; }
+  .pkg-row .del { background: none; border: none; cursor: pointer; color: #b31b25; opacity: .6; display: flex; padding: 0; }
+  .pkg-row .del:hover { opacity: 1; }
+  .pkg-row .del .material-symbols-outlined { font-size: 15px; }
+  .pkg-total { font-size: 12px; color: #595c5e; padding: 6px 10px; background: rgba(0,103,92,.05); border-radius: 8px; border: 1px solid rgba(0,103,92,.15); margin-top: 6px; }
+
+  /* Contenido extra */
+  .extra-price-legend { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .price-chip { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; border: 1px solid #dfe3e6; color: #595c5e; background: #f5f7f9; }
+  .price-chip.video { background: rgba(249,115,22,.08); border-color: rgba(249,115,22,.25); color: #c2410c; }
+  .price-chip.historia { background: rgba(124,58,237,.08); border-color: rgba(124,58,237,.25); color: #7c3aed; }
+  .price-chip.excluded { background: #f5f7f9; color: #abadaf; text-decoration: line-through; }
+
+  .extra-form { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 8px; }
+  .extra-form .form-group { flex: 1; min-width: 0; }
+  .extra-row { display: flex; align-items: center; gap: 10px; font-size: 12px; padding: 7px 10px; background: #f5f7f9; border-radius: 8px; border: 1px solid #dfe3e6; }
+  .extra-row .info { flex: 1; color: #2c2f31; }
+  .extra-row .price { font-weight: 600; color: #00675c; }
+  .extra-row .del { background: none; border: none; cursor: pointer; color: #b31b25; opacity: .6; display: flex; padding: 0; }
+  .extra-row .del:hover { opacity: 1; }
+  .extra-row .del .material-symbols-outlined { font-size: 15px; }
+  .extra-total { font-size: 12px; color: #595c5e; padding: 6px 10px; background: rgba(0,103,92,.05); border-radius: 8px; border: 1px solid rgba(0,103,92,.15); margin-top: 6px; }
+
+  /* Content overrides */
+  .override-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .override-item { background: #f5f7f9; border: 1px solid #dfe3e6; border-radius: 10px; padding: 10px 12px; }
+  .override-item label { font-size: 11px; color: #595c5e; font-weight: 500; display: block; margin-bottom: 2px; }
+  .override-item .base { font-size: 10px; color: #abadaf; margin-bottom: 5px; }
+  .override-item input { height: 30px; font-size: 13px; font-weight: 600; border-radius: 8px; }
+  .override-item.modified { border-color: rgba(0,103,92,.3); background: rgba(0,103,92,.04); }
+  .override-item.modified input { border-color: rgba(0,103,92,.3); }
+  .override-note { font-size: 11px; color: #747779; margin-top: 8px; padding: 6px 10px; background: #f5f7f9; border-radius: 8px; border: 1px solid #dfe3e6; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">FM CRM</div>
+  <a class="nav-item active" href="#"><span class="material-symbols-outlined">people</span> Clientes</a>
+  <a class="nav-item" href="#"><span class="material-symbols-outlined">view_kanban</span> Pipeline</a>
+  <a class="nav-item" href="#"><span class="material-symbols-outlined">dashboard</span> Dashboard</a>
+  <a class="nav-item" href="#"><span class="material-symbols-outlined">receipt_long</span> Renovaciones</a>
+</aside>
+
+<div class="main">
+  <nav class="topnav">
+    <span class="material-symbols-outlined" style="font-size:16px">arrow_back</span>
+    <a href="#" style="color:#595c5e;text-decoration:none">Clientes</a>
+    <span class="sep">/</span>
+    <a href="#" style="color:#595c5e;text-decoration:none">Café Orgánico</a>
+    <span class="sep">/</span>
+    <strong>Editar</strong>
+  </nav>
+
+  <div class="content">
+  <div class="content-left">
+
+    <!-- Formulario base -->
+    <div class="card">
+      <div class="card-title">Datos del cliente</div>
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Nombre *</label>
+          <input type="text" value="Café Orgánico">
+        </div>
+        <div class="form-group">
+          <label>Plan *</label>
+          <select id="plan-select" onchange="updatePlanCambios()">
+            <option value="basico">Básico · $200</option>
+            <option value="profesional" selected>Profesional · $300</option>
+            <option value="premium">Premium · $400</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Día de facturación *</label>
+          <input type="number" value="1">
+        </div>
+        <div class="form-group">
+          <label>Correo de contacto</label>
+          <input type="email" value="cafe@organico.com">
+        </div>
+        <div class="form-group">
+          <label>Instagram</label>
+          <input type="text" value="@cafeorganicosv">
+        </div>
+        <div class="form-group full">
+          <label>Notas internas</label>
+          <textarea rows="2">Cliente desde enero 2025. Prefiere contenido natural sin mucho texto.</textarea>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost">Cancelar</button>
+        <button class="btn btn-primary"><span class="material-symbols-outlined">check</span> Guardar cambios</button>
+      </div>
+    </div>
+
+  </div><!-- /content-left -->
+  <div class="content-right">
+
+    <!-- Panel Admin -->
+    <div class="admin-card">
+      <div class="admin-toggle" onclick="toggleAdmin()">
+        <div class="admin-toggle-left">
+          <span class="material-symbols-outlined" style="color:#b31b25;font-size:18px">shield</span>
+          <span class="label">Configuración del ciclo actual</span>
+          <span class="badge-admin"><span class="material-symbols-outlined" style="font-size:12px">lock</span> Solo admin</span>
+        </div>
+        <span class="material-symbols-outlined chevron open" id="chevron">expand_more</span>
+      </div>
+
+      <div id="admin-body" class="admin-body">
+
+        <!-- 1. Cambios del ciclo -->
+        <div>
+          <div class="section-title"><span class="material-symbols-outlined">edit_note</span> Cambios incluidos en el ciclo</div>
+          <div class="cambios-info">
+            <div class="cambios-included">
+              <div class="lbl">Incluidos según plan</div>
+              <div class="num" id="cambios-num">20</div>
+              <div class="sub" id="cambios-sub">Plan Profesional · 20 cambios</div>
+            </div>
+            <div style="font-size:22px;color:#dfe3e6">+</div>
+            <div class="cambios-included">
+              <div class="lbl">Paquetes extra vendidos</div>
+              <div class="num" id="extra-cambios-total">5</div>
+              <div class="sub">este ciclo</div>
+            </div>
+            <div style="font-size:22px;color:#dfe3e6">=</div>
+            <div class="cambios-included" style="background:rgba(0,103,92,.12);border-color:rgba(0,103,92,.3)">
+              <div class="lbl">Total disponible</div>
+              <div class="num" id="total-cambios">25</div>
+              <div class="sub">este ciclo</div>
+            </div>
+          </div>
+
+          <!-- Paquetes extra de cambios -->
+          <div class="pkg-form">
+            <div class="form-group">
+              <label>Cambios adicionales</label>
+              <input type="number" id="pkg-qty" value="5" min="1">
+            </div>
+            <div class="form-group">
+              <label>Precio cobrado (USD)</label>
+              <input type="number" id="pkg-price" placeholder="0.00" step="0.01">
+            </div>
+            <div class="form-group" style="flex:2">
+              <label>Nota (opcional)</label>
+              <input type="text" id="pkg-note" placeholder="ej. paquete extra acordado en reunión">
+            </div>
+            <button class="btn btn-outline" onclick="addCambiosPackage()"><span class="material-symbols-outlined">add</span> Agregar</button>
+          </div>
+          <div class="pkg-list" id="pkg-list">
+            <div class="pkg-row">
+              <span class="info"><strong>+5 cambios</strong> · $25.00 · paquete extra marzo</span>
+              <span class="date">15 abr</span>
+              <button class="del" onclick="removePkg(this, 'cambios', 5)"><span class="material-symbols-outlined">delete</span></button>
+            </div>
+          </div>
+          <div class="pkg-total">Total paquetes extra: <strong>+<span id="extra-cambios-total-text">5</span> cambios</strong></div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- 2. Contenido extra vendido -->
+        <div>
+          <div class="section-title"><span class="material-symbols-outlined">add_shopping_cart</span> Contenido extra vendido</div>
+          <div class="extra-price-legend">
+            <span class="price-chip video">Video corto / Reel / Short · $25 c/u</span>
+            <span class="price-chip historia">Estático · $15 c/u</span>
+            <span class="price-chip excluded">Historia · no aplica</span>
+            <span class="price-chip excluded">Producción · no aplica</span>
+            <span class="price-chip excluded">Reunión · no aplica</span>
+          </div>
+          <div class="extra-form">
+            <div class="form-group">
+              <label>Tipo de contenido</label>
+              <select id="extra-type">
+                <option value="video_corto">Video corto · $25</option>
+                <option value="reel">Reel · $25</option>
+                <option value="short">Short · $25</option>
+                <option value="estatico">Estático · $15</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:0 0 80px">
+              <label>Cantidad</label>
+              <input type="number" id="extra-qty" value="1" min="1">
+            </div>
+            <div class="form-group" style="flex:2">
+              <label>Nota (opcional)</label>
+              <input type="text" id="extra-note" placeholder="ej. campaña especial mayo">
+            </div>
+            <button class="btn btn-outline" onclick="addExtraContent()"><span class="material-symbols-outlined">add</span> Agregar</button>
+          </div>
+          <div class="pkg-list" id="extra-list">
+            <div class="extra-row">
+              <span class="info">2× Reel · campaña lanzamiento</span>
+              <span class="price">$50.00</span>
+              <span class="date" style="color:#abadaf;font-size:11px">10 abr</span>
+              <button class="del" onclick="removeExtra(this, 50)"><span class="material-symbols-outlined">delete</span></button>
+            </div>
+            <div class="extra-row">
+              <span class="info">1× Estático · diseño especial patrocinado</span>
+              <span class="price">$15.00</span>
+              <span class="date" style="color:#abadaf;font-size:11px">5 abr</span>
+              <button class="del" onclick="removeExtra(this, 15)"><span class="material-symbols-outlined">delete</span></button>
+            </div>
+          </div>
+          <div class="extra-total">Total facturado por contenido extra: <strong>$<span id="extra-total-text">65.00</span></strong></div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- 3. Override de cantidades de contenido -->
+        <div>
+          <div class="section-title"><span class="material-symbols-outlined">tune</span> Cantidades de contenido — override para este ciclo</div>
+          <div class="override-grid">
+            <div class="override-item">
+              <label>Historias</label>
+              <div class="base">Plan base: 16</div>
+              <input type="number" value="16" min="0" onchange="markModified(this,16)">
+            </div>
+            <div class="override-item">
+              <label>Estáticos</label>
+              <div class="base">Plan base: 8</div>
+              <input type="number" value="8" min="0" onchange="markModified(this,8)">
+            </div>
+            <div class="override-item modified">
+              <label>Videos cortos</label>
+              <div class="base">Plan base: 4</div>
+              <input type="number" value="2" min="0" onchange="markModified(this,4)">
+            </div>
+            <div class="override-item modified">
+              <label>Reels</label>
+              <div class="base">Plan base: 4</div>
+              <input type="number" value="6" min="0" onchange="markModified(this,4)">
+            </div>
+            <div class="override-item modified">
+              <label>Shorts</label>
+              <div class="base">Plan base: 4</div>
+              <input type="number" value="0" min="0" onchange="markModified(this,4)">
+            </div>
+            <div class="override-item modified">
+              <label>Producción</label>
+              <div class="base">Plan base: 2</div>
+              <input type="number" value="3" min="0" onchange="markModified(this,2)">
+            </div>
+            <div class="override-item">
+              <label>Reunión</label>
+              <div class="base">Plan base: 0</div>
+              <input type="number" value="0" min="0" onchange="markModified(this,0)">
+            </div>
+          </div>
+          <p class="override-note">Los campos en verde difieren del plan base. Solo aplican a este ciclo — el siguiente retoma el plan del cliente.</p>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="saveAdmin()"><span class="material-symbols-outlined">check</span> Guardar configuración del ciclo</button>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /content-right -->
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<script>
+  const PLAN_CAMBIOS = { basico: 8, profesional: 20, premium: 26 }
+  let extraCambios = 5
+  let extraRevenue = 65
+
+  function updatePlanCambios() {
+    const plan = document.getElementById('plan-select').value
+    const n = PLAN_CAMBIOS[plan] || 20
+    document.getElementById('cambios-num').textContent = n
+    document.getElementById('cambios-sub').textContent =
+      `Plan ${plan.charAt(0).toUpperCase()+plan.slice(1)} · ${n} cambios`
+    document.getElementById('total-cambios').textContent = n + extraCambios
+  }
+
+  function toggleAdmin() {
+    const body = document.getElementById('admin-body')
+    const chevron = document.getElementById('chevron')
+    const open = body.style.display !== 'none'
+    body.style.display = open ? 'none' : 'flex'
+    chevron.classList.toggle('open', !open)
+  }
+
+  function addCambiosPackage() {
+    const qty   = parseInt(document.getElementById('pkg-qty').value) || 0
+    const price = parseFloat(document.getElementById('pkg-price').value) || 0
+    const note  = document.getElementById('pkg-note').value.trim()
+    if (!qty) return
+    extraCambios += qty
+    const row = document.createElement('div')
+    row.className = 'pkg-row'
+    const today = new Date().toLocaleDateString('es-SV', { day: 'numeric', month: 'short' })
+    row.innerHTML = `
+      <span class="info"><strong>+${qty} cambios</strong>${price ? ' · $'+price.toFixed(2) : ''}${note ? ' · '+note : ''}</span>
+      <span class="date">${today}</span>
+      <button class="del" onclick="removePkg(this,'cambios',${qty})"><span class="material-symbols-outlined">delete</span></button>`
+    document.getElementById('pkg-list').appendChild(row)
+    document.getElementById('pkg-qty').value = '5'
+    document.getElementById('pkg-price').value = ''
+    document.getElementById('pkg-note').value = ''
+    refreshCambiosTotals()
+  }
+
+  function removePkg(btn, _, qty) {
+    btn.closest('.pkg-row').remove()
+    extraCambios -= qty
+    refreshCambiosTotals()
+  }
+
+  function refreshCambiosTotals() {
+    const plan = document.getElementById('plan-select').value
+    const base = PLAN_CAMBIOS[plan] || 20
+    document.getElementById('extra-cambios-total').textContent = extraCambios
+    document.getElementById('extra-cambios-total-text').textContent = extraCambios
+    document.getElementById('total-cambios').textContent = base + extraCambios
+  }
+
+  const EXTRA_PRICES = { video_corto: 25, reel: 25, short: 25, estatico: 15 }
+  const EXTRA_LABELS = { video_corto: 'Video corto', reel: 'Reel', short: 'Short', estatico: 'Estático' }
+
+  function addExtraContent() {
+    const type  = document.getElementById('extra-type').value
+    const qty   = parseInt(document.getElementById('extra-qty').value) || 1
+    const note  = document.getElementById('extra-note').value.trim()
+    const price = EXTRA_PRICES[type] * qty
+    extraRevenue += price
+    const row = document.createElement('div')
+    row.className = 'extra-row'
+    const today = new Date().toLocaleDateString('es-SV', { day: 'numeric', month: 'short' })
+    row.innerHTML = `
+      <span class="info">${qty}× ${EXTRA_LABELS[type]}${note ? ' · '+note : ''}</span>
+      <span class="price">$${price.toFixed(2)}</span>
+      <span class="date" style="color:#abadaf;font-size:11px">${today}</span>
+      <button class="del" onclick="removeExtra(this,${price})"><span class="material-symbols-outlined">delete</span></button>`
+    document.getElementById('extra-list').appendChild(row)
+    document.getElementById('extra-qty').value = '1'
+    document.getElementById('extra-note').value = ''
+    document.getElementById('extra-total-text').textContent = extraRevenue.toFixed(2)
+  }
+
+  function removeExtra(btn, price) {
+    btn.closest('.extra-row').remove()
+    extraRevenue -= price
+    document.getElementById('extra-total-text').textContent = extraRevenue.toFixed(2)
+  }
+
+  function markModified(input, base) {
+    input.closest('.override-item').classList.toggle('modified', parseInt(input.value) !== base)
+  }
+
+  function saveAdmin() {
+    const btn = event.target.closest('.btn')
+    const orig = btn.innerHTML
+    btn.textContent = '✓ Guardado'
+    setTimeout(() => { btn.innerHTML = orig }, 2000)
+  }
+</script>
+</body>
+</html>

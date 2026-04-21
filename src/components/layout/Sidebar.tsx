@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { useUser } from '@/contexts/UserContext'
 import { UserAvatar } from '@/components/ui/UserAvatar'
+import { useInboxList } from '@/hooks/useInboxPolling'
 import type { UserRole } from '@/types/db'
 
 interface NavItem {
@@ -13,6 +14,7 @@ interface NavItem {
   label: string
   icon: React.ReactNode
   badge?: boolean
+  badgeKey?: 'inbox'
   allowedRoles?: UserRole[]
 }
 
@@ -25,6 +27,16 @@ const navItems: NavItem[] = [
         <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
       </svg>
     ),
+  },
+  {
+    href: '/inbox',
+    label: 'Bandeja',
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM9 11H7V9h2v2zm4 0h-2V9h2v2zm4 0h-2V9h2v2z"/>
+      </svg>
+    ),
+    badgeKey: 'inbox',
   },
   {
     href: '/clients',
@@ -109,6 +121,8 @@ export function SidebarContent({
   const pathname = usePathname()
   const user = useUser()
   const [logoError, setLogoError] = useState(false)
+  const { data: inboxList } = useInboxList()
+  const inboxUnread = inboxList.reduce((sum, c) => sum + c.unread_count, 0)
 
   const visibleItems = navItems.filter(
     (item) => !item.allowedRoles || item.allowedRoles.includes(user.role)
@@ -164,6 +178,11 @@ export function SidebarContent({
               {item.badge && renewalCount > 0 && (
                 <span className="ml-auto bg-[#b31b25] text-white text-xs font-semibold px-2 py-0.5 rounded-full min-w-[20px] text-center">
                   {renewalCount}
+                </span>
+              )}
+              {item.badgeKey === 'inbox' && inboxUnread > 0 && (
+                <span className="ml-auto bg-[#b31b25] text-white text-xs font-semibold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                  {inboxUnread > 99 ? '99+' : inboxUnread}
                 </span>
               )}
             </Link>

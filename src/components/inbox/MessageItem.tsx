@@ -1,0 +1,160 @@
+'use client'
+
+import { useState, useTransition } from 'react'
+import { format, parseISO } from 'date-fns'
+import { es } from 'date-fns/locale'
+import { cn } from '@/lib/utils'
+import { UserAvatar } from '@/components/ui/UserAvatar'
+import { AttachmentPreview } from './AttachmentPreview'
+import { editMessage, deleteMessage, deleteAttachment } from '@/app/actions/inbox'
+import type { MessageWithMeta } from '@/types/db'
+
+interface MessageItemProps {
+  message: MessageWithMeta
+  currentUserId: string
+  onUpdated: (patch: Partial<MessageWithMeta>) => void
+  onDeleted: () => void
+}
+
+export function MessageItem({ message, currentUserId, onUpdated, onDeleted }: MessageItemProps) {
+  const isMine = message.user_id === currentUserId
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(message.body)
+  const [error, setError] = useState<string | null>(null)
+  const [pending, startTransition] = useTransition()
+
+  const time = (() => {
+    try {
+      return format(parseISO(message.created_at), 'p', { locale: es })
+    } catch {
+      return ''
+    }
+  })()
+
+  function save() {
+    startTransition(async () => {
+      const res = await editMessage({ messageId: message.id, body: draft })
+      if ('error' in res && res.error) {
+        setError(res.error)
+        return
+      }
+      onUpdated({ body: draft.trim(), edited_at: new Date().toISOString() })
+      setEditing(false)
+      setError(null)
+    })
+  }
+
+  function remove() {
+    if (!confirm('¿Eliminar este mensaje?')) return
+    startTransition(async () => {
+      const res = await deleteMessage(message.id)
+      if ('error' in res && res.error) {
+        setError(res.error)
+        return
+      }
+      onDeleted()
+    })
+  }
+
+  async function handleAttachmentDelete(attachmentId: string) {
+    if (!confirm('¿Eliminar este adjunto?')) return
+    startTransition(async () => {
+      const res = await deleteAttachment(attachmentId)
+      if ('error' in res && res.error) {
+        setError(res.error)
+        return
+      }
+      onUpdated({ attachments: message.attachments.filter((a) => a.id !== attachmentId) })
+    })
+  }
+
+  return (
+    <div
+      className={cn('flex items-start gap-3 group', isMine && 'flex-row-reverse')}
+    >
+      <UserAvatar
+        name={message.author?.full_name ?? '?'}
+        avatarUrl={message.author?.avatar_url}
+        size="sm"
+      />
+      <div className={cn('flex-1 min-w-0 space-y-1', isMine && 'flex flex-col items-end')}>
+        <div className={cn('flex items-baseline gap-2', isMine && 'flex-row-reverse')}>
+          <span className="font-bold text-sm text-[#2c2f31]">
+            {isMine ? 'Tú' : message.author?.full_name ?? 'Usuario eliminado'}
+          </span>
+          <span className="text-[10px] text-[#595c5e]/70">{time}</span>
+          {message.edited_at && (
+            <span className="text-[10px] text-[#595c5e]/70 italic">(editado)</span>
+          )}
+        </div>
+
+        {editing ? (
+          <div className="max-w-[80%]">
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              rows={2}
+              className="w-full text-sm border border-[#dfe3e6] rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-[#00675c]/30"
+            />
+            <div className="flex items-center gap-2 mt-1 text-xs">
+              <button
+                onClick={save}
+                disabled={pending || !draft.trim()}
+                className="text-[#00675c] font-semibold disabled:opacity-50"
+              >
+                Guardar
+              </button>
+              <button
+                onClick={() => {
+                  setDraft(message.body)
+                  setEditing(false)
+                }}
+                className="text-[#595c5e]"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          message.body.trim() !== '' && (
+            <div
+              className={cn(
+                'p-3 rounded-lg text-sm max-w-[80%] break-words whitespace-pre-wrap',
+                isMine
+                  ? 'bg-[#00675c] text-white rounded-tr-none'
+                  : 'bg-white border border-[#dfe3e6] text-[#2c2f31] rounded-tl-none'
+              )}
+            >
+              {message.body}
+            </div>
+          )
+        )}
+
+        {message.attachments.length > 0 && (
+          <div className={cn('space-y-1', isMine && 'flex flex-col items-end')}>
+            {message.attachments.map((a) => (
+              <AttachmentPreview
+                key={a.id}
+                attachment={a}
+                onDelete={isMine ? () => handleAttachmentDelete(a.id) : undefined}
+              />
+            ))}
+          </div>
+        )}
+
+        {error && <div className="text-[10px] text-[#b31b25]">{error}</div>}
+
+        {isMine && !editing && (
+          <div className="flex items-center gap-2 text-[10px] text-[#595c5e]/70 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button onClick={() => setEditing(true)} className="hover:text-[#00675c]">
+              Editar
+            </button>
+            <button onClick={remove} disabled={pending} className="hover:text-[#b31b25]">
+              Eliminar
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

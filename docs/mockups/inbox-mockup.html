@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>FM CRM — Bandeja (Mockup MVP)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0..1&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            teal: '#00675c',
+            rojo: '#b31b25',
+            gris: '#595c5e',
+            borde: '#dfe3e6',
+            fondo: '#f5f7f9',
+          },
+          fontFamily: { sans: ['Manrope', 'sans-serif'] },
+        },
+      },
+    };
+  </script>
+  <style>
+    body { font-family: 'Manrope', sans-serif; }
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400; }
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+  </style>
+</head>
+<body class="bg-fondo text-gris overflow-hidden">
+  <div class="flex h-screen w-full">
+
+    <!-- Sidebar global del CRM (navegación principal) -->
+    <aside class="w-16 bg-white border-r border-borde flex flex-col items-center py-4 space-y-3">
+      <div class="w-10 h-10 rounded-lg bg-teal text-white flex items-center justify-center font-extrabold">FM</div>
+      <nav class="flex flex-col space-y-1 w-full items-center mt-2">
+        <a class="p-2 text-gris hover:bg-fondo rounded-lg" title="Dashboard"><span class="material-symbols-outlined">dashboard</span></a>
+        <a class="p-2 text-teal bg-fondo rounded-lg relative" title="Bandeja">
+          <span class="material-symbols-outlined">chat_bubble</span>
+          <span class="absolute -top-0.5 -right-0.5 bg-rojo text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center">5</span>
+        </a>
+        <a class="p-2 text-gris hover:bg-fondo rounded-lg" title="Clientes"><span class="material-symbols-outlined">groups</span></a>
+        <a class="p-2 text-gris hover:bg-fondo rounded-lg" title="Pipeline"><span class="material-symbols-outlined">view_kanban</span></a>
+        <a class="p-2 text-gris hover:bg-fondo rounded-lg" title="Renovaciones"><span class="material-symbols-outlined">event_repeat</span></a>
+        <a class="p-2 text-gris hover:bg-fondo rounded-lg" title="Reportes"><span class="material-symbols-outlined">bar_chart</span></a>
+      </nav>
+    </aside>
+
+    <!-- Panel 1: Inbox sidebar -->
+    <aside class="flex flex-col h-full w-72 bg-white border-r border-borde">
+      <div class="px-5 py-4 border-b border-borde">
+        <div class="text-lg font-extrabold text-teal">Bandeja</div>
+        <div class="text-xs text-gris mt-0.5">FM Communication Solutions</div>
+      </div>
+      <div class="p-4">
+        <button class="w-full flex items-center justify-center space-x-2 bg-teal text-white py-2.5 px-4 rounded-lg font-semibold text-sm hover:opacity-90">
+          <span class="material-symbols-outlined text-[20px]">edit_square</span>
+          <span>Nuevo mensaje</span>
+        </button>
+      </div>
+
+      <nav class="flex-1 overflow-y-auto scrollbar-hide px-2 pb-4">
+        <!-- Canales -->
+        <div class="mt-2">
+          <div class="flex items-center justify-between px-3 py-2">
+            <div class="text-[10px] font-bold text-gris uppercase tracking-widest">Canales</div>
+            <button class="p-1 text-gris hover:text-teal" title="Crear canal (solo admin)"><span class="material-symbols-outlined text-[16px]">add</span></button>
+          </div>
+          <div class="space-y-0.5">
+            <a class="flex items-center justify-between px-3 py-2 text-gris hover:bg-fondo rounded-lg text-sm cursor-pointer">
+              <span class="flex items-center"><span class="text-teal mr-2 font-bold">#</span> general</span>
+            </a>
+            <a class="flex items-center justify-between px-3 py-2 bg-teal/10 text-teal rounded-lg text-sm font-semibold cursor-pointer">
+              <span class="flex items-center"><span class="mr-2 font-bold">#</span> marketing</span>
+              <span class="bg-rojo text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center">3</span>
+            </a>
+            <a class="flex items-center justify-between px-3 py-2 text-gris hover:bg-fondo rounded-lg text-sm cursor-pointer">
+              <span class="flex items-center"><span class="text-teal mr-2 font-bold">#</span> diseno</span>
+            </a>
+            <a class="flex items-center justify-between px-3 py-2 text-gris hover:bg-fondo rounded-lg text-sm cursor-pointer">
+              <span class="flex items-center"><span class="text-teal mr-2 font-bold">#</span> ventas</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Mensajes directos -->
+        <div class="mt-6">
+          <div class="flex items-center justify-between px-3 py-2">
+            <div class="text-[10px] font-bold text-gris uppercase tracking-widest">Mensajes directos</div>
+          </div>
+          <div class="space-y-0.5">
+            <a class="flex items-center justify-between px-3 py-2 text-gris hover:bg-fondo rounded-lg text-sm cursor-pointer">
+              <span class="flex items-center">
+                <div class="w-6 h-6 rounded-full bg-teal text-white text-[10px] font-bold flex items-center justify-center mr-2">SC</div>
+                Sarah Chen
+              </span>
+              <span class="bg-rojo text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center">2</span>
+            </a>
+            <a class="flex items-center justify-between px-3 py-2 text-gris hover:bg-fondo rounded-lg text-sm cursor-pointer">
+              <span class="flex items-center">
+                <div class="w-6 h-6 rounded-full bg-gris text-white text-[10px] font-bold flex items-center justify-center mr-2">MW</div>
+                Marcus Wright
+              </span>
+            </a>
+            <a class="flex items-center justify-between px-3 py-2 text-gris hover:bg-fondo rounded-lg text-sm cursor-pointer">
+              <span class="flex items-center">
+                <div class="w-6 h-6 rounded-full bg-teal text-white text-[10px] font-bold flex items-center justify-center mr-2">AR</div>
+                Alex Rivera
+              </span>
+            </a>
+          </div>
+        </div>
+      </nav>
+
+      <div class="border-t border-borde p-3 flex items-center">
+        <div class="w-10 h-10 rounded-full bg-teal text-white font-bold flex items-center justify-center">DM</div>
+        <div class="ml-3 overflow-hidden">
+          <div class="text-sm font-semibold text-gris truncate">Daniel Mancía</div>
+          <div class="text-[10px] text-gris/70">Admin</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Panel 2: Chat activo -->
+    <main class="flex-1 flex flex-col bg-white">
+      <header class="flex items-center justify-between px-6 py-3 border-b border-borde">
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="text-teal font-bold text-lg">#</span>
+            <h2 class="text-lg font-bold text-gris">marketing</h2>
+          </div>
+          <div class="flex items-center text-xs text-gris mt-0.5">
+            <span class="material-symbols-outlined text-[14px] mr-1">group</span>
+            <span>5 miembros</span>
+            <span class="mx-2">·</span>
+            <span class="truncate">Estrategia Q4 &amp; planificación</span>
+          </div>
+        </div>
+        <button class="p-2 text-gris hover:bg-fondo rounded-lg" title="Detalles del canal">
+          <span class="material-symbols-outlined">info</span>
+        </button>
+      </header>
+
+      <div class="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide bg-fondo">
+        <div class="flex justify-center">
+          <span class="px-3 py-1 rounded-full bg-white border border-borde text-gris text-[10px] font-bold uppercase tracking-wider">Ayer, 20 de abril</span>
+        </div>
+
+        <!-- Mensaje recibido con adjunto PDF -->
+        <div class="flex items-start space-x-3 group">
+          <div class="w-9 h-9 rounded-full bg-teal text-white font-bold text-sm flex items-center justify-center flex-shrink-0">SC</div>
+          <div class="flex-1 space-y-1">
+            <div class="flex items-baseline space-x-2">
+              <span class="font-bold text-gris text-sm">Sarah Chen</span>
+              <span class="text-[10px] text-gris/70">10:42 a. m.</span>
+            </div>
+            <div class="bg-white border border-borde p-3 rounded-lg rounded-tl-none inline-block max-w-[80%] text-gris text-sm">
+              Equipo, subí el borrador de la campaña Q4. Revisen la sección "Eco‑Flow" por favor, creo que necesita más fuerza.
+            </div>
+            <div class="mt-1 bg-white border border-borde rounded-lg p-2.5 flex items-center space-x-3 w-72 hover:shadow-sm cursor-pointer">
+              <div class="w-9 h-9 bg-rojo/10 rounded flex items-center justify-center">
+                <span class="material-symbols-outlined text-rojo text-[18px]">picture_as_pdf</span>
+              </div>
+              <div class="flex-1 overflow-hidden">
+                <div class="text-xs font-semibold text-gris truncate">Campana_Q4_v2.pdf</div>
+                <div class="text-[10px] text-gris/70">2.4 MB · PDF</div>
+              </div>
+              <span class="material-symbols-outlined text-gris/70 text-[18px]">download</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mensaje enviado (propio) con menú editar/eliminar -->
+        <div class="flex items-start space-x-3 justify-end group">
+          <div class="flex-1 max-w-[80%] flex flex-col items-end space-y-1">
+            <div class="flex items-baseline space-x-2">
+              <span class="text-[10px] text-gris/70">10:45 a. m.</span>
+              <span class="font-bold text-gris text-sm">Daniel Mancía</span>
+            </div>
+            <div class="relative">
+              <div class="bg-teal text-white p-3 rounded-lg rounded-tr-none text-sm">
+                Voy, Sarah. Termino el reporte y te dejo feedback antes del mediodía.
+              </div>
+              <button class="absolute -top-2 -left-8 opacity-0 group-hover:opacity-100 p-1 bg-white border border-borde rounded-full shadow-sm text-gris" title="Más">
+                <span class="material-symbols-outlined text-[16px]">more_horiz</span>
+              </button>
+            </div>
+            <div class="text-[10px] text-gris/70 italic">editado</div>
+          </div>
+          <div class="w-9 h-9 rounded-full bg-teal text-white font-bold text-sm flex items-center justify-center flex-shrink-0">DM</div>
+        </div>
+
+        <!-- Mensaje recibido con imagen -->
+        <div class="flex items-start space-x-3 group">
+          <div class="w-9 h-9 rounded-full bg-gris text-white font-bold text-sm flex items-center justify-center flex-shrink-0">MW</div>
+          <div class="flex-1 space-y-1">
+            <div class="flex items-baseline space-x-2">
+              <span class="font-bold text-gris text-sm">Marcus Wright</span>
+              <span class="text-[10px] text-gris/70">11:05 a. m.</span>
+            </div>
+            <div class="bg-white border border-borde p-3 rounded-lg rounded-tl-none inline-block max-w-[80%] text-gris text-sm">
+              Aquí va la imagen hero del landing. ¿Qué opinan de la iluminación?
+            </div>
+            <div class="mt-1 rounded-lg overflow-hidden w-80 border border-borde">
+              <div class="w-full h-40 bg-gradient-to-br from-teal/40 via-teal/20 to-teal/70 flex items-center justify-center">
+                <span class="material-symbols-outlined text-white text-5xl">image</span>
+              </div>
+              <div class="flex items-center justify-between px-3 py-2 bg-white">
+                <div class="text-[10px] text-gris/70">Hero_Concept_A.jpg · 1.1 MB</div>
+                <span class="material-symbols-outlined text-gris/70 text-[16px] cursor-pointer">download</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Composer -->
+      <div class="p-4 border-t border-borde">
+        <div class="bg-fondo rounded-lg border border-borde p-2">
+          <!-- Chip de archivo staged (preview antes de enviar) -->
+          <div class="flex flex-wrap gap-2 px-1 pb-2">
+            <div class="flex items-center space-x-2 bg-white border border-borde rounded-full px-3 py-1 text-xs text-gris">
+              <span class="material-symbols-outlined text-teal text-[14px]">attach_file</span>
+              <span>mockup_v3.png</span>
+              <button class="text-gris/60 hover:text-rojo"><span class="material-symbols-outlined text-[14px]">close</span></button>
+            </div>
+          </div>
+          <div class="flex items-end space-x-2">
+            <button class="p-2 text-gris hover:text-teal" title="Adjuntar archivo">
+              <span class="material-symbols-outlined">attach_file</span>
+            </button>
+            <textarea rows="1" class="flex-1 bg-transparent border-none focus:ring-0 focus:outline-none text-sm resize-none py-2 max-h-32 scrollbar-hide" placeholder="Escribe un mensaje a #marketing..."></textarea>
+            <button class="p-2.5 bg-teal text-white rounded-lg hover:opacity-90" title="Enviar">
+              <span class="material-symbols-outlined text-[20px]">send</span>
+            </button>
+          </div>
+        </div>
+        <div class="mt-1 text-[10px] text-gris/70 px-1">
+          <b>Enter</b> para enviar · <b>Shift + Enter</b> para nueva línea
+        </div>
+      </div>
+    </main>
+
+    <!-- Panel 3: Detalles del canal -->
+    <aside class="w-80 border-l border-borde bg-white hidden lg:flex flex-col">
+      <div class="p-5 border-b border-borde flex items-center justify-between">
+        <h3 class="font-bold text-gris">Detalles del canal</h3>
+        <div class="flex items-center space-x-1">
+          <!-- Menú de acciones del canal (solo admin) -->
+          <div class="relative group/menu">
+            <button class="p-1 hover:bg-fondo rounded-full" title="Acciones del canal">
+              <span class="material-symbols-outlined text-gris">more_vert</span>
+            </button>
+            <div class="absolute right-0 top-8 w-48 bg-white border border-borde rounded-lg shadow-lg py-1 z-10 hidden group-hover/menu:block">
+              <button class="w-full text-left px-3 py-2 text-sm text-gris hover:bg-fondo flex items-center space-x-2">
+                <span class="material-symbols-outlined text-[16px]">edit</span><span>Editar canal</span>
+              </button>
+              <button class="w-full text-left px-3 py-2 text-sm text-rojo hover:bg-rojo/10 flex items-center space-x-2">
+                <span class="material-symbols-outlined text-[16px]">delete</span><span>Eliminar canal</span>
+              </button>
+            </div>
+          </div>
+          <button class="p-1 hover:bg-fondo rounded-full" title="Cerrar">
+            <span class="material-symbols-outlined text-gris">close</span>
+          </button>
+        </div>
+      </div>
+      <div class="flex-1 overflow-y-auto scrollbar-hide p-5 space-y-6">
+        <section class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="text-[10px] font-bold uppercase tracking-widest text-gris">Acerca</h4>
+            <button class="text-[10px] font-bold text-teal">Editar</button>
+          </div>
+          <div>
+            <div class="text-[10px] font-bold text-gris/70 uppercase">Tema</div>
+            <div class="text-sm text-gris mt-0.5">Estrategia Q4 &amp; planificación</div>
+          </div>
+          <div>
+            <div class="text-[10px] font-bold text-gris/70 uppercase">Descripción</div>
+            <div class="text-sm text-gris mt-0.5 leading-relaxed">Coordinación de campañas de lanzamiento y material creativo del equipo.</div>
+          </div>
+        </section>
+
+        <section class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="text-[10px] font-bold uppercase tracking-widest text-gris">Miembros (5)</h4>
+            <button class="text-[10px] font-bold text-teal">Agregar</button>
+          </div>
+          <div class="space-y-1">
+            <div class="group/m flex items-center justify-between p-1 rounded hover:bg-fondo">
+              <div class="flex items-center space-x-2">
+                <div class="w-7 h-7 rounded-full bg-teal text-white text-[10px] font-bold flex items-center justify-center">SC</div>
+                <div class="text-sm text-gris">Sarah Chen</div>
+              </div>
+              <button class="opacity-0 group-hover/m:opacity-100 p-1 text-rojo hover:bg-rojo/10 rounded" title="Expulsar del canal">
+                <span class="material-symbols-outlined text-[16px]">person_remove</span>
+              </button>
+            </div>
+            <div class="group/m flex items-center justify-between p-1 rounded hover:bg-fondo">
+              <div class="flex items-center space-x-2">
+                <div class="w-7 h-7 rounded-full bg-gris text-white text-[10px] font-bold flex items-center justify-center">MW</div>
+                <div class="text-sm text-gris">Marcus Wright</div>
+              </div>
+              <button class="opacity-0 group-hover/m:opacity-100 p-1 text-rojo hover:bg-rojo/10 rounded" title="Expulsar del canal">
+                <span class="material-symbols-outlined text-[16px]">person_remove</span>
+              </button>
+            </div>
+            <div class="group/m flex items-center justify-between p-1 rounded hover:bg-fondo">
+              <div class="flex items-center space-x-2">
+                <div class="w-7 h-7 rounded-full bg-teal text-white text-[10px] font-bold flex items-center justify-center">DM</div>
+                <div class="text-sm text-gris">Daniel Mancía <span class="text-[10px] text-gris/70">· Admin · Tú</span></div>
+              </div>
+            </div>
+            <div class="group/m flex items-center justify-between p-1 rounded hover:bg-fondo">
+              <div class="flex items-center space-x-2">
+                <div class="w-7 h-7 rounded-full bg-teal text-white text-[10px] font-bold flex items-center justify-center">AR</div>
+                <div class="text-sm text-gris">Alex Rivera</div>
+              </div>
+              <button class="opacity-0 group-hover/m:opacity-100 p-1 text-rojo hover:bg-rojo/10 rounded" title="Expulsar del canal">
+                <span class="material-symbols-outlined text-[16px]">person_remove</span>
+              </button>
+            </div>
+            <div class="group/m flex items-center justify-between p-1 rounded hover:bg-fondo">
+              <div class="flex items-center space-x-2">
+                <div class="w-7 h-7 rounded-full bg-gris text-white text-[10px] font-bold flex items-center justify-center">JP</div>
+                <div class="text-sm text-gris">Juan Pérez</div>
+              </div>
+              <button class="opacity-0 group-hover/m:opacity-100 p-1 text-rojo hover:bg-rojo/10 rounded" title="Expulsar del canal">
+                <span class="material-symbols-outlined text-[16px]">person_remove</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section class="space-y-3">
+          <h4 class="text-[10px] font-bold uppercase tracking-widest text-gris">Archivos</h4>
+          <div class="space-y-1">
+            <div class="group/f flex items-center space-x-2 p-2 hover:bg-fondo rounded-lg cursor-pointer">
+              <div class="w-8 h-8 bg-rojo/10 rounded flex items-center justify-center flex-shrink-0">
+                <span class="material-symbols-outlined text-rojo text-[18px]">picture_as_pdf</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-xs font-semibold text-gris truncate">Brand_Guidelines.pdf</div>
+                <div class="text-[10px] text-gris/70">12 abr · 4.2 MB</div>
+              </div>
+              <button class="opacity-0 group-hover/f:opacity-100 p-1 text-gris hover:text-teal rounded" title="Descargar">
+                <span class="material-symbols-outlined text-[16px]">download</span>
+              </button>
+              <button class="opacity-0 group-hover/f:opacity-100 p-1 text-rojo hover:bg-rojo/10 rounded" title="Eliminar archivo">
+                <span class="material-symbols-outlined text-[16px]">delete</span>
+              </button>
+            </div>
+            <div class="group/f flex items-center space-x-2 p-2 hover:bg-fondo rounded-lg cursor-pointer">
+              <div class="w-8 h-8 bg-teal/10 rounded flex items-center justify-center flex-shrink-0">
+                <span class="material-symbols-outlined text-teal text-[18px]">image</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-xs font-semibold text-gris truncate">Hero_Concept_A.jpg</div>
+                <div class="text-[10px] text-gris/70">Ayer · 1.1 MB</div>
+              </div>
+              <button class="opacity-0 group-hover/f:opacity-100 p-1 text-gris hover:text-teal rounded" title="Descargar">
+                <span class="material-symbols-outlined text-[16px]">download</span>
+              </button>
+              <button class="opacity-0 group-hover/f:opacity-100 p-1 text-rojo hover:bg-rojo/10 rounded" title="Eliminar archivo">
+                <span class="material-symbols-outlined text-[16px]">delete</span>
+              </button>
+            </div>
+            <div class="group/f flex items-center space-x-2 p-2 hover:bg-fondo rounded-lg cursor-pointer">
+              <div class="w-8 h-8 bg-rojo/10 rounded flex items-center justify-center flex-shrink-0">
+                <span class="material-symbols-outlined text-rojo text-[18px]">picture_as_pdf</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-xs font-semibold text-gris truncate">Campana_Q4_v2.pdf</div>
+                <div class="text-[10px] text-gris/70">Ayer · 2.4 MB</div>
+              </div>
+              <button class="opacity-0 group-hover/f:opacity-100 p-1 text-gris hover:text-teal rounded" title="Descargar">
+                <span class="material-symbols-outlined text-[16px]">download</span>
+              </button>
+              <button class="opacity-0 group-hover/f:opacity-100 p-1 text-rojo hover:bg-rojo/10 rounded" title="Eliminar archivo">
+                <span class="material-symbols-outlined text-[16px]">delete</span>
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+      <div class="p-5 border-t border-borde">
+        <button class="w-full py-2 px-4 border border-rojo text-rojo font-bold text-xs rounded-lg hover:bg-rojo hover:text-white uppercase tracking-widest transition-colors">
+          Salir del canal
+        </button>
+      </div>
+    </aside>
+  </div>
+</body>
+</html>
