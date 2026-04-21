@@ -1,14 +1,10 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 import type { BillingCycle, BillingPeriod, CambiosPackage, ClientWithPlan, ContentType, ExtraContentItem, PlanLimits } from '@/types/db'
 import { CONTENT_TYPES, CONTENT_TYPE_LABELS, EXTRA_CONTENT_PRICES, NON_CARRYOVER_TYPES, effectiveLimits } from '@/lib/domain/plans'
-import { nextCycleDates } from '@/lib/domain/cycles'
-import { computeTotals } from '@/lib/domain/requirement'
-import { migrateOpenPipelineItems } from '@/lib/domain/pipeline'
+import { renewCycle, markCyclePaid, pauseClient } from '@/app/actions/renewals'
 
 const avatarGradients = [
   'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)',
@@ -36,22 +32,10 @@ interface RenewalRowProps {
   allPlans: Plan[]
 }
 
-const CONTENT_TO_PLAN_KEY: Record<ContentType, keyof PlanLimits> = {
-  historia: 'historias',
-  estatico: 'estaticos',
-  video_corto: 'videos_cortos',
-  reel: 'reels',
-  short: 'shorts',
-  produccion: 'producciones',
-  reunion: 'reuniones',
-  matriz_contenido: 'matrices_contenido',
-}
-
 export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: RenewalRowProps) {
-  const router = useRouter()
   const [expanded, setExpanded] = useState(false)
   const [mode, setMode] = useState<PanelMode>(null)
-  const [loading, setLoading] = useState(false)
+  const [isPending, startTransition] = useTransition()
   const [pauseConfirm, setPauseConfirm] = useState(false)
 
   // "Hacer cambios" panel state
@@ -74,108 +58,31 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
   const limits = effectiveLimits(cycle.limits_snapshot_json, cycle.rollover_from_previous_json)
   const selectedPlan = allPlans.find((p) => p.id === selectedPlanId)
 
-  async function markPaid() {
-    setLoading(true)
-    const supabase = createClient()
-    await supabase
-      .from('billing_cycles')
-      .update({ payment_status: 'paid', payment_date: new Date().toISOString().split('T')[0] })
-      .eq('id', cycle.id)
-    setLoading(false)
-    router.refresh()
-  }
-
-  async function doRenew(withChanges: boolean) {
-    setLoading(true)
-    const supabase = createClient()
-
-    const { data: cons } = await supabase
-      .from('requirements')
-      .select('*')
-      .eq('billing_cycle_id', cycle.id)
-
-    const totals = computeTotals(cons ?? [])
-
-    const planId = withChanges ? selectedPlanId : client.current_plan_id
-    const planData = withChanges
-      ? allPlans.find((p) => p.id === planId)
-      : null
-    const basePlan = planData ?? client.plan
-    // Copia el unified_content_limit al snapshot si aplica (plan "Contenido")
-    const planLimits: PlanLimits = basePlan.unified_content_limit != null
-      ? { ...basePlan.limits_json, unified_content_limit: basePlan.unified_content_limit }
-      : basePlan.limits_json
-    const planCambios = planData?.cambios_included ?? client.plan.cambios_included
-
-    // Build rollover
-    const rolloverJson: Partial<PlanLimits> = {}
-    let hasRollover = false
-    for (const type of CONTENT_TYPES) {
-      if (rolloverChecked[type]) {
-        const unused = limits[type] - totals[type]
-        if (unused > 0) {
-          rolloverJson[CONTENT_TO_PLAN_KEY[type]] = unused
-          hasRollover = true
-        }
-      }
-    }
-
-    const { periodStart, periodEnd } = nextCycleDates(cycle.period_end, client.billing_day, {
-      billingPeriod: withChanges ? billingPeriod : client.billing_period,
-      billingDay2: client.billing_day_2,
+  function markPaid() {
+    startTransition(async () => {
+      await markCyclePaid(cycle.id, client.id)
     })
-
-    await Promise.all([
-      supabase.from('billing_cycles').update({ status: 'archived' }).eq('id', cycle.id),
-      supabase.from('clients').update({
-        status: 'active',
-        ...(withChanges && planId !== client.current_plan_id ? { current_plan_id: planId } : {}),
-        ...(withChanges && billingPeriod !== client.billing_period ? { billing_period: billingPeriod } : {}),
-      }).eq('id', client.id),
-    ])
-
-    const { data: newCycle } = await supabase
-      .from('billing_cycles')
-      .insert({
-        client_id: client.id,
-        plan_id_snapshot: planId,
-        limits_snapshot_json: planLimits,
-        rollover_from_previous_json: hasRollover ? rolloverJson : null,
-        period_start: periodStart,
-        period_end: periodEnd,
-        status: 'current' as const,
-        payment_status: 'unpaid' as const,
-        cambios_budget: planCambios + (withChanges ? cambiosPackages.reduce((s, p) => s + p.qty, 0) : 0),
-        cambios_packages_json: withChanges ? cambiosPackages : [],
-        extra_content_json: withChanges ? extraContent : [],
-      })
-      .select('id')
-      .single()
-
-    if (newCycle?.id) {
-      const { data: { user: authUser } } = await supabase.auth.getUser()
-      if (authUser) {
-        await migrateOpenPipelineItems(supabase, {
-          previousCycleId: cycle.id,
-          newCycleId: newCycle.id,
-          movedBy: authUser.id,
-        })
-      }
-    }
-
-    setLoading(false)
-    router.refresh()
   }
 
-  async function handlePause() {
-    setLoading(true)
-    const supabase = createClient()
-    await Promise.all([
-      supabase.from('clients').update({ status: 'paused' }).eq('id', client.id),
-      supabase.from('billing_cycles').update({ status: 'archived' }).eq('id', cycle.id),
-    ])
-    setLoading(false)
-    router.refresh()
+  function doRenew(withChanges: boolean) {
+    startTransition(async () => {
+      await renewCycle({
+        cycleId: cycle.id,
+        clientId: client.id,
+        planId: withChanges ? selectedPlanId : client.current_plan_id,
+        billingPeriod: withChanges ? billingPeriod : client.billing_period,
+        rolloverChecked,
+        cambiosPackages,
+        extraContent,
+        withChanges,
+      })
+    })
+  }
+
+  function handlePause() {
+    startTransition(async () => {
+      await pauseClient(client.id, cycle.id)
+    })
   }
 
   function toggleExpanded() {
@@ -280,7 +187,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
           {cycle.payment_status === 'unpaid' && isAdmin && (
             <button
               onClick={markPaid}
-              disabled={loading}
+              disabled={isPending}
               className="text-xs text-white font-medium px-3 py-1.5 rounded-lg transition-all hover:opacity-90"
               style={{ background: 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)' }}
             >
@@ -364,11 +271,11 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
 
               <button
                 onClick={() => doRenew(false)}
-                disabled={loading}
+                disabled={isPending}
                 className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
                 style={{ background: 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)' }}
               >
-                {loading ? 'Procesando...' : 'Confirmar renovación'}
+                {isPending ? 'Procesando...' : 'Confirmar renovación'}
               </button>
             </div>
           )}
@@ -658,11 +565,11 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
 
               <button
                 onClick={() => doRenew(true)}
-                disabled={loading}
+                disabled={isPending}
                 className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
                 style={{ background: 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)' }}
               >
-                {loading ? 'Procesando...' : 'Confirmar renovación con cambios'}
+                {isPending ? 'Procesando...' : 'Confirmar renovación con cambios'}
               </button>
             </div>
           )}
@@ -706,10 +613,10 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
                       </button>
                       <button
                         onClick={handlePause}
-                        disabled={loading}
+                        disabled={isPending}
                         className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-[#595c5e] hover:bg-[#2c2f31] transition-colors"
                       >
-                        {loading ? 'Pausando...' : 'Confirmar pausa'}
+                        {isPending ? 'Pausando...' : 'Confirmar pausa'}
                       </button>
                     </div>
                   </div>
