@@ -253,6 +253,7 @@ export function PipelineCard({
         requirementId={item.id}
         contentType={item.content_type}
         currentPhase={item.phase as Phase}
+        clientId={item.client_id}
         clientName={item.client_name}
         logs={logs}
         currentUserId={currentUserId}

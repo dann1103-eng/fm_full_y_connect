@@ -696,6 +696,121 @@ export interface Database {
           }
         ]
       }
+      review_assets: {
+        Row: {
+          id: string
+          requirement_id: string
+          name: string
+          kind: 'image' | 'video'
+          created_by: string | null
+          created_at: string
+          archived_at: string | null
+        }
+        Insert: {
+          id?: string
+          requirement_id: string
+          name: string
+          kind: 'image' | 'video'
+          created_by?: string | null
+          created_at?: string
+          archived_at?: string | null
+        }
+        Update: {
+          name?: string
+          archived_at?: string | null
+        }
+        Relationships: []
+      }
+      review_versions: {
+        Row: {
+          id: string
+          asset_id: string
+          version_number: number
+          storage_path: string
+          mime_type: string
+          byte_size: number
+          thumbnail_path: string | null
+          duration_ms: number | null
+          uploaded_by: string | null
+          uploaded_at: string
+        }
+        Insert: {
+          id?: string
+          asset_id: string
+          version_number: number
+          storage_path: string
+          mime_type: string
+          byte_size: number
+          thumbnail_path?: string | null
+          duration_ms?: number | null
+          uploaded_by?: string | null
+          uploaded_at?: string
+        }
+        Update: {
+          thumbnail_path?: string | null
+          duration_ms?: number | null
+        }
+        Relationships: []
+      }
+      review_pins: {
+        Row: {
+          id: string
+          version_id: string
+          pin_number: number
+          pos_x_pct: number
+          pos_y_pct: number
+          timestamp_ms: number | null
+          status: 'active' | 'resolved'
+          created_by: string | null
+          created_at: string
+          resolved_by: string | null
+          resolved_at: string | null
+        }
+        Insert: {
+          id?: string
+          version_id: string
+          pin_number: number
+          pos_x_pct: number
+          pos_y_pct: number
+          timestamp_ms?: number | null
+          status?: 'active' | 'resolved'
+          created_by?: string | null
+          created_at?: string
+          resolved_by?: string | null
+          resolved_at?: string | null
+        }
+        Update: {
+          status?: 'active' | 'resolved'
+          resolved_by?: string | null
+          resolved_at?: string | null
+        }
+        Relationships: []
+      }
+      review_comments: {
+        Row: {
+          id: string
+          pin_id: string
+          parent_id: string | null
+          user_id: string | null
+          body: string
+          edited_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          pin_id: string
+          parent_id?: string | null
+          user_id?: string | null
+          body: string
+          edited_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          body?: string
+          edited_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -786,3 +901,68 @@ export type RequirementTotals = Record<ContentType, number>
 
 /** límites efectivos = snapshot + rollover */
 export type EffectiveLimits = Record<ContentType, number>
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Content Review (feature de revisión estilo Frame.io / Skool)
+// Migraciones 0044_content_review.sql + 0045_review_files_bucket.sql
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ReviewAssetKind = 'image' | 'video'
+export type ReviewPinStatus = 'active' | 'resolved'
+
+export interface ReviewAsset {
+  id: string
+  requirement_id: string
+  name: string
+  kind: ReviewAssetKind
+  created_by: string | null
+  created_at: string
+  archived_at: string | null
+}
+
+export interface ReviewVersion {
+  id: string
+  asset_id: string
+  version_number: number
+  storage_path: string
+  mime_type: string
+  byte_size: number
+  thumbnail_path: string | null
+  duration_ms: number | null
+  uploaded_by: string | null
+  uploaded_at: string
+}
+
+export interface ReviewPin {
+  id: string
+  version_id: string
+  pin_number: number
+  pos_x_pct: number
+  pos_y_pct: number
+  timestamp_ms: number | null
+  status: ReviewPinStatus
+  created_by: string | null
+  created_at: string
+  resolved_by: string | null
+  resolved_at: string | null
+}
+
+export interface ReviewComment {
+  id: string
+  pin_id: string
+  parent_id: string | null
+  user_id: string | null
+  body: string
+  edited_at: string | null
+  created_at: string
+}
+
+/** Asset con todas sus versiones ordenadas ascendentemente. */
+export interface ReviewAssetWithVersions extends ReviewAsset {
+  versions: ReviewVersion[]
+}
+
+/** Pin con su thread de comentarios (raíz + respuestas). */
+export interface ReviewPinWithComments extends ReviewPin {
+  comments: ReviewComment[]
+}
