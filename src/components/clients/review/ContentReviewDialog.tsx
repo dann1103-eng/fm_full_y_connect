@@ -92,10 +92,8 @@ export function ContentReviewDialog({
         if (version) {
           // eslint-disable-next-line react-hooks/set-state-in-effect
           setSelectedAssetId(version.asset_id)
-          // eslint-disable-next-line react-hooks/set-state-in-effect
           setSelectedVersionId(version.id)
         }
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSelectedPinId(pin.id)
         deepLinkAppliedRef.current = initialPinId
         return
