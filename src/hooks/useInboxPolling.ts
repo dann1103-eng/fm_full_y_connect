@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ConversationListItem, MessageWithMeta } from '@/types/db'
+import { createClient } from '@/lib/supabase/client'
 
-const POLL_INTERVAL_MS = 12_000
+const SAFETY_POLL_MS = 60_000
+const DEBOUNCE_MS = 300
 
 function useVisible(): boolean {
   const [visible, setVisible] = useState<boolean>(
@@ -21,6 +23,7 @@ export function useInboxList(initial?: ConversationListItem[]) {
   const [data, setData] = useState<ConversationListItem[]>(initial ?? [])
   const [loading, setLoading] = useState<boolean>(!initial)
   const visible = useVisible()
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const refresh = useCallback(async () => {
     try {
@@ -29,18 +32,40 @@ export function useInboxList(initial?: ConversationListItem[]) {
       const json = (await res.json()) as ConversationListItem[]
       setData(json)
     } catch {
-      // silent: polling
+      // silent
     } finally {
       setLoading(false)
     }
   }, [])
 
+  const scheduleRefresh = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      refresh()
+    }, DEBOUNCE_MS)
+  }, [refresh])
+
   useEffect(() => {
     if (!visible) return
+    const supabase = createClient()
+
     refresh()
-    const id = window.setInterval(refresh, POLL_INTERVAL_MS)
-    return () => window.clearInterval(id)
-  }, [visible, refresh])
+
+    const channel = supabase
+      .channel(`inbox-list-${Math.random().toString(36).slice(2)}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, scheduleRefresh)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_members' }, scheduleRefresh)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversations' }, scheduleRefresh)
+      .subscribe()
+
+    const safetyTimer = window.setInterval(refresh, SAFETY_POLL_MS)
+
+    return () => {
+      window.clearInterval(safetyTimer)
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      supabase.removeChannel(channel)
+    }
+  }, [visible, refresh, scheduleRefresh])
 
   return { data, loading, refresh }
 }
@@ -80,7 +105,7 @@ export function useConversationMessages(
         return next
       })
     } catch {
-      // silent: polling
+      // silent
     } finally {
       setLoading(false)
     }
@@ -100,10 +125,39 @@ export function useConversationMessages(
 
   useEffect(() => {
     if (!visible) return
+    const supabase = createClient()
+
     fetchIncremental()
-    const id = window.setInterval(fetchIncremental, POLL_INTERVAL_MS)
-    return () => window.clearInterval(id)
-  }, [visible, fetchIncremental])
+
+    const channel = supabase
+      .channel(`conv-messages-${conversationId}-${Math.random().toString(36).slice(2)}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
+        () => fetchIncremental()
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
+        (payload) => {
+          const oldId = (payload.old as { id?: string } | null)?.id
+          if (oldId) setMessages((prev) => prev.filter((m) => m.id !== oldId))
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
+        () => refresh()
+      )
+      .subscribe()
+
+    const safetyTimer = window.setInterval(fetchIncremental, SAFETY_POLL_MS)
+
+    return () => {
+      window.clearInterval(safetyTimer)
+      supabase.removeChannel(channel)
+    }
+  }, [visible, conversationId, fetchIncremental, refresh])
 
   const removeMessage = useCallback((messageId: string) => {
     setMessages((prev) => prev.filter((m) => m.id !== messageId))

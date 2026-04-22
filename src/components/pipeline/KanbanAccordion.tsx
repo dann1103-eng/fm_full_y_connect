@@ -13,6 +13,7 @@ interface KanbanAccordionProps {
   logsMap: Record<string, RequirementPhaseLog[]>
   currentUserId: string
   canAssign?: boolean
+  isAdmin?: boolean
   nowMs?: number
   initialOpenRequirementId?: string | null
 }
@@ -22,6 +23,7 @@ export function KanbanAccordion({
   logsMap,
   currentUserId,
   canAssign = false,
+  isAdmin = false,
   nowMs,
   initialOpenRequirementId = null,
 }: KanbanAccordionProps) {
@@ -101,6 +103,7 @@ export function KanbanAccordion({
                       showClient
                       draggable={false}
                       canAssign={canAssign}
+                      isAdmin={isAdmin}
                       nowMs={nowMs}
                     />
                   ))
@@ -133,6 +136,7 @@ export function KanbanAccordion({
           canAssign={canAssign}
           includesStory={deepLinkItem.includes_story}
           deadline={deepLinkItem.deadline}
+          isAdmin={isAdmin}
         />
       )}
     </div>

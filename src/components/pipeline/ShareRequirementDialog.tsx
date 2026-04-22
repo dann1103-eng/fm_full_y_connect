@@ -69,7 +69,7 @@ export function ShareRequirementDialog({
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-fm-on-surface hover:bg-fm-background"
               >
                 <span className="material-symbols-outlined text-[18px] text-fm-primary">send</span>
-                Enviar por Bandeja
+                Enviar por Inbox
               </button>
             </div>
           </>
@@ -147,7 +147,7 @@ function SendToInboxDialog({
     <Dialog open={open} onOpenChange={(v) => (v ? onOpenChange(true) : resetAndClose())}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Enviar por Bandeja</DialogTitle>
+          <DialogTitle>Enviar por Inbox</DialogTitle>
         </DialogHeader>
 
         {sent ? (

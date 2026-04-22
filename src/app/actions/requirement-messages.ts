@@ -105,6 +105,21 @@ export async function markMentionRead(mentionId: string) {
   }
 }
 
+export async function deleteRequirementMessage(messageId: string) {
+  try {
+    const { supabase } = await getCurrentUser()
+    const { error } = await supabase
+      .from('requirement_messages')
+      .delete()
+      .eq('id', messageId)
+    if (error) return { error: error.message }
+    return { success: true }
+  } catch (e) {
+    console.error('deleteRequirementMessage failed:', e)
+    return { error: e instanceof Error ? e.message : 'Error desconocido' }
+  }
+}
+
 export async function markAllMentionsRead() {
   try {
     const { supabase, userId } = await getCurrentUser()

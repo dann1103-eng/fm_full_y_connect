@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { uploadRequirementAttachment } from '@/lib/supabase/upload-req-attachment'
-import { sendRequirementMessage } from '@/app/actions/requirement-messages'
+import { sendRequirementMessage, deleteRequirementMessage } from '@/app/actions/requirement-messages'
 import { MentionAutocomplete } from '@/components/requirements/MentionAutocomplete'
 import type { AppUser } from '@/types/db'
 
@@ -23,6 +23,7 @@ interface ChatMessage {
 interface RequirementChatProps {
   requirementId: string
   currentUserId: string
+  isAdmin?: boolean
 }
 
 function publicUrlFor(path: string): string {
@@ -30,7 +31,7 @@ function publicUrlFor(path: string): string {
   return supabase.storage.from('requirement-attachments').getPublicUrl(path).data.publicUrl
 }
 
-export function RequirementChat({ requirementId, currentUserId }: RequirementChatProps) {
+export function RequirementChat({ requirementId, currentUserId, isAdmin = false }: RequirementChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(true)
   const [body, setBody] = useState('')
@@ -41,12 +42,37 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
   const [lightbox, setLightbox] = useState<string | null>(null)
   const [users, setUsers] = useState<MentionableUser[]>([])
   const [mentionIds, setMentionIds] = useState<string[]>([])
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     loadMessages()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requirementId])
+
+  useEffect(() => {
+    const supabase = createClient()
+    let debounce: ReturnType<typeof setTimeout> | null = null
+    const scheduleReload = () => {
+      if (debounce) clearTimeout(debounce)
+      debounce = setTimeout(() => {
+        loadMessages()
+      }, 250)
+    }
+    const channel = supabase
+      .channel(`req-chat-${requirementId}-${Math.random().toString(36).slice(2)}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'requirement_messages', filter: `requirement_id=eq.${requirementId}` },
+        scheduleReload
+      )
+      .subscribe()
+    return () => {
+      if (debounce) clearTimeout(debounce)
+      supabase.removeChannel(channel)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requirementId])
 
@@ -146,6 +172,20 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
     clearPendingFile()
     setSending(false)
     inputRef.current?.focus()
+  }
+
+  async function handleDelete(messageId: string) {
+    if (deletingId) return
+    if (!confirm('¿Borrar este mensaje?')) return
+    setDeletingId(messageId)
+    const res = await deleteRequirementMessage(messageId)
+    if ('error' in res && res.error) {
+      setUploadError(res.error)
+      setDeletingId(null)
+      return
+    }
+    setMessages((prev) => prev.filter((m) => m.id !== messageId))
+    setDeletingId(null)
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -266,8 +306,9 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
                 const role = msg.user?.role ?? ''
                 const avatarUrl = msg.user?.avatar_url ?? null
                 const imgUrl = msg.attachment_path ? publicUrlFor(msg.attachment_path) : null
+                const canDelete = isMine || isAdmin
                 return (
-                  <div key={msg.id} className={`flex gap-2 items-end ${isMine ? 'flex-row-reverse' : ''}`}>
+                  <div key={msg.id} className={`group flex gap-2 items-end ${isMine ? 'flex-row-reverse' : ''}`}>
                     {/* Avatar (foto si existe, fallback a iniciales con gradiente) */}
                     {avatarUrl ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
@@ -293,7 +334,7 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
                       <span className="text-[10px] text-fm-outline-variant font-semibold mb-1">
                         {isMine ? 'Tú' : name}
                         {role === 'admin' && !isMine && (
-                          <span className="ml-1 text-[9px] bg-[#5c4a8a]/10 text-[#5c4a8a] px-1.5 py-0.5 rounded-full">
+                          <span className="ml-1 text-[9px] bg-fm-tertiary-container/30 text-fm-tertiary px-1.5 py-0.5 rounded-full">
                             Admin
                           </span>
                         )}
@@ -335,6 +376,18 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
                       )}
                       <span className="text-[10px] text-fm-outline-variant mt-1">{formatTime(msg.created_at)}</span>
                     </div>
+
+                    {canDelete && (
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(msg.id)}
+                        disabled={deletingId === msg.id}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-fm-error p-1 rounded hover:bg-fm-error/10 self-center flex-shrink-0 disabled:opacity-40"
+                        title="Borrar mensaje"
+                      >
+                        <span className="material-symbols-outlined text-base">delete</span>
+                      </button>
+                    )}
                   </div>
                 )
               })}

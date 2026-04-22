@@ -170,6 +170,7 @@ export function PipelineContainer({
             logsMap={logsMap}
             currentUserId={currentUserId}
             canAssign={canAssign}
+            isAdmin={isAdmin}
             initialOpenRequirementId={initialOpenRequirementId}
           />
         </div>
@@ -180,6 +181,7 @@ export function PipelineContainer({
             logsMap={logsMap}
             currentUserId={currentUserId}
             canAssign={canAssign}
+            isAdmin={isAdmin}
           />
         </div>
       )}

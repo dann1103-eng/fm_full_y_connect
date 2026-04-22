@@ -62,6 +62,7 @@ interface PhaseSheetProps {
   canAssign?: boolean
   includesStory?: boolean
   deadline?: string | null
+  isAdmin?: boolean
 }
 
 export function PhaseSheet({
@@ -85,6 +86,7 @@ export function PhaseSheet({
   canAssign = false,
   includesStory: initialIncludesStory = false,
   deadline: initialDeadline = null,
+  isAdmin = false,
 }: PhaseSheetProps) {
   const STORY_APPLICABLE_TYPES: ContentType[] = ['estatico', 'video_corto', 'reel', 'short']
   const storyApplicable = STORY_APPLICABLE_TYPES.includes(contentType)
@@ -825,6 +827,7 @@ export function PhaseSheet({
             <RequirementChat
               requirementId={requirementId}
               currentUserId={currentUserId}
+              isAdmin={isAdmin}
             />
           </div>
 

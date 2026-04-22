@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { NotificationItem } from '@/types/db'
+import { createClient } from '@/lib/supabase/client'
 
-const POLL_MS = 20_000
+const SAFETY_POLL_MS = 60_000
+const DEBOUNCE_MS = 400
 const DISMISSAL_KEY = 'overdue-seen'
+const NOTIFICATION_SOUND_URL = '/sounds/notification.mp3'
 
 type DismissalMap = Record<string, string>
 
@@ -34,10 +37,40 @@ export function useNotifications() {
   const [loading, setLoading] = useState(true)
   const [dismissal, setDismissal] = useState<DismissalMap>({})
   const abortRef = useRef<AbortController | null>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const prevSignatureRef = useRef<string | null>(null)
+  const initializedRef = useRef(false)
 
   useEffect(() => {
     setDismissal(readDismissal())
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (audioRef.current) return
+    const audio = new Audio(NOTIFICATION_SOUND_URL)
+    audio.preload = 'auto'
+    audio.volume = 0.4
+    audioRef.current = audio
+  }, [])
+
+  useEffect(() => {
+    const signature = items.map((it) => `${it.kind}:${it.id}:${it.created_at}`).join('|')
+    if (!initializedRef.current) {
+      initializedRef.current = true
+      prevSignatureRef.current = signature
+      return
+    }
+    if (signature === prevSignatureRef.current) return
+    const prevIds = new Set((prevSignatureRef.current ?? '').split('|'))
+    const hasNew = items.some((it) => !prevIds.has(`${it.kind}:${it.id}:${it.created_at}`))
+    prevSignatureRef.current = signature
+    if (hasNew && audioRef.current) {
+      audioRef.current.currentTime = 0
+      audioRef.current.play().catch(() => { /* autoplay blocked — ignore */ })
+    }
+  }, [items])
 
   const fetchItems = useCallback(async () => {
     abortRef.current?.abort()
@@ -55,34 +88,42 @@ export function useNotifications() {
     }
   }, [])
 
-  useEffect(() => {
-    let timer: ReturnType<typeof setInterval> | null = null
-
-    const start = () => {
+  const scheduleFetch = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
       fetchItems()
-      timer = setInterval(fetchItems, POLL_MS)
-    }
-    const stop = () => {
-      if (timer) {
-        clearInterval(timer)
-        timer = null
-      }
-    }
+    }, DEBOUNCE_MS)
+  }, [fetchItems])
+
+  useEffect(() => {
+    const supabase = createClient()
+    let safetyTimer: ReturnType<typeof setInterval> | null = null
+
+    fetchItems()
+
+    const channel = supabase
+      .channel(`notifications-feed-${Math.random().toString(36).slice(2)}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'requirement_mentions' }, scheduleFetch)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, scheduleFetch)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_members' }, scheduleFetch)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'requirements' }, scheduleFetch)
+      .subscribe()
+
+    safetyTimer = setInterval(fetchItems, SAFETY_POLL_MS)
 
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') start()
-      else stop()
+      if (document.visibilityState === 'visible') fetchItems()
     }
-
-    if (document.visibilityState === 'visible') start()
     document.addEventListener('visibilitychange', onVisibility)
 
     return () => {
-      stop()
+      if (safetyTimer) clearInterval(safetyTimer)
+      if (debounceRef.current) clearTimeout(debounceRef.current)
       document.removeEventListener('visibilitychange', onVisibility)
+      supabase.removeChannel(channel)
       abortRef.current?.abort()
     }
-  }, [fetchItems])
+  }, [fetchItems, scheduleFetch])
 
   const markOverdueSeen = useCallback(() => {
     setItems((current) => {

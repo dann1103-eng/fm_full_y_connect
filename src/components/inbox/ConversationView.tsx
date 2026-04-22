@@ -57,6 +57,7 @@ export function ConversationView({
         <MessageList
           conversationId={conversation.id}
           currentUserId={currentUserId}
+          isAdmin={isAdmin}
           initialMessages={initialMessages}
         />
         <MessageComposer conversationId={conversation.id} placeholder={composerPlaceholder} />

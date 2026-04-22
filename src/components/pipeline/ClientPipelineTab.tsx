@@ -11,9 +11,10 @@ interface ClientPipelineTabProps {
   logsMap: Record<string, RequirementPhaseLog[]>
   currentUserId: string
   canAssign?: boolean
+  isAdmin?: boolean
 }
 
-export function ClientPipelineTab({ items, logsMap, currentUserId, canAssign = false }: ClientPipelineTabProps) {
+export function ClientPipelineTab({ items, logsMap, currentUserId, canAssign = false, isAdmin = false }: ClientPipelineTabProps) {
   const [nowMs, setNowMs] = useState<number>(() => new Date().getTime())
 
   useEffect(() => {
@@ -55,6 +56,7 @@ export function ClientPipelineTab({ items, logsMap, currentUserId, canAssign = f
                 currentUserId={currentUserId}
                 showClient={false}
                 canAssign={canAssign}
+                isAdmin={isAdmin}
                 nowMs={nowMs}
               />
             ))}

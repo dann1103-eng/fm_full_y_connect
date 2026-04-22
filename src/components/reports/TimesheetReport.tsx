@@ -31,6 +31,7 @@ interface Props {
   users: { id: string; full_name: string; avatar_url: string | null }[]
   clients: { id: string; name: string }[]
   currentUserId: string
+  isAdmin?: boolean
 }
 
 const PRIMARY_LABELS: Record<PrimaryGroup, string> = {
@@ -67,7 +68,7 @@ interface SheetData {
   assignees: { id: string; name: string; avatar_url: string | null }[]
 }
 
-export function TimesheetReport({ users, clients, currentUserId }: Props) {
+export function TimesheetReport({ users, clients, currentUserId, isAdmin = false }: Props) {
   const [dateRange, setDateRange] = useState<DateRangeValue>(() => monthRange())
   const [primary, setPrimary] = useState<PrimaryGroup>('member')
   const [secondary, setSecondary] = useState<SecondaryGroup>('client')
@@ -424,6 +425,7 @@ export function TimesheetReport({ users, clients, currentUserId }: Props) {
           assignedTo={sheetData.assignedTo}
           assignees={sheetData.assignees}
           canAssign={false}
+          isAdmin={isAdmin}
         />
       )}
     </div>

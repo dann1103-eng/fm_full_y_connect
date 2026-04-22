@@ -36,7 +36,7 @@ export function InboxSidebar({ initialList, allUsers }: InboxSidebarProps) {
   return (
     <aside className="flex flex-col h-full w-full sm:w-72 bg-fm-surface-container-lowest border-r border-fm-surface-container-high flex-shrink-0">
       <div className="px-5 py-4 border-b border-fm-surface-container-high">
-        <div className="text-lg font-extrabold text-fm-primary">Bandeja</div>
+        <div className="text-lg font-extrabold text-fm-primary">Inbox</div>
         <div className="text-xs text-fm-on-surface-variant mt-0.5">Chat interno del equipo</div>
       </div>
 

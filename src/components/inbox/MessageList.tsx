@@ -11,6 +11,7 @@ import type { MessageWithMeta } from '@/types/db'
 interface MessageListProps {
   conversationId: string
   currentUserId: string
+  isAdmin?: boolean
   initialMessages: MessageWithMeta[]
 }
 
@@ -21,7 +22,7 @@ function dayLabel(iso: string): string {
   return format(d, "d 'de' MMMM", { locale: es })
 }
 
-export function MessageList({ conversationId, currentUserId, initialMessages }: MessageListProps) {
+export function MessageList({ conversationId, currentUserId, isAdmin = false, initialMessages }: MessageListProps) {
   const { messages, removeMessage, updateMessage } = useConversationMessages(conversationId, initialMessages)
   const bottomRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -85,6 +86,7 @@ export function MessageList({ conversationId, currentUserId, initialMessages }: 
               key={m.id}
               message={m}
               currentUserId={currentUserId}
+              isAdmin={isAdmin}
               onDeleted={() => removeMessage(m.id)}
               onUpdated={(patch) => updateMessage(m.id, patch)}
             />

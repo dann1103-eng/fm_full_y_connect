@@ -227,6 +227,7 @@ export default async function ClientDetailPage({
               logsMap={pipelineLogsMap}
               currentUserId={authUser?.id ?? ''}
               canAssign={canCreate}
+              isAdmin={isAdmin}
             />
           </div>
         )}

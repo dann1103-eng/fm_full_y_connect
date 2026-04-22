@@ -33,6 +33,7 @@ interface KanbanBoardProps {
   logsMap: Record<string, RequirementPhaseLog[]>
   currentUserId: string
   canAssign?: boolean
+  isAdmin?: boolean
   initialOpenRequirementId?: string | null
 }
 
@@ -41,6 +42,7 @@ export function KanbanBoard({
   logsMap,
   currentUserId,
   canAssign = false,
+  isAdmin = false,
   initialOpenRequirementId = null,
 }: KanbanBoardProps) {
   const router = useRouter()
@@ -186,6 +188,7 @@ export function KanbanBoard({
           canAssign={canAssign}
           includesStory={activeDetailItem.includes_story}
           deadline={activeDetailItem.deadline}
+          isAdmin={isAdmin}
         />
       )}
     </>

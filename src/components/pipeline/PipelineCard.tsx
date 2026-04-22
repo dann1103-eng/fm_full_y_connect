@@ -31,6 +31,7 @@ interface PipelineCardProps {
   draggable?: boolean
   onDoubleClick?: () => void
   canAssign?: boolean
+  isAdmin?: boolean
   /** Timestamp (ms) used to compute phase-timer color. Passed from a
    *  board-level tick so all cards update in sync without each running its own interval. */
   nowMs?: number
@@ -207,6 +208,7 @@ export function PipelineCard({
   draggable = false,
   onDoubleClick,
   canAssign = false,
+  isAdmin = false,
   nowMs,
 }: PipelineCardProps) {
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -266,6 +268,7 @@ export function PipelineCard({
         canAssign={canAssign}
         includesStory={item.includes_story}
         deadline={item.deadline}
+        isAdmin={isAdmin}
       />
     </>
   )

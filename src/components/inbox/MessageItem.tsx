@@ -13,12 +13,14 @@ import type { MessageWithMeta } from '@/types/db'
 interface MessageItemProps {
   message: MessageWithMeta
   currentUserId: string
+  isAdmin?: boolean
   onUpdated: (patch: Partial<MessageWithMeta>) => void
   onDeleted: () => void
 }
 
-export function MessageItem({ message, currentUserId, onUpdated, onDeleted }: MessageItemProps) {
+export function MessageItem({ message, currentUserId, isAdmin = false, onUpdated, onDeleted }: MessageItemProps) {
   const isMine = message.user_id === currentUserId
+  const canDelete = isMine || isAdmin
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(message.body)
   const [error, setError] = useState<string | null>(null)
@@ -157,14 +159,18 @@ export function MessageItem({ message, currentUserId, onUpdated, onDeleted }: Me
 
         {error && <div className="text-[10px] text-fm-error">{error}</div>}
 
-        {isMine && !editing && (
+        {!editing && (isMine || canDelete) && (
           <div className="flex items-center gap-2 text-[10px] text-fm-on-surface-variant/70 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button onClick={() => setEditing(true)} className="hover:text-fm-primary">
-              Editar
-            </button>
-            <button onClick={remove} disabled={pending} className="hover:text-fm-error">
-              Eliminar
-            </button>
+            {isMine && (
+              <button onClick={() => setEditing(true)} className="hover:text-fm-primary">
+                Editar
+              </button>
+            )}
+            {canDelete && (
+              <button onClick={remove} disabled={pending} className="hover:text-fm-error">
+                Eliminar
+              </button>
+            )}
           </div>
         )}
       </div>

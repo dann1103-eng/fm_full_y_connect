@@ -14,7 +14,11 @@ export function NotificationsDropdown() {
   const router = useRouter()
   const { items, unreadCount, refresh, markOverdueSeen } = useNotifications()
   const [open, setOpen] = useState(false)
+  const [showOverdue, setShowOverdue] = useState(false)
   const [, startTransition] = useTransition()
+
+  const overdueCount = items.filter((i) => i.kind === 'overdue').length
+  const visibleItems = showOverdue ? items : items.filter((i) => i.kind !== 'overdue')
 
   function handleToggle() {
     setOpen((v) => {
@@ -73,26 +77,39 @@ export function NotificationsDropdown() {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute right-0 top-full mt-2 z-50 w-[360px] max-w-[calc(100vw-2rem)] bg-fm-surface-container-lowest rounded-xl shadow-xl ring-1 ring-black/10 overflow-hidden flex flex-col max-h-[80vh]">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-fm-surface-container-high">
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-fm-surface-container-high">
               <div className="text-sm font-bold text-fm-on-surface">Notificaciones</div>
-              {hasUnread && (
-                <button
-                  type="button"
-                  onClick={handleMarkAll}
-                  className="text-[11px] font-semibold text-fm-primary hover:underline"
-                >
-                  Marcar todo leído
-                </button>
-              )}
+              <div className="flex items-center gap-3">
+                {overdueCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowOverdue((v) => !v)}
+                    className="text-[11px] font-semibold text-fm-error hover:underline whitespace-nowrap"
+                  >
+                    {showOverdue ? 'Ocultar vencidos' : `Ver vencidos (${overdueCount})`}
+                  </button>
+                )}
+                {hasUnread && (
+                  <button
+                    type="button"
+                    onClick={handleMarkAll}
+                    className="text-[11px] font-semibold text-fm-primary hover:underline whitespace-nowrap"
+                  >
+                    Marcar todo leído
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto">
-              {items.length === 0 ? (
+              {visibleItems.length === 0 ? (
                 <div className="py-10 text-center text-sm text-fm-on-surface-variant/70">
-                  No tienes notificaciones pendientes.
+                  {items.length === 0
+                    ? 'No tienes notificaciones pendientes.'
+                    : 'No tienes menciones, DMs ni mensajes nuevos.'}
                 </div>
               ) : (
-                items.map((item) => (
+                visibleItems.map((item) => (
                   <NotificationRow
                     key={`${item.kind}-${item.id}`}
                     item={item}
