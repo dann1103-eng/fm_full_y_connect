@@ -3,15 +3,25 @@ import type { Phase } from '@/types/db'
 export type PhaseTimerColor = 'none' | 'green' | 'yellow' | 'orange' | 'red'
 
 const HOUR = 3600_000
-const PENDING_THRESHOLDS = { yellow: 12 * HOUR, orange: 24 * HOUR, red: 36 * HOUR }
-const REVIEW_THRESHOLDS = { yellow: 1 * HOUR, orange: 2 * HOUR, red: 3 * HOUR }
+const PENDING_THRESHOLDS  = { yellow:  12 * HOUR, orange: 24 * HOUR, red: 36 * HOUR }
+const REVIEW_THRESHOLDS   = { yellow:   1 * HOUR, orange:  2 * HOUR, red:  3 * HOUR }
+const PROCESS_THRESHOLDS  = { yellow:   4 * HOUR, orange:  6 * HOUR, red:  8 * HOUR }
 
 export function getPhaseTimerColor(phase: Phase, elapsedMs: number): PhaseTimerColor {
+  // Cambios: siempre rojo
+  if (phase === 'cambios') return 'red'
+
   let t: { yellow: number; orange: number; red: number } | null = null
-  if (phase === 'pendiente' || phase === 'revision_cliente') t = PENDING_THRESHOLDS
+  if (phase === 'pendiente' || phase === 'revision_cliente')           t = PENDING_THRESHOLDS
   else if (phase === 'revision_interna' || phase === 'revision_diseno') t = REVIEW_THRESHOLDS
+  else if (
+    phase === 'proceso_edicion' ||
+    phase === 'proceso_diseno'  ||
+    phase === 'proceso_animacion'
+  ) t = PROCESS_THRESHOLDS
+
   if (!t) return 'none'
-  if (elapsedMs >= t.red) return 'red'
+  if (elapsedMs >= t.red)    return 'red'
   if (elapsedMs >= t.orange) return 'orange'
   if (elapsedMs >= t.yellow) return 'yellow'
   return 'green'
