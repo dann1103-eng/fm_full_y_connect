@@ -132,13 +132,18 @@ export function SidebarContent({
     <div className="flex h-full flex-col">
       {/* Logo */}
       <div className="flex items-center gap-3 px-6 py-5 border-b border-fm-outline-variant/20">
-        <div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0 signature-gradient flex items-center justify-center">
+        <div
+          className={`w-9 h-9 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center ${
+            agencyLogoUrl && !logoError ? '' : 'signature-gradient'
+          }`}
+          style={agencyLogoUrl && !logoError ? { background: '#0d1b3e' } : undefined}
+        >
           {agencyLogoUrl && !logoError ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={agencyLogoUrl}
               alt="FM"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain p-0.5"
               onError={() => setLogoError(true)}
             />
           ) : (

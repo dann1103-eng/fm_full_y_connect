@@ -231,17 +231,24 @@ export async function deleteMessage(messageId: string) {
   try {
     const { supabase } = await getCurrentUser()
 
-    const { data, error } = await supabase
+    // Fetch conversation_id first (before soft-delete hides the row from SELECT).
+    const { data: msg, error: fetchError } = await supabase
+      .from('messages')
+      .select('conversation_id')
+      .eq('id', messageId)
+      .single()
+
+    if (fetchError) return { error: fetchError.message }
+
+    const { error } = await supabase
       .from('messages')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', messageId)
-      .select('conversation_id')
-      .single()
 
     if (error) return { error: error.message }
 
-    if (data?.conversation_id) {
-      revalidatePath(`/inbox/${data.conversation_id}`)
+    if (msg?.conversation_id) {
+      revalidatePath(`/inbox/${msg.conversation_id}`)
     }
     return { success: true }
   } catch (e) {

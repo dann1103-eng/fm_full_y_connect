@@ -13,14 +13,14 @@ import { getDeadlineStatus, deadlineIconClasses, formatDeadlineLabel, formatDead
 import { getPhaseTimerColor, phaseTimerBgClass } from '@/lib/domain/phaseTimer'
 
 const CONTENT_TYPE_COLORS: Record<ContentType, string> = {
-  historia:         'bg-purple-100 text-purple-700',
-  estatico:         'bg-blue-100 text-blue-700',
-  video_corto:      'bg-orange-100 text-orange-700',
-  reel:             'bg-pink-100 text-pink-700',
-  short:            'bg-yellow-100 text-yellow-700',
-  produccion:       'bg-teal-100 text-teal-700',
-  reunion:          'bg-indigo-100 text-indigo-700',
-  matriz_contenido: 'bg-emerald-100 text-emerald-700',
+  historia:         'bg-purple-100 text-purple-700 dark:bg-purple-500/25 dark:text-purple-200',
+  estatico:         'bg-blue-100 text-blue-700 dark:bg-blue-500/25 dark:text-blue-200',
+  video_corto:      'bg-orange-100 text-orange-700 dark:bg-orange-500/25 dark:text-orange-200',
+  reel:             'bg-pink-100 text-pink-700 dark:bg-pink-500/25 dark:text-pink-200',
+  short:            'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/25 dark:text-yellow-200',
+  produccion:       'bg-teal-100 text-teal-700 dark:bg-teal-500/25 dark:text-teal-200',
+  reunion:          'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/25 dark:text-indigo-200',
+  matriz_contenido: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/25 dark:text-emerald-200',
 }
 
 interface PipelineCardProps {
@@ -114,13 +114,13 @@ export function CardBody({
       {item.includes_story && (
         <span
           title="Incluye story (suma 1 a historias del ciclo)"
-          className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full mb-2 bg-purple-50 text-purple-600 border border-purple-200 ml-1"
+          className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full mb-2 bg-purple-50 text-purple-600 border border-purple-200 dark:bg-purple-500/20 dark:text-purple-200 dark:border-purple-400/30 ml-1"
         >
           +story
         </span>
       )}
       {item.carried_over && (
-        <span className="inline-block text-xs font-medium px-2 py-0.5 rounded-full mb-2 bg-amber-100 text-amber-700 ml-1">
+        <span className="inline-block text-xs font-medium px-2 py-0.5 rounded-full mb-2 bg-amber-100 text-amber-700 dark:bg-amber-500/25 dark:text-amber-200 ml-1">
           Traslado
         </span>
       )}

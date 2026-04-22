@@ -362,14 +362,9 @@ export function RequirementChat({ requirementId, currentUserId, isAdmin = false 
                         <div
                           className={`px-3 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
                             isMine
-                              ? 'text-white rounded-br-sm'
+                              ? 'text-white rounded-br-sm bg-gradient-to-br from-[#00675c] to-[#029e90] dark:bg-none dark:bg-fm-primary/25 dark:text-teal-100 dark:border dark:border-fm-primary/40'
                               : 'bg-fm-surface-container-low text-fm-on-surface rounded-bl-sm'
                           }`}
-                          style={
-                            isMine
-                              ? { background: 'linear-gradient(135deg,#00675c,#029e90)' }
-                              : undefined
-                          }
                         >
                           {renderWithLinks(msg.body, isMine)}
                         </div>

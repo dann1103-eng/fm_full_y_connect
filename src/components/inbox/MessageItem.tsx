@@ -135,7 +135,7 @@ export function MessageItem({ message, currentUserId, isAdmin = false, onUpdated
                 className={cn(
                   'p-3 rounded-lg text-sm max-w-[80%] break-words whitespace-pre-wrap',
                   isMine
-                    ? 'bg-fm-primary text-white rounded-tr-none'
+                    ? 'bg-fm-primary text-white dark:bg-fm-primary/25 dark:text-teal-100 dark:border dark:border-fm-primary/40 rounded-tr-none'
                     : 'bg-fm-surface-container-lowest border border-fm-surface-container-high text-fm-on-surface rounded-tl-none'
                 )}
               >
