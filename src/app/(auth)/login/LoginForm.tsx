@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { BackgroundShader } from '@/components/ui/background-shaders'
 
 interface LoginFormProps {
   agencyLogoUrl: string | null
@@ -51,15 +52,8 @@ export function LoginForm({ agencyLogoUrl }: LoginFormProps) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-fm-background">
-      {/* Background decoration */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            'radial-gradient(ellipse 80% 60% at 50% -20%, rgba(0,103,92,0.12) 0%, transparent 70%)',
-        }}
-      />
+    <div className="min-h-screen flex items-center justify-center relative">
+      <BackgroundShader />
 
       <div className="relative w-full max-w-md px-4">
         {/* Logo card */}
@@ -84,12 +78,12 @@ export function LoginForm({ agencyLogoUrl }: LoginFormProps) {
               <span className="text-white font-bold text-2xl">FM</span>
             )}
           </div>
-          <h1 className="text-2xl font-bold text-fm-on-surface">FM Communication</h1>
-          <p className="text-fm-on-surface-variant text-sm mt-1">Solutions — CRM Interno</p>
+          <h1 className="text-2xl font-bold text-white drop-shadow-md">FM Communication</h1>
+          <p className="text-white/90 text-sm mt-1 drop-shadow">Solutions — CRM Interno</p>
         </div>
 
         {/* Form card */}
-        <div className="bg-fm-surface-container-lowest rounded-2xl shadow-sm border border-fm-outline-variant/20 p-8">
+        <div className="bg-white/85 backdrop-blur-xl rounded-2xl shadow-xl border border-white/40 p-8">
           <h2 className="text-lg font-semibold text-fm-on-surface mb-1">Iniciar sesión</h2>
           <p className="text-sm text-fm-on-surface-variant mb-6">
             Accede con tu cuenta de agencia.
@@ -148,7 +142,7 @@ export function LoginForm({ agencyLogoUrl }: LoginFormProps) {
           </form>
         </div>
 
-        <p className="text-center text-xs text-fm-on-surface-variant mt-6">
+        <p className="text-center text-xs text-white/90 drop-shadow mt-6">
           ¿Problemas para ingresar? Contacta al administrador.
         </p>
       </div>
