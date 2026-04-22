@@ -53,9 +53,9 @@ export function useInboxList(initial?: ConversationListItem[]) {
 
     const channel = supabase
       .channel(`inbox-list-${Math.random().toString(36).slice(2)}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, scheduleRefresh)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_members' }, scheduleRefresh)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversations' }, scheduleRefresh)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, refresh)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_members' }, refresh)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversations' }, refresh)
       .subscribe()
 
     const safetyTimer = window.setInterval(refresh, SAFETY_POLL_MS)

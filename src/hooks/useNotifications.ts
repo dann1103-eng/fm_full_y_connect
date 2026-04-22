@@ -103,9 +103,9 @@ export function useNotifications() {
 
     const channel = supabase
       .channel(`notifications-feed-${Math.random().toString(36).slice(2)}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'requirement_mentions' }, scheduleFetch)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, scheduleFetch)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_members' }, scheduleFetch)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'requirement_mentions' }, fetchItems)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, fetchItems)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_members' }, fetchItems)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'requirements' }, scheduleFetch)
       .subscribe()
 
