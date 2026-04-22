@@ -175,3 +175,17 @@ exception when duplicate_object then
   -- tablas ya incluidas en la publicación — ignorar
   null;
 end$$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- GRANTs explícitos — requerido por Supabase para que PostgREST exponga las
+-- tablas vía API. Sin esto, la API responde "Could not find the table in the
+-- schema cache" aunque la tabla exista y las policies estén bien.
+-- La seguridad real la provee RLS; estos GRANT solo permiten a PostgREST
+-- consultar metadata y ejecutar los queries sujetos a las policies.
+-- ─────────────────────────────────────────────────────────────────────────────
+grant all on public.review_assets   to anon, authenticated, service_role;
+grant all on public.review_versions to anon, authenticated, service_role;
+grant all on public.review_pins     to anon, authenticated, service_role;
+grant all on public.review_comments to anon, authenticated, service_role;
+
+notify pgrst, 'reload schema';
