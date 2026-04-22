@@ -105,6 +105,22 @@ export async function markMentionRead(mentionId: string) {
   }
 }
 
+export async function markReviewMentionRead(mentionId: string) {
+  try {
+    const { supabase, userId } = await getCurrentUser()
+    const { error } = await supabase
+      .from('review_comment_mentions')
+      .update({ read_at: new Date().toISOString() })
+      .eq('id', mentionId)
+      .eq('mentioned_user_id', userId)
+    if (error) return { error: error.message }
+    return { success: true }
+  } catch (e) {
+    console.error('markReviewMentionRead failed:', e)
+    return { error: e instanceof Error ? e.message : 'Error desconocido' }
+  }
+}
+
 export async function deleteRequirementMessage(messageId: string) {
   try {
     const { supabase } = await getCurrentUser()
@@ -123,12 +139,21 @@ export async function deleteRequirementMessage(messageId: string) {
 export async function markAllMentionsRead() {
   try {
     const { supabase, userId } = await getCurrentUser()
-    const { error } = await supabase
-      .from('requirement_mentions')
-      .update({ read_at: new Date().toISOString() })
-      .eq('mentioned_user_id', userId)
-      .is('read_at', null)
-    if (error) return { error: error.message }
+    const now = new Date().toISOString()
+    const [req, review] = await Promise.all([
+      supabase
+        .from('requirement_mentions')
+        .update({ read_at: now })
+        .eq('mentioned_user_id', userId)
+        .is('read_at', null),
+      supabase
+        .from('review_comment_mentions')
+        .update({ read_at: now })
+        .eq('mentioned_user_id', userId)
+        .is('read_at', null),
+    ])
+    if (req.error) return { error: req.error.message }
+    if (review.error) return { error: review.error.message }
     return { success: true }
   } catch (e) {
     console.error('markAllMentionsRead failed:', e)
