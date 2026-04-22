@@ -133,21 +133,29 @@ export function useConversationMessages(
       .channel(`conv-messages-${conversationId}-${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
-        () => fetchIncremental()
-      )
-      .on(
-        'postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
+        { event: 'INSERT', schema: 'public', table: 'messages' },
         (payload) => {
-          const oldId = (payload.old as { id?: string } | null)?.id
-          if (oldId) setMessages((prev) => prev.filter((m) => m.id !== oldId))
+          const row = payload.new as { conversation_id?: string }
+          if (row.conversation_id === conversationId) fetchIncremental()
         }
       )
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
-        () => refresh()
+        { event: 'DELETE', schema: 'public', table: 'messages' },
+        (payload) => {
+          const old = payload.old as { id?: string; conversation_id?: string }
+          if (old.conversation_id === conversationId && old.id) {
+            setMessages((prev) => prev.filter((m) => m.id !== old.id))
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'messages' },
+        (payload) => {
+          const row = payload.new as { conversation_id?: string }
+          if (row.conversation_id === conversationId) refresh()
+        }
       )
       .subscribe()
 

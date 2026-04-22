@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useNotifications } from './useNotifications'
+import { useUser } from '@/contexts/UserContext'
+import { createClient } from '@/lib/supabase/client'
 import type { NotificationItem } from '@/types/db'
 
 export interface ToastItem {
@@ -33,7 +35,8 @@ const NOTIFICATION_SOUND = '/sounds/notification.mp3'
 const INBOX_SOUND = '/sounds/inbox.mp3'
 
 export function useNotificationToasts() {
-  const { items, loading } = useNotifications()
+  const user = useUser()
+  const { items, loading, refresh } = useNotifications()
   const [toasts, setToasts] = useState<ToastItem[]>([])
   const seenIdsRef = useRef<Set<string>>(new Set())
   const initializedRef = useRef(false)
@@ -52,6 +55,23 @@ export function useNotificationToasts() {
     ia.volume = 0.4
     inboxAudioRef.current = ia
   }, [])
+
+  // Backup direct subscription — forces refresh when a message arrives from another user,
+  // guarding against race conditions between Supabase Realtime and the notifications API.
+  useEffect(() => {
+    if (!user?.id) return
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`toast-backup-${Math.random().toString(36).slice(2)}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        const msg = payload.new as { user_id?: string }
+        if (msg.user_id && msg.user_id !== user.id) {
+          refresh()
+        }
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [user?.id, refresh])
 
   useEffect(() => {
     const key = (it: NotificationItem) => `${it.id}:${it.created_at}`
