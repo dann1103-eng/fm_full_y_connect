@@ -189,15 +189,15 @@ export function ContentReviewDialog({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/30 supports-backdrop-filter:backdrop-blur-sm data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
         <DialogPrimitive.Popup
-          className="fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[95vw] h-[92vh] max-w-[1600px] bg-white rounded-2xl shadow-2xl ring-1 ring-black/10 flex flex-col overflow-hidden outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
+          className="fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[95vw] h-[92vh] max-w-[1600px] bg-fm-surface-container-lowest rounded-2xl shadow-2xl ring-1 ring-black/10 flex flex-col overflow-hidden outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
         >
           {/* ── Header ── */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-[#dfe3e6] flex-shrink-0">
-            <DialogPrimitive.Title className="text-base font-semibold text-[#2a2a2a] truncate">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-fm-surface-container-high flex-shrink-0">
+            <DialogPrimitive.Title className="text-base font-semibold text-fm-on-surface truncate">
               {selectedAsset?.name ?? requirementTitle}
             </DialogPrimitive.Title>
             <DialogPrimitive.Close
-              className="text-[#595c5e] hover:text-[#2a2a2a] transition-colors rounded-md p-1 hover:bg-[#f5f7f9]"
+              className="text-fm-on-surface-variant hover:text-fm-on-surface transition-colors rounded-md p-1 hover:bg-fm-surface-container"
               aria-label="Cerrar"
             >
               <XIcon className="w-5 h-5" />
@@ -207,7 +207,7 @@ export function ContentReviewDialog({
           {/* ── Body: 3 columnas ── */}
           <div className="flex flex-1 min-h-0">
             {/* Izquierda: versiones/assets */}
-            <div className="w-[160px] border-r border-[#dfe3e6] flex-shrink-0 flex flex-col">
+            <div className="w-[160px] border-r border-fm-surface-container-high flex-shrink-0 flex flex-col">
               <ReviewLeftColumn
                 assets={data.assets}
                 versionsByAsset={data.versionsByAsset}
@@ -238,7 +238,7 @@ export function ContentReviewDialog({
             </div>
 
             {/* Centro: viewer */}
-            <div className="flex-1 min-w-0 flex flex-col bg-[#f5f7f9]">
+            <div className="flex-1 min-w-0 flex flex-col bg-fm-background">
               <ReviewCenterViewer
                 loading={data.loading}
                 error={data.error}
@@ -259,7 +259,7 @@ export function ContentReviewDialog({
             </div>
 
             {/* Derecha: comentarios */}
-            <div className="w-[340px] border-l border-[#dfe3e6] flex-shrink-0 flex flex-col">
+            <div className="w-[340px] border-l border-fm-surface-container-high flex-shrink-0 flex flex-col">
               <ReviewRightColumn
                 pins={pinsOnVersion}
                 commentsByPin={data.commentsByPin}

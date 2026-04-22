@@ -123,30 +123,30 @@ function CommentRow({
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1">
-          <span className="text-xs font-semibold text-[#2a2a2a] truncate">
+          <span className="text-xs font-semibold text-fm-on-surface truncate">
             {user?.full_name ?? 'Usuario'}
           </span>
-          <span className="text-[10px] text-[#8a8f93]">· {formatWhen(comment.created_at)}</span>
+          <span className="text-[10px] text-fm-on-surface-variant">· {formatWhen(comment.created_at)}</span>
           {comment.edited_at && (
-            <span className="text-[10px] text-[#8a8f93] italic">(editado)</span>
+            <span className="text-[10px] text-fm-on-surface-variant italic">(editado)</span>
           )}
           {mine && !editing && (
             <div className="relative ml-auto">
               <button
                 onClick={() => setMenuOpen((v) => !v)}
-                className="p-0.5 rounded hover:bg-[#f5f7f9] text-[#8a8f93]"
+                className="p-0.5 rounded hover:bg-fm-surface-container text-fm-on-surface-variant"
                 aria-label="Opciones"
               >
                 <MoreVerticalIcon className="w-3.5 h-3.5" />
               </button>
               {menuOpen && (
-                <div className="absolute right-0 top-5 z-10 bg-white rounded-md shadow-lg ring-1 ring-black/10 py-1 min-w-[120px]">
+                <div className="absolute right-0 top-5 z-10 bg-fm-surface-container-lowest rounded-md shadow-lg ring-1 ring-black/10 py-1 min-w-[120px]">
                   <button
                     onClick={() => {
                       setEditing(true)
                       setMenuOpen(false)
                     }}
-                    className="w-full px-3 py-1.5 text-left text-xs hover:bg-[#f5f7f9] flex items-center gap-2"
+                    className="w-full px-3 py-1.5 text-left text-xs text-fm-on-surface hover:bg-fm-surface-container flex items-center gap-2"
                   >
                     <PencilIcon className="w-3 h-3" />
                     Editar
@@ -156,7 +156,7 @@ function CommentRow({
                       setMenuOpen(false)
                       remove()
                     }}
-                    className="w-full px-3 py-1.5 text-left text-xs hover:bg-[#f5f7f9] text-[#b31b25] flex items-center gap-2"
+                    className="w-full px-3 py-1.5 text-left text-xs hover:bg-fm-surface-container text-fm-error flex items-center gap-2"
                   >
                     <TrashIcon className="w-3 h-3" />
                     Eliminar
@@ -181,7 +181,7 @@ function CommentRow({
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               rows={2}
-              className="w-full text-xs text-[#2a2a2a] bg-[#f5f7f9] rounded-md px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-[#00675c]/30"
+              className="w-full text-xs text-fm-on-surface bg-fm-background rounded-md px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-fm-primary/30"
             />
             <div className="flex gap-1 mt-1 justify-end">
               <button
@@ -189,21 +189,21 @@ function CommentRow({
                   setEditing(false)
                   setDraft(comment.body)
                 }}
-                className="px-2 py-0.5 text-[11px] rounded hover:bg-[#f5f7f9] text-[#595c5e]"
+                className="px-2 py-0.5 text-[11px] rounded hover:bg-fm-surface-container text-fm-on-surface-variant"
               >
                 Cancelar
               </button>
               <button
                 onClick={saveEdit}
                 disabled={!draft.trim()}
-                className="px-2 py-0.5 text-[11px] rounded bg-[#00675c] text-white disabled:opacity-40"
+                className="px-2 py-0.5 text-[11px] rounded bg-fm-primary text-white disabled:opacity-40"
               >
                 Guardar
               </button>
             </div>
           </div>
         ) : (
-          <p className="text-xs text-[#2a2a2a] whitespace-pre-wrap break-words mt-0.5">
+          <p className="text-xs text-fm-on-surface whitespace-pre-wrap break-words mt-0.5">
             {comment.body}
           </p>
         )}
@@ -290,8 +290,8 @@ export function CommentCard({
       onClick={onSelect}
       className={`rounded-lg border p-2.5 cursor-pointer transition-all ${
         selected
-          ? 'border-[#00675c] bg-[#00675c]/5 shadow-sm'
-          : 'border-[#dfe3e6] hover:border-[#8a8f93] bg-white'
+          ? 'border-fm-primary bg-fm-primary/5 shadow-sm'
+          : 'border-fm-surface-container-high hover:border-fm-on-surface-variant bg-fm-surface-container-lowest'
       }`}
     >
       <div className="flex items-start gap-2 mb-1.5">
@@ -312,7 +312,7 @@ export function CommentCard({
       </div>
 
       {replies.length > 0 && (
-        <div className="ml-7 space-y-2 pl-2 border-l-2 border-[#dfe3e6]">
+        <div className="ml-7 space-y-2 pl-2 border-l-2 border-fm-surface-container-high">
           {replies.map((r) => (
             <CommentRow
               key={r.id}
@@ -337,8 +337,8 @@ export function CommentCard({
           disabled={busy}
           className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold transition-colors disabled:opacity-40 ${
             pin.status === 'active'
-              ? 'text-[#00675c] hover:bg-[#00675c]/10'
-              : 'text-[#595c5e] hover:bg-[#f5f7f9]'
+              ? 'text-fm-primary hover:bg-fm-primary/10'
+              : 'text-fm-on-surface-variant hover:bg-fm-surface-container'
           }`}
         >
           {pin.status === 'active' ? (
@@ -359,7 +359,7 @@ export function CommentCard({
               e.stopPropagation()
               setReplyOpen(true)
             }}
-            className="px-2 py-1 rounded text-[11px] font-semibold text-[#595c5e] hover:bg-[#f5f7f9]"
+            className="px-2 py-1 rounded text-[11px] font-semibold text-fm-on-surface-variant hover:bg-fm-surface-container"
           >
             Responder
           </button>
@@ -371,7 +371,7 @@ export function CommentCard({
               removePin()
             }}
             disabled={busy}
-            className="ml-auto px-2 py-1 rounded text-[11px] font-semibold text-[#b31b25] hover:bg-[#b31b25]/10 disabled:opacity-40"
+            className="ml-auto px-2 py-1 rounded text-[11px] font-semibold text-fm-error hover:bg-fm-error/10 disabled:opacity-40"
           >
             Eliminar
           </button>
@@ -406,7 +406,7 @@ export function CommentCard({
               placeholder="Escribir respuesta... (@ para mencionar)"
               rows={2}
               autoFocus
-              className="w-full text-xs text-[#2a2a2a] bg-[#f5f7f9] rounded-md px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-[#00675c]/30"
+              className="w-full text-xs text-fm-on-surface bg-fm-background rounded-md px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-fm-primary/30"
             />
           </div>
           <div className="flex justify-end gap-1 mt-1">
@@ -419,7 +419,7 @@ export function CommentCard({
             <button
               onClick={submitReply}
               disabled={!replyBody.trim() || busy}
-              className="flex items-center gap-1 px-2 py-0.5 text-[11px] rounded bg-[#00675c] text-white disabled:opacity-40"
+              className="flex items-center gap-1 px-2 py-0.5 text-[11px] rounded bg-fm-primary text-white disabled:opacity-40"
             >
               <SendIcon className="w-3 h-3" />
               Enviar

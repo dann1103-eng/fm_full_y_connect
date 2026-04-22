@@ -53,7 +53,7 @@ export function FloatingChatBubble({ conversation, onClose, onMinimize, minimize
   }
 
   return (
-    <div className="flex flex-col bg-white border border-[#dfe3e6] rounded-xl shadow-xl overflow-hidden w-[280px] max-w-[calc(100vw-2rem)]">
+    <div className="flex flex-col bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-xl shadow-xl overflow-hidden w-[280px] max-w-[calc(100vw-2rem)]">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 bg-[#00675c] text-white">
         <div className="flex items-center gap-2 min-w-0">
@@ -66,7 +66,7 @@ export function FloatingChatBubble({ conversation, onClose, onMinimize, minimize
           ) : (
             <span className="font-bold text-sm">#</span>
           )}
-          <span className="text-xs font-semibold truncate">{label}</span>
+          <span className="text-xs font-semibold truncate text-white">{label}</span>
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -99,16 +99,16 @@ export function FloatingChatBubble({ conversation, onClose, onMinimize, minimize
       {!minimized && (
         <>
           {/* Messages */}
-          <div className="overflow-y-auto px-3 py-2 space-y-2 bg-[#f5f7f9] h-[160px]">
+          <div className="overflow-y-auto px-3 py-2 space-y-2 bg-fm-background h-[160px]">
             {messages.length === 0 && (
-              <p className="text-xs text-[#595c5e] text-center mt-6">Sin mensajes aún</p>
+              <p className="text-xs text-fm-on-surface-variant text-center mt-6">Sin mensajes aún</p>
             )}
             {messages.map((msg) => {
               const isMe = msg.user_id === user.id
               return (
                 <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                   {!isMe && (
-                    <span className="text-[10px] text-[#595c5e] mb-0.5 px-1">
+                    <span className="text-[10px] text-fm-on-surface-variant mb-0.5 px-1">
                       {msg.author?.full_name ?? 'Usuario'}
                     </span>
                   )}
@@ -116,12 +116,12 @@ export function FloatingChatBubble({ conversation, onClose, onMinimize, minimize
                     className={`max-w-[90%] rounded-xl px-3 py-1.5 text-xs ${
                       isMe
                         ? 'bg-[#00675c] text-white rounded-br-sm'
-                        : 'bg-white text-[#2a2a2a] border border-[#dfe3e6] rounded-bl-sm'
+                        : 'bg-fm-surface-container-low text-fm-on-surface border border-fm-surface-container-high rounded-bl-sm'
                     }`}
                   >
                     {msg.body}
                   </div>
-                  <span className="text-[9px] text-[#595c5e]/60 px-1 mt-0.5">
+                  <span className="text-[9px] text-fm-on-surface-variant/60 px-1 mt-0.5">
                     {formatDistanceToNow(parseISO(msg.created_at), { locale: es, addSuffix: true })}
                   </span>
                 </div>
@@ -131,12 +131,12 @@ export function FloatingChatBubble({ conversation, onClose, onMinimize, minimize
           </div>
 
           {/* Input */}
-          <form onSubmit={handleSend} className="flex items-center gap-1 px-2 py-2 border-t border-[#dfe3e6]">
+          <form onSubmit={handleSend} className="flex items-center gap-1 px-2 py-2 border-t border-fm-surface-container-high">
             <input
               value={body}
               onChange={(e) => setBody(e.target.value)}
               placeholder="Escribe un mensaje..."
-              className="flex-1 text-xs bg-[#f5f7f9] rounded-lg px-3 py-1.5 outline-none border border-[#dfe3e6] focus:border-[#00675c]"
+              className="flex-1 text-xs text-fm-on-surface bg-fm-background rounded-lg px-3 py-1.5 outline-none border border-fm-surface-container-high focus:border-fm-primary placeholder:text-fm-on-surface-variant/50"
               disabled={sending}
             />
             <button

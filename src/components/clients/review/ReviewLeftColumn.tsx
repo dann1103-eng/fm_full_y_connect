@@ -72,7 +72,7 @@ export function ReviewLeftColumn({
       <div className="h-full flex items-start justify-center pt-4">
         <button
           onClick={() => setCollapsed(false)}
-          className="text-[#595c5e] hover:text-[#2a2a2a] p-1 rounded hover:bg-[#f5f7f9]"
+          className="text-fm-on-surface-variant hover:text-fm-on-surface p-1 rounded hover:bg-fm-surface-container"
           aria-label="Expandir"
         >
           <ChevronLeftIcon className="w-4 h-4 rotate-180" />
@@ -84,11 +84,11 @@ export function ReviewLeftColumn({
   return (
     <div className="flex flex-col h-full">
       {/* Dropdown "Última versión" */}
-      <div className="px-3 pt-3 pb-2 border-b border-[#dfe3e6]/60 flex items-center justify-between">
-        <span className="text-xs font-semibold text-[#2a2a2a]">Última versión</span>
+      <div className="px-3 pt-3 pb-2 border-b border-fm-surface-container-high/60 flex items-center justify-between">
+        <span className="text-xs font-semibold text-fm-on-surface">Última versión</span>
         <button
           onClick={() => setCollapsed(true)}
-          className="text-[#595c5e] hover:text-[#2a2a2a] p-1 rounded hover:bg-[#f5f7f9]"
+          className="text-fm-on-surface-variant hover:text-fm-on-surface p-1 rounded hover:bg-fm-surface-container"
           aria-label="Colapsar"
         >
           <ChevronLeftIcon className="w-3.5 h-3.5" />
@@ -98,7 +98,7 @@ export function ReviewLeftColumn({
       {/* Lista de assets + versiones */}
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
         {assets.length === 0 ? (
-          <div className="text-center text-xs text-[#8a8f93] py-6">
+          <div className="text-center text-xs text-fm-on-surface-variant py-6">
             Sin archivos todavía
           </div>
         ) : (
@@ -120,8 +120,8 @@ export function ReviewLeftColumn({
                         }}
                         className={`relative w-full rounded-md overflow-hidden ring-offset-2 transition-all ${
                           isSelected
-                            ? 'ring-2 ring-[#00675c]'
-                            : 'ring-1 ring-[#dfe3e6] hover:ring-[#8a8f93]'
+                            ? 'ring-2 ring-fm-primary'
+                            : 'ring-1 ring-fm-surface-container-high hover:ring-fm-on-surface-variant'
                         }`}
                       >
                         <AssetThumbnail asset={asset} version={version} />
@@ -130,10 +130,10 @@ export function ReviewLeftColumn({
                         </div>
                       </button>
                       <div className="flex items-center justify-between gap-1">
-                        <span className="text-[10px] font-medium text-[#2a2a2a] truncate">
+                        <span className="text-[10px] font-medium text-fm-on-surface truncate">
                           {asset.name}
                         </span>
-                        <span className="text-[9px] text-[#8a8f93] uppercase tracking-wide">
+                        <span className="text-[9px] text-fm-on-surface-variant uppercase tracking-wide">
                           {asset.kind === 'video' ? 'Video' : 'Img'}
                         </span>
                       </div>
@@ -141,7 +141,7 @@ export function ReviewLeftColumn({
                         <div className="flex gap-1">
                           <button
                             onClick={handleDownload}
-                            className="flex-1 flex items-center justify-center gap-1 text-[10px] font-semibold text-[#00675c] hover:bg-[#00675c]/10 py-1.5 rounded transition-colors"
+                            className="flex-1 flex items-center justify-center gap-1 text-[10px] font-semibold text-fm-primary hover:bg-fm-primary/10 py-1.5 rounded transition-colors"
                             title="Descargar última versión"
                           >
                             <DownloadIcon className="w-3 h-3" />
@@ -165,7 +165,7 @@ export function ReviewLeftColumn({
                 {isSelectedAsset && (
                   <button
                     onClick={() => onAddVersion(asset.id)}
-                    className="w-full flex items-center justify-center gap-1 py-2 rounded-md border border-dashed border-[#dfe3e6] text-[#00675c] hover:bg-[#00675c]/5 hover:border-[#00675c]/50 transition-colors text-xs"
+                    className="w-full flex items-center justify-center gap-1 py-2 rounded-md border border-dashed border-fm-surface-container-high text-fm-primary hover:bg-fm-primary/5 hover:border-fm-primary/50 transition-colors text-xs"
                   >
                     <PlusIcon className="w-3.5 h-3.5" />
                     Nueva versión
@@ -178,10 +178,10 @@ export function ReviewLeftColumn({
       </div>
 
       {/* Botón agregar archivo global */}
-      <div className="p-3 border-t border-[#dfe3e6]/60">
+      <div className="p-3 border-t border-fm-surface-container-high/60">
         <button
           onClick={onAddAsset}
-          className="w-full flex items-center justify-center gap-1.5 py-2 rounded-full bg-[#00675c] text-white text-xs font-semibold hover:bg-[#004d45] transition-colors"
+          className="w-full flex items-center justify-center gap-1.5 py-2 rounded-full bg-fm-primary text-white text-xs font-semibold hover:bg-fm-primary-dim transition-colors"
         >
           <PlusIcon className="w-4 h-4" />
           Agregar

@@ -158,9 +158,13 @@ export default async function ClientDetailPage({
   const cycle = currentCycle as BillingCycle | null
   const reqs = (requirements ?? []) as Requirement[]
   const totals = computeTotals(reqs)
-  const limits = cycle
+  const baseLimits = cycle
     ? effectiveLimits(cycle.limits_snapshot_json, cycle.rollover_from_previous_json)
     : null
+  const contentOverride = (cycle?.content_limits_override_json ?? null) as Record<string, number> | null
+  const limits = baseLimits && contentOverride
+    ? { ...baseLimits, ...contentOverride }
+    : baseLimits
   const daysLeft = cycle ? daysUntilEnd(cycle.period_end) : null
 
   // Get current user role for permissions
