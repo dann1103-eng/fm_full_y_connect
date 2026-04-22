@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import type { ClientDashboardItem } from '@/app/(app)/dashboard/page'
 import type { ContentType } from '@/types/db'
-import { CONTENT_TYPES } from '@/lib/domain/plans'
+import { CONTENT_TYPES, unifiedPoolUsage } from '@/lib/domain/plans'
 import { CONTENT_ICONS } from '@/lib/domain/content-icons'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -11,9 +11,9 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  active: 'bg-[#00675c]/10 text-[#00675c] border-[#00675c]/20',
-  paused: 'bg-[#595c5e]/10 text-[#595c5e] border-[#595c5e]/20',
-  overdue: 'bg-[#b31b25]/10 text-[#b31b25] border-[#b31b25]/20',
+  active: 'bg-fm-primary/10 text-fm-primary border-fm-primary/20',
+  paused: 'bg-fm-on-surface-variant/10 text-fm-on-surface-variant border-fm-on-surface-variant/20',
+  overdue: 'bg-fm-error/10 text-fm-error border-fm-error/20',
 }
 
 // Producción y reunión son eventos esporádicos; no cuentan para el progreso
@@ -24,11 +24,11 @@ const EXCLUDED_FROM_CARD = new Set<ContentType>(['produccion', 'reunion'])
 const AMBER_TYPES = new Set(['estatico', 'video_corto'])
 
 function progressColor(consumed: number, limit: number): string {
-  if (limit === 0) return 'bg-[#abadaf]'
+  if (limit === 0) return 'bg-fm-outline-variant'
   const pct = (consumed / limit) * 100
-  if (pct >= 90) return 'bg-[#b31b25]'
+  if (pct >= 90) return 'bg-fm-error'
   if (pct >= 70) return 'bg-amber-400'
-  return 'bg-[#00675c]'
+  return 'bg-fm-primary'
 }
 
 function overallProgress(
@@ -70,19 +70,25 @@ function clientGradient(name: string): string {
 
 export function ClientCard({ item }: { item: ClientDashboardItem }) {
   const { client, cycle, totals, limits, daysLeft, isContentPackage } = item
-  const pct = overallProgress(totals, limits)
+  const unifiedPool =
+    isContentPackage && cycle ? unifiedPoolUsage(cycle.limits_snapshot_json, totals) : null
+  const pct = unifiedPool
+    ? unifiedPool.limit > 0
+      ? Math.min(100, Math.round((unifiedPool.used / unifiedPool.limit) * 100))
+      : 0
+    : overallProgress(totals, limits)
   const barColor =
-    pct >= 90 ? 'bg-[#b31b25]' : pct >= 70 ? 'bg-amber-400' : 'bg-[#00675c]'
+    pct >= 90 ? 'bg-fm-error' : pct >= 70 ? 'bg-amber-400' : 'bg-fm-primary'
 
-  // Show all content-flow types with limit > 0 (excludes producción y reunión).
-  const visibleTypes = CONTENT_TYPES.filter(
-    (t) => !EXCLUDED_FROM_CARD.has(t) && (limits[t] ?? 0) > 0,
-  )
+  // Mini-counters per type only for non-unified plans.
+  const visibleTypes = isContentPackage
+    ? []
+    : CONTENT_TYPES.filter((t) => !EXCLUDED_FROM_CARD.has(t) && (limits[t] ?? 0) > 0)
 
   return (
     <Link
       href={`/clients/${client.id}`}
-      className="block bg-white rounded-2xl border border-[#abadaf]/20 hover:border-[#00675c]/40 hover:shadow-md transition-all duration-200 overflow-hidden group"
+      className="block bg-fm-surface-container-lowest rounded-2xl border border-fm-outline-variant/20 hover:border-fm-primary/40 hover:shadow-md transition-all duration-200 overflow-hidden group"
     >
       {/* Card header */}
       <div className="p-4 sm:p-5 pb-3">
@@ -104,10 +110,10 @@ export function ClientCard({ item }: { item: ClientDashboardItem }) {
               </div>
             )}
             <div className="min-w-0">
-              <p className="font-semibold text-[#2c2f31] truncate group-hover:text-[#00675c] transition-colors">
+              <p className="font-semibold text-fm-on-surface truncate group-hover:text-fm-primary transition-colors">
                 {client.name}
               </p>
-              <p className="text-xs text-[#595c5e]">{client.plan.name}</p>
+              <p className="text-xs text-fm-on-surface-variant">{client.plan.name}</p>
             </div>
           </div>
           <span
@@ -120,11 +126,15 @@ export function ClientCard({ item }: { item: ClientDashboardItem }) {
         {/* Overall progress */}
         {cycle && (
           <>
-            <div className="flex items-center justify-between text-xs text-[#595c5e] mb-1.5">
-              <span>Requerimientos del ciclo</span>
-              <span className="font-semibold text-[#2c2f31]">{pct}%</span>
+            <div className="flex items-center justify-between text-xs text-fm-on-surface-variant mb-1.5">
+              <span>
+                {unifiedPool ? 'Paquete de contenido' : 'Requerimientos del ciclo'}
+              </span>
+              <span className="font-semibold text-fm-on-surface">
+                {unifiedPool ? `${unifiedPool.used}/${unifiedPool.limit} · ${pct}%` : `${pct}%`}
+              </span>
             </div>
-            <div className="w-full h-1.5 bg-[#eef1f3] rounded-full overflow-hidden mb-3">
+            <div className="w-full h-1.5 bg-fm-surface-container-low rounded-full overflow-hidden mb-3">
               <div
                 className={`h-full rounded-full transition-all ${barColor}`}
                 style={{ width: `${pct}%` }}
@@ -151,10 +161,10 @@ export function ClientCard({ item }: { item: ClientDashboardItem }) {
                 >
                   {CONTENT_ICONS[type]}
                 </span>
-                <span className="text-xs font-medium text-[#2c2f31]">
+                <span className="text-xs font-medium text-fm-on-surface">
                   {consumed}/{limit}
                 </span>
-                <div className="w-full h-1 bg-[#eef1f3] rounded-full overflow-hidden">
+                <div className="w-full h-1 bg-fm-surface-container-low rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full ${col}`}
                     style={{ width: `${limit > 0 ? Math.min(100, (consumed / limit) * 100) : 0}%` }}
@@ -167,12 +177,12 @@ export function ClientCard({ item }: { item: ClientDashboardItem }) {
       )}
 
       {/* Footer */}
-      <div className="px-4 sm:px-5 py-3 bg-[#f5f7f9] border-t border-[#abadaf]/10 flex items-center justify-between">
+      <div className="px-4 sm:px-5 py-3 bg-fm-background border-t border-fm-outline-variant/10 flex items-center justify-between">
         {isContentPackage ? (
-          <span className="text-xs text-[#595c5e]">Paquete activo · sin vencimiento</span>
+          <span className="text-xs text-fm-on-surface-variant">Paquete activo · sin vencimiento</span>
         ) : daysLeft !== null ? (
           <span
-            className={`text-xs font-medium ${daysLeft <= 3 ? 'text-[#b31b25]' : daysLeft <= 7 ? 'text-amber-600' : 'text-[#595c5e]'}`}
+            className={`text-xs font-medium ${daysLeft <= 3 ? 'text-fm-error' : daysLeft <= 7 ? 'text-amber-600' : 'text-fm-on-surface-variant'}`}
           >
             {daysLeft < 0
               ? 'Ciclo vencido'
@@ -181,9 +191,9 @@ export function ClientCard({ item }: { item: ClientDashboardItem }) {
               : `${daysLeft} día${daysLeft !== 1 ? 's' : ''} restante${daysLeft !== 1 ? 's' : ''}`}
           </span>
         ) : (
-          <span className="text-xs text-[#595c5e]">Sin ciclo activo</span>
+          <span className="text-xs text-fm-on-surface-variant">Sin ciclo activo</span>
         )}
-        <span className="text-xs text-[#747779] group-hover:text-[#00675c] transition-colors flex items-center gap-1">
+        <span className="text-xs text-fm-outline group-hover:text-fm-primary transition-colors flex items-center gap-1">
           Ver ficha
           <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
             <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>

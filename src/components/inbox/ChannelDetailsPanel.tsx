@@ -123,14 +123,14 @@ export function ChannelDetailsPanel({
   }
 
   return (
-    <aside className="w-80 border-l border-[#dfe3e6] bg-white hidden lg:flex flex-col flex-shrink-0">
-      <div className="p-5 border-b border-[#dfe3e6] flex items-center justify-between">
-        <h3 className="font-bold text-[#2c2f31]">Detalles del canal</h3>
+    <aside className="w-80 border-l border-fm-surface-container-high bg-fm-surface-container-lowest hidden lg:flex flex-col flex-shrink-0">
+      <div className="p-5 border-b border-fm-surface-container-high flex items-center justify-between">
+        <h3 className="font-bold text-fm-on-surface">Detalles del canal</h3>
         <div className="flex items-center gap-1">
           {isAdmin && (
             <button
               onClick={() => setConfirmDelete(true)}
-              className="p-1 text-[#b31b25] hover:bg-[#b31b25]/10 rounded"
+              className="p-1 text-fm-error hover:bg-fm-error/10 rounded"
               title="Eliminar canal"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
@@ -140,10 +140,10 @@ export function ChannelDetailsPanel({
           )}
           <button
             onClick={onClose}
-            className="p-1 hover:bg-[#f5f7f9] rounded"
+            className="p-1 hover:bg-fm-background rounded"
             title="Cerrar"
           >
-            <svg className="w-4 h-4 text-[#595c5e]" viewBox="0 0 24 24" fill="currentColor">
+            <svg className="w-4 h-4 text-fm-on-surface-variant" viewBox="0 0 24 24" fill="currentColor">
               <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
             </svg>
           </button>
@@ -154,11 +154,11 @@ export function ChannelDetailsPanel({
         {/* About */}
         <section className="space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="text-[10px] font-bold uppercase tracking-widest text-[#595c5e]">Acerca</h4>
+            <h4 className="text-[10px] font-bold uppercase tracking-widest text-fm-on-surface-variant">Acerca</h4>
             {isAdmin && !editingAbout && (
               <button
                 onClick={() => setEditingAbout(true)}
-                className="text-[10px] font-bold text-[#00675c]"
+                className="text-[10px] font-bold text-fm-primary"
               >
                 Editar
               </button>
@@ -167,28 +167,28 @@ export function ChannelDetailsPanel({
           {editingAbout ? (
             <div className="space-y-2">
               <div>
-                <label className="text-[10px] font-bold text-[#595c5e]/70 uppercase">Tema</label>
+                <label className="text-[10px] font-bold text-fm-on-surface-variant/70 uppercase">Tema</label>
                 <input
                   type="text"
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
-                  className="w-full text-sm border border-[#dfe3e6] rounded-lg px-2 py-1 mt-1 focus:outline-none focus:ring-2 focus:ring-[#00675c]/30"
+                  className="w-full text-sm border border-fm-surface-container-high rounded-lg px-2 py-1 mt-1 focus:outline-none focus:ring-2 focus:ring-fm-primary/30"
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-[#595c5e]/70 uppercase">Descripción</label>
+                <label className="text-[10px] font-bold text-fm-on-surface-variant/70 uppercase">Descripción</label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={2}
-                  className="w-full text-sm border border-[#dfe3e6] rounded-lg px-2 py-1 mt-1 focus:outline-none focus:ring-2 focus:ring-[#00675c]/30 resize-none"
+                  className="w-full text-sm border border-fm-surface-container-high rounded-lg px-2 py-1 mt-1 focus:outline-none focus:ring-2 focus:ring-fm-primary/30 resize-none"
                 />
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={saveMeta}
                   disabled={pending}
-                  className="text-[10px] font-bold text-[#00675c] disabled:opacity-50"
+                  className="text-[10px] font-bold text-fm-primary disabled:opacity-50"
                 >
                   Guardar
                 </button>
@@ -198,7 +198,7 @@ export function ChannelDetailsPanel({
                     setTopic(conversation.topic ?? '')
                     setEditingAbout(false)
                   }}
-                  className="text-[10px] font-bold text-[#595c5e]"
+                  className="text-[10px] font-bold text-fm-on-surface-variant"
                 >
                   Cancelar
                 </button>
@@ -207,16 +207,16 @@ export function ChannelDetailsPanel({
           ) : (
             <>
               <div>
-                <div className="text-[10px] font-bold text-[#595c5e]/70 uppercase">Tema</div>
-                <div className="text-sm text-[#2c2f31] mt-0.5">
-                  {conversation.topic ?? <span className="italic text-[#595c5e]/60">Sin tema</span>}
+                <div className="text-[10px] font-bold text-fm-on-surface-variant/70 uppercase">Tema</div>
+                <div className="text-sm text-fm-on-surface mt-0.5">
+                  {conversation.topic ?? <span className="italic text-fm-on-surface-variant/60">Sin tema</span>}
                 </div>
               </div>
               <div>
-                <div className="text-[10px] font-bold text-[#595c5e]/70 uppercase">Descripción</div>
-                <div className="text-sm text-[#2c2f31] mt-0.5 leading-relaxed">
+                <div className="text-[10px] font-bold text-fm-on-surface-variant/70 uppercase">Descripción</div>
+                <div className="text-sm text-fm-on-surface mt-0.5 leading-relaxed">
                   {conversation.description ?? (
-                    <span className="italic text-[#595c5e]/60">Sin descripción</span>
+                    <span className="italic text-fm-on-surface-variant/60">Sin descripción</span>
                   )}
                 </div>
               </div>
@@ -227,13 +227,13 @@ export function ChannelDetailsPanel({
         {/* Members */}
         <section className="space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="text-[10px] font-bold uppercase tracking-widest text-[#595c5e]">
+            <h4 className="text-[10px] font-bold uppercase tracking-widest text-fm-on-surface-variant">
               Miembros ({members.length})
             </h4>
             {isAdmin && !addMode && (
               <button
                 onClick={() => setAddMode(true)}
-                className="text-[10px] font-bold text-[#00675c]"
+                className="text-[10px] font-bold text-fm-primary"
               >
                 Agregar
               </button>
@@ -241,16 +241,16 @@ export function ChannelDetailsPanel({
           </div>
           {addMode ? (
             <div className="space-y-2">
-              <div className="max-h-32 overflow-y-auto border border-[#dfe3e6] rounded-lg divide-y divide-[#dfe3e6]">
+              <div className="max-h-32 overflow-y-auto border border-fm-surface-container-high rounded-lg divide-y divide-fm-surface-container-high">
                 {nonMembers.length === 0 ? (
-                  <div className="p-2 text-xs text-[#595c5e]/70 text-center">
+                  <div className="p-2 text-xs text-fm-on-surface-variant/70 text-center">
                     Todos ya son miembros
                   </div>
                 ) : (
                   nonMembers.map((u) => (
                     <label
                       key={u.id}
-                      className="flex items-center gap-2 px-2 py-1 hover:bg-[#f5f7f9] cursor-pointer"
+                      className="flex items-center gap-2 px-2 py-1 hover:bg-fm-background cursor-pointer"
                     >
                       <input
                         type="checkbox"
@@ -260,10 +260,10 @@ export function ChannelDetailsPanel({
                             prev.includes(u.id) ? prev.filter((x) => x !== u.id) : [...prev, u.id]
                           )
                         }
-                        className="accent-[#00675c]"
+                        className="accent-fm-primary"
                       />
                       <UserAvatar name={u.full_name ?? '?'} avatarUrl={u.avatar_url} size="xs" />
-                      <span className="text-xs text-[#2c2f31]">{u.full_name}</span>
+                      <span className="text-xs text-fm-on-surface">{u.full_name}</span>
                     </label>
                   ))
                 )}
@@ -272,7 +272,7 @@ export function ChannelDetailsPanel({
                 <button
                   onClick={handleAddMembers}
                   disabled={pending || selectedToAdd.length === 0}
-                  className="text-[10px] font-bold text-[#00675c] disabled:opacity-50"
+                  className="text-[10px] font-bold text-fm-primary disabled:opacity-50"
                 >
                   Agregar seleccionados
                 </button>
@@ -281,7 +281,7 @@ export function ChannelDetailsPanel({
                     setAddMode(false)
                     setSelectedToAdd([])
                   }}
-                  className="text-[10px] font-bold text-[#595c5e]"
+                  className="text-[10px] font-bold text-fm-on-surface-variant"
                 >
                   Cancelar
                 </button>
@@ -292,16 +292,16 @@ export function ChannelDetailsPanel({
               {members.map((m) => (
                 <div key={m.id} className="flex items-center gap-2 group">
                   <UserAvatar name={m.full_name ?? '?'} avatarUrl={m.avatar_url} size="xs" />
-                  <div className="text-sm text-[#2c2f31] flex-1 truncate">
+                  <div className="text-sm text-fm-on-surface flex-1 truncate">
                     {m.full_name}
                     {m.role === 'admin' && (
-                      <span className="text-[10px] text-[#595c5e]/70"> · Admin</span>
+                      <span className="text-[10px] text-fm-on-surface-variant/70"> · Admin</span>
                     )}
                   </div>
                   {isAdmin && m.id !== currentUserId && (
                     <button
                       onClick={() => handleRemove(m.id)}
-                      className="opacity-0 group-hover:opacity-100 text-[#b31b25] p-1"
+                      className="opacity-0 group-hover:opacity-100 text-fm-error p-1"
                       title="Expulsar"
                     >
                       <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
@@ -317,11 +317,11 @@ export function ChannelDetailsPanel({
 
         {/* Files */}
         <section className="space-y-3">
-          <h4 className="text-[10px] font-bold uppercase tracking-widest text-[#595c5e]">
+          <h4 className="text-[10px] font-bold uppercase tracking-widest text-fm-on-surface-variant">
             Archivos ({attachments.length})
           </h4>
           {attachments.length === 0 ? (
-            <div className="text-xs text-[#595c5e]/70 italic">Sin archivos compartidos.</div>
+            <div className="text-xs text-fm-on-surface-variant/70 italic">Sin archivos compartidos.</div>
           ) : (
             <div className="space-y-2">
               {attachments.slice(0, 20).map((a) => (
@@ -331,14 +331,14 @@ export function ChannelDetailsPanel({
           )}
         </section>
 
-        {error && <div className="text-xs text-[#b31b25]">{error}</div>}
+        {error && <div className="text-xs text-fm-error">{error}</div>}
       </div>
 
-      <div className="p-5 border-t border-[#dfe3e6]">
+      <div className="p-5 border-t border-fm-surface-container-high">
         <button
           onClick={handleLeave}
           disabled={pending}
-          className="w-full py-2 px-4 border border-[#b31b25] text-[#b31b25] font-bold text-xs rounded-lg hover:bg-[#b31b25] hover:text-white uppercase tracking-widest transition-colors disabled:opacity-50"
+          className="w-full py-2 px-4 border border-fm-error text-fm-error font-bold text-xs rounded-lg hover:bg-fm-error hover:text-white uppercase tracking-widest transition-colors disabled:opacity-50"
         >
           Salir del canal
         </button>
@@ -350,11 +350,11 @@ export function ChannelDetailsPanel({
           onClick={() => setConfirmDelete(false)}
         >
           <div
-            className="bg-white rounded-lg p-6 max-w-sm w-full space-y-4"
+            className="bg-fm-surface-container-lowest rounded-lg p-6 max-w-sm w-full space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-bold text-[#2c2f31]">Eliminar canal</h3>
-            <p className="text-sm text-[#595c5e]">
+            <h3 className="text-lg font-bold text-fm-on-surface">Eliminar canal</h3>
+            <p className="text-sm text-fm-on-surface-variant">
               Esta acción es permanente. Se eliminarán todos los mensajes y archivos de
               <b> #{conversation.name}</b>. Escribe el nombre del canal para confirmar.
             </p>
@@ -363,12 +363,12 @@ export function ChannelDetailsPanel({
               value={deleteConfirmText}
               onChange={(e) => setDeleteConfirmText(e.target.value)}
               placeholder={conversation.name ?? ''}
-              className="w-full border border-[#dfe3e6] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b31b25]/30"
+              className="w-full border border-fm-surface-container-high rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fm-error/30"
             />
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setConfirmDelete(false)}
-                className="px-3 py-1.5 text-sm text-[#595c5e] hover:bg-[#f5f7f9] rounded-lg"
+                className="px-3 py-1.5 text-sm text-fm-on-surface-variant hover:bg-fm-background rounded-lg"
               >
                 Cancelar
               </button>
@@ -378,8 +378,8 @@ export function ChannelDetailsPanel({
                 className={cn(
                   'px-3 py-1.5 text-sm rounded-lg text-white font-semibold',
                   pending || deleteConfirmText.trim() !== conversation.name
-                    ? 'bg-[#b31b25]/50 cursor-not-allowed'
-                    : 'bg-[#b31b25] hover:opacity-90'
+                    ? 'bg-fm-error/50 cursor-not-allowed'
+                    : 'bg-fm-error hover:opacity-90'
                 )}
               >
                 {pending ? 'Eliminando...' : 'Eliminar canal'}

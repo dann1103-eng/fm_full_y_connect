@@ -93,7 +93,7 @@ export function DateRangePicker({ value, onChange }: Props) {
 
   return (
     <div className="relative flex items-center gap-2">
-      <div className="flex items-center gap-1 p-1 bg-white border border-[#dfe3e6] rounded-full">
+      <div className="flex items-center gap-1 p-1 bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-full">
         {presets.map((p) => {
           const active = value.preset === p.id
           return (
@@ -102,7 +102,7 @@ export function DateRangePicker({ value, onChange }: Props) {
               type="button"
               onClick={() => onChange(p.build())}
               className={`px-3 py-1.5 text-xs font-bold rounded-full transition-colors ${
-                active ? 'bg-[#00675c] text-white' : 'text-[#595c5e] hover:bg-[#f5f7f9]'
+                active ? 'bg-fm-primary text-white' : 'text-fm-on-surface-variant hover:bg-fm-background'
               }`}
             >
               {p.label}
@@ -113,7 +113,7 @@ export function DateRangePicker({ value, onChange }: Props) {
           type="button"
           onClick={() => setCustomOpen((o) => !o)}
           className={`px-3 py-1.5 text-xs font-bold rounded-full transition-colors flex items-center gap-1 ${
-            value.preset === 'custom' ? 'bg-[#00675c] text-white' : 'text-[#595c5e] hover:bg-[#f5f7f9]'
+            value.preset === 'custom' ? 'bg-fm-primary text-white' : 'text-fm-on-surface-variant hover:bg-fm-background'
           }`}
         >
           <span className="material-symbols-outlined text-sm">calendar_month</span>
@@ -121,35 +121,35 @@ export function DateRangePicker({ value, onChange }: Props) {
         </button>
       </div>
 
-      <span className="text-xs text-[#595c5e] whitespace-nowrap">{displayLabel(value)}</span>
+      <span className="text-xs text-fm-on-surface-variant whitespace-nowrap">{displayLabel(value)}</span>
 
       {customOpen && (
         <div
           ref={popoverRef}
-          className="absolute top-full left-0 mt-2 z-20 bg-white border border-[#dfe3e6] rounded-2xl p-4 shadow-lg flex flex-col gap-3 min-w-[280px]"
+          className="absolute top-full left-0 mt-2 z-20 bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-2xl p-4 shadow-lg flex flex-col gap-3 min-w-[280px]"
         >
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-extrabold uppercase tracking-wider text-[#595c5e]">Desde</label>
+            <label className="text-[10px] font-extrabold uppercase tracking-wider text-fm-on-surface-variant">Desde</label>
             <input
               type="date"
               value={customStart}
               onChange={(e) => setCustomStart(e.target.value)}
-              className="px-3 py-2 border border-[#dfe3e6] rounded-lg text-sm text-[#2c2f31] focus:outline-none focus:border-[#00675c]"
+              className="px-3 py-2 border border-fm-surface-container-high rounded-lg text-sm text-fm-on-surface focus:outline-none focus:border-fm-primary"
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-extrabold uppercase tracking-wider text-[#595c5e]">Hasta</label>
+            <label className="text-[10px] font-extrabold uppercase tracking-wider text-fm-on-surface-variant">Hasta</label>
             <input
               type="date"
               value={customEnd}
               onChange={(e) => setCustomEnd(e.target.value)}
-              className="px-3 py-2 border border-[#dfe3e6] rounded-lg text-sm text-[#2c2f31] focus:outline-none focus:border-[#00675c]"
+              className="px-3 py-2 border border-fm-surface-container-high rounded-lg text-sm text-fm-on-surface focus:outline-none focus:border-fm-primary"
             />
           </div>
           <button
             type="button"
             onClick={applyCustom}
-            className="px-4 py-2 bg-[#00675c] text-white text-sm font-bold rounded-full hover:bg-[#005047] transition-colors"
+            className="px-4 py-2 bg-fm-primary text-white text-sm font-bold rounded-full hover:bg-fm-primary-dim transition-colors"
           >
             Aplicar
           </button>

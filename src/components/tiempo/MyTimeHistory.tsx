@@ -81,22 +81,22 @@ export function MyTimeHistory({ userId, initialEntries, initialYear, initialMont
       {/* Today summary */}
       {todayTotal > 0 && (
         <div className="glass-panel rounded-[2rem] p-6">
-          <p className="text-[11px] font-extrabold text-[#abadaf] uppercase tracking-widest mb-3">Hoy</p>
+          <p className="text-[11px] font-extrabold text-fm-outline-variant uppercase tracking-widest mb-3">Hoy</p>
           <div className="flex gap-6 flex-wrap">
             <div>
-              <p className="text-3xl font-black text-[#2c2f31]">{formatDuration(todayTotal)}</p>
-              <p className="text-xs text-[#595c5e] mt-0.5">Total del día</p>
+              <p className="text-3xl font-black text-fm-on-surface">{formatDuration(todayTotal)}</p>
+              <p className="text-xs text-fm-on-surface-variant mt-0.5">Total del día</p>
             </div>
             {reqTotal > 0 && (
-              <div className="border-l border-[#dfe3e6] pl-6">
-                <p className="text-xl font-bold text-[#00675c]">{formatDuration(todayEntries.filter(e => e.entry_type === 'requirement').reduce((s, e) => s + (e.duration_seconds ?? 0), 0))}</p>
-                <p className="text-xs text-[#595c5e] mt-0.5">Requerimientos</p>
+              <div className="border-l border-fm-surface-container-high pl-6">
+                <p className="text-xl font-bold text-fm-primary">{formatDuration(todayEntries.filter(e => e.entry_type === 'requirement').reduce((s, e) => s + (e.duration_seconds ?? 0), 0))}</p>
+                <p className="text-xs text-fm-on-surface-variant mt-0.5">Requerimientos</p>
               </div>
             )}
             {adminTotal > 0 && (
-              <div className="border-l border-[#dfe3e6] pl-6">
-                <p className="text-xl font-bold text-[#595c5e]">{formatDuration(todayEntries.filter(e => e.entry_type === 'administrative').reduce((s, e) => s + (e.duration_seconds ?? 0), 0))}</p>
-                <p className="text-xs text-[#595c5e] mt-0.5">Administrativo</p>
+              <div className="border-l border-fm-surface-container-high pl-6">
+                <p className="text-xl font-bold text-fm-on-surface-variant">{formatDuration(todayEntries.filter(e => e.entry_type === 'administrative').reduce((s, e) => s + (e.duration_seconds ?? 0), 0))}</p>
+                <p className="text-xs text-fm-on-surface-variant mt-0.5">Administrativo</p>
               </div>
             )}
           </div>
@@ -107,35 +107,35 @@ export function MyTimeHistory({ userId, initialEntries, initialYear, initialMont
       <div className="glass-panel rounded-[2rem] p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={prevMonth} className="p-1.5 rounded-full hover:bg-[#f5f7f9] text-[#595c5e] transition-colors">
+            <button onClick={prevMonth} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant transition-colors">
               <span className="material-symbols-outlined text-lg">chevron_left</span>
             </button>
-            <p className="text-base font-bold text-[#2c2f31] w-36 text-center">{MONTHS[month]} {year}</p>
-            <button onClick={nextMonth} className="p-1.5 rounded-full hover:bg-[#f5f7f9] text-[#595c5e] transition-colors">
+            <p className="text-base font-bold text-fm-on-surface w-36 text-center">{MONTHS[month]} {year}</p>
+            <button onClick={nextMonth} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant transition-colors">
               <span className="material-symbols-outlined text-lg">chevron_right</span>
             </button>
           </div>
           <div className="flex items-center gap-5 text-sm">
-            <span className="text-[#595c5e]">Total: <strong className="text-[#2c2f31]">{formatDuration(monthTotal)}</strong></span>
-            <span className="text-[#595c5e]">Req: <strong className="text-[#00675c]">{formatDuration(reqTotal)}</strong></span>
-            <span className="text-[#595c5e]">Admin: <strong className="text-[#747779]">{formatDuration(adminTotal)}</strong></span>
+            <span className="text-fm-on-surface-variant">Total: <strong className="text-fm-on-surface">{formatDuration(monthTotal)}</strong></span>
+            <span className="text-fm-on-surface-variant">Req: <strong className="text-fm-primary">{formatDuration(reqTotal)}</strong></span>
+            <span className="text-fm-on-surface-variant">Admin: <strong className="text-fm-outline">{formatDuration(adminTotal)}</strong></span>
           </div>
         </div>
 
-        {loading && <p className="text-sm text-[#abadaf] py-4 text-center">Cargando…</p>}
+        {loading && <p className="text-sm text-fm-outline-variant py-4 text-center">Cargando…</p>}
 
         {!loading && days.length === 0 && (
-          <p className="text-sm text-[#abadaf] py-6 text-center">Sin registros este mes.</p>
+          <p className="text-sm text-fm-outline-variant py-6 text-center">Sin registros este mes.</p>
         )}
 
         {!loading && days.map(day => (
           <div key={day.date}>
             <div className="flex items-center gap-3 mb-2">
-              <p className="text-xs font-extrabold text-[#595c5e] uppercase tracking-wider capitalize">
+              <p className="text-xs font-extrabold text-fm-on-surface-variant uppercase tracking-wider capitalize">
                 {formatDayLabel(day.date + 'T12:00:00')}
               </p>
-              <div className="flex-1 h-px bg-[#f0f3f5]" />
-              <p className="text-xs font-bold text-[#2c2f31]">{formatDuration(day.totalSeconds)}</p>
+              <div className="flex-1 h-px bg-fm-surface-container-low" />
+              <p className="text-xs font-bold text-fm-on-surface">{formatDuration(day.totalSeconds)}</p>
             </div>
             <div className="space-y-1.5">
               {day.entries.map(e => (
@@ -156,27 +156,27 @@ function EntryRow({ entry }: { entry: TimeEntry }) {
     : ADMIN_CATEGORY_LABELS[entry.category as AdminCategory] ?? entry.title
 
   return (
-    <div className="px-4 py-2.5 rounded-xl bg-[#f9fafb] hover:bg-[#f0f3f5] transition-colors">
+    <div className="px-4 py-2.5 rounded-xl bg-fm-surface-container-low hover:bg-fm-surface-container-low transition-colors">
       <div className="flex items-center gap-3">
         <span
           className="w-2 h-2 rounded-full flex-shrink-0"
           style={{ backgroundColor: isReq ? '#00675c' : '#abadaf' }}
         />
-        <p className="text-sm text-[#2c2f31] flex-1 truncate">{label}</p>
-        <p className="text-xs text-[#595c5e] tabular-nums">
+        <p className="text-sm text-fm-on-surface flex-1 truncate">{label}</p>
+        <p className="text-xs text-fm-on-surface-variant tabular-nums">
           {formatTime(entry.started_at)} – {entry.ended_at ? formatTime(entry.ended_at) : '…'}
         </p>
-        <p className="text-xs font-bold text-[#2c2f31] tabular-nums w-14 text-right">
+        <p className="text-xs font-bold text-fm-on-surface tabular-nums w-14 text-right">
           {entry.duration_seconds ? formatDuration(entry.duration_seconds) : '—'}
         </p>
         {isReq ? (
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#e8f5f3] text-[#00675c]">REQ</span>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-fm-primary-container/30 text-fm-primary">REQ</span>
         ) : (
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#f0f2f4] text-[#595c5e]">ADM</span>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-fm-surface-container-low text-fm-on-surface-variant">ADM</span>
         )}
       </div>
       {entry.notes && (
-        <p className="text-xs text-[#747779] mt-1 ml-5 pl-0.5 truncate">{entry.notes}</p>
+        <p className="text-xs text-fm-outline mt-1 ml-5 pl-0.5 truncate">{entry.notes}</p>
       )}
     </div>
   )

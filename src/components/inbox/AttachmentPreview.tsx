@@ -41,7 +41,7 @@ export function AttachmentPreview({ attachment, onDelete }: AttachmentPreviewPro
   if (img) {
     return (
       <>
-        <div className="mt-1 rounded-lg overflow-hidden max-w-xs border border-[#dfe3e6] group/att relative">
+        <div className="mt-1 rounded-lg overflow-hidden max-w-xs border border-fm-surface-container-high group/att relative">
           {url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -51,10 +51,10 @@ export function AttachmentPreview({ attachment, onDelete }: AttachmentPreviewPro
               onClick={() => setLightbox(true)}
             />
           ) : (
-            <div className="w-60 h-40 bg-[#f5f7f9] animate-pulse" />
+            <div className="w-60 h-40 bg-fm-background animate-pulse" />
           )}
-          <div className="flex items-center justify-between px-3 py-1.5 bg-white">
-            <div className="text-[10px] text-[#595c5e]/70 truncate">
+          <div className="flex items-center justify-between px-3 py-1.5 bg-fm-surface-container-lowest">
+            <div className="text-[10px] text-fm-on-surface-variant/70 truncate">
               {attachment.file_name} · {formatBytes(attachment.file_size)}
             </div>
             <div className="flex items-center gap-2">
@@ -63,7 +63,7 @@ export function AttachmentPreview({ attachment, onDelete }: AttachmentPreviewPro
                   href={url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[#595c5e]/70 hover:text-[#00675c]"
+                  className="text-fm-on-surface-variant/70 hover:text-fm-primary"
                   title="Descargar"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
@@ -75,7 +75,7 @@ export function AttachmentPreview({ attachment, onDelete }: AttachmentPreviewPro
                 <button
                   type="button"
                   onClick={onDelete}
-                  className="text-[#595c5e]/70 hover:text-[#b31b25]"
+                  className="text-fm-on-surface-variant/70 hover:text-fm-error"
                   title="Eliminar"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
@@ -104,14 +104,14 @@ export function AttachmentPreview({ attachment, onDelete }: AttachmentPreviewPro
   return (
     <div
       className={cn(
-        'mt-1 bg-white border border-[#dfe3e6] rounded-lg p-2.5 flex items-center space-x-3 w-72',
+        'mt-1 bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-lg p-2.5 flex items-center space-x-3 w-72',
         url && 'hover:shadow-sm'
       )}
     >
       <div
         className={cn(
           'w-9 h-9 rounded flex items-center justify-center flex-shrink-0',
-          isPdf ? 'bg-[#b31b25]/10 text-[#b31b25]' : 'bg-[#00675c]/10 text-[#00675c]'
+          isPdf ? 'bg-fm-error/10 text-fm-error' : 'bg-fm-primary/10 text-fm-primary'
         )}
       >
         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
@@ -119,8 +119,8 @@ export function AttachmentPreview({ attachment, onDelete }: AttachmentPreviewPro
         </svg>
       </div>
       <div className="flex-1 overflow-hidden min-w-0">
-        <div className="text-xs font-semibold text-[#2c2f31] truncate">{attachment.file_name}</div>
-        <div className="text-[10px] text-[#595c5e]/70">
+        <div className="text-xs font-semibold text-fm-on-surface truncate">{attachment.file_name}</div>
+        <div className="text-[10px] text-fm-on-surface-variant/70">
           {formatBytes(attachment.file_size)}
           {attachment.mime_type ? ` · ${attachment.mime_type.split('/')[1].toUpperCase()}` : ''}
         </div>
@@ -130,7 +130,7 @@ export function AttachmentPreview({ attachment, onDelete }: AttachmentPreviewPro
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[#595c5e]/70 hover:text-[#00675c] flex-shrink-0"
+          className="text-fm-on-surface-variant/70 hover:text-fm-primary flex-shrink-0"
           title="Descargar"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
@@ -142,7 +142,7 @@ export function AttachmentPreview({ attachment, onDelete }: AttachmentPreviewPro
         <button
           type="button"
           onClick={onDelete}
-          className="text-[#595c5e]/70 hover:text-[#b31b25] flex-shrink-0"
+          className="text-fm-on-surface-variant/70 hover:text-fm-error flex-shrink-0"
           title="Eliminar"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">

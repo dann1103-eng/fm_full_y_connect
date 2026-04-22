@@ -29,13 +29,13 @@ export function CycleHistory({ cycles, plansMap }: CycleHistoryProps) {
         {/* Toggle header */}
         <button
           onClick={() => setOpen((v) => !v)}
-          className="w-full flex items-center justify-between px-8 py-5 hover:bg-white/50 transition-colors"
+          className="w-full flex items-center justify-between px-8 py-5 hover:bg-fm-surface-container-lowest/50 transition-colors"
         >
-          <span className="text-lg font-extrabold tracking-tight text-[#2c2f31]">
+          <span className="text-lg font-extrabold tracking-tight text-fm-on-surface">
             Historial de ciclos anteriores
           </span>
           <span
-            className="material-symbols-outlined text-[#595c5e] transition-transform duration-200"
+            className="material-symbols-outlined text-fm-on-surface-variant transition-transform duration-200"
             style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
           >
             expand_more
@@ -52,19 +52,19 @@ export function CycleHistory({ cycles, plansMap }: CycleHistoryProps) {
               return (
                 <div
                   key={cycle.id}
-                  className="flex items-center justify-between p-4 rounded-2xl hover:bg-[#e5e9eb] transition-colors cursor-pointer border border-transparent hover:border-[#dfe3e6]"
+                  className="flex items-center justify-between p-4 rounded-2xl hover:bg-fm-surface-container transition-colors cursor-pointer border border-transparent hover:border-fm-surface-container-high"
                 >
                   {/* Left: icon + month + plan */}
                   <div className="flex items-center gap-4">
-                    <span className="material-symbols-outlined text-[#595c5e]">history</span>
+                    <span className="material-symbols-outlined text-fm-on-surface-variant">history</span>
                     <div>
-                      <p className="font-bold text-sm text-[#2c2f31]">
+                      <p className="font-bold text-sm text-fm-on-surface">
                         {formatMonthYear(cycle.period_start)}
                       </p>
-                      <p className="text-xs text-[#595c5e]">
+                      <p className="text-xs text-fm-on-surface-variant">
                         {planName}
                         {cycle.status === 'pending_renewal' && (
-                          <span className="ml-2 text-[#b31b25] font-semibold">
+                          <span className="ml-2 text-fm-error font-semibold">
                             · Pago pendiente
                           </span>
                         )}
@@ -76,18 +76,18 @@ export function CycleHistory({ cycles, plansMap }: CycleHistoryProps) {
                   <div className="flex items-center gap-3">
                     {isPaid ? (
                       <>
-                        <span className="px-2.5 py-1 bg-[#ceee93] text-[#41590f] text-[10px] font-extrabold rounded-full uppercase">
+                        <span className="px-2.5 py-1 bg-fm-secondary-fixed text-fm-on-secondary-container text-[10px] font-extrabold rounded-full uppercase">
                           Pagado
                         </span>
                         <span
-                          className="material-symbols-outlined text-[#4a6319] text-xl"
+                          className="material-symbols-outlined text-fm-secondary text-xl"
                           style={{ fontVariationSettings: "'FILL' 1" }}
                         >
                           check_circle
                         </span>
                       </>
                     ) : (
-                      <span className="px-2.5 py-1 bg-[#b31b25]/10 text-[#b31b25] text-[10px] font-extrabold rounded-full uppercase">
+                      <span className="px-2.5 py-1 bg-fm-error/10 text-fm-error text-[10px] font-extrabold rounded-full uppercase">
                         Sin pago
                       </span>
                     )}

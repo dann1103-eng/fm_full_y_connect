@@ -31,19 +31,19 @@ export function PdfDownloadButton({ clientId }: Props) {
 
   return (
     <div className="flex items-center gap-3">
-      <label className="flex items-center gap-2 text-sm text-[#595c5e] cursor-pointer select-none">
+      <label className="flex items-center gap-2 text-sm text-fm-on-surface-variant cursor-pointer select-none">
         <input
           type="checkbox"
           checked={includeDetail}
           onChange={e => setIncludeDetail(e.target.checked)}
-          className="w-4 h-4 accent-[#00675c] cursor-pointer"
+          className="w-4 h-4 accent-fm-primary cursor-pointer"
         />
         Incluir detalle de requerimientos
       </label>
       <button
         onClick={handleDownload}
         disabled={loading}
-        className="px-5 py-2.5 bg-[#00675c] text-white font-bold rounded-full hover:bg-[#005047] transition-all text-sm flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+        className="px-5 py-2.5 bg-fm-primary text-white font-bold rounded-full hover:bg-fm-primary-dim transition-all text-sm flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
       >
         <span className="material-symbols-outlined text-base">
           {loading ? 'hourglass_empty' : 'download'}

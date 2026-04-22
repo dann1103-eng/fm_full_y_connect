@@ -350,7 +350,7 @@ export function TimesheetReport({ users, clients, currentUserId }: Props) {
           <button
             type="button"
             onClick={clearFilters}
-            className="text-xs font-bold text-[#b31b25] hover:underline"
+            className="text-xs font-bold text-fm-error hover:underline"
           >
             Limpiar filtros
           </button>
@@ -367,9 +367,9 @@ export function TimesheetReport({ users, clients, currentUserId }: Props) {
 
       {/* Table */}
       {loading ? (
-        <div className="p-8 text-center text-sm text-[#595c5e]">Cargando…</div>
+        <div className="p-8 text-center text-sm text-fm-on-surface-variant">Cargando…</div>
       ) : error ? (
-        <div className="p-8 text-center text-sm text-[#b31b25]">{error}</div>
+        <div className="p-8 text-center text-sm text-fm-error">{error}</div>
       ) : (
         <TimesheetTree
           groups={groups}
@@ -451,9 +451,9 @@ function rowFor(lvl1: string, lvl2: string, e: TimesheetEntry, totalSeconds: num
 
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-white border border-[#dfe3e6] rounded-2xl p-4">
-      <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#595c5e]">{label}</p>
-      <p className="text-xl font-black text-[#2c2f31] mt-1 tabular-nums">{value}</p>
+    <div className="bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-2xl p-4">
+      <p className="text-[10px] font-extrabold uppercase tracking-wider text-fm-on-surface-variant">{label}</p>
+      <p className="text-xl font-black text-fm-on-surface mt-1 tabular-nums">{value}</p>
     </div>
   )
 }
@@ -468,11 +468,11 @@ interface FilterSelectProps {
 function FilterSelect({ label, value, onChange, options }: FilterSelectProps) {
   return (
     <label className="flex items-center gap-2">
-      <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#595c5e]">{label}</span>
+      <span className="text-[10px] font-extrabold uppercase tracking-wider text-fm-on-surface-variant">{label}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="bg-white border border-[#dfe3e6] rounded-full px-3 py-1.5 text-xs font-bold text-[#2c2f31] focus:outline-none focus:border-[#00675c]"
+        className="bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-full px-3 py-1.5 text-xs font-bold text-fm-on-surface focus:outline-none focus:border-fm-primary"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
@@ -498,24 +498,24 @@ function MultiFilterChip({ label, selected, options, onToggle, onClear }: MultiF
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-full border transition-colors ${
-          selected.length > 0 ? 'bg-[#00675c] text-white border-[#00675c]' : 'bg-white text-[#595c5e] border-[#dfe3e6] hover:bg-[#f5f7f9]'
+          selected.length > 0 ? 'bg-fm-primary text-white border-fm-primary' : 'bg-fm-surface-container-lowest text-fm-on-surface-variant border-fm-surface-container-high hover:bg-fm-background'
         }`}
       >
         {label}
-        {selected.length > 0 && <span className="bg-white/20 px-1.5 rounded-full text-[10px]">{selected.length}</span>}
+        {selected.length > 0 && <span className="bg-fm-surface-container-lowest/20 px-1.5 rounded-full text-[10px]">{selected.length}</span>}
         <span className="material-symbols-outlined text-sm">{open ? 'expand_less' : 'expand_more'}</span>
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-2 z-20 bg-white border border-[#dfe3e6] rounded-2xl shadow-lg p-2 min-w-[220px] max-h-[320px] overflow-y-auto">
+        <div className="absolute top-full left-0 mt-2 z-20 bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-2xl shadow-lg p-2 min-w-[220px] max-h-[320px] overflow-y-auto">
           {options.length === 0 ? (
-            <p className="text-xs text-[#abadaf] px-2 py-1">Sin opciones</p>
+            <p className="text-xs text-fm-outline-variant px-2 py-1">Sin opciones</p>
           ) : (
             <>
               {selected.length > 0 && (
                 <button
                   type="button"
                   onClick={() => { onClear(); setOpen(false) }}
-                  className="w-full text-left px-2 py-1.5 text-xs font-bold text-[#b31b25] hover:bg-[#f5f7f9] rounded"
+                  className="w-full text-left px-2 py-1.5 text-xs font-bold text-fm-error hover:bg-fm-background rounded"
                 >
                   Limpiar selección
                 </button>
@@ -528,16 +528,16 @@ function MultiFilterChip({ label, selected, options, onToggle, onClear }: MultiF
                     key={o.id}
                     type="button"
                     onClick={() => onToggle(o.id)}
-                    className={`w-full text-left px-2 py-1.5 text-xs rounded hover:bg-[#f5f7f9] flex items-center gap-2 ${
-                      active ? 'text-[#00675c] font-bold' : 'text-[#2c2f31]'
+                    className={`w-full text-left px-2 py-1.5 text-xs rounded hover:bg-fm-background flex items-center gap-2 ${
+                      active ? 'text-fm-primary font-bold' : 'text-fm-on-surface'
                     }`}
                   >
-                    <span className={`material-symbols-outlined text-sm ${active ? 'text-[#00675c]' : 'text-[#abadaf]'}`}>
+                    <span className={`material-symbols-outlined text-sm ${active ? 'text-fm-primary' : 'text-fm-outline-variant'}`}>
                       {active ? 'check_box' : 'check_box_outline_blank'}
                     </span>
                     <span className="flex-1 truncate">{o.label}</span>
                     {showCount && (
-                      <span className={`text-[10px] tabular-nums whitespace-nowrap ${active ? 'text-[#00675c]' : 'text-[#abadaf]'}`}>
+                      <span className={`text-[10px] tabular-nums whitespace-nowrap ${active ? 'text-fm-primary' : 'text-fm-outline-variant'}`}>
                         {o.count} {o.countLabel}
                       </span>
                     )}

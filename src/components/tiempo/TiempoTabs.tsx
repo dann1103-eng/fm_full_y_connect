@@ -21,13 +21,13 @@ export function TiempoTabs({ userId, activeEntry, entries, year, month, allUsers
   return (
     <div className="space-y-5">
       {/* Tab switcher */}
-      <div className="flex gap-1 p-1 bg-[#f0f3f5] rounded-2xl w-fit">
+      <div className="flex gap-1 p-1 bg-fm-surface-container-low rounded-2xl w-fit">
         {(['personal', 'equipo'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`px-5 py-2 rounded-xl text-sm font-bold transition-all ${
-              tab === t ? 'bg-white text-[#00675c] shadow-sm' : 'text-[#595c5e] hover:text-[#2c2f31]'
+              tab === t ? 'bg-fm-surface-container-lowest text-fm-primary shadow-sm' : 'text-fm-on-surface-variant hover:text-fm-on-surface'
             }`}
           >
             {t === 'personal' ? 'Mi tiempo' : 'Equipo'}

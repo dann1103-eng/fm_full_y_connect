@@ -62,7 +62,7 @@ export function TableView({ items, logsMap, currentUserId, canAssign }: TableVie
   const sorted = sortItems(items, sortField, sortDir)
 
   const SortIcon = ({ field }: { field: SortField }) => (
-    <span className="ml-1 text-[#abadaf]">
+    <span className="ml-1 text-fm-outline-variant">
       {sortField === field ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
     </span>
   )
@@ -70,7 +70,7 @@ export function TableView({ items, logsMap, currentUserId, canAssign }: TableVie
   const th = (field: SortField, label: string, cls = '') => (
     <th
       onClick={() => handleSort(field)}
-      className={`px-3 py-2.5 text-left text-[10px] font-bold text-[#747779] uppercase tracking-wider cursor-pointer hover:text-[#2c2f31] select-none whitespace-nowrap ${cls}`}
+      className={`px-3 py-2.5 text-left text-[10px] font-bold text-fm-outline uppercase tracking-wider cursor-pointer hover:text-fm-on-surface select-none whitespace-nowrap ${cls}`}
     >
       {label}<SortIcon field={field} />
     </th>
@@ -78,7 +78,7 @@ export function TableView({ items, logsMap, currentUserId, canAssign }: TableVie
 
   if (items.length === 0) {
     return (
-      <div className="text-center py-12 text-sm text-[#595c5e]">
+      <div className="text-center py-12 text-sm text-fm-on-surface-variant">
         Sin piezas que mostrar.
       </div>
     )
@@ -86,9 +86,9 @@ export function TableView({ items, logsMap, currentUserId, canAssign }: TableVie
 
   return (
     <>
-      <div className="rounded-2xl border border-[#dfe3e6] overflow-hidden bg-white">
+      <div className="rounded-2xl border border-fm-surface-container-high overflow-hidden bg-fm-surface-container-lowest">
         <table className="w-full text-sm border-collapse">
-          <thead className="bg-[#f5f7f9] sticky top-0 z-10">
+          <thead className="bg-fm-background sticky top-0 z-10">
             <tr>
               {th('title',      'Título')}
               {th('client',     'Cliente')}
@@ -106,7 +106,7 @@ export function TableView({ items, logsMap, currentUserId, canAssign }: TableVie
               const phaseBadgeClass =
                 phaseCategory === 'passive_timer' ? 'bg-amber-100 text-amber-700' :
                 phaseCategory === 'timestamp_only' ? 'bg-green-100 text-green-700' :
-                'bg-[#f5f7f9] text-[#595c5e]'
+                'bg-fm-background text-fm-on-surface-variant'
               const relDays = Math.floor(
                 (Date.now() - new Date(item.last_moved_at).getTime()) / 86400000
               )
@@ -118,7 +118,7 @@ export function TableView({ items, logsMap, currentUserId, canAssign }: TableVie
                 <tr
                   key={item.id}
                   onClick={() => setSelectedItem(item)}
-                  className="border-t border-[#f0f3f5] hover:bg-[#f9fafb] cursor-pointer transition-colors"
+                  className="border-t border-fm-surface-container-low hover:bg-fm-surface-container-low cursor-pointer transition-colors"
                 >
                   {/* Title */}
                   <td className="px-3 py-2.5 max-w-[200px]">
@@ -127,11 +127,11 @@ export function TableView({ items, logsMap, currentUserId, canAssign }: TableVie
                         className="w-2 h-2 rounded-full flex-shrink-0"
                         style={{ background: PRIORITY_COLORS[item.priority as Priority] }}
                       />
-                      <span className="font-medium text-[#2c2f31] truncate">
+                      <span className="font-medium text-fm-on-surface truncate">
                         {item.title || CONTENT_TYPE_LABELS[item.content_type]}
                       </span>
                     </div>
-                    <p className="text-[10px] text-[#abadaf] ml-4 mt-0.5">
+                    <p className="text-[10px] text-fm-outline-variant ml-4 mt-0.5">
                       {CONTENT_TYPE_LABELS[item.content_type]}
                       {item.includes_story && (
                         <span
@@ -150,13 +150,13 @@ export function TableView({ items, logsMap, currentUserId, canAssign }: TableVie
                       {item.client_logo_url ? (
                         <img src={item.client_logo_url} alt="" className="w-4 h-4 rounded-full object-cover" />
                       ) : (
-                        <div className="w-4 h-4 rounded-full bg-[#00675c]/20 flex items-center justify-center">
-                          <span className="text-[7px] font-bold text-[#00675c]">
+                        <div className="w-4 h-4 rounded-full bg-fm-primary/20 flex items-center justify-center">
+                          <span className="text-[7px] font-bold text-fm-primary">
                             {item.client_name.slice(0, 1).toUpperCase()}
                           </span>
                         </div>
                       )}
-                      <span className="text-[#595c5e] truncate text-xs">{item.client_name}</span>
+                      <span className="text-fm-on-surface-variant truncate text-xs">{item.client_name}</span>
                     </div>
                   </td>
 
@@ -170,10 +170,10 @@ export function TableView({ items, logsMap, currentUserId, canAssign }: TableVie
                   {/* Deadline */}
                   <td className="px-3 py-2.5">
                     {deadlineInfo.status === 'none' || !item.deadline ? (
-                      <span className="text-xs text-[#abadaf]">—</span>
+                      <span className="text-xs text-fm-outline-variant">—</span>
                     ) : isOverdue ? (
                       <span
-                        className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap bg-[#b31b25] text-white uppercase tracking-wide"
+                        className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap bg-fm-error text-white uppercase tracking-wide"
                         title={`Fecha de entrega: ${formatDeadlineDate(item.deadline)}`}
                       >
                         ⚠ Vencido
@@ -211,7 +211,7 @@ export function TableView({ items, logsMap, currentUserId, canAssign }: TableVie
                               key={a.id}
                               title={a.name}
                               style={{ marginLeft: i === 0 ? 0 : '-6px', zIndex: item.assignees.length - i, position: 'relative' }}
-                              className="w-5 h-5 rounded-full bg-[#00675c]/15 flex items-center justify-center text-[9px] font-bold text-[#00675c] border border-white overflow-hidden flex-shrink-0"
+                              className="w-5 h-5 rounded-full bg-fm-primary/15 flex items-center justify-center text-[9px] font-bold text-fm-primary border border-white overflow-hidden flex-shrink-0"
                             >
                               {a.avatar_url ? (
                                 <img src={a.avatar_url} alt={a.name} className="w-full h-full object-cover" />
@@ -222,23 +222,23 @@ export function TableView({ items, logsMap, currentUserId, canAssign }: TableVie
                           ))}
                         </div>
                         {item.assignees.length === 1 ? (
-                          <span className="text-xs text-[#595c5e] truncate max-w-[80px]">{item.assignees[0].name}</span>
+                          <span className="text-xs text-fm-on-surface-variant truncate max-w-[80px]">{item.assignees[0].name}</span>
                         ) : item.assignees.length > 3 ? (
-                          <span className="text-[10px] font-bold text-[#595c5e]">+{item.assignees.length - 3}</span>
+                          <span className="text-[10px] font-bold text-fm-on-surface-variant">+{item.assignees.length - 3}</span>
                         ) : null}
                       </div>
                     ) : (
-                      <span className="text-xs text-[#abadaf]">—</span>
+                      <span className="text-xs text-fm-outline-variant">—</span>
                     )}
                   </td>
 
                   {/* Time */}
-                  <td className="px-3 py-2.5 hidden md:table-cell text-xs text-[#595c5e]">
+                  <td className="px-3 py-2.5 hidden md:table-cell text-xs text-fm-on-surface-variant">
                     {item.estimated_time_minutes != null ? `${item.estimated_time_minutes}m` : '—'}
                   </td>
 
                   {/* Last moved */}
-                  <td className="px-3 py-2.5 hidden md:table-cell text-xs text-[#abadaf]">
+                  <td className="px-3 py-2.5 hidden md:table-cell text-xs text-fm-outline-variant">
                     {relLabel}
                   </td>
                 </tr>

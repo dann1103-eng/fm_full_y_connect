@@ -141,8 +141,8 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
     + cambiosPackages.reduce((s, p) => s + p.qty, 0)
 
   return (
-    <div className={`bg-white rounded-2xl border overflow-hidden transition-all ${
-      isOverdue ? 'border-[#b31b25]/40' : 'border-[#abadaf]/20'
+    <div className={`bg-fm-surface-container-lowest rounded-2xl border overflow-hidden transition-all ${
+      isOverdue ? 'border-fm-error/40' : 'border-fm-outline-variant/20'
     }`}>
       {/* ── Main row ── */}
       <div className="flex items-center gap-4 p-4">
@@ -160,13 +160,13 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <Link href={`/clients/${client.id}`} className="font-semibold text-[#2c2f31] hover:text-[#00675c] transition-colors truncate">
+            <Link href={`/clients/${client.id}`} className="font-semibold text-fm-on-surface hover:text-fm-primary transition-colors truncate">
               {client.name}
             </Link>
-            <span className="text-xs text-[#595c5e] flex-shrink-0">{client.plan.name}</span>
+            <span className="text-xs text-fm-on-surface-variant flex-shrink-0">{client.plan.name}</span>
           </div>
           <p className={`text-sm font-medium mt-0.5 ${
-            isOverdue ? 'text-[#b31b25]' : daysLeft <= 3 ? 'text-amber-600' : 'text-[#595c5e]'
+            isOverdue ? 'text-fm-error' : daysLeft <= 3 ? 'text-amber-600' : 'text-fm-on-surface-variant'
           }`}>
             {isOverdue
               ? `Vencido hace ${Math.abs(daysLeft)} día${Math.abs(daysLeft) !== 1 ? 's' : ''}`
@@ -178,8 +178,8 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
         <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
           <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
             cycle.payment_status === 'paid'
-              ? 'bg-[#00675c]/10 text-[#00675c]'
-              : 'bg-[#b31b25]/10 text-[#b31b25]'
+              ? 'bg-fm-primary/10 text-fm-primary'
+              : 'bg-fm-error/10 text-fm-error'
           }`}>
             {cycle.payment_status === 'paid' ? 'Pagado' : 'Sin pago'}
           </span>
@@ -198,7 +198,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
           {isAdmin && (
             <button
               onClick={toggleExpanded}
-              className="p-1.5 rounded-lg text-[#747779] hover:bg-[#f5f7f9] transition-colors"
+              className="p-1.5 rounded-lg text-fm-outline hover:bg-fm-background transition-colors"
             >
               <svg xmlns="http://www.w3.org/2000/svg"
                 className={`h-4 w-4 transition-transform ${expanded ? 'rotate-180' : ''}`}
@@ -212,7 +212,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
 
       {/* ── Expanded panel ── */}
       {expanded && isAdmin && (
-        <div className="border-t border-[#abadaf]/10 bg-[#f5f7f9]">
+        <div className="border-t border-fm-outline-variant/10 bg-fm-background">
 
           {/* Primary action buttons */}
           <div className="flex gap-2 p-4 pb-0">
@@ -221,7 +221,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
               className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all flex-1 justify-center ${
                 mode === 'simple'
                   ? 'text-white'
-                  : 'bg-white border-2 border-[#00675c] text-[#00675c] hover:bg-[#00675c]/5'
+                  : 'bg-fm-surface-container-lowest border-2 border-fm-primary text-fm-primary hover:bg-fm-primary/5'
               }`}
               style={mode === 'simple' ? { background: 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)' } : {}}
             >
@@ -235,8 +235,8 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
               onClick={() => selectMode('cambios')}
               className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all flex-1 justify-center ${
                 mode === 'cambios'
-                  ? 'border-2 border-[#006385] bg-[#006385]/10 text-[#006385]'
-                  : 'bg-white border-2 border-[#dfe3e6] text-[#595c5e] hover:border-[#006385]/40'
+                  ? 'border-2 border-fm-tertiary bg-fm-tertiary/10 text-fm-tertiary'
+                  : 'bg-fm-surface-container-lowest border-2 border-fm-surface-container-high text-fm-on-surface-variant hover:border-fm-tertiary/40'
               }`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
@@ -250,20 +250,20 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
           {mode === 'simple' && (
             <div className="px-4 py-4 space-y-4">
               <div>
-                <p className="text-xs font-semibold text-[#2c2f31] mb-1">
+                <p className="text-xs font-semibold text-fm-on-surface mb-1">
                   Acumulación al siguiente ciclo
-                  <span className="font-normal text-[#747779] ml-1">(por defecto: no acumular)</span>
+                  <span className="font-normal text-fm-outline ml-1">(por defecto: no acumular)</span>
                 </p>
                 <div className="grid grid-cols-3 gap-2">
                   {CONTENT_TYPES.filter((t) => limits[t] > 0 && !NON_CARRYOVER_TYPES.includes(t)).map((type) => (
-                    <label key={type} className="flex items-center gap-2 cursor-pointer bg-white rounded-lg px-3 py-2 border border-[#dfe3e6]">
+                    <label key={type} className="flex items-center gap-2 cursor-pointer bg-fm-surface-container-lowest rounded-lg px-3 py-2 border border-fm-surface-container-high">
                       <input
                         type="checkbox"
                         checked={rolloverChecked[type] ?? false}
                         onChange={(e) => setRolloverChecked((prev) => ({ ...prev, [type]: e.target.checked }))}
-                        className="rounded accent-[#00675c]"
+                        className="rounded accent-fm-primary"
                       />
-                      <span className="text-xs text-[#2c2f31]">{CONTENT_TYPE_LABELS[type]}</span>
+                      <span className="text-xs text-fm-on-surface">{CONTENT_TYPE_LABELS[type]}</span>
                     </label>
                   ))}
                 </div>
@@ -286,7 +286,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
 
               {/* Período de facturación */}
               <div>
-                <p className="text-[11px] font-bold text-[#abadaf] uppercase tracking-wider mb-2">
+                <p className="text-[11px] font-bold text-fm-outline-variant uppercase tracking-wider mb-2">
                   Período de facturación
                 </p>
                 <div className="flex gap-2">
@@ -296,8 +296,8 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
                       onClick={() => setBillingPeriod(period)}
                       className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
                         billingPeriod === period
-                          ? 'border-[#006385] bg-[#006385]/10 text-[#006385]'
-                          : 'border-[#dfe3e6] bg-white text-[#595c5e] hover:border-[#abadaf]'
+                          ? 'border-fm-tertiary bg-fm-tertiary/10 text-fm-tertiary'
+                          : 'border-fm-surface-container-high bg-fm-surface-container-lowest text-fm-on-surface-variant hover:border-fm-outline-variant'
                       }`}
                     >
                       {period === 'monthly' ? 'Mensual' : 'Quincenal'}
@@ -305,28 +305,28 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
                   ))}
                 </div>
                 {billingPeriod !== client.billing_period && (
-                  <p className="text-[10px] text-[#006385] mt-1.5">
+                  <p className="text-[10px] text-fm-tertiary mt-1.5">
                     Cambia de <strong>{client.billing_period === 'monthly' ? 'mensual' : 'quincenal'}</strong> a <strong>{billingPeriod === 'monthly' ? 'mensual' : 'quincenal'}</strong>.
                   </p>
                 )}
                 {billingPeriod === 'biweekly' && (
                   <div className="mt-2 flex items-center gap-2">
-                    <label className="text-[11px] font-semibold text-[#2c2f31] flex-shrink-0">2° día de facturación:</label>
+                    <label className="text-[11px] font-semibold text-fm-on-surface flex-shrink-0">2° día de facturación:</label>
                     <input
                       type="number" min={1} max={31}
                       placeholder={client.billing_day_2?.toString() ?? 'ej. 15'}
                       defaultValue={client.billing_day_2 ?? ''}
-                      className="w-20 h-8 px-2 rounded-lg border border-[#dfe3e6] bg-white text-xs focus:outline-none focus:border-[#006385]"
+                      className="w-20 h-8 px-2 rounded-lg border border-fm-surface-container-high bg-fm-surface-container-lowest text-xs focus:outline-none focus:border-fm-tertiary"
                     />
                   </div>
                 )}
               </div>
 
-              <div className="h-px bg-[#dfe3e6]" />
+              <div className="h-px bg-fm-surface-container-high" />
 
               {/* Plan selector */}
               <div>
-                <p className="text-[11px] font-bold text-[#abadaf] uppercase tracking-wider mb-2">
+                <p className="text-[11px] font-bold text-fm-outline-variant uppercase tracking-wider mb-2">
                   Plan del siguiente ciclo
                 </p>
                 <div className="grid grid-cols-3 gap-2">
@@ -336,68 +336,68 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
                       onClick={() => setSelectedPlanId(plan.id)}
                       className={`p-3 rounded-xl border-2 text-left transition-all ${
                         selectedPlanId === plan.id
-                          ? 'border-[#006385] bg-[#006385]/5'
-                          : 'border-[#dfe3e6] bg-white hover:border-[#006385]/40'
+                          ? 'border-fm-tertiary bg-fm-tertiary/5'
+                          : 'border-fm-surface-container-high bg-fm-surface-container-lowest hover:border-fm-tertiary/40'
                       }`}
                     >
-                      <p className={`text-sm font-semibold ${selectedPlanId === plan.id ? 'text-[#006385]' : 'text-[#2c2f31]'}`}>
+                      <p className={`text-sm font-semibold ${selectedPlanId === plan.id ? 'text-fm-tertiary' : 'text-fm-on-surface'}`}>
                         {plan.name}
                       </p>
                       {plan.id === client.current_plan_id && (
-                        <p className="text-xs text-[#595c5e] mt-0.5">Plan actual</p>
+                        <p className="text-xs text-fm-on-surface-variant mt-0.5">Plan actual</p>
                       )}
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div className="h-px bg-[#dfe3e6]" />
+              <div className="h-px bg-fm-surface-container-high" />
 
               {/* Cambios del ciclo */}
               <div>
-                <p className="text-[11px] font-bold text-[#abadaf] uppercase tracking-wider mb-2">
+                <p className="text-[11px] font-bold text-fm-outline-variant uppercase tracking-wider mb-2">
                   Cambios del ciclo
                 </p>
 
                 <div className="grid grid-cols-3 gap-2 mb-3">
-                  <div className="bg-white rounded-xl p-2.5 border border-[#dfe3e6]">
-                    <p className="text-[10px] text-[#595c5e] mb-0.5">Incluidos en plan</p>
-                    <p className="text-lg font-bold text-[#2c2f31]">
+                  <div className="bg-fm-surface-container-lowest rounded-xl p-2.5 border border-fm-surface-container-high">
+                    <p className="text-[10px] text-fm-on-surface-variant mb-0.5">Incluidos en plan</p>
+                    <p className="text-lg font-bold text-fm-on-surface">
                       {selectedPlan?.cambios_included ?? client.plan.cambios_included}
                     </p>
                   </div>
-                  <div className="bg-white rounded-xl p-2.5 border border-[#dfe3e6]">
-                    <p className="text-[10px] text-[#595c5e] mb-0.5">Paquetes extra</p>
-                    <p className="text-lg font-bold text-[#00675c]">
+                  <div className="bg-fm-surface-container-lowest rounded-xl p-2.5 border border-fm-surface-container-high">
+                    <p className="text-[10px] text-fm-on-surface-variant mb-0.5">Paquetes extra</p>
+                    <p className="text-lg font-bold text-fm-primary">
                       +{cambiosPackages.reduce((s, p) => s + p.qty, 0)}
                     </p>
                   </div>
-                  <div className="rounded-xl p-2.5 border border-[#00675c]/20" style={{ background: 'rgba(0,103,92,.06)' }}>
-                    <p className="text-[10px] text-[#595c5e] mb-0.5">Total</p>
-                    <p className="text-lg font-bold text-[#00675c]">{totalCambiosBudget}</p>
+                  <div className="rounded-xl p-2.5 border border-fm-primary/20" style={{ background: 'rgba(0,103,92,.06)' }}>
+                    <p className="text-[10px] text-fm-on-surface-variant mb-0.5">Total</p>
+                    <p className="text-lg font-bold text-fm-primary">{totalCambiosBudget}</p>
                   </div>
                 </div>
 
                 <div className="flex gap-2 mb-2">
                   <div className="flex flex-col gap-1 flex-shrink-0 w-16">
-                    <label className="text-[10px] font-medium text-[#595c5e]">Cant.</label>
+                    <label className="text-[10px] font-medium text-fm-on-surface-variant">Cant.</label>
                     <input type="number" min={1} value={pkgQty} onChange={(e) => setPkgQty(e.target.value)}
-                      className="h-8 px-2 rounded-lg border border-[#dfe3e6] bg-white text-xs focus:outline-none focus:border-[#00675c]" />
+                      className="h-8 px-2 rounded-lg border border-fm-surface-container-high bg-fm-surface-container-lowest text-xs focus:outline-none focus:border-fm-primary" />
                   </div>
                   <div className="flex flex-col gap-1 flex-shrink-0 w-24">
-                    <label className="text-[10px] font-medium text-[#595c5e]">Precio (USD)</label>
+                    <label className="text-[10px] font-medium text-fm-on-surface-variant">Precio (USD)</label>
                     <input type="number" step="0.01" placeholder="0.00" value={pkgPrice} onChange={(e) => setPkgPrice(e.target.value)}
-                      className="h-8 px-2 rounded-lg border border-[#dfe3e6] bg-white text-xs focus:outline-none focus:border-[#00675c]" />
+                      className="h-8 px-2 rounded-lg border border-fm-surface-container-high bg-fm-surface-container-lowest text-xs focus:outline-none focus:border-fm-primary" />
                   </div>
                   <div className="flex flex-col gap-1 flex-1">
-                    <label className="text-[10px] font-medium text-[#595c5e]">Nota</label>
+                    <label className="text-[10px] font-medium text-fm-on-surface-variant">Nota</label>
                     <input placeholder="opcional" value={pkgNote} onChange={(e) => setPkgNote(e.target.value)}
-                      className="h-8 px-2 rounded-lg border border-[#dfe3e6] bg-white text-xs focus:outline-none focus:border-[#00675c]" />
+                      className="h-8 px-2 rounded-lg border border-fm-surface-container-high bg-fm-surface-container-lowest text-xs focus:outline-none focus:border-fm-primary" />
                   </div>
                   <div className="flex flex-col gap-1 flex-shrink-0">
                     <label className="text-[10px] text-transparent">add</label>
                     <button onClick={addCambiosPackage}
-                      className="h-8 px-3 rounded-lg border border-[#00675c] text-[#00675c] text-xs font-semibold hover:bg-[#00675c]/5">
+                      className="h-8 px-3 rounded-lg border border-fm-primary text-fm-primary text-xs font-semibold hover:bg-fm-primary/5">
                       + Agregar
                     </button>
                   </div>
@@ -405,41 +405,41 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
 
                 <div className="space-y-1">
                   {cambiosPackages.map((pkg, i) => (
-                    <div key={i} className="flex items-center gap-2 text-xs px-3 py-2 bg-white rounded-lg border border-[#dfe3e6]">
-                      <span className="flex-1 text-[#2c2f31]">
+                    <div key={i} className="flex items-center gap-2 text-xs px-3 py-2 bg-fm-surface-container-lowest rounded-lg border border-fm-surface-container-high">
+                      <span className="flex-1 text-fm-on-surface">
                         <strong>+{pkg.qty} cambios</strong>
                         {pkg.price_usd != null && ` · $${pkg.price_usd.toFixed(2)}`}
                         {pkg.note && ` · ${pkg.note}`}
                       </span>
                       <button onClick={() => setCambiosPackages((prev) => prev.filter((_, j) => j !== i))}
-                        className="text-[#b31b25] opacity-60 hover:opacity-100">
+                        className="text-fm-error opacity-60 hover:opacity-100">
                         <span className="material-symbols-outlined" style={{ fontSize: 14 }}>delete</span>
                       </button>
                     </div>
                   ))}
                   {cambiosPackages.length === 0 && (
-                    <p className="text-xs text-[#abadaf] italic px-1">Sin paquetes extra.</p>
+                    <p className="text-xs text-fm-outline-variant italic px-1">Sin paquetes extra.</p>
                   )}
                 </div>
               </div>
 
-              <div className="h-px bg-[#dfe3e6]" />
+              <div className="h-px bg-fm-surface-container-high" />
 
               {/* Contenido extra / servicios */}
               <div>
-                <p className="text-[11px] font-bold text-[#abadaf] uppercase tracking-wider mb-0.5">
+                <p className="text-[11px] font-bold text-fm-outline-variant uppercase tracking-wider mb-0.5">
                   Contenido extra vendido
                 </p>
-                <p className="text-[10px] text-[#747779] mb-3">
+                <p className="text-[10px] text-fm-outline mb-3">
                   Cobros adicionales fuera del plan — fotografía, diseño, consultorías, etc.
                 </p>
 
                 {/* Mode toggle */}
-                <div className="flex gap-1 mb-3 bg-white rounded-lg border border-[#dfe3e6] p-0.5 w-fit">
+                <div className="flex gap-1 mb-3 bg-fm-surface-container-lowest rounded-lg border border-fm-surface-container-high p-0.5 w-fit">
                   <button
                     onClick={() => setExtraIsCustom(false)}
                     className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                      !extraIsCustom ? 'bg-[#f5f7f9] text-[#2c2f31] shadow-sm' : 'text-[#747779]'
+                      !extraIsCustom ? 'bg-fm-background text-fm-on-surface shadow-sm' : 'text-fm-outline'
                     }`}
                   >
                     Estándar
@@ -447,7 +447,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
                   <button
                     onClick={() => setExtraIsCustom(true)}
                     className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                      extraIsCustom ? 'bg-[#f5f7f9] text-[#2c2f31] shadow-sm' : 'text-[#747779]'
+                      extraIsCustom ? 'bg-fm-background text-fm-on-surface shadow-sm' : 'text-fm-outline'
                     }`}
                   >
                     Personalizado
@@ -457,7 +457,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
                 {!extraIsCustom && (
                   <div className="flex gap-1.5 mb-2 flex-wrap">
                     {(Object.entries(EXTRA_CONTENT_PRICES) as [ContentType, number][]).map(([type, price]) => (
-                      <span key={type} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#f5f7f9] border border-[#dfe3e6] text-[#595c5e]">
+                      <span key={type} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-fm-background border border-fm-surface-container-high text-fm-on-surface-variant">
                         {CONTENT_TYPE_LABELS[type]} · ${price}
                       </span>
                     ))}
@@ -468,21 +468,21 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
                   {extraIsCustom ? (
                     <>
                       <div className="flex flex-col gap-1 flex-1">
-                        <label className="text-[10px] font-medium text-[#595c5e]">Descripción</label>
+                        <label className="text-[10px] font-medium text-fm-on-surface-variant">Descripción</label>
                         <input placeholder="ej. Sesión fotográfica" value={extraLabel} onChange={(e) => setExtraLabel(e.target.value)}
-                          className="h-8 px-2 rounded-lg border border-[#dfe3e6] bg-white text-xs focus:outline-none focus:border-[#00675c]" />
+                          className="h-8 px-2 rounded-lg border border-fm-surface-container-high bg-fm-surface-container-lowest text-xs focus:outline-none focus:border-fm-primary" />
                       </div>
                       <div className="flex flex-col gap-1 flex-shrink-0 w-20">
-                        <label className="text-[10px] font-medium text-[#595c5e]">Precio/u</label>
+                        <label className="text-[10px] font-medium text-fm-on-surface-variant">Precio/u</label>
                         <input type="number" step="0.01" placeholder="0.00" value={extraPrice} onChange={(e) => setExtraPrice(e.target.value)}
-                          className="h-8 px-2 rounded-lg border border-[#dfe3e6] bg-white text-xs focus:outline-none focus:border-[#00675c]" />
+                          className="h-8 px-2 rounded-lg border border-fm-surface-container-high bg-fm-surface-container-lowest text-xs focus:outline-none focus:border-fm-primary" />
                       </div>
                     </>
                   ) : (
                     <div className="flex flex-col gap-1 flex-1">
-                      <label className="text-[10px] font-medium text-[#595c5e]">Tipo</label>
+                      <label className="text-[10px] font-medium text-fm-on-surface-variant">Tipo</label>
                       <select value={extraType} onChange={(e) => setExtraType(e.target.value as ContentType)}
-                        className="h-8 px-2 rounded-lg border border-[#dfe3e6] bg-white text-xs text-[#2c2f31] focus:outline-none focus:border-[#00675c]">
+                        className="h-8 px-2 rounded-lg border border-fm-surface-container-high bg-fm-surface-container-lowest text-xs text-fm-on-surface focus:outline-none focus:border-fm-primary">
                         {(Object.keys(EXTRA_CONTENT_PRICES) as ContentType[]).map((t) => (
                           <option key={t} value={t}>{CONTENT_TYPE_LABELS[t]} · ${EXTRA_CONTENT_PRICES[t]}</option>
                         ))}
@@ -490,19 +490,19 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
                     </div>
                   )}
                   <div className="flex flex-col gap-1 flex-shrink-0 w-14">
-                    <label className="text-[10px] font-medium text-[#595c5e]">Cant.</label>
+                    <label className="text-[10px] font-medium text-fm-on-surface-variant">Cant.</label>
                     <input type="number" min={1} value={extraQty} onChange={(e) => setExtraQty(e.target.value)}
-                      className="h-8 px-2 rounded-lg border border-[#dfe3e6] bg-white text-xs focus:outline-none focus:border-[#00675c]" />
+                      className="h-8 px-2 rounded-lg border border-fm-surface-container-high bg-fm-surface-container-lowest text-xs focus:outline-none focus:border-fm-primary" />
                   </div>
                   <div className="flex flex-col gap-1 flex-1">
-                    <label className="text-[10px] font-medium text-[#595c5e]">Nota</label>
+                    <label className="text-[10px] font-medium text-fm-on-surface-variant">Nota</label>
                     <input placeholder="opcional" value={extraNote} onChange={(e) => setExtraNote(e.target.value)}
-                      className="h-8 px-2 rounded-lg border border-[#dfe3e6] bg-white text-xs focus:outline-none focus:border-[#00675c]" />
+                      className="h-8 px-2 rounded-lg border border-fm-surface-container-high bg-fm-surface-container-lowest text-xs focus:outline-none focus:border-fm-primary" />
                   </div>
                   <div className="flex flex-col gap-1 flex-shrink-0">
                     <label className="text-[10px] text-transparent">add</label>
                     <button onClick={addExtraItem}
-                      className="h-8 px-3 rounded-lg border border-[#00675c] text-[#00675c] text-xs font-semibold hover:bg-[#00675c]/5">
+                      className="h-8 px-3 rounded-lg border border-fm-primary text-fm-primary text-xs font-semibold hover:bg-fm-primary/5">
                       + Agregar
                     </button>
                   </div>
@@ -510,55 +510,55 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
 
                 <div className="space-y-1">
                   {extraContent.map((item, i) => (
-                    <div key={i} className="flex items-center gap-2 text-xs px-3 py-2 bg-white rounded-lg border border-[#dfe3e6]">
-                      <span className="flex-1 text-[#2c2f31]">
+                    <div key={i} className="flex items-center gap-2 text-xs px-3 py-2 bg-fm-surface-container-lowest rounded-lg border border-fm-surface-container-high">
+                      <span className="flex-1 text-fm-on-surface">
                         {item.qty}× {item.label}
                         {item.note && ` · ${item.note}`}
                       </span>
-                      <span className="font-semibold text-[#00675c]">${(item.price_per_unit * item.qty).toFixed(2)}</span>
+                      <span className="font-semibold text-fm-primary">${(item.price_per_unit * item.qty).toFixed(2)}</span>
                       <button onClick={() => setExtraContent((prev) => prev.filter((_, j) => j !== i))}
-                        className="text-[#b31b25] opacity-60 hover:opacity-100">
+                        className="text-fm-error opacity-60 hover:opacity-100">
                         <span className="material-symbols-outlined" style={{ fontSize: 14 }}>delete</span>
                       </button>
                     </div>
                   ))}
                   {extraContent.length === 0 && (
-                    <p className="text-xs text-[#abadaf] italic px-1">Sin contenido extra.</p>
+                    <p className="text-xs text-fm-outline-variant italic px-1">Sin contenido extra.</p>
                   )}
                 </div>
 
                 {extraContent.length > 0 && (
-                  <p className="text-xs text-[#595c5e] mt-1.5 px-1">
-                    Total: <strong className="text-[#00675c]">${totalExtraRevenue.toFixed(2)}</strong>
+                  <p className="text-xs text-fm-on-surface-variant mt-1.5 px-1">
+                    Total: <strong className="text-fm-primary">${totalExtraRevenue.toFixed(2)}</strong>
                   </p>
                 )}
               </div>
 
-              <div className="h-px bg-[#dfe3e6]" />
+              <div className="h-px bg-fm-surface-container-high" />
 
               {/* Rollover */}
               <div>
-                <p className="text-xs font-semibold text-[#2c2f31] mb-1">
+                <p className="text-xs font-semibold text-fm-on-surface mb-1">
                   Acumulación al siguiente ciclo
-                  <span className="font-normal text-[#747779] ml-1">(por defecto: no acumular)</span>
+                  <span className="font-normal text-fm-outline ml-1">(por defecto: no acumular)</span>
                 </p>
                 <div className="grid grid-cols-3 gap-2">
                   {CONTENT_TYPES.filter((t) => limits[t] > 0 && !NON_CARRYOVER_TYPES.includes(t)).map((type) => (
-                    <label key={type} className="flex items-center gap-2 cursor-pointer bg-white rounded-lg px-3 py-2 border border-[#dfe3e6]">
+                    <label key={type} className="flex items-center gap-2 cursor-pointer bg-fm-surface-container-lowest rounded-lg px-3 py-2 border border-fm-surface-container-high">
                       <input
                         type="checkbox"
                         checked={rolloverChecked[type] ?? false}
                         onChange={(e) => setRolloverChecked((prev) => ({ ...prev, [type]: e.target.checked }))}
-                        className="rounded accent-[#00675c]"
+                        className="rounded accent-fm-primary"
                       />
-                      <span className="text-xs text-[#2c2f31]">{CONTENT_TYPE_LABELS[type]}</span>
+                      <span className="text-xs text-fm-on-surface">{CONTENT_TYPE_LABELS[type]}</span>
                     </label>
                   ))}
                 </div>
               </div>
 
               {selectedPlan && selectedPlan.id !== client.current_plan_id && (
-                <div className="bg-[#006385]/5 border border-[#006385]/20 rounded-xl px-3 py-2 text-xs text-[#006385]">
+                <div className="bg-fm-tertiary/5 border border-fm-tertiary/20 rounded-xl px-3 py-2 text-xs text-fm-tertiary">
                   El siguiente ciclo iniciará con el plan <strong>{selectedPlan.name}</strong>.
                 </div>
               )}
@@ -579,7 +579,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
             {mode !== 'simple' && mode !== 'cambios' && (
               <button
                 onClick={() => selectMode('pausar')}
-                className="text-xs text-[#595c5e] hover:text-[#b31b25] transition-colors underline underline-offset-2"
+                className="text-xs text-fm-on-surface-variant hover:text-fm-error transition-colors underline underline-offset-2"
               >
                 Pausar cliente
               </button>
@@ -597,24 +597,24 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
                 {!pauseConfirm ? (
                   <button
                     onClick={() => setPauseConfirm(true)}
-                    className="w-full py-2.5 rounded-xl text-sm font-semibold text-[#595c5e] bg-white border border-[#dfe3e6] hover:border-[#595c5e] transition-all"
+                    className="w-full py-2.5 rounded-xl text-sm font-semibold text-fm-on-surface-variant bg-fm-surface-container-lowest border border-fm-surface-container-high hover:border-fm-on-surface-variant transition-all"
                   >
                     Sí, pausar este cliente
                   </button>
                 ) : (
                   <div className="space-y-2">
-                    <p className="text-xs text-center text-[#595c5e]">¿Confirmas que deseas pausar a <strong>{client.name}</strong>?</p>
+                    <p className="text-xs text-center text-fm-on-surface-variant">¿Confirmas que deseas pausar a <strong>{client.name}</strong>?</p>
                     <div className="flex gap-2">
                       <button
                         onClick={() => { setPauseConfirm(false); selectMode(null) }}
-                        className="flex-1 py-2 rounded-xl text-sm text-[#595c5e] bg-white border border-[#dfe3e6]"
+                        className="flex-1 py-2 rounded-xl text-sm text-fm-on-surface-variant bg-fm-surface-container-lowest border border-fm-surface-container-high"
                       >
                         Cancelar
                       </button>
                       <button
                         onClick={handlePause}
                         disabled={isPending}
-                        className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-[#595c5e] hover:bg-[#2c2f31] transition-colors"
+                        className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-fm-on-surface-variant hover:bg-fm-on-surface transition-colors"
                       >
                         {isPending ? 'Pausando...' : 'Confirmar pausa'}
                       </button>
@@ -627,7 +627,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
             {(mode === 'simple' || mode === 'cambios') && (
               <button
                 onClick={() => selectMode('pausar')}
-                className="text-xs text-[#595c5e] hover:text-[#b31b25] transition-colors underline underline-offset-2 mt-1"
+                className="text-xs text-fm-on-surface-variant hover:text-fm-error transition-colors underline underline-offset-2 mt-1"
               >
                 Pausar cliente en su lugar
               </button>

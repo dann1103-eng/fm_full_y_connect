@@ -39,7 +39,7 @@ export function CsvDownloadButton({
   return (
     <button
       onClick={handleDownload}
-      className="px-5 py-2.5 border-2 border-[#00675c] text-[#00675c] font-bold rounded-full hover:bg-[#00675c]/5 transition-all text-sm flex items-center gap-2"
+      className="px-5 py-2.5 border-2 border-fm-primary text-fm-primary font-bold rounded-full hover:bg-fm-primary/5 transition-all text-sm flex items-center gap-2"
     >
       <span className="material-symbols-outlined text-base">download</span>
       {label}

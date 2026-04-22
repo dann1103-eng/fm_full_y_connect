@@ -131,7 +131,7 @@ export function SidebarContent({
   return (
     <div className="flex h-full flex-col">
       {/* Logo */}
-      <div className="flex items-center gap-3 px-6 py-5 border-b border-[#abadaf]/20">
+      <div className="flex items-center gap-3 px-6 py-5 border-b border-fm-outline-variant/20">
         <div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0 signature-gradient flex items-center justify-center">
           {agencyLogoUrl && !logoError ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -146,8 +146,8 @@ export function SidebarContent({
           )}
         </div>
         <div>
-          <p className="font-bold text-[#2c2f31] text-sm leading-tight">FM Communication</p>
-          <p className="text-[#595c5e] text-xs">Solutions</p>
+          <p className="font-bold text-fm-on-surface text-sm leading-tight">FM Communication</p>
+          <p className="text-fm-on-surface-variant text-xs">Solutions</p>
         </div>
       </div>
 
@@ -167,21 +167,21 @@ export function SidebarContent({
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
                 isActive
-                  ? 'bg-[#00675c]/10 text-[#00675c]'
-                  : 'text-[#595c5e] hover:bg-[#f5f7f9] hover:text-[#2c2f31]'
+                  ? 'bg-fm-primary/10 text-fm-primary'
+                  : 'text-fm-on-surface-variant hover:bg-fm-background hover:text-fm-on-surface'
               )}
             >
-              <span className={isActive ? 'text-[#00675c]' : 'text-[#747779]'}>
+              <span className={isActive ? 'text-fm-primary' : 'text-fm-outline'}>
                 {item.icon}
               </span>
               <span>{item.label}</span>
               {item.badge && renewalCount > 0 && (
-                <span className="ml-auto bg-[#b31b25] text-white text-xs font-semibold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                <span className="ml-auto bg-fm-error text-white text-xs font-semibold px-2 py-0.5 rounded-full min-w-[20px] text-center">
                   {renewalCount}
                 </span>
               )}
               {item.badgeKey === 'inbox' && inboxUnread > 0 && (
-                <span className="ml-auto bg-[#b31b25] text-white text-xs font-semibold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                <span className="ml-auto bg-fm-error text-white text-xs font-semibold px-2 py-0.5 rounded-full min-w-[20px] text-center">
                   {inboxUnread > 99 ? '99+' : inboxUnread}
                 </span>
               )}
@@ -191,7 +191,7 @@ export function SidebarContent({
       </nav>
 
       {/* Bottom section */}
-      <div className="px-3 pb-4 border-t border-[#abadaf]/20 pt-3 space-y-0.5">
+      <div className="px-3 pb-4 border-t border-fm-outline-variant/20 pt-3 space-y-0.5">
         {/* User card → profile */}
         <Link
           href="/profile"
@@ -199,21 +199,21 @@ export function SidebarContent({
           className={cn(
             'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150',
             pathname === '/profile'
-              ? 'bg-[#00675c]/10'
-              : 'hover:bg-[#f5f7f9]'
+              ? 'bg-fm-primary/10'
+              : 'hover:bg-fm-background'
           )}
         >
           <UserAvatar name={user.full_name} avatarUrl={user.avatar_url} size="sm" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-[#2c2f31] truncate">{user.full_name}</p>
-            <p className="text-xs text-[#abadaf] capitalize">{user.role}</p>
+            <p className="text-sm font-medium text-fm-on-surface truncate">{user.full_name}</p>
+            <p className="text-xs text-fm-outline-variant capitalize">{user.role}</p>
           </div>
         </Link>
 
         <form action="/auth/signout" method="post">
           <button
             type="submit"
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-[#595c5e] hover:bg-red-50 hover:text-[#b31b25] transition-all duration-150"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-fm-on-surface-variant hover:bg-red-50 hover:text-fm-error transition-all duration-150"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
@@ -228,7 +228,7 @@ export function SidebarContent({
 
 export function Sidebar(props: SidebarProps) {
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 w-64 hidden md:flex flex-col bg-white border-r border-[#abadaf]/30 shadow-sm">
+    <aside className="fixed inset-y-0 left-0 z-40 w-64 hidden md:flex flex-col bg-fm-surface-container-lowest border-r border-fm-outline-variant/30 shadow-sm">
       <SidebarContent {...props} />
     </aside>
   )

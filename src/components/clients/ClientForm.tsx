@@ -212,9 +212,9 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-lg rounded-2xl p-0 border border-[#abadaf]/20 flex flex-col max-h-[90vh]">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b border-[#abadaf]/10 flex-shrink-0">
-          <DialogTitle className="text-lg font-semibold text-[#2c2f31]">
+      <DialogContent className="max-w-lg rounded-2xl p-0 border border-fm-outline-variant/20 flex flex-col max-h-[90vh]">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-fm-outline-variant/10 flex-shrink-0">
+          <DialogTitle className="text-lg font-semibold text-fm-on-surface">
             {existing ? 'Editar cliente' : 'Nuevo cliente'}
           </DialogTitle>
         </DialogHeader>
@@ -229,7 +229,7 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
                 value={form.name}
                 onChange={(e) => set('name', e.target.value)}
                 placeholder="Ej. Boutique Lara"
-                className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                className="rounded-xl bg-fm-background border-fm-surface-container-high"
               />
             </div>
 
@@ -239,7 +239,7 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
                 required
                 value={form.current_plan_id}
                 onChange={(e) => set('current_plan_id', e.target.value)}
-                className="w-full py-2 px-3 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl text-[#2c2f31] focus:outline-none focus:border-[#00675c]"
+                className="w-full py-2 px-3 text-sm bg-fm-background border border-fm-surface-container-high rounded-xl text-fm-on-surface focus:outline-none focus:border-fm-primary"
               >
                 {plans.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -250,11 +250,11 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
             </div>
 
             {isContentPlan ? (
-              <div className="col-span-2 rounded-2xl bg-[#5bf4de]/10 border border-[#00675c]/20 px-4 py-3 flex items-start gap-3">
-                <span className="material-symbols-outlined text-[#00675c] text-base flex-shrink-0 mt-0.5">inventory_2</span>
+              <div className="col-span-2 rounded-2xl bg-fm-primary-container/10 border border-fm-primary/20 px-4 py-3 flex items-start gap-3">
+                <span className="material-symbols-outlined text-fm-primary text-base flex-shrink-0 mt-0.5">inventory_2</span>
                 <div>
-                  <p className="text-xs font-bold text-[#00675c]">Paquete de consumo</p>
-                  <p className="text-xs text-[#595c5e] mt-0.5">El paquete expira al registrar los 10 contenidos incluidos, sin límite de fecha.</p>
+                  <p className="text-xs font-bold text-fm-primary">Paquete de consumo</p>
+                  <p className="text-xs text-fm-on-surface-variant mt-0.5">El paquete expira al registrar los 10 contenidos incluidos, sin límite de fecha.</p>
                 </div>
               </div>
             ) : (
@@ -268,7 +268,7 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
                     max={31}
                     value={form.billing_day}
                     onChange={(e) => set('billing_day', e.target.value)}
-                    className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                    className="rounded-xl bg-fm-background border-fm-surface-container-high"
                   />
                 </div>
 
@@ -277,7 +277,7 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
                   <select
                     value={billingPeriod}
                     onChange={(e) => setBillingPeriod(e.target.value as BillingPeriod)}
-                    className="w-full py-2 px-3 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl text-[#2c2f31] focus:outline-none focus:border-[#00675c]"
+                    className="w-full py-2 px-3 text-sm bg-fm-background border border-fm-surface-container-high rounded-xl text-fm-on-surface focus:outline-none focus:border-fm-primary"
                   >
                     <option value="monthly">Mensual</option>
                     <option value="biweekly">Quincenal</option>
@@ -295,7 +295,7 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
                       value={billingDay2}
                       onChange={(e) => setBillingDay2(e.target.value)}
                       placeholder="ej. 15"
-                      className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                      className="rounded-xl bg-fm-background border-fm-surface-container-high"
                     />
                   </div>
                 )}
@@ -310,7 +310,7 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
                   type="date"
                   value={form.start_date}
                   onChange={(e) => set('start_date', e.target.value)}
-                  className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                  className="rounded-xl bg-fm-background border-fm-surface-container-high"
                 />
                 {!isContentPlan && form.start_date && (() => {
                   const bd = parseInt(form.billing_day, 10)
@@ -320,13 +320,13 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
                   })
                   const fmt = (d: string) => formatDateEs(d)
                   return (
-                    <p className="text-xs text-[#595c5e] flex items-center gap-1 mt-1">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-[#00675c] flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                    <p className="text-xs text-fm-on-surface-variant flex items-center gap-1 mt-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-fm-primary flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/>
                       </svg>
-                      {existing ? 'Ciclo actual:' : 'Primer ciclo:'} <span className="font-medium text-[#2c2f31]">{fmt(form.start_date)}</span>
-                      <span className="text-[#abadaf]">→</span>
-                      <span className="font-medium text-[#2c2f31]">{fmt(periodEnd)}</span>
+                      {existing ? 'Ciclo actual:' : 'Primer ciclo:'} <span className="font-medium text-fm-on-surface">{fmt(form.start_date)}</span>
+                      <span className="text-fm-outline-variant">→</span>
+                      <span className="font-medium text-fm-on-surface">{fmt(periodEnd)}</span>
                     </p>
                   )
                 })()}
@@ -340,7 +340,7 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
                 value={form.contact_email}
                 onChange={(e) => set('contact_email', e.target.value)}
                 placeholder="cliente@email.com"
-                className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                className="rounded-xl bg-fm-background border-fm-surface-container-high"
               />
             </div>
 
@@ -350,13 +350,13 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
                 value={form.contact_phone}
                 onChange={(e) => set('contact_phone', e.target.value)}
                 placeholder="+503 7000 0000"
-                className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                className="rounded-xl bg-fm-background border-fm-surface-container-high"
               />
             </div>
 
             {/* ── Redes sociales ── */}
             <div className="col-span-2 pt-1">
-              <p className="text-xs font-semibold text-[#abadaf] uppercase tracking-widest mb-3">
+              <p className="text-xs font-semibold text-fm-outline-variant uppercase tracking-widest mb-3">
                 Redes sociales y contacto digital
               </p>
               <div className="grid grid-cols-2 gap-3">
@@ -366,7 +366,7 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
                     value={form.ig_handle}
                     onChange={(e) => set('ig_handle', e.target.value)}
                     placeholder="@handle"
-                    className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                    className="rounded-xl bg-fm-background border-fm-surface-container-high"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -375,7 +375,7 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
                     value={form.fb_handle}
                     onChange={(e) => set('fb_handle', e.target.value)}
                     placeholder="nombre de página o URL"
-                    className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                    className="rounded-xl bg-fm-background border-fm-surface-container-high"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -384,7 +384,7 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
                     value={form.tiktok_handle}
                     onChange={(e) => set('tiktok_handle', e.target.value)}
                     placeholder="@handle"
-                    className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                    className="rounded-xl bg-fm-background border-fm-surface-container-high"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -393,7 +393,7 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
                     value={form.yt_handle}
                     onChange={(e) => set('yt_handle', e.target.value)}
                     placeholder="@canal o nombre"
-                    className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                    className="rounded-xl bg-fm-background border-fm-surface-container-high"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -402,7 +402,7 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
                     value={form.linkedin_handle}
                     onChange={(e) => set('linkedin_handle', e.target.value)}
                     placeholder="nombre de empresa o URL"
-                    className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                    className="rounded-xl bg-fm-background border-fm-surface-container-high"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -411,16 +411,16 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
                     value={form.website_url}
                     onChange={(e) => set('website_url', e.target.value)}
                     placeholder="https://ejemplo.com"
-                    className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                    className="rounded-xl bg-fm-background border-fm-surface-container-high"
                   />
                 </div>
                 <div className="col-span-2 space-y-1.5">
-                  <Label>Otro <span className="text-[#abadaf] font-normal">(WhatsApp, Threads, etc.)</span></Label>
+                  <Label>Otro <span className="text-fm-outline-variant font-normal">(WhatsApp, Threads, etc.)</span></Label>
                   <Input
                     value={form.other_contact}
                     onChange={(e) => set('other_contact', e.target.value)}
                     placeholder="descripción y enlace o handle"
-                    className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                    className="rounded-xl bg-fm-background border-fm-surface-container-high"
                   />
                 </div>
               </div>
@@ -432,14 +432,14 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
                 value={form.notes}
                 onChange={(e) => set('notes', e.target.value)}
                 placeholder="Detalles adicionales sobre el cliente..."
-                className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6] resize-none"
+                className="rounded-xl bg-fm-background border-fm-surface-container-high resize-none"
                 rows={3}
               />
             </div>
           </div>
 
           {error && (
-            <p className="text-sm text-[#b31b25] bg-[#b31b25]/5 rounded-xl px-3 py-2 border border-[#b31b25]/20">
+            <p className="text-sm text-fm-error bg-fm-error/5 rounded-xl px-3 py-2 border border-fm-error/20">
               {error}
             </p>
           )}

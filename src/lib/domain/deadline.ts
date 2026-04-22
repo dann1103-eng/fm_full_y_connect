@@ -39,7 +39,7 @@ export function deadlineIconClasses(status: DeadlineStatus): string {
     case 'red':
       return 'bg-red-100 text-red-700'
     case 'overdue':
-      return 'bg-[#b31b25] text-white'
+      return 'bg-fm-error text-white'
     default:
       return 'bg-gray-100 text-gray-500'
   }
@@ -56,7 +56,7 @@ export function deadlineChipClasses(status: DeadlineStatus): string {
     case 'red':
       return 'bg-red-100 text-red-700 border-red-200'
     case 'overdue':
-      return 'bg-[#b31b25] text-white border-[#b31b25]'
+      return 'bg-fm-error text-white border-fm-error'
     default:
       return 'bg-gray-100 text-gray-600 border-gray-200'
   }

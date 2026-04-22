@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { cn } from '@/lib/utils'
 import type { Conversation, AppUser } from '@/types/db'
@@ -24,15 +25,22 @@ export function ChatHeader({
   const isChannel = conversation.type === 'channel'
 
   return (
-    <header className="flex items-center justify-between px-6 py-3 border-b border-[#dfe3e6] bg-white">
+    <header className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-fm-surface-container-high bg-fm-surface-container-lowest">
+      <Link
+        href="/inbox"
+        className="sm:hidden -ml-1 mr-2 p-1.5 rounded-lg text-fm-on-surface-variant hover:bg-fm-background flex-shrink-0"
+        aria-label="Volver a la bandeja"
+      >
+        <span className="material-symbols-outlined text-[22px]">arrow_back</span>
+      </Link>
       <div className="min-w-0 flex-1">
         {isChannel ? (
           <>
             <div className="flex items-center space-x-2">
-              <span className="text-[#00675c] font-bold text-lg">#</span>
-              <h2 className="text-lg font-bold text-[#2c2f31] truncate">{conversation.name}</h2>
+              <span className="text-fm-primary font-bold text-lg">#</span>
+              <h2 className="text-lg font-bold text-fm-on-surface truncate">{conversation.name}</h2>
             </div>
-            <div className="flex items-center text-xs text-[#595c5e] mt-0.5">
+            <div className="flex items-center text-xs text-fm-on-surface-variant mt-0.5">
               <svg className="w-3.5 h-3.5 mr-1" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
               </svg>
@@ -52,7 +60,7 @@ export function ChatHeader({
               avatarUrl={counterpart?.avatar_url}
               size="sm"
             />
-            <h2 className="text-lg font-bold text-[#2c2f31]">
+            <h2 className="text-lg font-bold text-fm-on-surface">
               {counterpart?.full_name ?? 'Usuario'}
             </h2>
           </div>
@@ -64,7 +72,7 @@ export function ChatHeader({
           onClick={onToggleDetails}
           className={cn(
             'p-2 rounded-lg transition-colors',
-            detailsOpen ? 'bg-[#00675c]/10 text-[#00675c]' : 'text-[#595c5e] hover:bg-[#f5f7f9]'
+            detailsOpen ? 'bg-fm-primary/10 text-fm-primary' : 'text-fm-on-surface-variant hover:bg-fm-background'
           )}
           title="Detalles del canal"
         >

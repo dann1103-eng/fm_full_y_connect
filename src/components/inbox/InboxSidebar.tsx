@@ -34,17 +34,17 @@ export function InboxSidebar({ initialList, allUsers }: InboxSidebarProps) {
   const activeId = pathname.startsWith('/inbox/') ? pathname.split('/')[2] : null
 
   return (
-    <aside className="flex flex-col h-full w-72 bg-white border-r border-[#dfe3e6] flex-shrink-0">
-      <div className="px-5 py-4 border-b border-[#dfe3e6]">
-        <div className="text-lg font-extrabold text-[#00675c]">Bandeja</div>
-        <div className="text-xs text-[#595c5e] mt-0.5">Chat interno del equipo</div>
+    <aside className="flex flex-col h-full w-full sm:w-72 bg-fm-surface-container-lowest border-r border-fm-surface-container-high flex-shrink-0">
+      <div className="px-5 py-4 border-b border-fm-surface-container-high">
+        <div className="text-lg font-extrabold text-fm-primary">Bandeja</div>
+        <div className="text-xs text-fm-on-surface-variant mt-0.5">Chat interno del equipo</div>
       </div>
 
       <div className="p-4">
         <button
           type="button"
           onClick={() => setDialogOpen(true)}
-          className="w-full flex items-center justify-center space-x-2 bg-[#00675c] text-white py-2.5 px-4 rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity"
+          className="w-full flex items-center justify-center space-x-2 bg-fm-primary text-white py-2.5 px-4 rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
             <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
@@ -56,11 +56,11 @@ export function InboxSidebar({ initialList, allUsers }: InboxSidebarProps) {
       <nav className="flex-1 overflow-y-auto px-2 pb-4">
         <section className="mt-2">
           <div className="flex items-center justify-between px-3 py-2">
-            <div className="text-[10px] font-bold text-[#595c5e] uppercase tracking-widest">Canales</div>
+            <div className="text-[10px] font-bold text-fm-on-surface-variant uppercase tracking-widest">Canales</div>
           </div>
           <div className="space-y-0.5">
             {channels.length === 0 && (
-              <div className="px-3 py-2 text-xs text-[#595c5e]/70 italic">Sin canales</div>
+              <div className="px-3 py-2 text-xs text-fm-on-surface-variant/70 italic">Sin canales</div>
             )}
             {channels.map((c) => (
               <ConvLink key={c.id} conv={c} active={activeId === c.id} />
@@ -70,13 +70,13 @@ export function InboxSidebar({ initialList, allUsers }: InboxSidebarProps) {
 
         <section className="mt-6">
           <div className="flex items-center justify-between px-3 py-2">
-            <div className="text-[10px] font-bold text-[#595c5e] uppercase tracking-widest">
+            <div className="text-[10px] font-bold text-fm-on-surface-variant uppercase tracking-widest">
               Mensajes directos
             </div>
           </div>
           <div className="space-y-0.5">
             {dms.length === 0 && (
-              <div className="px-3 py-2 text-xs text-[#595c5e]/70 italic">Sin mensajes directos</div>
+              <div className="px-3 py-2 text-xs text-fm-on-surface-variant/70 italic">Sin mensajes directos</div>
             )}
             {dms.map((c) => (
               <ConvLink key={c.id} conv={c} active={activeId === c.id} />
@@ -115,13 +115,13 @@ function ConvLink({ conv, active }: { conv: ConversationListItem; active: boolea
       className={cn(
         'flex items-center justify-between px-3 py-2 rounded-lg text-sm cursor-pointer transition-colors',
         active
-          ? 'bg-[#00675c]/10 text-[#00675c] font-semibold'
-          : 'text-[#595c5e] hover:bg-[#f5f7f9]'
+          ? 'bg-fm-primary/10 text-fm-primary font-semibold'
+          : 'text-fm-on-surface-variant hover:bg-fm-background'
       )}
     >
       <span className="flex items-center min-w-0 flex-1">
         {conv.type === 'channel' ? (
-          <span className={cn('mr-2 font-bold', active ? 'text-[#00675c]' : 'text-[#00675c]/80')}>#</span>
+          <span className={cn('mr-2 font-bold', active ? 'text-fm-primary' : 'text-fm-primary/80')}>#</span>
         ) : (
           <span className="mr-2 flex-shrink-0">
             <UserAvatar
@@ -135,11 +135,11 @@ function ConvLink({ conv, active }: { conv: ConversationListItem; active: boolea
       </span>
       <span className="flex items-center gap-2 flex-shrink-0 ml-2">
         {conv.unread_count > 0 ? (
-          <span className="bg-[#b31b25] text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center">
+          <span className="bg-fm-error text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center">
             {conv.unread_count > 99 ? '99+' : conv.unread_count}
           </span>
         ) : (
-          <span className="text-[10px] text-[#595c5e]/60">{timeAgo}</span>
+          <span className="text-[10px] text-fm-on-surface-variant/60">{timeAgo}</span>
         )}
       </span>
     </Link>

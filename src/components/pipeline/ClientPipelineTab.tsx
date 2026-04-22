@@ -30,7 +30,7 @@ export function ClientPipelineTab({ items, logsMap, currentUserId, canAssign = f
 
   if (items.length === 0) {
     return (
-      <div className="text-center py-10 text-sm text-[#595c5e]">
+      <div className="text-center py-10 text-sm text-fm-on-surface-variant">
         No hay piezas en el pipeline para este ciclo.
       </div>
     )
@@ -41,8 +41,8 @@ export function ClientPipelineTab({ items, logsMap, currentUserId, canAssign = f
       {nonEmptyPhases.map((phase) => (
         <div key={phase}>
           <div className="flex items-center gap-2 mb-3">
-            <h4 className="text-sm font-semibold text-[#2c2f31]">{PHASE_LABELS[phase]}</h4>
-            <span className="text-xs font-semibold bg-[#f5f7f9] text-[#595c5e] px-2 py-0.5 rounded-full">
+            <h4 className="text-sm font-semibold text-fm-on-surface">{PHASE_LABELS[phase]}</h4>
+            <span className="text-xs font-semibold bg-fm-background text-fm-on-surface-variant px-2 py-0.5 rounded-full">
               {byPhase[phase].length}
             </span>
           </div>

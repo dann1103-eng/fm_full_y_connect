@@ -201,7 +201,7 @@ export async function GET() {
       .not('phase', 'in', `(${TERMINAL_PHASES.map((p) => `"${p}"`).join(',')})`)
       .eq('voided', false)
       .order('deadline', { ascending: true })
-      .limit(20)
+      .limit(99)
 
     for (const r of (overdueRaw ?? []) as unknown as OverdueReqRow[]) {
       const daysOverdue = Math.floor(

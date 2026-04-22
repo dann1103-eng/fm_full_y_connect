@@ -32,7 +32,7 @@ export default async function ClientsPage() {
       <div className="flex-1 p-6 space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <p className="text-sm text-[#595c5e]">
+          <p className="text-sm text-fm-on-surface-variant">
             {clients?.length ?? 0} cliente{clients?.length !== 1 ? 's' : ''} registrado{clients?.length !== 1 ? 's' : ''}
           </p>
           {canCreate && <ClientForm plans={plans ?? []} />}

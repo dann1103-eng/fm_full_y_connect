@@ -36,13 +36,13 @@ function isGroupArray(c: TimesheetGroup['children']): c is TimesheetGroup[] {
 function Progress({ pct }: { pct: number }) {
   return (
     <div className="flex items-center gap-2 min-w-[60px] sm:min-w-[140px]">
-      <div className="flex-1 bg-[#e5e9eb] rounded-full h-1.5 overflow-hidden">
+      <div className="flex-1 bg-fm-surface-container rounded-full h-1.5 overflow-hidden">
         <div
-          className="h-full rounded-full bg-[#00675c]"
+          className="h-full rounded-full bg-fm-primary"
           style={{ width: `${Math.min(100, pct)}%` }}
         />
       </div>
-      <span className="hidden sm:inline text-xs font-bold text-[#595c5e] tabular-nums w-10 text-right">
+      <span className="hidden sm:inline text-xs font-bold text-fm-on-surface-variant tabular-nums w-10 text-right">
         {pct.toFixed(1)}%
       </span>
     </div>
@@ -61,12 +61,12 @@ function GroupIcon({ group }: { group: TimesheetGroup }) {
         <img
           src={group.meta.avatar_url}
           alt={group.label}
-          className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-[#dfe3e6]"
+          className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-fm-surface-container-high"
         />
       )
     }
     return (
-      <div className="w-8 h-8 rounded-full bg-[#5bf4de]/30 flex items-center justify-center font-bold text-[#00675c] text-xs flex-shrink-0">
+      <div className="w-8 h-8 rounded-full bg-fm-primary-container/30 flex items-center justify-center font-bold text-fm-primary text-xs flex-shrink-0">
         {group.label.slice(0, 2).toUpperCase()}
       </div>
     )
@@ -79,8 +79,8 @@ function GroupIcon({ group }: { group: TimesheetGroup }) {
     )
   }
   return (
-    <div className="w-8 h-8 rounded-full bg-[#f5f7f9] flex items-center justify-center flex-shrink-0">
-      <span className="material-symbols-outlined text-[#00675c] text-base">task_alt</span>
+    <div className="w-8 h-8 rounded-full bg-fm-background flex items-center justify-center flex-shrink-0">
+      <span className="material-symbols-outlined text-fm-primary text-base">task_alt</span>
     </div>
   )
 }
@@ -105,8 +105,8 @@ function EntryRow({
     <Tag
       type={clickable ? 'button' : undefined}
       onClick={clickable ? () => onRequirementClick(entry.requirement_id!) : undefined}
-      className={`w-full grid grid-cols-[1fr_auto_72px] sm:grid-cols-[1fr_auto_180px] items-center gap-4 px-4 py-2 border-b border-[#f0f3f5] text-left ${
-        clickable ? 'hover:bg-[#f5f7f9] cursor-pointer' : ''
+      className={`w-full grid grid-cols-[1fr_auto_72px] sm:grid-cols-[1fr_auto_180px] items-center gap-4 px-4 py-2 border-b border-fm-surface-container-low text-left ${
+        clickable ? 'hover:bg-fm-background cursor-pointer' : ''
       }`}
       style={{ paddingLeft: `${depth * 24 + 16}px` }}
     >
@@ -117,13 +117,13 @@ function EntryRow({
           size="xs"
         />
         <div className="min-w-0">
-          <p className="text-sm text-[#2c2f31] truncate">{label}</p>
+          <p className="text-sm text-fm-on-surface truncate">{label}</p>
           {entry.notes && entry.notes.trim().length > 0 && (
-            <p className="text-xs text-[#595c5e] mt-0.5 line-clamp-2 whitespace-pre-wrap">
+            <p className="text-xs text-fm-on-surface-variant mt-0.5 line-clamp-2 whitespace-pre-wrap">
               {entry.notes}
             </p>
           )}
-          <p className="text-[10px] text-[#abadaf] mt-0.5">
+          <p className="text-[10px] text-fm-outline-variant mt-0.5">
             {fmtEntryWhen(entry.started_at)}
             {entry.entry_type === 'administrative'
               ? <> · Interno FM</>
@@ -134,7 +134,7 @@ function EntryRow({
           </p>
         </div>
       </div>
-      <span className="text-xs font-bold tabular-nums text-[#2c2f31]">
+      <span className="text-xs font-bold tabular-nums text-fm-on-surface">
         {formatDurationHMS(entry.duration_seconds)}
       </span>
       <span />
@@ -176,33 +176,33 @@ function GroupNode({
         type="button"
         onClick={handleGroupClick}
         aria-expanded={isExpanded}
-        className={`w-full grid grid-cols-[1fr_auto_72px] sm:grid-cols-[1fr_auto_180px] items-center gap-4 px-4 py-3 border-b border-[#f0f3f5] hover:bg-[#f5f7f9] text-left transition-colors ${
-          depth === 0 ? 'bg-white' : 'bg-[#fafbfc]'
+        className={`w-full grid grid-cols-[1fr_auto_72px] sm:grid-cols-[1fr_auto_180px] items-center gap-4 px-4 py-3 border-b border-fm-surface-container-low hover:bg-fm-background text-left transition-colors ${
+          depth === 0 ? 'bg-fm-surface-container-lowest' : 'bg-fm-surface-container-low'
         }`}
         style={{ paddingLeft: `${depth * 24 + 16}px` }}
       >
         <div className="flex items-center gap-3 min-w-0">
           {hasChildren && !isRequirementLeaf ? (
-            <span className={`material-symbols-outlined text-base text-[#595c5e] transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+            <span className={`material-symbols-outlined text-base text-fm-on-surface-variant transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
               chevron_right
             </span>
           ) : (
             <span className="w-4" />
           )}
           <GroupIcon group={group} />
-          <span className={`truncate ${depth === 0 ? 'text-sm font-bold text-[#2c2f31]' : 'text-sm text-[#2c2f31]'}`}>
+          <span className={`truncate ${depth === 0 ? 'text-sm font-bold text-fm-on-surface' : 'text-sm text-fm-on-surface'}`}>
             {group.label}
           </span>
           {hasChildren && !isRequirementLeaf && (
             <span
               title={`${group.children.length} ${group.children.length === 1 ? 'elemento' : 'elementos'}`}
-              className="ml-1 inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full bg-[#f5f7f9] text-[10px] font-bold text-[#595c5e] border border-[#dfe3e6] flex-shrink-0"
+              className="ml-1 inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full bg-fm-background text-[10px] font-bold text-fm-on-surface-variant border border-fm-surface-container-high flex-shrink-0"
             >
               {group.children.length}
             </span>
           )}
         </div>
-        <span className="text-sm font-bold tabular-nums text-[#2c2f31]">
+        <span className="text-sm font-bold tabular-nums text-fm-on-surface">
           {formatDurationHMS(group.durationSeconds)}
         </span>
         <Progress pct={group.percentage} />
@@ -238,7 +238,7 @@ function GroupNode({
 export function TimesheetTree({ groups, totalSeconds, expandedKeys, onToggle, onRequirementClick, internalGroup, internalTotalSeconds }: Props) {
   if (groups.length === 0 && !internalGroup) {
     return (
-      <div className="p-8 text-center text-sm text-[#595c5e]">
+      <div className="p-8 text-center text-sm text-fm-on-surface-variant">
         Sin entradas de tiempo en el rango seleccionado.
       </div>
     )
@@ -251,13 +251,13 @@ export function TimesheetTree({ groups, totalSeconds, expandedKeys, onToggle, on
     <div className="space-y-4">
       {/* ── Árbol de clientes reales ── */}
       {groups.length > 0 && (
-        <div className="border border-[#dfe3e6] rounded-2xl overflow-hidden bg-white">
-          <div className="grid grid-cols-[1fr_auto_72px] sm:grid-cols-[1fr_auto_180px] gap-4 px-4 py-2 border-b border-[#dfe3e6] bg-[#f5f7f9]">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#595c5e]">
+        <div className="border border-fm-surface-container-high rounded-2xl overflow-hidden bg-fm-surface-container-lowest">
+          <div className="grid grid-cols-[1fr_auto_72px] sm:grid-cols-[1fr_auto_180px] gap-4 px-4 py-2 border-b border-fm-surface-container-high bg-fm-background">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-fm-on-surface-variant">
               {internalGroup ? 'Clientes' : 'Título'}
             </span>
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#595c5e]">Duración</span>
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#595c5e]">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-fm-on-surface-variant">Duración</span>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-fm-on-surface-variant">
               {internalGroup ? '% sobre clientes' : '%'}
             </span>
           </div>
@@ -271,30 +271,30 @@ export function TimesheetTree({ groups, totalSeconds, expandedKeys, onToggle, on
               onRequirementClick={onRequirementClick}
             />
           ))}
-          <div className="grid grid-cols-[1fr_auto_72px] sm:grid-cols-[1fr_auto_180px] gap-4 px-4 py-3 bg-[#f5f7f9] border-t border-[#dfe3e6]">
-            <span className="text-sm font-extrabold text-[#2c2f31]">
+          <div className="grid grid-cols-[1fr_auto_72px] sm:grid-cols-[1fr_auto_180px] gap-4 px-4 py-3 bg-fm-background border-t border-fm-surface-container-high">
+            <span className="text-sm font-extrabold text-fm-on-surface">
               {internalGroup ? 'Subtotal clientes' : 'Total'}
             </span>
-            <span className="text-sm font-extrabold tabular-nums text-[#2c2f31]">
+            <span className="text-sm font-extrabold tabular-nums text-fm-on-surface">
               {formatDurationHMS(internalTotalSeconds ?? totalSeconds)}
             </span>
-            <span className="text-sm font-extrabold text-[#2c2f31]">100.0%</span>
+            <span className="text-sm font-extrabold text-fm-on-surface">100.0%</span>
           </div>
         </div>
       )}
 
       {/* ── Sección Interno FM separada ── */}
       {internalGroup && (
-        <div className="border border-[#dfe3e6] rounded-2xl overflow-hidden bg-white opacity-80">
-          <div className="grid grid-cols-[1fr_auto_72px] sm:grid-cols-[1fr_auto_180px] gap-4 px-4 py-2 border-b border-[#dfe3e6] bg-[#f5f7f9]">
+        <div className="border border-fm-surface-container-high rounded-2xl overflow-hidden bg-fm-surface-container-lowest opacity-80">
+          <div className="grid grid-cols-[1fr_auto_72px] sm:grid-cols-[1fr_auto_180px] gap-4 px-4 py-2 border-b border-fm-surface-container-high bg-fm-background">
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-[#abadaf] text-sm">home_work</span>
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#abadaf]">
+              <span className="material-symbols-outlined text-fm-outline-variant text-sm">home_work</span>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-fm-outline-variant">
                 Tiempo Interno FM
               </span>
             </div>
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#abadaf]">Duración</span>
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#abadaf]">% del total</span>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-fm-outline-variant">Duración</span>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-fm-outline-variant">% del total</span>
           </div>
           <GroupNode
             group={internalGroup}
@@ -303,12 +303,12 @@ export function TimesheetTree({ groups, totalSeconds, expandedKeys, onToggle, on
             onToggle={onToggle}
             onRequirementClick={onRequirementClick}
           />
-          <div className="grid grid-cols-[1fr_auto_72px] sm:grid-cols-[1fr_auto_180px] gap-4 px-4 py-3 bg-[#f5f7f9] border-t border-[#dfe3e6]">
-            <span className="text-sm font-extrabold text-[#abadaf]">Interno FM</span>
-            <span className="text-sm font-extrabold tabular-nums text-[#abadaf]">
+          <div className="grid grid-cols-[1fr_auto_72px] sm:grid-cols-[1fr_auto_180px] gap-4 px-4 py-3 bg-fm-background border-t border-fm-surface-container-high">
+            <span className="text-sm font-extrabold text-fm-outline-variant">Interno FM</span>
+            <span className="text-sm font-extrabold tabular-nums text-fm-outline-variant">
               {formatDurationHMS(internalGroup.durationSeconds)}
             </span>
-            <span className="text-sm font-extrabold text-[#abadaf]">{internalPct.toFixed(1)}%</span>
+            <span className="text-sm font-extrabold text-fm-outline-variant">{internalPct.toFixed(1)}%</span>
           </div>
         </div>
       )}

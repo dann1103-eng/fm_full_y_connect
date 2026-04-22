@@ -51,7 +51,7 @@ export function LoginForm({ agencyLogoUrl }: LoginFormProps) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#f5f7f9]">
+    <div className="min-h-screen flex items-center justify-center bg-fm-background">
       {/* Background decoration */}
       <div
         className="absolute inset-0 pointer-events-none"
@@ -84,20 +84,20 @@ export function LoginForm({ agencyLogoUrl }: LoginFormProps) {
               <span className="text-white font-bold text-2xl">FM</span>
             )}
           </div>
-          <h1 className="text-2xl font-bold text-[#2c2f31]">FM Communication</h1>
-          <p className="text-[#595c5e] text-sm mt-1">Solutions — CRM Interno</p>
+          <h1 className="text-2xl font-bold text-fm-on-surface">FM Communication</h1>
+          <p className="text-fm-on-surface-variant text-sm mt-1">Solutions — CRM Interno</p>
         </div>
 
         {/* Form card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-[#abadaf]/20 p-8">
-          <h2 className="text-lg font-semibold text-[#2c2f31] mb-1">Iniciar sesión</h2>
-          <p className="text-sm text-[#595c5e] mb-6">
+        <div className="bg-fm-surface-container-lowest rounded-2xl shadow-sm border border-fm-outline-variant/20 p-8">
+          <h2 className="text-lg font-semibold text-fm-on-surface mb-1">Iniciar sesión</h2>
+          <p className="text-sm text-fm-on-surface-variant mb-6">
             Accede con tu cuenta de agencia.
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-[#2c2f31] font-medium">
+              <Label htmlFor="email" className="text-fm-on-surface font-medium">
                 Correo electrónico
               </Label>
               <Input
@@ -108,12 +108,12 @@ export function LoginForm({ agencyLogoUrl }: LoginFormProps) {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                className="bg-[#f5f7f9] border-[#dfe3e6] focus:border-[#00675c] focus:ring-[#00675c]/20"
+                className="bg-fm-background border-fm-surface-container-high focus:border-fm-primary focus:ring-fm-primary/20"
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="password" className="text-[#2c2f31] font-medium">
+              <Label htmlFor="password" className="text-fm-on-surface font-medium">
                 Contraseña
               </Label>
               <Input
@@ -124,12 +124,12 @@ export function LoginForm({ agencyLogoUrl }: LoginFormProps) {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
-                className="bg-[#f5f7f9] border-[#dfe3e6] focus:border-[#00675c] focus:ring-[#00675c]/20"
+                className="bg-fm-background border-fm-surface-container-high focus:border-fm-primary focus:ring-fm-primary/20"
               />
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 text-sm text-[#b31b25] bg-[#b31b25]/5 border border-[#b31b25]/20 rounded-lg px-3 py-2.5">
+              <div className="flex items-center gap-2 text-sm text-fm-error bg-fm-error/5 border border-fm-error/20 rounded-lg px-3 py-2.5">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
                 </svg>
@@ -148,7 +148,7 @@ export function LoginForm({ agencyLogoUrl }: LoginFormProps) {
           </form>
         </div>
 
-        <p className="text-center text-xs text-[#595c5e] mt-6">
+        <p className="text-center text-xs text-fm-on-surface-variant mt-6">
           ¿Problemas para ingresar? Contacta al administrador.
         </p>
       </div>

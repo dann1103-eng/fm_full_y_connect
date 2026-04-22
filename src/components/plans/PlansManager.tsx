@@ -21,7 +21,7 @@ export function PlansManager({ isAdmin }: PlansManagerProps) {
     <>
       <button
         onClick={() => setCreating(true)}
-        className="flex items-center gap-2 px-5 py-2.5 bg-[#00675c] text-white font-bold rounded-full hover:bg-[#005047] transition-all text-sm"
+        className="flex items-center gap-2 px-5 py-2.5 bg-fm-primary text-white font-bold rounded-full hover:bg-fm-primary-dim transition-all text-sm"
       >
         <span className="material-symbols-outlined text-base">add</span>
         Crear plan
@@ -38,7 +38,7 @@ export function PlanEditButton({ plan }: { plan: Plan }) {
     <>
       <button
         onClick={() => setEditing(true)}
-        className="text-xs font-semibold text-[#00675c] hover:underline"
+        className="text-xs font-semibold text-fm-primary hover:underline"
       >
         Editar plan
       </button>

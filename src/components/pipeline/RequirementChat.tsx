@@ -206,7 +206,7 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
               key={`mention-${idx++}`}
               className={
                 'font-semibold ' +
-                (isMine ? 'text-white underline decoration-white/60' : 'text-[#00675c]')
+                (isMine ? 'text-white underline decoration-white/60' : 'text-fm-primary')
               }
             >
               {raw}
@@ -242,22 +242,22 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 min-h-0">
         {loading ? (
-          <p className="text-sm text-[#abadaf] text-center py-8">Cargando mensajes…</p>
+          <p className="text-sm text-fm-outline-variant text-center py-8">Cargando mensajes…</p>
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 gap-2">
-            <span className="material-symbols-outlined text-3xl text-[#dfe3e6]">chat</span>
-            <p className="text-sm text-[#abadaf]">Sin mensajes aún. ¡Sé el primero!</p>
+            <span className="material-symbols-outlined text-3xl text-fm-surface-container-high">chat</span>
+            <p className="text-sm text-fm-outline-variant">Sin mensajes aún. ¡Sé el primero!</p>
           </div>
         ) : (
           grouped.map((group) => (
             <div key={group.date} className="space-y-3">
               {/* Date divider */}
               <div className="flex items-center gap-3 my-2">
-                <div className="flex-1 h-px bg-[#eef1f3]" />
-                <span className="text-[10px] font-semibold text-[#abadaf] uppercase tracking-wider whitespace-nowrap">
+                <div className="flex-1 h-px bg-fm-surface-container-low" />
+                <span className="text-[10px] font-semibold text-fm-outline-variant uppercase tracking-wider whitespace-nowrap">
                   {group.date}
                 </span>
-                <div className="flex-1 h-px bg-[#eef1f3]" />
+                <div className="flex-1 h-px bg-fm-surface-container-low" />
               </div>
 
               {group.msgs.map((msg) => {
@@ -290,7 +290,7 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
                     )}
 
                     <div className={`flex flex-col max-w-[75%] ${isMine ? 'items-end' : 'items-start'}`}>
-                      <span className="text-[10px] text-[#abadaf] font-semibold mb-1">
+                      <span className="text-[10px] text-fm-outline-variant font-semibold mb-1">
                         {isMine ? 'Tú' : name}
                         {role === 'admin' && !isMine && (
                           <span className="ml-1 text-[9px] bg-[#5c4a8a]/10 text-[#5c4a8a] px-1.5 py-0.5 rounded-full">
@@ -303,7 +303,7 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
                         <button
                           type="button"
                           onClick={() => setLightbox(imgUrl)}
-                          className={`mb-1 overflow-hidden rounded-2xl border border-[#eef1f3] bg-[#f5f7f9] ${
+                          className={`mb-1 overflow-hidden rounded-2xl border border-fm-surface-container-low bg-fm-background ${
                             isMine ? 'rounded-br-sm' : 'rounded-bl-sm'
                           }`}
                           title={msg.attachment_name ?? 'Ver imagen'}
@@ -322,7 +322,7 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
                           className={`px-3 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
                             isMine
                               ? 'text-white rounded-br-sm'
-                              : 'bg-[#f0f2f4] text-[#2c2f31] rounded-bl-sm'
+                              : 'bg-fm-surface-container-low text-fm-on-surface rounded-bl-sm'
                           }`}
                           style={
                             isMine
@@ -333,7 +333,7 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
                           {renderWithLinks(msg.body, isMine)}
                         </div>
                       )}
-                      <span className="text-[10px] text-[#c8cacc] mt-1">{formatTime(msg.created_at)}</span>
+                      <span className="text-[10px] text-fm-outline-variant mt-1">{formatTime(msg.created_at)}</span>
                     </div>
                   </div>
                 )
@@ -346,20 +346,20 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
 
       {/* Preview del adjunto pendiente */}
       {pendingPreview && (
-        <div className="px-5 py-2 border-t border-[#eef1f3] flex items-center gap-3 flex-shrink-0 bg-[#f5f7f9]">
+        <div className="px-5 py-2 border-t border-fm-surface-container-low flex items-center gap-3 flex-shrink-0 bg-fm-background">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={pendingPreview} alt="Preview" className="w-12 h-12 object-cover rounded-lg" />
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-[#2c2f31] truncate">
+            <p className="text-xs font-semibold text-fm-on-surface truncate">
               {pendingFile?.name}
             </p>
-            <p className="text-[10px] text-[#747779]">
+            <p className="text-[10px] text-fm-outline">
               Se comprimirá automáticamente antes de enviar
             </p>
           </div>
           <button
             onClick={clearPendingFile}
-            className="text-[#b31b25] p-1 rounded hover:bg-[#b31b25]/10"
+            className="text-fm-error p-1 rounded hover:bg-fm-error/10"
             title="Quitar adjunto"
           >
             <span className="material-symbols-outlined text-base">close</span>
@@ -368,13 +368,13 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
       )}
 
       {uploadError && (
-        <div className="px-5 py-2 bg-[#b31b25]/5 border-t border-[#b31b25]/20 text-xs text-[#b31b25] font-medium flex-shrink-0">
+        <div className="px-5 py-2 bg-fm-error/5 border-t border-fm-error/20 text-xs text-fm-error font-medium flex-shrink-0">
           {uploadError}
         </div>
       )}
 
       {/* Input bar */}
-      <div className="relative flex gap-2 items-end px-5 py-3 border-t border-[#eef1f3] flex-shrink-0">
+      <div className="relative flex gap-2 items-end px-5 py-3 border-t border-fm-surface-container-low flex-shrink-0">
         <MentionAutocomplete
           textareaRef={inputRef}
           value={body}
@@ -394,7 +394,7 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
           onClick={() => fileInputRef.current?.click()}
           disabled={sending}
           title="Adjuntar imagen"
-          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-[#f5f7f9] border border-[#dfe3e6] text-[#595c5e] hover:bg-[#eef1f3] disabled:opacity-40"
+          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-fm-background border border-fm-surface-container-high text-fm-on-surface-variant hover:bg-fm-surface-container-low disabled:opacity-40"
         >
           <span className="material-symbols-outlined text-base">attach_file</span>
         </button>
@@ -405,7 +405,7 @@ export function RequirementChat({ requirementId, currentUserId }: RequirementCha
           onKeyDown={handleKeyDown}
           placeholder="Escribe un mensaje interno… (Enter para enviar)"
           rows={1}
-          className="flex-1 resize-none bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl px-3 py-2 text-sm text-[#2c2f31] outline-none focus:border-[#00675c] min-h-[38px] max-h-[96px]"
+          className="flex-1 resize-none bg-fm-background border border-fm-surface-container-high rounded-xl px-3 py-2 text-sm text-fm-on-surface outline-none focus:border-fm-primary min-h-[38px] max-h-[96px]"
           style={{ fieldSizing: 'content' } as React.CSSProperties}
         />
         <button

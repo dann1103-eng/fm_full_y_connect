@@ -175,18 +175,18 @@ export default async function ClientDetailPage({
     <div className="flex flex-col h-full">
       <TopNav title={client.name} />
 
-      <div className="flex-1 p-6 space-y-8">
+      <div className="flex-1 p-3 sm:p-6 space-y-4 sm:space-y-8">
         {/* Breadcrumb */}
-        <nav className="flex items-center gap-2 text-sm pt-2">
+        <nav className="flex flex-wrap items-center gap-2 text-sm pt-2 min-w-0">
           <Link
             href="/clients"
-            className="text-[#595c5e] flex items-center gap-1 hover:text-[#00675c] transition-colors"
+            className="text-fm-on-surface-variant flex items-center gap-1 hover:text-fm-primary transition-colors"
           >
             <span className="material-symbols-outlined text-base">arrow_back</span>
             Clientes
           </Link>
-          <span className="text-[#abadaf]">/</span>
-          <span className="font-semibold text-[#2c2f31]">{client.name}</span>
+          <span className="text-fm-outline-variant">/</span>
+          <span className="font-semibold text-fm-on-surface">{client.name}</span>
         </nav>
 
         {/* 1 — Requerimientos del ciclo (sin historial al final) */}
@@ -214,14 +214,14 @@ export default async function ClientDetailPage({
           <ReactivatePanel client={client} plans={(plans ?? []) as Plan[]} />
         ) : (
           <div className="glass-panel rounded-[2rem] p-8 text-center">
-            <p className="text-[#595c5e] text-sm">No hay ciclo activo para este cliente.</p>
+            <p className="text-fm-on-surface-variant text-sm">No hay ciclo activo para este cliente.</p>
           </div>
         )}
 
         {/* 2 — Pipeline del ciclo actual */}
         {cycle && (
-          <div className="glass-panel rounded-[2rem] p-6 space-y-4">
-            <h3 className="text-base font-semibold text-[#2c2f31]">Pipeline</h3>
+          <div className="glass-panel rounded-[2rem] p-4 sm:p-6 space-y-4">
+            <h3 className="text-base font-semibold text-fm-on-surface">Pipeline</h3>
             <ClientPipelineTab
               items={pipelineItems}
               logsMap={pipelineLogsMap}
@@ -233,9 +233,9 @@ export default async function ClientDetailPage({
 
         {/* 3 — Historial del ciclo + Notas internas */}
         {cycle && (
-          <section className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-8">
             <div className="lg:col-span-7 space-y-4">
-              <h3 className="text-xl font-extrabold tracking-tight text-[#2c2f31]">
+              <h3 className="text-xl font-extrabold tracking-tight text-fm-on-surface">
                 Historial del ciclo
               </h3>
               <RequirementHistory
@@ -247,7 +247,7 @@ export default async function ClientDetailPage({
               />
             </div>
             <div className="lg:col-span-5 space-y-4">
-              <h3 className="text-xl font-extrabold tracking-tight text-[#2c2f31]">
+              <h3 className="text-xl font-extrabold tracking-tight text-fm-on-surface">
                 Notas internas
               </h3>
               <ClientNotesPanel clientId={client.id} initialNotes={client.notes ?? null} />

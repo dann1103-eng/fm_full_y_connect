@@ -77,7 +77,7 @@ export function ClockInPanel({ initialActive }: Props) {
 
   return (
     <div className="glass-panel rounded-[2rem] p-6">
-      <p className="text-[11px] font-extrabold text-[#abadaf] uppercase tracking-widest mb-4">
+      <p className="text-[11px] font-extrabold text-fm-outline-variant uppercase tracking-widest mb-4">
         Marcación de asistencia
       </p>
 
@@ -87,23 +87,23 @@ export function ClockInPanel({ initialActive }: Props) {
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
             <div className="flex items-center gap-3">
               <span className="relative flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00675c] opacity-75" />
-                <span className="relative inline-flex h-3 w-3 rounded-full bg-[#00675c]" />
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-fm-primary opacity-75" />
+                <span className="relative inline-flex h-3 w-3 rounded-full bg-fm-primary" />
               </span>
               <div>
-                <p className="text-sm font-bold text-[#2c2f31]">{activeLabel}</p>
-                <p className="text-xs text-[#595c5e]">
+                <p className="text-sm font-bold text-fm-on-surface">{activeLabel}</p>
+                <p className="text-xs text-fm-on-surface-variant">
                   Inició {new Date(active.started_at).toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit', hour12: false })}
                 </p>
               </div>
             </div>
-            <div className="text-3xl font-black text-[#00675c] tabular-nums sm:ml-4">
+            <div className="text-3xl font-black text-fm-primary tabular-nums sm:ml-4">
               {formatDuration(elapsed)}
             </div>
             <button
               onClick={handleStop}
               disabled={isPending}
-              className="sm:ml-auto flex items-center gap-2 px-5 py-2.5 bg-[#b31b25] text-white font-bold rounded-full hover:bg-[#8f141c] transition-all text-sm disabled:opacity-60"
+              className="sm:ml-auto flex items-center gap-2 px-5 py-2.5 bg-fm-error text-white font-bold rounded-full hover:bg-fm-error-dim transition-all text-sm disabled:opacity-60"
             >
               <span className="material-symbols-outlined text-base">stop_circle</span>
               Marcar salida
@@ -118,25 +118,25 @@ export function ClockInPanel({ initialActive }: Props) {
                 onChange={e => setActiveNotesDraft(e.target.value)}
                 placeholder="Descripción (opcional)"
                 rows={2}
-                className="flex-1 border border-[#dfe3e6] rounded-xl px-3 py-2 text-sm text-[#2c2f31] bg-white focus:outline-none focus:ring-2 focus:ring-[#00675c]/30 resize-none"
+                className="flex-1 border border-fm-surface-container-high rounded-xl px-3 py-2 text-sm text-fm-on-surface bg-fm-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-fm-primary/30 resize-none"
               />
-              <button onClick={handleSaveActiveNotes} disabled={isPending} className="px-3 py-2 bg-[#00675c] text-white text-xs font-bold rounded-xl disabled:opacity-60">
+              <button onClick={handleSaveActiveNotes} disabled={isPending} className="px-3 py-2 bg-fm-primary text-white text-xs font-bold rounded-xl disabled:opacity-60">
                 {isPending ? '…' : 'Guardar'}
               </button>
-              <button onClick={() => setEditingNotes(false)} className="px-3 py-2 text-[#595c5e] text-xs font-bold rounded-xl border border-[#dfe3e6]">
+              <button onClick={() => setEditingNotes(false)} className="px-3 py-2 text-fm-on-surface-variant text-xs font-bold rounded-xl border border-fm-surface-container-high">
                 Cancelar
               </button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
               {active.notes ? (
-                <p className="text-xs text-[#595c5e] flex-1">{active.notes}</p>
+                <p className="text-xs text-fm-on-surface-variant flex-1">{active.notes}</p>
               ) : (
-                <p className="text-xs text-[#abadaf] flex-1 italic">Sin descripción</p>
+                <p className="text-xs text-fm-outline-variant flex-1 italic">Sin descripción</p>
               )}
               <button
                 onClick={() => { setActiveNotesDraft(active.notes ?? ''); setEditingNotes(true) }}
-                className="text-xs text-[#595c5e] hover:text-[#00675c] flex items-center gap-1"
+                className="text-xs text-fm-on-surface-variant hover:text-fm-primary flex items-center gap-1"
               >
                 <span className="material-symbols-outlined text-sm">edit</span>
                 {active.notes ? 'Editar' : 'Agregar descripción'}
@@ -151,7 +151,7 @@ export function ClockInPanel({ initialActive }: Props) {
             <select
               value={selectedCategory}
               onChange={e => setSelectedCategory(e.target.value as AdminCategory)}
-              className="flex-1 border border-[#dfe3e6] rounded-xl px-4 py-2.5 text-sm text-[#2c2f31] bg-white focus:outline-none focus:ring-2 focus:ring-[#00675c]/30"
+              className="flex-1 border border-fm-surface-container-high rounded-xl px-4 py-2.5 text-sm text-fm-on-surface bg-fm-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-fm-primary/30"
             >
               {ADMIN_CATEGORIES.map(cat => (
                 <option key={cat} value={cat}>{ADMIN_CATEGORY_LABELS[cat]}</option>
@@ -160,7 +160,7 @@ export function ClockInPanel({ initialActive }: Props) {
             <button
               onClick={handleStart}
               disabled={isPending}
-              className="flex items-center gap-2 px-5 py-2.5 bg-[#00675c] text-white font-bold rounded-full hover:bg-[#005047] transition-all text-sm disabled:opacity-60 whitespace-nowrap"
+              className="flex items-center gap-2 px-5 py-2.5 bg-fm-primary text-white font-bold rounded-full hover:bg-fm-primary-dim transition-all text-sm disabled:opacity-60 whitespace-nowrap"
             >
               <span className="material-symbols-outlined text-base">login</span>
               Marcar entrada
@@ -171,13 +171,13 @@ export function ClockInPanel({ initialActive }: Props) {
             onChange={e => setNotes(e.target.value)}
             placeholder="Descripción (opcional)"
             rows={2}
-            className="w-full border border-[#dfe3e6] rounded-xl px-4 py-2.5 text-sm text-[#2c2f31] bg-white focus:outline-none focus:ring-2 focus:ring-[#00675c]/30 resize-none"
+            className="w-full border border-fm-surface-container-high rounded-xl px-4 py-2.5 text-sm text-fm-on-surface bg-fm-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-fm-primary/30 resize-none"
           />
         </div>
       )}
 
       {error && (
-        <p className="mt-3 text-xs text-[#b31b25] font-semibold">{error}</p>
+        <p className="mt-3 text-xs text-fm-error font-semibold">{error}</p>
       )}
     </div>
   )

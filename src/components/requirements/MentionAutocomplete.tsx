@@ -150,7 +150,7 @@ export function MentionAutocomplete({
   return (
     <div
       ref={listRef}
-      className="absolute bottom-full left-0 right-0 mb-1 mx-5 z-50 bg-white rounded-xl shadow-xl ring-1 ring-black/10 overflow-hidden max-h-64 overflow-y-auto"
+      className="absolute bottom-full left-0 right-0 mb-1 mx-5 z-50 bg-fm-surface-container-lowest rounded-xl shadow-xl ring-1 ring-black/10 overflow-hidden max-h-64 overflow-y-auto"
     >
       {filtered.map((u, idx) => (
         <button
@@ -162,13 +162,13 @@ export function MentionAutocomplete({
           }}
           className={
             'w-full flex items-center gap-2 px-3 py-2 text-left transition-colors ' +
-            (idx === state.selectedIdx ? 'bg-[#00675c]/10' : 'hover:bg-[#f5f7f9]')
+            (idx === state.selectedIdx ? 'bg-fm-primary/10' : 'hover:bg-fm-background')
           }
         >
           <UserAvatar name={u.full_name ?? '?'} avatarUrl={u.avatar_url} size="xs" />
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium text-[#2c2f31] truncate">{u.full_name}</div>
-            <div className="text-[10px] text-[#595c5e]/70 capitalize">{u.role}</div>
+            <div className="text-sm font-medium text-fm-on-surface truncate">{u.full_name}</div>
+            <div className="text-[10px] text-fm-on-surface-variant/70 capitalize">{u.role}</div>
           </div>
         </button>
       ))}

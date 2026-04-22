@@ -43,16 +43,16 @@ function AccordionSection({
     >
       <summary className="px-8 py-5 cursor-pointer list-none flex items-center justify-between gap-4 [&::-webkit-details-marker]:hidden">
         <div className="flex items-baseline gap-3 min-w-0">
-          <h2 className="text-xl font-extrabold tracking-tight text-[#2c2f31] truncate">
+          <h2 className="text-xl font-extrabold tracking-tight text-fm-on-surface truncate">
             {title}
           </h2>
           {subtitle && (
-            <span className="text-xs text-[#595c5e] truncate">{subtitle}</span>
+            <span className="text-xs text-fm-on-surface-variant truncate">{subtitle}</span>
           )}
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
           {headerRight}
-          <span className="material-symbols-outlined text-[#595c5e] transition-transform group-open:rotate-180">
+          <span className="material-symbols-outlined text-fm-on-surface-variant transition-transform group-open:rotate-180">
             expand_more
           </span>
         </div>
@@ -250,8 +250,8 @@ export default async function ReportsPage() {
       <div className="flex-1 p-6 space-y-8 max-w-6xl mx-auto w-full">
         <div className="flex items-center justify-between pt-2">
           <div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-[#2c2f31]">Gestión interna</h1>
-            <p className="text-sm text-[#595c5e] mt-1">{cycleMonth}</p>
+            <h1 className="text-2xl font-extrabold tracking-tight text-fm-on-surface">Gestión interna</h1>
+            <p className="text-sm text-fm-on-surface-variant mt-1">{cycleMonth}</p>
           </div>
           <div className="flex items-center gap-3">
             {csvRows.length > 0 && (
@@ -275,8 +275,8 @@ export default async function ReportsPage() {
               { label: 'MRR cobrado', value: `$${mrrCobrado.toLocaleString('en-US', { minimumFractionDigits: 0 })}`, color: '#00675c' },
               { label: 'Pendiente cobro', value: `$${ingresosPendientes.toLocaleString('en-US', { minimumFractionDigits: 0 })}`, color: ingresosPendientes > 0 ? '#b31b25' : '#595c5e' },
             ].map((card) => (
-              <div key={card.label} className="rounded-2xl bg-[#f5f7f9] border border-[#dfe3e6] p-5 space-y-2">
-                <p className="text-[11px] font-extrabold uppercase tracking-wider text-[#595c5e]">{card.label}</p>
+              <div key={card.label} className="rounded-2xl bg-fm-background border border-fm-surface-container-high p-5 space-y-2">
+                <p className="text-[11px] font-extrabold uppercase tracking-wider text-fm-on-surface-variant">{card.label}</p>
                 <p className="text-3xl font-black" style={{ color: card.color }}>{card.value}</p>
               </div>
             ))}
@@ -289,11 +289,11 @@ export default async function ReportsPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-[#dfe3e6]">
-                    <th className="text-left py-2 pr-4 font-extrabold text-[#595c5e] uppercase text-xs tracking-wider">Tipo</th>
-                    <th className="text-right py-2 px-4 font-extrabold text-[#595c5e] uppercase text-xs tracking-wider">Consumido</th>
-                    <th className="text-right py-2 px-4 font-extrabold text-[#595c5e] uppercase text-xs tracking-wider">Límite total</th>
-                    <th className="text-right py-2 pl-4 font-extrabold text-[#595c5e] uppercase text-xs tracking-wider">% Agregado</th>
+                  <tr className="border-b border-fm-surface-container-high">
+                    <th className="text-left py-2 pr-4 font-extrabold text-fm-on-surface-variant uppercase text-xs tracking-wider">Tipo</th>
+                    <th className="text-right py-2 px-4 font-extrabold text-fm-on-surface-variant uppercase text-xs tracking-wider">Consumido</th>
+                    <th className="text-right py-2 px-4 font-extrabold text-fm-on-surface-variant uppercase text-xs tracking-wider">Límite total</th>
+                    <th className="text-right py-2 pl-4 font-extrabold text-fm-on-surface-variant uppercase text-xs tracking-wider">% Agregado</th>
                     <th className="py-2 pl-4 w-32"></th>
                   </tr>
                 </thead>
@@ -304,13 +304,13 @@ export default async function ReportsPage() {
                     const pct = limit > 0 ? Math.min(100, Math.round((consumed / limit) * 100)) : 0
                     const color = barColor(pct)
                     return (
-                      <tr key={type} className="border-b border-[#f0f3f5] hover:bg-[#f5f7f9] transition-colors">
-                        <td className="py-3 pr-4 font-semibold text-[#2c2f31]">{CONTENT_TYPE_LABELS[type]}</td>
-                        <td className="py-3 px-4 text-right font-extrabold text-[#2c2f31]">{consumed}</td>
-                        <td className="py-3 px-4 text-right text-[#595c5e]">{limit}</td>
+                      <tr key={type} className="border-b border-fm-surface-container-low hover:bg-fm-background transition-colors">
+                        <td className="py-3 pr-4 font-semibold text-fm-on-surface">{CONTENT_TYPE_LABELS[type]}</td>
+                        <td className="py-3 px-4 text-right font-extrabold text-fm-on-surface">{consumed}</td>
+                        <td className="py-3 px-4 text-right text-fm-on-surface-variant">{limit}</td>
                         <td className="py-3 pl-4 text-right font-bold" style={{ color }}>{pct}%</td>
                         <td className="py-3 pl-4">
-                          <div className="w-full bg-[#e5e9eb] rounded-full h-1.5 overflow-hidden">
+                          <div className="w-full bg-fm-surface-container rounded-full h-1.5 overflow-hidden">
                             <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
                           </div>
                         </td>
@@ -331,7 +331,7 @@ export default async function ReportsPage() {
               return (
                 <div
                   key={phase}
-                  className="flex flex-col items-center gap-2 p-4 bg-[#f5f7f9] rounded-2xl border border-[#dfe3e6] text-center"
+                  className="flex flex-col items-center gap-2 p-4 bg-fm-background rounded-2xl border border-fm-surface-container-high text-center"
                 >
                   <span
                     className="text-2xl font-black"
@@ -339,7 +339,7 @@ export default async function ReportsPage() {
                   >
                     {count}
                   </span>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#595c5e] leading-tight">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-fm-on-surface-variant leading-tight">
                     {PHASE_LABELS[phase]}
                   </span>
                 </div>
@@ -351,17 +351,17 @@ export default async function ReportsPage() {
         {/* ── Section 4: Client list ── */}
         <AccordionSection title={`Clientes activos (${clientRows.length})`}>
           {clientRows.length === 0 ? (
-            <p className="text-sm text-[#595c5e]">No hay clientes activos con ciclo en curso.</p>
+            <p className="text-sm text-fm-on-surface-variant">No hay clientes activos con ciclo en curso.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-[#dfe3e6]">
-                    <th className="text-left py-2 pr-4 font-extrabold text-[#595c5e] uppercase text-xs tracking-wider">Cliente</th>
-                    <th className="text-left py-2 px-4 font-extrabold text-[#595c5e] uppercase text-xs tracking-wider">Plan</th>
-                    <th className="text-left py-2 px-4 font-extrabold text-[#595c5e] uppercase text-xs tracking-wider">Progreso</th>
-                    <th className="text-left py-2 px-4 font-extrabold text-[#595c5e] uppercase text-xs tracking-wider">Pago</th>
-                    <th className="text-right py-2 pl-4 font-extrabold text-[#595c5e] uppercase text-xs tracking-wider">Días</th>
+                  <tr className="border-b border-fm-surface-container-high">
+                    <th className="text-left py-2 pr-4 font-extrabold text-fm-on-surface-variant uppercase text-xs tracking-wider">Cliente</th>
+                    <th className="text-left py-2 px-4 font-extrabold text-fm-on-surface-variant uppercase text-xs tracking-wider">Plan</th>
+                    <th className="text-left py-2 px-4 font-extrabold text-fm-on-surface-variant uppercase text-xs tracking-wider">Progreso</th>
+                    <th className="text-left py-2 px-4 font-extrabold text-fm-on-surface-variant uppercase text-xs tracking-wider">Pago</th>
+                    <th className="text-right py-2 pl-4 font-extrabold text-fm-on-surface-variant uppercase text-xs tracking-wider">Días</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -377,19 +377,19 @@ export default async function ReportsPage() {
                       : row.daysLeft === 0 ? 'Hoy'
                       : String(row.daysLeft)
                     return (
-                      <tr key={row.id} className="border-b border-[#f0f3f5] hover:bg-[#f5f7f9] transition-colors">
+                      <tr key={row.id} className="border-b border-fm-surface-container-low hover:bg-fm-background transition-colors">
                         <td className="py-3 pr-4">
                           <a
                             href={`/clients/${row.id}`}
-                            className="font-bold text-[#2c2f31] hover:text-[#00675c] transition-colors"
+                            className="font-bold text-fm-on-surface hover:text-fm-primary transition-colors"
                           >
                             {row.name}
                           </a>
                         </td>
-                        <td className="py-3 px-4 text-[#595c5e]">{row.planName}</td>
+                        <td className="py-3 px-4 text-fm-on-surface-variant">{row.planName}</td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2 min-w-[120px]">
-                            <div className="flex-1 bg-[#e5e9eb] rounded-full h-1.5 overflow-hidden">
+                            <div className="flex-1 bg-fm-surface-container rounded-full h-1.5 overflow-hidden">
                               <div
                                 className="h-full rounded-full"
                                 style={{
@@ -398,18 +398,18 @@ export default async function ReportsPage() {
                                 }}
                               />
                             </div>
-                            <span className="text-xs text-[#595c5e] whitespace-nowrap">
+                            <span className="text-xs text-fm-on-surface-variant whitespace-nowrap">
                               {row.totalConsumed}/{row.totalLimits}
                             </span>
                           </div>
                         </td>
                         <td className="py-3 px-4">
                           {row.paymentStatus === 'paid' ? (
-                            <span className="px-2.5 py-1 bg-[#ceee93] text-[#41590f] text-[10px] font-extrabold rounded-full uppercase">
+                            <span className="px-2.5 py-1 bg-fm-secondary-fixed text-fm-on-secondary-container text-[10px] font-extrabold rounded-full uppercase">
                               Pagado
                             </span>
                           ) : (
-                            <span className="px-2.5 py-1 bg-[#b31b25]/10 text-[#b31b25] text-[10px] font-extrabold rounded-full uppercase">
+                            <span className="px-2.5 py-1 bg-fm-error/10 text-fm-error text-[10px] font-extrabold rounded-full uppercase">
                               Sin pago
                             </span>
                           )}
@@ -446,7 +446,7 @@ export default async function ReportsPage() {
         {/* Empty state — no cycles at all */}
         {currentCycles.length === 0 && (
           <div className="glass-panel rounded-[2rem] p-8 text-center">
-            <p className="text-[#595c5e] text-sm">No hay ciclos activos registrados.</p>
+            <p className="text-fm-on-surface-variant text-sm">No hay ciclos activos registrados.</p>
           </div>
         )}
       </div>

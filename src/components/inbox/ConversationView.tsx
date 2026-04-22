@@ -45,7 +45,7 @@ export function ConversationView({
 
   return (
     <>
-      <main className="flex-1 flex flex-col bg-white min-w-0">
+      <main className="flex-1 flex flex-col bg-fm-surface-container-lowest min-w-0">
         <ChatHeader
           conversation={conversation}
           counterpart={counterpart}

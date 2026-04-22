@@ -59,17 +59,17 @@ export function KanbanAccordion({
         return (
           <div
             key={phase}
-            className="bg-white rounded-2xl border border-[#dfe3e6] overflow-hidden"
+            className="bg-fm-surface-container-lowest rounded-2xl border border-fm-surface-container-high overflow-hidden"
           >
             <button
               type="button"
               onClick={() => setOpenPhase(isOpen ? null : phase)}
-              className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-[#f5f7f9] transition-colors"
+              className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-fm-background transition-colors"
               aria-expanded={isOpen}
             >
               <div className="flex items-center gap-2 min-w-0">
                 <span
-                  className="material-symbols-outlined text-[#595c5e] text-[18px] transition-transform"
+                  className="material-symbols-outlined text-fm-on-surface-variant text-[18px] transition-transform"
                   style={{ transform: isOpen ? 'rotate(90deg)' : undefined }}
                 >
                   chevron_right
@@ -78,19 +78,19 @@ export function KanbanAccordion({
                   className="w-2 h-2 rounded-full flex-shrink-0"
                   style={{ background: dotColor }}
                 />
-                <span className="text-sm font-semibold text-[#2c2f31] truncate">
+                <span className="text-sm font-semibold text-fm-on-surface truncate">
                   {PHASE_LABELS[phase]}
                 </span>
               </div>
-              <span className="text-xs font-semibold bg-[#f5f7f9] text-[#595c5e] px-2 py-0.5 rounded-full flex-shrink-0">
+              <span className="text-xs font-semibold bg-fm-background text-fm-on-surface-variant px-2 py-0.5 rounded-full flex-shrink-0">
                 {items.length}
               </span>
             </button>
 
             {isOpen && (
-              <div className="px-3 pb-3 pt-1 bg-[#f5f7f9] border-t border-[#dfe3e6] space-y-2">
+              <div className="px-3 pb-3 pt-1 bg-fm-background border-t border-fm-surface-container-high space-y-2">
                 {items.length === 0 ? (
-                  <p className="text-xs text-[#abadaf] text-center py-4">Sin piezas</p>
+                  <p className="text-xs text-fm-outline-variant text-center py-4">Sin piezas</p>
                 ) : (
                   items.map((item) => (
                     <PipelineCard

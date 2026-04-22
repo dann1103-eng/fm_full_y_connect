@@ -141,13 +141,13 @@ export default async function ClientReportPage({
         <nav className="no-print flex items-center gap-2 text-sm pt-2">
           <Link
             href={`/clients/${client.id}`}
-            className="text-[#595c5e] flex items-center gap-1 hover:text-[#00675c] transition-colors"
+            className="text-fm-on-surface-variant flex items-center gap-1 hover:text-fm-primary transition-colors"
           >
             <span className="material-symbols-outlined text-base">arrow_back</span>
             {client.name}
           </Link>
-          <span className="text-[#abadaf]">/</span>
-          <span className="font-semibold text-[#2c2f31]">Reporte</span>
+          <span className="text-fm-outline-variant">/</span>
+          <span className="font-semibold text-fm-on-surface">Reporte</span>
         </nav>
 
         {/* ── Section 1: Header ── */}
@@ -155,35 +155,35 @@ export default async function ClientReportPage({
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-3xl font-extrabold tracking-tight text-[#2c2f31]">
+                <h1 className="text-3xl font-extrabold tracking-tight text-fm-on-surface">
                   {client.name}
                 </h1>
-                <span className="px-3 py-1 bg-[#ceee93]/50 text-[#4a6319] text-xs font-extrabold rounded-full uppercase tracking-wider">
+                <span className="px-3 py-1 bg-fm-secondary-fixed/50 text-fm-secondary text-xs font-extrabold rounded-full uppercase tracking-wider">
                   Plan {client.plan.name}
                 </span>
-                <span className="px-3 py-1 bg-[#eef1f3] text-[#595c5e] text-xs font-extrabold rounded-full uppercase tracking-wider">
+                <span className="px-3 py-1 bg-fm-surface-container-low text-fm-on-surface-variant text-xs font-extrabold rounded-full uppercase tracking-wider">
                   {STATUS_LABELS[client.status] ?? client.status}
                 </span>
               </div>
 
               {cycle ? (
-                <div className="text-sm text-[#595c5e] space-y-1">
+                <div className="text-sm text-fm-on-surface-variant space-y-1">
                   <p>
-                    <span className="font-semibold text-[#2c2f31]">Período:</span>{' '}
+                    <span className="font-semibold text-fm-on-surface">Período:</span>{' '}
                     {formatDateShort(cycle.period_start)} – {formatDateShort(cycle.period_end)}{' '}
                     {cycleStart && `${cycleStart.getFullYear()}`}
                   </p>
                   <p>
-                    <span className="font-semibold text-[#2c2f31]">Pago:</span>{' '}
+                    <span className="font-semibold text-fm-on-surface">Pago:</span>{' '}
                     {cycle.payment_status === 'paid' ? (
-                      <span className="text-[#00675c] font-bold">Pagado</span>
+                      <span className="text-fm-primary font-bold">Pagado</span>
                     ) : (
-                      <span className="text-[#b31b25] font-bold">Sin pago</span>
+                      <span className="text-fm-error font-bold">Sin pago</span>
                     )}
                   </p>
                   {daysLeft !== null && (
                     <p>
-                      <span className="font-semibold text-[#2c2f31]">Ciclo:</span>{' '}
+                      <span className="font-semibold text-fm-on-surface">Ciclo:</span>{' '}
                       <span
                         className="font-bold"
                         style={{
@@ -198,12 +198,12 @@ export default async function ClientReportPage({
                       </span>
                     </p>
                   )}
-                  <p className="text-xs text-[#abadaf] pt-1">
+                  <p className="text-xs text-fm-outline-variant pt-1">
                     Generado el {new Date().toLocaleDateString('es-SV', { day: 'numeric', month: 'long', year: 'numeric' })}
                   </p>
                 </div>
               ) : (
-                <p className="text-sm text-[#595c5e]">Sin ciclo activo</p>
+                <p className="text-sm text-fm-on-surface-variant">Sin ciclo activo</p>
               )}
             </div>
 
@@ -225,18 +225,18 @@ export default async function ClientReportPage({
         {/* ── Section 2: Consumo por tipo ── */}
         {cycle && limits && activeTypes.length > 0 && (
           <section className="glass-panel rounded-[2rem] p-8 space-y-5">
-            <h2 className="text-xl font-extrabold tracking-tight text-[#2c2f31]">
+            <h2 className="text-xl font-extrabold tracking-tight text-fm-on-surface">
               Requerimientos por tipo — {cycleMonthLabel}
             </h2>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-[#dfe3e6]">
-                    <th className="text-left py-2 pr-4 font-extrabold text-[#595c5e] uppercase text-xs tracking-wider">Tipo</th>
-                    <th className="text-right py-2 px-4 font-extrabold text-[#595c5e] uppercase text-xs tracking-wider">Registrado</th>
-                    <th className="text-right py-2 px-4 font-extrabold text-[#595c5e] uppercase text-xs tracking-wider">Límite</th>
-                    <th className="text-right py-2 px-4 font-extrabold text-[#595c5e] uppercase text-xs tracking-wider">Restante</th>
-                    <th className="text-right py-2 pl-4 font-extrabold text-[#595c5e] uppercase text-xs tracking-wider">% Usado</th>
+                  <tr className="border-b border-fm-surface-container-high">
+                    <th className="text-left py-2 pr-4 font-extrabold text-fm-on-surface-variant uppercase text-xs tracking-wider">Tipo</th>
+                    <th className="text-right py-2 px-4 font-extrabold text-fm-on-surface-variant uppercase text-xs tracking-wider">Registrado</th>
+                    <th className="text-right py-2 px-4 font-extrabold text-fm-on-surface-variant uppercase text-xs tracking-wider">Límite</th>
+                    <th className="text-right py-2 px-4 font-extrabold text-fm-on-surface-variant uppercase text-xs tracking-wider">Restante</th>
+                    <th className="text-right py-2 pl-4 font-extrabold text-fm-on-surface-variant uppercase text-xs tracking-wider">% Usado</th>
                     <th className="py-2 pl-4 w-32"></th>
                   </tr>
                 </thead>
@@ -248,16 +248,16 @@ export default async function ClientReportPage({
                     const pct = limit > 0 ? Math.min(100, Math.round((consumed / limit) * 100)) : 0
                     const color = barColor(pct)
                     return (
-                      <tr key={type} className="border-b border-[#f0f3f5] hover:bg-[#f5f7f9] transition-colors">
-                        <td className="py-3 pr-4 font-semibold text-[#2c2f31]">{CONTENT_TYPE_LABELS[type]}</td>
-                        <td className="py-3 px-4 text-right font-extrabold text-[#2c2f31]">{consumed}</td>
-                        <td className="py-3 px-4 text-right text-[#595c5e]">{limit}</td>
+                      <tr key={type} className="border-b border-fm-surface-container-low hover:bg-fm-background transition-colors">
+                        <td className="py-3 pr-4 font-semibold text-fm-on-surface">{CONTENT_TYPE_LABELS[type]}</td>
+                        <td className="py-3 px-4 text-right font-extrabold text-fm-on-surface">{consumed}</td>
+                        <td className="py-3 px-4 text-right text-fm-on-surface-variant">{limit}</td>
                         <td className="py-3 px-4 text-right" style={{ color: remaining === 0 ? '#b31b25' : '#595c5e' }}>
                           {remaining}
                         </td>
                         <td className="py-3 pl-4 text-right font-bold" style={{ color }}>{pct}%</td>
                         <td className="py-3 pl-4">
-                          <div className="w-full bg-[#e5e9eb] rounded-full h-1.5 overflow-hidden">
+                          <div className="w-full bg-fm-surface-container rounded-full h-1.5 overflow-hidden">
                             <div
                               className="h-full rounded-full"
                               style={{ width: `${pct}%`, backgroundColor: color }}
@@ -276,15 +276,15 @@ export default async function ClientReportPage({
         {/* ── Section 3: Pipeline ── */}
         {cycle && Object.keys(pipelineCountByPhase).length > 0 && (
           <section className="glass-panel rounded-[2rem] p-8 space-y-5">
-            <h2 className="text-xl font-extrabold tracking-tight text-[#2c2f31]">Estado del pipeline</h2>
+            <h2 className="text-xl font-extrabold tracking-tight text-fm-on-surface">Estado del pipeline</h2>
             <div className="flex flex-wrap gap-3">
               {PHASES.filter((phase) => (pipelineCountByPhase[phase] ?? 0) > 0).map((phase) => (
                 <div
                   key={phase}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-[#f5f7f9] rounded-2xl border border-[#dfe3e6]"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-fm-background rounded-2xl border border-fm-surface-container-high"
                 >
-                  <span className="text-sm font-semibold text-[#595c5e]">{PHASE_LABELS[phase]}</span>
-                  <span className="min-w-[24px] text-center px-2 py-0.5 bg-[#00675c] text-white text-xs font-extrabold rounded-full">
+                  <span className="text-sm font-semibold text-fm-on-surface-variant">{PHASE_LABELS[phase]}</span>
+                  <span className="min-w-[24px] text-center px-2 py-0.5 bg-fm-primary text-white text-xs font-extrabold rounded-full">
                     {pipelineCountByPhase[phase]}
                   </span>
                 </div>
@@ -296,14 +296,14 @@ export default async function ClientReportPage({
         {/* ── Section 4: Cycle history ── */}
         {pastCycles.length > 0 && (
           <section className="glass-panel rounded-[2rem] p-8 space-y-5">
-            <h2 className="text-xl font-extrabold tracking-tight text-[#2c2f31]">Historial de ciclos</h2>
+            <h2 className="text-xl font-extrabold tracking-tight text-fm-on-surface">Historial de ciclos</h2>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-[#dfe3e6]">
-                    <th className="text-left py-2 pr-4 font-extrabold text-[#595c5e] uppercase text-xs tracking-wider">Período</th>
-                    <th className="text-left py-2 px-4 font-extrabold text-[#595c5e] uppercase text-xs tracking-wider">Plan</th>
-                    <th className="text-left py-2 pl-4 font-extrabold text-[#595c5e] uppercase text-xs tracking-wider">Pago</th>
+                  <tr className="border-b border-fm-surface-container-high">
+                    <th className="text-left py-2 pr-4 font-extrabold text-fm-on-surface-variant uppercase text-xs tracking-wider">Período</th>
+                    <th className="text-left py-2 px-4 font-extrabold text-fm-on-surface-variant uppercase text-xs tracking-wider">Plan</th>
+                    <th className="text-left py-2 pl-4 font-extrabold text-fm-on-surface-variant uppercase text-xs tracking-wider">Pago</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -314,18 +314,18 @@ export default async function ClientReportPage({
                     const endLabel = `${MONTHS_FULL[end.getMonth()]} ${end.getFullYear()}`
                     const isSameMonth = start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()
                     return (
-                      <tr key={c.id} className="border-b border-[#f0f3f5] hover:bg-[#f5f7f9] transition-colors">
-                        <td className="py-3 pr-4 font-semibold text-[#2c2f31]">
+                      <tr key={c.id} className="border-b border-fm-surface-container-low hover:bg-fm-background transition-colors">
+                        <td className="py-3 pr-4 font-semibold text-fm-on-surface">
                           {isSameMonth ? periodLabel : `${periodLabel} – ${endLabel}`}
                         </td>
-                        <td className="py-3 px-4 text-[#595c5e]">{plansMap[c.plan_id_snapshot] ?? 'Plan'}</td>
+                        <td className="py-3 px-4 text-fm-on-surface-variant">{plansMap[c.plan_id_snapshot] ?? 'Plan'}</td>
                         <td className="py-3 pl-4">
                           {c.payment_status === 'paid' ? (
-                            <span className="px-2.5 py-1 bg-[#ceee93] text-[#41590f] text-[10px] font-extrabold rounded-full uppercase">
+                            <span className="px-2.5 py-1 bg-fm-secondary-fixed text-fm-on-secondary-container text-[10px] font-extrabold rounded-full uppercase">
                               Pagado
                             </span>
                           ) : (
-                            <span className="px-2.5 py-1 bg-[#b31b25]/10 text-[#b31b25] text-[10px] font-extrabold rounded-full uppercase">
+                            <span className="px-2.5 py-1 bg-fm-error/10 text-fm-error text-[10px] font-extrabold rounded-full uppercase">
                               Sin pago
                             </span>
                           )}
@@ -342,7 +342,7 @@ export default async function ClientReportPage({
         {/* Empty state */}
         {!cycle && pastCycles.length === 0 && (
           <div className="glass-panel rounded-[2rem] p-8 text-center">
-            <p className="text-[#595c5e] text-sm">No hay datos de ciclos para este cliente.</p>
+            <p className="text-fm-on-surface-variant text-sm">No hay datos de ciclos para este cliente.</p>
           </div>
         )}
       </div>

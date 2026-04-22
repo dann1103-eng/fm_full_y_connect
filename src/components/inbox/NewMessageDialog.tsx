@@ -107,13 +107,13 @@ export function NewMessageDialog({ open, onOpenChange, canCreateChannels, allUse
         </DialogHeader>
 
         {canCreateChannels && (
-          <div className="flex border border-[#dfe3e6] rounded-lg p-0.5 text-sm">
+          <div className="flex border border-fm-surface-container-high rounded-lg p-0.5 text-sm">
             <button
               type="button"
               onClick={() => setTab('dm')}
               className={cn(
                 'flex-1 py-1.5 rounded-md font-medium transition-colors',
-                tab === 'dm' ? 'bg-[#00675c] text-white' : 'text-[#595c5e] hover:bg-[#f5f7f9]'
+                tab === 'dm' ? 'bg-fm-primary text-white' : 'text-fm-on-surface-variant hover:bg-fm-background'
               )}
             >
               Mensaje directo
@@ -123,7 +123,7 @@ export function NewMessageDialog({ open, onOpenChange, canCreateChannels, allUse
               onClick={() => setTab('channel')}
               className={cn(
                 'flex-1 py-1.5 rounded-md font-medium transition-colors',
-                tab === 'channel' ? 'bg-[#00675c] text-white' : 'text-[#595c5e] hover:bg-[#f5f7f9]'
+                tab === 'channel' ? 'bg-fm-primary text-white' : 'text-fm-on-surface-variant hover:bg-fm-background'
               )}
             >
               Canal
@@ -138,9 +138,9 @@ export function NewMessageDialog({ open, onOpenChange, canCreateChannels, allUse
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
-            <div className="max-h-64 overflow-y-auto border border-[#dfe3e6] rounded-lg divide-y divide-[#dfe3e6]">
+            <div className="max-h-64 overflow-y-auto border border-fm-surface-container-high rounded-lg divide-y divide-fm-surface-container-high">
               {filtered.length === 0 && (
-                <div className="p-4 text-sm text-[#595c5e]/70 text-center">Sin resultados</div>
+                <div className="p-4 text-sm text-fm-on-surface-variant/70 text-center">Sin resultados</div>
               )}
               {filtered.map((u) => (
                 <button
@@ -148,19 +148,19 @@ export function NewMessageDialog({ open, onOpenChange, canCreateChannels, allUse
                   type="button"
                   onClick={() => setSelectedUserId(u.id)}
                   className={cn(
-                    'w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-[#f5f7f9] transition-colors',
-                    selectedUserId === u.id && 'bg-[#00675c]/10'
+                    'w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-fm-background transition-colors',
+                    selectedUserId === u.id && 'bg-fm-primary/10'
                   )}
                 >
                   <UserAvatar name={u.full_name ?? '?'} avatarUrl={u.avatar_url} size="sm" />
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-[#2c2f31] truncate">{u.full_name}</div>
-                    <div className="text-xs text-[#595c5e]/70 capitalize">{u.role}</div>
+                    <div className="text-sm font-medium text-fm-on-surface truncate">{u.full_name}</div>
+                    <div className="text-xs text-fm-on-surface-variant/70 capitalize">{u.role}</div>
                   </div>
                 </button>
               ))}
             </div>
-            {error && <div className="text-xs text-[#b31b25]">{error}</div>}
+            {error && <div className="text-xs text-fm-error">{error}</div>}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => onClose(false)} disabled={pending}>
                 Cancelar
@@ -173,16 +173,16 @@ export function NewMessageDialog({ open, onOpenChange, canCreateChannels, allUse
         ) : (
           <div className="space-y-3">
             <div>
-              <label className="text-xs font-bold text-[#595c5e] uppercase tracking-wider">Nombre</label>
+              <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wider">Nombre</label>
               <Input
                 placeholder="ej: marketing"
                 value={channelName}
                 onChange={(e) => setChannelName(e.target.value)}
               />
-              <p className="text-[10px] text-[#595c5e]/70 mt-1">Solo letras, números y guiones.</p>
+              <p className="text-[10px] text-fm-on-surface-variant/70 mt-1">Solo letras, números y guiones.</p>
             </div>
             <div>
-              <label className="text-xs font-bold text-[#595c5e] uppercase tracking-wider">Tema</label>
+              <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wider">Tema</label>
               <Input
                 placeholder="ej: Estrategia Q4"
                 value={channelTopic}
@@ -190,7 +190,7 @@ export function NewMessageDialog({ open, onOpenChange, canCreateChannels, allUse
               />
             </div>
             <div>
-              <label className="text-xs font-bold text-[#595c5e] uppercase tracking-wider">Descripción</label>
+              <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wider">Descripción</label>
               <Input
                 placeholder="Opcional"
                 value={channelDescription}
@@ -198,26 +198,26 @@ export function NewMessageDialog({ open, onOpenChange, canCreateChannels, allUse
               />
             </div>
             <div>
-              <label className="text-xs font-bold text-[#595c5e] uppercase tracking-wider">Miembros</label>
-              <div className="max-h-40 overflow-y-auto border border-[#dfe3e6] rounded-lg mt-1 divide-y divide-[#dfe3e6]">
+              <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wider">Miembros</label>
+              <div className="max-h-40 overflow-y-auto border border-fm-surface-container-high rounded-lg mt-1 divide-y divide-fm-surface-container-high">
                 {allUsers.map((u) => (
                   <label
                     key={u.id}
-                    className="flex items-center gap-2 px-3 py-1.5 hover:bg-[#f5f7f9] cursor-pointer"
+                    className="flex items-center gap-2 px-3 py-1.5 hover:bg-fm-background cursor-pointer"
                   >
                     <input
                       type="checkbox"
                       checked={channelMemberIds.includes(u.id)}
                       onChange={() => toggleChannelMember(u.id)}
-                      className="accent-[#00675c]"
+                      className="accent-fm-primary"
                     />
                     <UserAvatar name={u.full_name ?? '?'} avatarUrl={u.avatar_url} size="xs" />
-                    <span className="text-sm text-[#2c2f31]">{u.full_name}</span>
+                    <span className="text-sm text-fm-on-surface">{u.full_name}</span>
                   </label>
                 ))}
               </div>
             </div>
-            {error && <div className="text-xs text-[#b31b25]">{error}</div>}
+            {error && <div className="text-xs text-fm-error">{error}</div>}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => onClose(false)} disabled={pending}>
                 Cancelar

@@ -80,12 +80,12 @@ export function MessageItem({ message, currentUserId, onUpdated, onDeleted }: Me
       />
       <div className={cn('flex-1 min-w-0 space-y-1', isMine && 'flex flex-col items-end')}>
         <div className={cn('flex items-baseline gap-2', isMine && 'flex-row-reverse')}>
-          <span className="font-bold text-sm text-[#2c2f31]">
+          <span className="font-bold text-sm text-fm-on-surface">
             {isMine ? 'Tú' : message.author?.full_name ?? 'Usuario eliminado'}
           </span>
-          <span className="text-[10px] text-[#595c5e]/70">{time}</span>
+          <span className="text-[10px] text-fm-on-surface-variant/70">{time}</span>
           {message.edited_at && (
-            <span className="text-[10px] text-[#595c5e]/70 italic">(editado)</span>
+            <span className="text-[10px] text-fm-on-surface-variant/70 italic">(editado)</span>
           )}
         </div>
 
@@ -95,13 +95,13 @@ export function MessageItem({ message, currentUserId, onUpdated, onDeleted }: Me
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               rows={2}
-              className="w-full text-sm border border-[#dfe3e6] rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-[#00675c]/30"
+              className="w-full text-sm border border-fm-surface-container-high rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-fm-primary/30"
             />
             <div className="flex items-center gap-2 mt-1 text-xs">
               <button
                 onClick={save}
                 disabled={pending || !draft.trim()}
-                className="text-[#00675c] font-semibold disabled:opacity-50"
+                className="text-fm-primary font-semibold disabled:opacity-50"
               >
                 Guardar
               </button>
@@ -110,7 +110,7 @@ export function MessageItem({ message, currentUserId, onUpdated, onDeleted }: Me
                   setDraft(message.body)
                   setEditing(false)
                 }}
-                className="text-[#595c5e]"
+                className="text-fm-on-surface-variant"
               >
                 Cancelar
               </button>
@@ -133,8 +133,8 @@ export function MessageItem({ message, currentUserId, onUpdated, onDeleted }: Me
                 className={cn(
                   'p-3 rounded-lg text-sm max-w-[80%] break-words whitespace-pre-wrap',
                   isMine
-                    ? 'bg-[#00675c] text-white rounded-tr-none'
-                    : 'bg-white border border-[#dfe3e6] text-[#2c2f31] rounded-tl-none'
+                    ? 'bg-fm-primary text-white rounded-tr-none'
+                    : 'bg-fm-surface-container-lowest border border-fm-surface-container-high text-fm-on-surface rounded-tl-none'
                 )}
               >
                 {message.body}
@@ -155,14 +155,14 @@ export function MessageItem({ message, currentUserId, onUpdated, onDeleted }: Me
           </div>
         )}
 
-        {error && <div className="text-[10px] text-[#b31b25]">{error}</div>}
+        {error && <div className="text-[10px] text-fm-error">{error}</div>}
 
         {isMine && !editing && (
-          <div className="flex items-center gap-2 text-[10px] text-[#595c5e]/70 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button onClick={() => setEditing(true)} className="hover:text-[#00675c]">
+          <div className="flex items-center gap-2 text-[10px] text-fm-on-surface-variant/70 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button onClick={() => setEditing(true)} className="hover:text-fm-primary">
               Editar
             </button>
-            <button onClick={remove} disabled={pending} className="hover:text-[#b31b25]">
+            <button onClick={remove} disabled={pending} className="hover:text-fm-error">
               Eliminar
             </button>
           </div>

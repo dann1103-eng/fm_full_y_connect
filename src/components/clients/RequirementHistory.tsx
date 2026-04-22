@@ -121,19 +121,19 @@ export function RequirementHistory({
   if (requirements.length === 0) {
     return (
       <div className="glass-panel rounded-[2rem] p-8 text-center">
-        <p className="text-sm text-[#595c5e]">Sin requerimientos registrados en este ciclo.</p>
+        <p className="text-sm text-fm-on-surface-variant">Sin requerimientos registrados en este ciclo.</p>
       </div>
     )
   }
 
   return (
     <div className="glass-panel rounded-[2rem] overflow-hidden">
-      <div className="divide-y divide-[#dfe3e6]/60">
+      <div className="divide-y divide-fm-surface-container-high/60">
         {requirements.map((r) => {
           const type = r.content_type as ContentType
           const isAmber = AMBER_TYPES.has(type)
-          const iconBg = isAmber ? 'bg-amber-100/60' : 'bg-[#5bf4de]/30'
-          const iconColor = isAmber ? 'text-amber-600' : 'text-[#00675c]'
+          const iconBg = isAmber ? 'bg-amber-100/60' : 'bg-fm-primary-container/30'
+          const iconColor = isAmber ? 'text-amber-600' : 'text-fm-primary'
           const userName = userMap[r.registered_by_user_id] ?? 'Operador'
           const logs = cambioLogsMap[r.id] ?? []
           const isExpanded = expandedId === r.id
@@ -155,15 +155,15 @@ export function RequirementHistory({
 
                   {/* Text */}
                   <div>
-                    <p className="text-sm font-bold text-[#2c2f31]">
+                    <p className="text-sm font-bold text-fm-on-surface">
                       {r.title || TYPE_ACTION[type] || CONTENT_TYPE_LABELS[type]}
                       {r.voided && (
-                        <span className="ml-2 text-xs font-medium text-[#747779] bg-[#abadaf]/20 px-1.5 py-0.5 rounded">
+                        <span className="ml-2 text-xs font-medium text-fm-outline bg-fm-outline-variant/20 px-1.5 py-0.5 rounded">
                           Anulado
                         </span>
                       )}
                       {r.over_limit && !r.voided && (
-                        <span className="ml-2 text-xs font-medium text-[#b31b25] bg-[#b31b25]/10 px-1.5 py-0.5 rounded">
+                        <span className="ml-2 text-xs font-medium text-fm-error bg-fm-error/10 px-1.5 py-0.5 rounded">
                           Excedente
                         </span>
                       )}
@@ -171,24 +171,24 @@ export function RequirementHistory({
                       {!r.voided && type !== 'produccion' && type !== 'reunion' && logs.length > 0 && (
                         <button
                           onClick={() => setExpandedId(isExpanded ? null : r.id)}
-                          className="ml-2 text-xs font-medium px-1.5 py-0.5 rounded text-[#595c5e] bg-[#abadaf]/20 hover:bg-[#abadaf]/40 transition-colors"
+                          className="ml-2 text-xs font-medium px-1.5 py-0.5 rounded text-fm-on-surface-variant bg-fm-outline-variant/20 hover:bg-fm-outline-variant/40 transition-colors"
                         >
                           {logs.length} {logs.length === 1 ? 'cambio' : 'cambios'} {isExpanded ? '▲' : '▼'}
                         </button>
                       )}
                       {!r.voided && type !== 'produccion' && type !== 'reunion' && logs.length === 0 && r.cambios_count > 0 && (
-                        <span className="ml-2 text-xs font-medium px-1.5 py-0.5 rounded text-[#595c5e] bg-[#abadaf]/20">
+                        <span className="ml-2 text-xs font-medium px-1.5 py-0.5 rounded text-fm-on-surface-variant bg-fm-outline-variant/20">
                           {r.cambios_count} {r.cambios_count === 1 ? 'cambio' : 'cambios'}
                         </span>
                       )}
                     </p>
-                    <p className="text-xs text-[#595c5e] mt-0.5">
-                      <span className="text-[#abadaf]">{CONTENT_TYPE_LABELS[type]}</span>
+                    <p className="text-xs text-fm-on-surface-variant mt-0.5">
+                      <span className="text-fm-outline-variant">{CONTENT_TYPE_LABELS[type]}</span>
                       {r.notes && <span> — {r.notes}</span>}
                     </p>
-                    <p className="text-xs text-[#595c5e] mt-0.5">
+                    <p className="text-xs text-fm-on-surface-variant mt-0.5">
                       {daysAgo(r.registered_at)}&nbsp;·&nbsp;por{' '}
-                      <span className="font-semibold text-[#2c2f31]">{userName}</span>
+                      <span className="font-semibold text-fm-on-surface">{userName}</span>
                     </p>
                   </div>
                 </div>
@@ -203,7 +203,7 @@ export function RequirementHistory({
                         setCambioNote('')
                       }}
                       disabled={incrementingId === r.id}
-                      className="text-xs font-bold transition-colors disabled:opacity-30 text-[#00675c] hover:underline"
+                      className="text-xs font-bold transition-colors disabled:opacity-30 text-fm-primary hover:underline"
                     >
                       {incrementingId === r.id ? '...' : '+1 cambio'}
                     </button>
@@ -213,7 +213,7 @@ export function RequirementHistory({
                     <button
                       onClick={() => handleVoid(r.id)}
                       disabled={voidingId === r.id || !isAdmin}
-                      className="text-[#b31b25] text-xs font-bold hover:underline transition-colors disabled:opacity-30"
+                      className="text-fm-error text-xs font-bold hover:underline transition-colors disabled:opacity-30"
                     >
                       {voidingId === r.id ? '...' : 'Anular'}
                     </button>
@@ -223,26 +223,26 @@ export function RequirementHistory({
 
               {/* Inline cambio form */}
               {isCambioOpen && (
-                <div className="mt-3 ml-14 space-y-2 p-3 bg-[#f5f7f9] rounded-xl border border-[#dfe3e6]">
-                  <p className="text-xs font-semibold text-[#595c5e]">Descripción del cambio</p>
+                <div className="mt-3 ml-14 space-y-2 p-3 bg-fm-background rounded-xl border border-fm-surface-container-high">
+                  <p className="text-xs font-semibold text-fm-on-surface-variant">Descripción del cambio</p>
                   <textarea
                     value={cambioNote}
                     onChange={e => setCambioNote(e.target.value)}
                     placeholder="¿Qué cambió? (opcional)"
                     rows={2}
-                    className="w-full text-xs bg-white border border-[#dfe3e6] rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-[#00675c] text-[#2c2f31]"
+                    className="w-full text-xs bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-fm-primary text-fm-on-surface"
                   />
                   <div className="flex gap-2">
                     <button
                       onClick={() => { setCambioFormId(null); setCambioNote('') }}
-                      className="flex-1 py-1.5 text-xs font-semibold border border-[#dfe3e6] rounded-lg text-[#595c5e] hover:bg-white bg-transparent"
+                      className="flex-1 py-1.5 text-xs font-semibold border border-fm-surface-container-high rounded-lg text-fm-on-surface-variant hover:bg-fm-surface-container-lowest bg-transparent"
                     >
                       Cancelar
                     </button>
                     <button
                       onClick={() => handleAddCambio(r.id)}
                       disabled={incrementingId === r.id}
-                      className="flex-1 py-1.5 text-xs font-semibold rounded-lg text-white bg-[#00675c] hover:bg-[#005047] disabled:opacity-50"
+                      className="flex-1 py-1.5 text-xs font-semibold rounded-lg text-white bg-fm-primary hover:bg-fm-primary-dim disabled:opacity-50"
                     >
                       {incrementingId === r.id ? 'Registrando…' : 'Registrar'}
                     </button>
@@ -255,16 +255,16 @@ export function RequirementHistory({
                 <div className="mt-3 ml-14 space-y-2">
                   {logs.map((log, i) => (
                     <div key={log.id} className="flex gap-2 items-start">
-                      <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-[#abadaf] flex-shrink-0" />
+                      <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-fm-outline-variant flex-shrink-0" />
                       <div>
-                        <p className="text-[10px] text-[#abadaf]">
+                        <p className="text-[10px] text-fm-outline-variant">
                           Cambio {logs.length - i} ·{' '}
                           {new Date(log.created_at).toLocaleDateString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                         </p>
                         {log.notes ? (
-                          <p className="text-xs text-[#2c2f31] mt-0.5">{log.notes}</p>
+                          <p className="text-xs text-fm-on-surface mt-0.5">{log.notes}</p>
                         ) : (
-                          <p className="text-xs text-[#abadaf] italic">Sin descripción</p>
+                          <p className="text-xs text-fm-outline-variant italic">Sin descripción</p>
                         )}
                       </div>
                     </div>

@@ -88,7 +88,7 @@ export function NewRequirementFromPipeline({ clients, isAdmin, canAssign }: Prop
     <>
       <button
         onClick={() => setStep('pick')}
-        className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-[#00675c] text-white text-sm font-semibold rounded-xl hover:bg-[#005047] transition-colors"
+        className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-fm-primary text-white text-sm font-semibold rounded-xl hover:bg-fm-primary-dim transition-colors"
       >
         <span className="material-symbols-outlined text-base">add</span>
         Nuevo requerimiento
@@ -97,36 +97,36 @@ export function NewRequirementFromPipeline({ clients, isAdmin, canAssign }: Prop
       {/* Step 1 — Client picker */}
       {step === 'pick' && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2rem] w-full max-w-sm shadow-2xl overflow-hidden">
-            <div className="px-6 pt-6 pb-4 border-b border-[#f0f3f5]">
-              <h3 className="text-base font-extrabold text-[#2c2f31]">¿Para qué cliente?</h3>
-              <p className="text-xs text-[#595c5e] mt-0.5">Selecciona el cliente antes de registrar el requerimiento.</p>
+          <div className="bg-fm-surface-container-lowest rounded-[2rem] w-full max-w-sm shadow-2xl overflow-hidden">
+            <div className="px-6 pt-6 pb-4 border-b border-fm-surface-container-low">
+              <h3 className="text-base font-extrabold text-fm-on-surface">¿Para qué cliente?</h3>
+              <p className="text-xs text-fm-on-surface-variant mt-0.5">Selecciona el cliente antes de registrar el requerimiento.</p>
             </div>
 
             <div className="px-4 pt-4 pb-2">
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[#abadaf] text-base pointer-events-none">search</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-fm-outline-variant text-base pointer-events-none">search</span>
                 <input
                   autoFocus
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Buscar cliente…"
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-[#dfe3e6] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5bf4de]/30 text-[#2c2f31] placeholder:text-[#abadaf]"
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-fm-surface-container-high rounded-xl focus:outline-none focus:ring-2 focus:ring-fm-primary-container/30 text-fm-on-surface placeholder:text-fm-outline-variant"
                 />
               </div>
             </div>
 
             <ul className="max-h-64 overflow-y-auto px-4 pb-4 space-y-1">
               {filtered.length === 0 && (
-                <li className="text-xs text-[#abadaf] text-center py-6">Sin resultados</li>
+                <li className="text-xs text-fm-outline-variant text-center py-6">Sin resultados</li>
               )}
               {filtered.map((c) => (
                 <li key={c.id}>
                   <button
                     type="button"
                     onClick={() => { setSearch(''); selectClient(c.id) }}
-                    className="w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium text-[#2c2f31] hover:bg-[#f5f7f9] transition-colors"
+                    className="w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium text-fm-on-surface hover:bg-fm-background transition-colors"
                   >
                     {c.name}
                   </button>
@@ -135,7 +135,7 @@ export function NewRequirementFromPipeline({ clients, isAdmin, canAssign }: Prop
             </ul>
 
             <div className="px-6 pb-5">
-              <button onClick={close} className="w-full py-2 text-sm text-[#595c5e] border border-[#dfe3e6] rounded-full hover:bg-[#f5f7f9]">
+              <button onClick={close} className="w-full py-2 text-sm text-fm-on-surface-variant border border-fm-surface-container-high rounded-full hover:bg-fm-background">
                 Cancelar
               </button>
             </div>
@@ -146,19 +146,19 @@ export function NewRequirementFromPipeline({ clients, isAdmin, canAssign }: Prop
       {/* Loading overlay while fetching client data */}
       {step === 'form' && loadState === 'loading' && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-2xl px-8 py-6 flex items-center gap-3 shadow-xl">
-            <span className="material-symbols-outlined animate-spin text-[#00675c]">progress_activity</span>
-            <span className="text-sm font-medium text-[#2c2f31]">Cargando datos del cliente…</span>
+          <div className="bg-fm-surface-container-lowest rounded-2xl px-8 py-6 flex items-center gap-3 shadow-xl">
+            <span className="material-symbols-outlined animate-spin text-fm-primary">progress_activity</span>
+            <span className="text-sm font-medium text-fm-on-surface">Cargando datos del cliente…</span>
           </div>
         </div>
       )}
 
       {step === 'form' && loadState === 'error' && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl px-8 py-6 shadow-xl space-y-3 max-w-xs w-full text-center">
-            <span className="material-symbols-outlined text-[#b31b25] text-3xl">error</span>
-            <p className="text-sm text-[#2c2f31]">No se encontró un ciclo activo para este cliente.</p>
-            <button onClick={close} className="w-full py-2 text-sm border border-[#dfe3e6] rounded-full hover:bg-[#f5f7f9]">Cerrar</button>
+          <div className="bg-fm-surface-container-lowest rounded-2xl px-8 py-6 shadow-xl space-y-3 max-w-xs w-full text-center">
+            <span className="material-symbols-outlined text-fm-error text-3xl">error</span>
+            <p className="text-sm text-fm-on-surface">No se encontró un ciclo activo para este cliente.</p>
+            <button onClick={close} className="w-full py-2 text-sm border border-fm-surface-container-high rounded-full hover:bg-fm-background">Cerrar</button>
           </div>
         </div>
       )}

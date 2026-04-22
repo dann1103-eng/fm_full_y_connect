@@ -21,22 +21,22 @@ export function RequirementShareCard({ requirementId, title, isMine }: Requireme
       className={
         'mt-1 flex items-center gap-3 rounded-lg border px-3 py-2.5 max-w-md ' +
         (isMine
-          ? 'bg-white/90 border-white/50 text-[#2c2f31]'
-          : 'bg-white border-[#dfe3e6] text-[#2c2f31]')
+          ? 'bg-fm-surface-container-lowest/90 border-white/50 text-fm-on-surface'
+          : 'bg-fm-surface-container-lowest border-fm-surface-container-high text-fm-on-surface')
       }
     >
-      <div className="w-9 h-9 rounded-lg bg-[#00675c]/10 flex items-center justify-center flex-shrink-0">
-        <span className="material-symbols-outlined text-[#00675c] text-[20px]">assignment</span>
+      <div className="w-9 h-9 rounded-lg bg-fm-primary/10 flex items-center justify-center flex-shrink-0">
+        <span className="material-symbols-outlined text-fm-primary text-[20px]">assignment</span>
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-[10px] font-bold uppercase tracking-wider text-[#595c5e]/80">
+        <div className="text-[10px] font-bold uppercase tracking-wider text-fm-on-surface-variant/80">
           Requerimiento compartido
         </div>
         <div className="text-sm font-semibold truncate">{title}</div>
       </div>
       <Link
         href={`/pipeline?req=${requirementId}`}
-        className="text-xs font-bold text-[#00675c] hover:underline flex-shrink-0"
+        className="text-xs font-bold text-fm-primary hover:underline flex-shrink-0"
       >
         Abrir
       </Link>

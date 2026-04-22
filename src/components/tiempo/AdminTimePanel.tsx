@@ -72,7 +72,7 @@ export function AdminTimePanel({ users }: Props) {
   return (
     <div className="space-y-5">
       {error && (
-        <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-2xl text-sm text-[#b31b25] font-medium">
+        <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-2xl text-sm text-fm-error font-medium">
           {error}
         </div>
       )}
@@ -82,7 +82,7 @@ export function AdminTimePanel({ users }: Props) {
         <select
           value={selectedUserId}
           onChange={e => setSelectedUserId(e.target.value)}
-          className="border border-[#dfe3e6] rounded-xl px-4 py-2 text-sm text-[#2c2f31] bg-white focus:outline-none focus:ring-2 focus:ring-[#00675c]/30"
+          className="border border-fm-surface-container-high rounded-xl px-4 py-2 text-sm text-fm-on-surface bg-fm-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-fm-primary/30"
         >
           {users.map(u => (
             <option key={u.id} value={u.id}>{u.full_name} ({u.role})</option>
@@ -90,20 +90,20 @@ export function AdminTimePanel({ users }: Props) {
         </select>
 
         <div className="flex items-center gap-2">
-          <button onClick={prevMonth} className="p-1.5 rounded-full hover:bg-[#f5f7f9] text-[#595c5e]">
+          <button onClick={prevMonth} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant">
             <span className="material-symbols-outlined text-lg">chevron_left</span>
           </button>
-          <span className="text-sm font-bold text-[#2c2f31] w-32 text-center">{MONTHS[month]} {year}</span>
-          <button onClick={nextMonth} className="p-1.5 rounded-full hover:bg-[#f5f7f9] text-[#595c5e]">
+          <span className="text-sm font-bold text-fm-on-surface w-32 text-center">{MONTHS[month]} {year}</span>
+          <button onClick={nextMonth} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant">
             <span className="material-symbols-outlined text-lg">chevron_right</span>
           </button>
         </div>
 
-        <span className="text-sm text-[#595c5e]">Total: <strong className="text-[#2c2f31]">{formatDuration(monthTotal)}</strong></span>
+        <span className="text-sm text-fm-on-surface-variant">Total: <strong className="text-fm-on-surface">{formatDuration(monthTotal)}</strong></span>
 
         <button
           onClick={() => setShowAdd(true)}
-          className="ml-auto flex items-center gap-2 px-4 py-2 bg-[#00675c] text-white font-bold rounded-full hover:bg-[#005047] transition-all text-sm"
+          className="ml-auto flex items-center gap-2 px-4 py-2 bg-fm-primary text-white font-bold rounded-full hover:bg-fm-primary-dim transition-all text-sm"
         >
           <span className="material-symbols-outlined text-base">add</span>
           Agregar entrada
@@ -112,18 +112,18 @@ export function AdminTimePanel({ users }: Props) {
 
       {/* Entries */}
       <div className="glass-panel rounded-[2rem] p-6 space-y-5">
-        {loading && <p className="text-sm text-[#abadaf] py-4 text-center">Cargando…</p>}
+        {loading && <p className="text-sm text-fm-outline-variant py-4 text-center">Cargando…</p>}
         {!loading && days.length === 0 && (
-          <p className="text-sm text-[#abadaf] py-6 text-center">Sin registros este mes.</p>
+          <p className="text-sm text-fm-outline-variant py-6 text-center">Sin registros este mes.</p>
         )}
         {!loading && days.map(([date, dayEntries]) => (
           <div key={date}>
             <div className="flex items-center gap-3 mb-2">
-              <p className="text-xs font-extrabold text-[#595c5e] uppercase tracking-wider capitalize">
+              <p className="text-xs font-extrabold text-fm-on-surface-variant uppercase tracking-wider capitalize">
                 {formatDayLabel(date + 'T12:00:00')}
               </p>
-              <div className="flex-1 h-px bg-[#f0f3f5]" />
-              <p className="text-xs font-bold text-[#2c2f31]">
+              <div className="flex-1 h-px bg-fm-surface-container-low" />
+              <p className="text-xs font-bold text-fm-on-surface">
                 {formatDuration(dayEntries.filter(e => e.ended_at).reduce((s, e) => s + (e.duration_seconds ?? 0), 0))}
               </p>
             </div>
@@ -171,22 +171,22 @@ function AdminEntryRow({ entry, onEdit, onDelete, disabled }: {
   const isActive = !entry.ended_at
 
   return (
-    <div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors ${isActive ? 'bg-[#e8f5f3]' : 'bg-[#f9fafb] hover:bg-[#f0f3f5]'}`}>
+    <div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors ${isActive ? 'bg-fm-primary-container/30' : 'bg-fm-surface-container-low hover:bg-fm-surface-container-low'}`}>
       <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: isReq ? '#00675c' : '#abadaf' }} />
-      <p className="text-sm text-[#2c2f31] flex-1 truncate">{label}</p>
-      <p className="text-xs text-[#595c5e] tabular-nums">
-        {formatTime(entry.started_at)} – {entry.ended_at ? formatTime(entry.ended_at) : <span className="text-[#00675c] font-bold">activo</span>}
+      <p className="text-sm text-fm-on-surface flex-1 truncate">{label}</p>
+      <p className="text-xs text-fm-on-surface-variant tabular-nums">
+        {formatTime(entry.started_at)} – {entry.ended_at ? formatTime(entry.ended_at) : <span className="text-fm-primary font-bold">activo</span>}
       </p>
-      <p className="text-xs font-bold text-[#2c2f31] tabular-nums w-14 text-right">
+      <p className="text-xs font-bold text-fm-on-surface tabular-nums w-14 text-right">
         {entry.duration_seconds ? formatDuration(entry.duration_seconds) : '—'}
       </p>
-      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isReq ? 'bg-[#e8f5f3] text-[#00675c]' : 'bg-[#f0f2f4] text-[#595c5e]'}`}>
+      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isReq ? 'bg-fm-primary-container/30 text-fm-primary' : 'bg-fm-surface-container-low text-fm-on-surface-variant'}`}>
         {isReq ? 'REQ' : 'ADM'}
       </span>
-      <button onClick={onEdit} disabled={disabled} className="p-1 rounded-lg hover:bg-[#dfe3e6] text-[#595c5e] transition-colors">
+      <button onClick={onEdit} disabled={disabled} className="p-1 rounded-lg hover:bg-fm-surface-container-high text-fm-on-surface-variant transition-colors">
         <span className="material-symbols-outlined text-base">edit</span>
       </button>
-      <button onClick={onDelete} disabled={disabled} className="p-1 rounded-lg hover:bg-red-100 text-[#b31b25] transition-colors">
+      <button onClick={onDelete} disabled={disabled} className="p-1 rounded-lg hover:bg-red-100 text-fm-error transition-colors">
         <span className="material-symbols-outlined text-base">delete</span>
       </button>
     </div>
@@ -226,23 +226,23 @@ function AddEntryModal({ targetUserId, onClose, onSaved }: {
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-[2rem] p-8 w-full max-w-md space-y-5 shadow-2xl">
+      <div className="bg-fm-surface-container-lowest rounded-[2rem] p-8 w-full max-w-md space-y-5 shadow-2xl">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-extrabold text-[#2c2f31]">Agregar entrada</h3>
-          <button onClick={onClose} className="p-1 rounded-full hover:bg-[#f5f7f9] text-[#595c5e]">
+          <h3 className="text-lg font-extrabold text-fm-on-surface">Agregar entrada</h3>
+          <button onClick={onClose} className="p-1 rounded-full hover:bg-fm-background text-fm-on-surface-variant">
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
 
         <div className="space-y-4">
           <div>
-            <label className="text-xs font-bold text-[#595c5e] uppercase tracking-wide">Tipo</label>
+            <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Tipo</label>
             <div className="flex gap-3 mt-1.5">
               {(['administrative', 'requirement'] as const).map(t => (
                 <button
                   key={t}
                   onClick={() => setEntryType(t)}
-                  className={`flex-1 py-2 rounded-xl text-sm font-bold border transition-all ${entryType === t ? 'bg-[#00675c] text-white border-[#00675c]' : 'border-[#dfe3e6] text-[#595c5e]'}`}
+                  className={`flex-1 py-2 rounded-xl text-sm font-bold border transition-all ${entryType === t ? 'bg-fm-primary text-white border-fm-primary' : 'border-fm-surface-container-high text-fm-on-surface-variant'}`}
                 >
                   {t === 'administrative' ? 'Administrativo' : 'Requerimiento'}
                 </button>
@@ -252,56 +252,56 @@ function AddEntryModal({ targetUserId, onClose, onSaved }: {
 
           {entryType === 'administrative' ? (
             <div>
-              <label className="text-xs font-bold text-[#595c5e] uppercase tracking-wide">Categoría</label>
+              <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Categoría</label>
               <select
                 value={category}
                 onChange={e => setCategory(e.target.value as AdminCategory)}
-                className="mt-1.5 w-full border border-[#dfe3e6] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00675c]/30"
+                className="mt-1.5 w-full border border-fm-surface-container-high rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fm-primary/30"
               >
                 {ADMIN_CATEGORIES.map(c => <option key={c} value={c}>{ADMIN_CATEGORY_LABELS[c]}</option>)}
               </select>
             </div>
           ) : (
             <div>
-              <label className="text-xs font-bold text-[#595c5e] uppercase tracking-wide">Título del requerimiento</label>
+              <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Título del requerimiento</label>
               <input
                 value={title}
                 onChange={e => setTitle(e.target.value)}
                 placeholder="Nombre del requerimiento"
-                className="mt-1.5 w-full border border-[#dfe3e6] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00675c]/30"
+                className="mt-1.5 w-full border border-fm-surface-container-high rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fm-primary/30"
               />
             </div>
           )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-bold text-[#595c5e] uppercase tracking-wide">Inicio</label>
+              <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Inicio</label>
               <input
                 type="datetime-local"
                 value={startedAt}
                 onChange={e => setStartedAt(e.target.value)}
-                className="mt-1.5 w-full border border-[#dfe3e6] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00675c]/30"
+                className="mt-1.5 w-full border border-fm-surface-container-high rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fm-primary/30"
               />
             </div>
             <div>
-              <label className="text-xs font-bold text-[#595c5e] uppercase tracking-wide">Fin</label>
+              <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Fin</label>
               <input
                 type="datetime-local"
                 value={endedAt}
                 onChange={e => setEndedAt(e.target.value)}
-                className="mt-1.5 w-full border border-[#dfe3e6] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00675c]/30"
+                className="mt-1.5 w-full border border-fm-surface-container-high rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fm-primary/30"
               />
             </div>
           </div>
         </div>
 
-        {error && <p className="text-xs text-[#b31b25] font-semibold">{error}</p>}
+        {error && <p className="text-xs text-fm-error font-semibold">{error}</p>}
 
         <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 py-2.5 border border-[#dfe3e6] rounded-full text-sm font-bold text-[#595c5e] hover:bg-[#f5f7f9]">
+          <button onClick={onClose} className="flex-1 py-2.5 border border-fm-surface-container-high rounded-full text-sm font-bold text-fm-on-surface-variant hover:bg-fm-background">
             Cancelar
           </button>
-          <button onClick={handleSubmit} disabled={isPending} className="flex-1 py-2.5 bg-[#00675c] text-white rounded-full text-sm font-bold hover:bg-[#005047] disabled:opacity-60">
+          <button onClick={handleSubmit} disabled={isPending} className="flex-1 py-2.5 bg-fm-primary text-white rounded-full text-sm font-bold hover:bg-fm-primary-dim disabled:opacity-60">
             {isPending ? 'Guardando…' : 'Guardar'}
           </button>
         </div>
@@ -344,10 +344,10 @@ function EditEntryModal({ entry, onClose, onSaved }: {
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-[2rem] p-8 w-full max-w-md space-y-5 shadow-2xl">
+      <div className="bg-fm-surface-container-lowest rounded-[2rem] p-8 w-full max-w-md space-y-5 shadow-2xl">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-extrabold text-[#2c2f31]">Editar entrada</h3>
-          <button onClick={onClose} className="p-1 rounded-full hover:bg-[#f5f7f9] text-[#595c5e]">
+          <h3 className="text-lg font-extrabold text-fm-on-surface">Editar entrada</h3>
+          <button onClick={onClose} className="p-1 rounded-full hover:bg-fm-background text-fm-on-surface-variant">
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
@@ -355,11 +355,11 @@ function EditEntryModal({ entry, onClose, onSaved }: {
         <div className="space-y-4">
           {entry.entry_type === 'administrative' && (
             <div>
-              <label className="text-xs font-bold text-[#595c5e] uppercase tracking-wide">Categoría</label>
+              <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Categoría</label>
               <select
                 value={category ?? ''}
                 onChange={e => setCategory(e.target.value as AdminCategory)}
-                className="mt-1.5 w-full border border-[#dfe3e6] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00675c]/30"
+                className="mt-1.5 w-full border border-fm-surface-container-high rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fm-primary/30"
               >
                 {ADMIN_CATEGORIES.map(c => <option key={c} value={c}>{ADMIN_CATEGORY_LABELS[c]}</option>)}
               </select>
@@ -367,23 +367,23 @@ function EditEntryModal({ entry, onClose, onSaved }: {
           )}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-bold text-[#595c5e] uppercase tracking-wide">Inicio</label>
+              <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Inicio</label>
               <input type="datetime-local" value={startedAt} onChange={e => setStartedAt(e.target.value)}
-                className="mt-1.5 w-full border border-[#dfe3e6] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00675c]/30" />
+                className="mt-1.5 w-full border border-fm-surface-container-high rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fm-primary/30" />
             </div>
             <div>
-              <label className="text-xs font-bold text-[#595c5e] uppercase tracking-wide">Fin</label>
+              <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Fin</label>
               <input type="datetime-local" value={endedAt} onChange={e => setEndedAt(e.target.value)}
-                className="mt-1.5 w-full border border-[#dfe3e6] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00675c]/30" />
+                className="mt-1.5 w-full border border-fm-surface-container-high rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fm-primary/30" />
             </div>
           </div>
         </div>
 
-        {error && <p className="text-xs text-[#b31b25] font-semibold">{error}</p>}
+        {error && <p className="text-xs text-fm-error font-semibold">{error}</p>}
 
         <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 py-2.5 border border-[#dfe3e6] rounded-full text-sm font-bold text-[#595c5e] hover:bg-[#f5f7f9]">Cancelar</button>
-          <button onClick={handleSubmit} disabled={isPending} className="flex-1 py-2.5 bg-[#00675c] text-white rounded-full text-sm font-bold hover:bg-[#005047] disabled:opacity-60">
+          <button onClick={onClose} className="flex-1 py-2.5 border border-fm-surface-container-high rounded-full text-sm font-bold text-fm-on-surface-variant hover:bg-fm-background">Cancelar</button>
+          <button onClick={handleSubmit} disabled={isPending} className="flex-1 py-2.5 bg-fm-primary text-white rounded-full text-sm font-bold hover:bg-fm-primary-dim disabled:opacity-60">
             {isPending ? 'Guardando…' : 'Guardar'}
           </button>
         </div>

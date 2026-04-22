@@ -310,7 +310,7 @@ export default function ClientEditPage() {
     return (
       <div className="flex flex-col h-full">
         <TopNav title="Editar cliente" />
-        <div className="flex-1 flex items-center justify-center text-[#595c5e] text-sm">Cargando...</div>
+        <div className="flex-1 flex items-center justify-center text-fm-on-surface-variant text-sm">Cargando...</div>
       </div>
     )
   }
@@ -325,16 +325,16 @@ export default function ClientEditPage() {
           {/* ── Left: client form ── */}
           <div className="flex-shrink-0 w-[440px]">
             {/* Breadcrumb */}
-            <div className="flex items-center gap-2 text-sm text-[#595c5e] mb-5">
-              <Link href="/clients" className="hover:text-[#00675c] transition-colors">Clientes</Link>
+            <div className="flex items-center gap-2 text-sm text-fm-on-surface-variant mb-5">
+              <Link href="/clients" className="hover:text-fm-primary transition-colors">Clientes</Link>
               <span>/</span>
-              <Link href={`/clients/${id}`} className="hover:text-[#00675c] transition-colors">{client?.name}</Link>
+              <Link href={`/clients/${id}`} className="hover:text-fm-primary transition-colors">{client?.name}</Link>
               <span>/</span>
-              <span className="text-[#2c2f31] font-medium">Editar</span>
+              <span className="text-fm-on-surface font-medium">Editar</span>
             </div>
 
-            <div className="bg-white rounded-2xl border border-[#abadaf]/20 p-6">
-              <h2 className="text-lg font-semibold text-[#2c2f31] mb-5">Datos del cliente</h2>
+            <div className="bg-fm-surface-container-lowest rounded-2xl border border-fm-outline-variant/20 p-6">
+              <h2 className="text-lg font-semibold text-fm-on-surface mb-5">Datos del cliente</h2>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -353,31 +353,31 @@ export default function ClientEditPage() {
                   <div className="col-span-2 space-y-1.5">
                     <Label>Nombre *</Label>
                     <Input required value={form.name} onChange={(e) => set('name', e.target.value)}
-                      className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                      className="rounded-xl bg-fm-background border-fm-surface-container-high" />
                   </div>
 
                   <div className="space-y-1.5">
                     <Label>Plan *</Label>
                     <select required value={form.current_plan_id} onChange={(e) => { set('current_plan_id', e.target.value); setWeeklyTargets({}) }}
-                      className="w-full py-2 px-3 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl text-[#2c2f31] focus:outline-none focus:border-[#00675c]">
+                      className="w-full py-2 px-3 text-sm bg-fm-background border border-fm-surface-container-high rounded-xl text-fm-on-surface focus:outline-none focus:border-fm-primary">
                       {plans.map((p) => (
                         <option key={p.id} value={p.id}>{p.name} — ${p.price_usd}</option>
                       ))}
                     </select>
-                    <p className="text-xs text-[#747779]">El cambio aplica al siguiente ciclo.</p>
+                    <p className="text-xs text-fm-outline">El cambio aplica al siguiente ciclo.</p>
                   </div>
 
                   <div className="space-y-1.5">
                     <Label>Día de facturación *</Label>
                     <Input required type="number" min={1} max={31} value={form.billing_day}
                       onChange={(e) => set('billing_day', e.target.value)}
-                      className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                      className="rounded-xl bg-fm-background border-fm-surface-container-high" />
                   </div>
 
                   <div className="space-y-1.5">
                     <Label>Período de facturación</Label>
                     <select value={billingPeriod} onChange={(e) => setBillingPeriod(e.target.value as BillingPeriod)}
-                      className="w-full py-2 px-3 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl text-[#2c2f31] focus:outline-none focus:border-[#00675c]">
+                      className="w-full py-2 px-3 text-sm bg-fm-background border border-fm-surface-container-high rounded-xl text-fm-on-surface focus:outline-none focus:border-fm-primary">
                       <option value="monthly">Mensual</option>
                       <option value="biweekly">Quincenal</option>
                     </select>
@@ -390,62 +390,62 @@ export default function ClientEditPage() {
                         value={billingDay2}
                         onChange={(e) => setBillingDay2(e.target.value)}
                         placeholder="ej. 15"
-                        className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                        className="rounded-xl bg-fm-background border-fm-surface-container-high" />
                     </div>
                   )}
 
                   <div className="space-y-1.5">
                     <Label>Correo de contacto</Label>
                     <Input type="email" value={form.contact_email} onChange={(e) => set('contact_email', e.target.value)}
-                      placeholder="cliente@email.com" className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                      placeholder="cliente@email.com" className="rounded-xl bg-fm-background border-fm-surface-container-high" />
                   </div>
 
                   <div className="space-y-1.5">
                     <Label>Teléfono</Label>
                     <Input value={form.contact_phone} onChange={(e) => set('contact_phone', e.target.value)}
-                      placeholder="+503 7000 0000" className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                      placeholder="+503 7000 0000" className="rounded-xl bg-fm-background border-fm-surface-container-high" />
                   </div>
 
                   {/* Redes sociales */}
                   <div className="col-span-2 pt-1">
-                    <p className="text-xs font-semibold text-[#abadaf] uppercase tracking-widest mb-3">
+                    <p className="text-xs font-semibold text-fm-outline-variant uppercase tracking-widest mb-3">
                       Redes sociales y contacto digital
                     </p>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <Label>Instagram</Label>
                         <Input value={form.ig_handle} onChange={(e) => set('ig_handle', e.target.value)}
-                          placeholder="@handle" className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                          placeholder="@handle" className="rounded-xl bg-fm-background border-fm-surface-container-high" />
                       </div>
                       <div className="space-y-1.5">
                         <Label>Facebook</Label>
                         <Input value={form.fb_handle} onChange={(e) => set('fb_handle', e.target.value)}
-                          placeholder="nombre de página o URL" className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                          placeholder="nombre de página o URL" className="rounded-xl bg-fm-background border-fm-surface-container-high" />
                       </div>
                       <div className="space-y-1.5">
                         <Label>TikTok</Label>
                         <Input value={form.tiktok_handle} onChange={(e) => set('tiktok_handle', e.target.value)}
-                          placeholder="@handle" className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                          placeholder="@handle" className="rounded-xl bg-fm-background border-fm-surface-container-high" />
                       </div>
                       <div className="space-y-1.5">
                         <Label>YouTube</Label>
                         <Input value={form.yt_handle} onChange={(e) => set('yt_handle', e.target.value)}
-                          placeholder="@canal o nombre" className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                          placeholder="@canal o nombre" className="rounded-xl bg-fm-background border-fm-surface-container-high" />
                       </div>
                       <div className="space-y-1.5">
                         <Label>LinkedIn</Label>
                         <Input value={form.linkedin_handle} onChange={(e) => set('linkedin_handle', e.target.value)}
-                          placeholder="nombre de empresa o URL" className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                          placeholder="nombre de empresa o URL" className="rounded-xl bg-fm-background border-fm-surface-container-high" />
                       </div>
                       <div className="space-y-1.5">
                         <Label>Sitio web</Label>
                         <Input value={form.website_url} onChange={(e) => set('website_url', e.target.value)}
-                          placeholder="https://ejemplo.com" className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                          placeholder="https://ejemplo.com" className="rounded-xl bg-fm-background border-fm-surface-container-high" />
                       </div>
                       <div className="col-span-2 space-y-1.5">
-                        <Label>Otro <span className="text-[#abadaf] font-normal">(WhatsApp, Threads, etc.)</span></Label>
+                        <Label>Otro <span className="text-fm-outline-variant font-normal">(WhatsApp, Threads, etc.)</span></Label>
                         <Input value={form.other_contact} onChange={(e) => set('other_contact', e.target.value)}
-                          placeholder="descripción y enlace o handle" className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]" />
+                          placeholder="descripción y enlace o handle" className="rounded-xl bg-fm-background border-fm-surface-container-high" />
                       </div>
                     </div>
                   </div>
@@ -454,15 +454,15 @@ export default function ClientEditPage() {
                   {limits && (
                     <div className="col-span-2 pt-1">
                       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                        <p className="text-xs font-semibold text-[#abadaf] uppercase tracking-widest">
+                        <p className="text-xs font-semibold text-fm-outline-variant uppercase tracking-widest">
                           Distribución semanal{' '}
-                          <span className="normal-case font-normal text-[#747779]">(cuántas piezas por semana)</span>
+                          <span className="normal-case font-normal text-fm-outline">(cuántas piezas por semana)</span>
                         </p>
                         {selectedPlan?.default_weekly_distribution_json && (
                           <button
                             type="button"
                             onClick={() => setWeeklyDist(selectedPlan.default_weekly_distribution_json!)}
-                            className="text-xs text-[#00675c] hover:underline"
+                            className="text-xs text-fm-primary hover:underline"
                           >
                             Restaurar defaults del plan
                           </button>
@@ -470,14 +470,14 @@ export default function ClientEditPage() {
                       </div>
 
                       {/* Week tabs */}
-                      <div className="flex rounded-xl border border-[#dfe3e6] overflow-hidden mb-4 w-fit">
+                      <div className="flex rounded-xl border border-fm-surface-container-high overflow-hidden mb-4 w-fit">
                         {(['S1','S2','S3','S4'] as WeekKey[]).map(w => (
                           <button
                             key={w}
                             type="button"
                             onClick={() => setActiveWeekTab(w)}
                             className={`px-4 py-1.5 text-sm font-semibold transition-colors ${
-                              activeWeekTab === w ? 'bg-[#00675c] text-white' : 'text-[#595c5e] hover:bg-[#f5f7f9]'
+                              activeWeekTab === w ? 'bg-fm-primary text-white' : 'text-fm-on-surface-variant hover:bg-fm-background'
                             }`}
                           >
                             {w}
@@ -503,7 +503,7 @@ export default function ClientEditPage() {
                                     return { ...prev, [activeWeekTab]: weekSlot }
                                   })
                                 }
-                                className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                                className="rounded-xl bg-fm-background border-fm-surface-container-high"
                               />
                             </div>
                           ))}
@@ -515,12 +515,12 @@ export default function ClientEditPage() {
                     <Label>Notas internas</Label>
                     <Textarea value={form.notes} onChange={(e) => set('notes', e.target.value)}
                       placeholder="Detalles adicionales sobre el cliente..."
-                      className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6] resize-none" rows={3} />
+                      className="rounded-xl bg-fm-background border-fm-surface-container-high resize-none" rows={3} />
                   </div>
                 </div>
 
                 {error && (
-                  <p className="text-sm text-[#b31b25] bg-[#b31b25]/5 rounded-xl px-3 py-2 border border-[#b31b25]/20">
+                  <p className="text-sm text-fm-error bg-fm-error/5 rounded-xl px-3 py-2 border border-fm-error/20">
                     {error}
                   </p>
                 )}
@@ -542,62 +542,62 @@ export default function ClientEditPage() {
           {isAdmin && currentCycle && (
             <div className="flex-1 min-w-0">
               <div className="mb-5 h-[38px] flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#b31b25] text-lg">shield</span>
-                <span className="text-sm font-semibold text-[#2c2f31]">Configuración del ciclo actual</span>
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#b31b25]/8 text-[#b31b25] border border-[#b31b25]/15">
+                <span className="material-symbols-outlined text-fm-error text-lg">shield</span>
+                <span className="text-sm font-semibold text-fm-on-surface">Configuración del ciclo actual</span>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-fm-error/8 text-fm-error border border-fm-error/15">
                   Solo admin
                 </span>
               </div>
 
-              <div className="bg-white rounded-2xl border border-[#b31b25]/15 p-6 space-y-6">
+              <div className="bg-fm-surface-container-lowest rounded-2xl border border-fm-error/15 p-6 space-y-6">
 
                 {/* 1. Cambios del ciclo */}
                 <div>
-                  <p className="text-[11px] font-bold text-[#abadaf] uppercase tracking-wider mb-3">
+                  <p className="text-[11px] font-bold text-fm-outline-variant uppercase tracking-wider mb-3">
                     Cambios del ciclo
                   </p>
 
                   {/* Budget summary */}
                   <div className="grid grid-cols-3 gap-2 mb-4">
-                    <div className="bg-[#f5f7f9] rounded-xl p-3 border border-[#dfe3e6]">
-                      <p className="text-[10px] text-[#595c5e] mb-0.5">Incluidos en plan</p>
-                      <p className="text-xl font-bold text-[#2c2f31]">
+                    <div className="bg-fm-background rounded-xl p-3 border border-fm-surface-container-high">
+                      <p className="text-[10px] text-fm-on-surface-variant mb-0.5">Incluidos en plan</p>
+                      <p className="text-xl font-bold text-fm-on-surface">
                         {selectedPlan?.cambios_included ?? currentCycle.cambios_budget}
                       </p>
                     </div>
-                    <div className="bg-[#f5f7f9] rounded-xl p-3 border border-[#dfe3e6]">
-                      <p className="text-[10px] text-[#595c5e] mb-0.5">Paquetes extra</p>
-                      <p className="text-xl font-bold text-[#00675c]">
+                    <div className="bg-fm-background rounded-xl p-3 border border-fm-surface-container-high">
+                      <p className="text-[10px] text-fm-on-surface-variant mb-0.5">Paquetes extra</p>
+                      <p className="text-xl font-bold text-fm-primary">
                         +{cambiosPackages.reduce((s, p) => s + p.qty, 0)}
                       </p>
                     </div>
-                    <div className="bg-[#00675c]/08 rounded-xl p-3 border border-[#00675c]/20" style={{ background: 'rgba(0,103,92,.06)' }}>
-                      <p className="text-[10px] text-[#595c5e] mb-0.5">Total disponible</p>
-                      <p className="text-xl font-bold text-[#00675c]">{totalCambiosBudget}</p>
+                    <div className="bg-fm-primary/08 rounded-xl p-3 border border-fm-primary/20" style={{ background: 'rgba(0,103,92,.06)' }}>
+                      <p className="text-[10px] text-fm-on-surface-variant mb-0.5">Total disponible</p>
+                      <p className="text-xl font-bold text-fm-primary">{totalCambiosBudget}</p>
                     </div>
                   </div>
 
                   {/* Add package */}
                   <div className="flex gap-2 mb-2">
                     <div className="flex flex-col gap-1 flex-shrink-0 w-20">
-                      <label className="text-[10px] font-medium text-[#595c5e]">Cantidad</label>
+                      <label className="text-[10px] font-medium text-fm-on-surface-variant">Cantidad</label>
                       <Input type="number" min={1} value={pkgQty} onChange={e => setPkgQty(e.target.value)}
-                        className="rounded-lg bg-[#f5f7f9] border-[#dfe3e6] h-8 text-sm" />
+                        className="rounded-lg bg-fm-background border-fm-surface-container-high h-8 text-sm" />
                     </div>
                     <div className="flex flex-col gap-1 flex-shrink-0 w-24">
-                      <label className="text-[10px] font-medium text-[#595c5e]">Precio (USD)</label>
+                      <label className="text-[10px] font-medium text-fm-on-surface-variant">Precio (USD)</label>
                       <Input type="number" step="0.01" placeholder="0.00" value={pkgPrice} onChange={e => setPkgPrice(e.target.value)}
-                        className="rounded-lg bg-[#f5f7f9] border-[#dfe3e6] h-8 text-sm" />
+                        className="rounded-lg bg-fm-background border-fm-surface-container-high h-8 text-sm" />
                     </div>
                     <div className="flex flex-col gap-1 flex-1">
-                      <label className="text-[10px] font-medium text-[#595c5e]">Nota</label>
+                      <label className="text-[10px] font-medium text-fm-on-surface-variant">Nota</label>
                       <Input placeholder="ej. paquete extra acordado" value={pkgNote} onChange={e => setPkgNote(e.target.value)}
-                        className="rounded-lg bg-[#f5f7f9] border-[#dfe3e6] h-8 text-sm" />
+                        className="rounded-lg bg-fm-background border-fm-surface-container-high h-8 text-sm" />
                     </div>
                     <div className="flex flex-col gap-1 flex-shrink-0">
                       <label className="text-[10px] text-transparent">add</label>
                       <button onClick={addCambiosPackage}
-                        className="h-8 px-3 rounded-lg border border-[#00675c] text-[#00675c] text-xs font-semibold hover:bg-[#00675c]/5">
+                        className="h-8 px-3 rounded-lg border border-fm-primary text-fm-primary text-xs font-semibold hover:bg-fm-primary/5">
                         + Agregar
                       </button>
                     </div>
@@ -606,42 +606,42 @@ export default function ClientEditPage() {
                   {/* Package list */}
                   <div className="space-y-1.5">
                     {cambiosPackages.map((pkg, i) => (
-                      <div key={i} className="flex items-center gap-2 text-xs px-3 py-2 bg-[#f5f7f9] rounded-lg border border-[#dfe3e6]">
-                        <span className="flex-1 text-[#2c2f31]">
+                      <div key={i} className="flex items-center gap-2 text-xs px-3 py-2 bg-fm-background rounded-lg border border-fm-surface-container-high">
+                        <span className="flex-1 text-fm-on-surface">
                           <strong>+{pkg.qty} cambios</strong>
                           {pkg.price_usd != null && ` · $${pkg.price_usd.toFixed(2)}`}
                           {pkg.note && ` · ${pkg.note}`}
                         </span>
-                        <span className="text-[#abadaf]">{new Date(pkg.created_at).toLocaleDateString('es-SV', { day: 'numeric', month: 'short' })}</span>
+                        <span className="text-fm-outline-variant">{new Date(pkg.created_at).toLocaleDateString('es-SV', { day: 'numeric', month: 'short' })}</span>
                         <button onClick={() => setCambiosPackages(prev => prev.filter((_, j) => j !== i))}
-                          className="text-[#b31b25] opacity-60 hover:opacity-100">
+                          className="text-fm-error opacity-60 hover:opacity-100">
                           <span className="material-symbols-outlined" style={{ fontSize: 14 }}>delete</span>
                         </button>
                       </div>
                     ))}
                     {cambiosPackages.length === 0 && (
-                      <p className="text-xs text-[#abadaf] italic px-1">Sin paquetes extra este ciclo.</p>
+                      <p className="text-xs text-fm-outline-variant italic px-1">Sin paquetes extra este ciclo.</p>
                     )}
                   </div>
                 </div>
 
-                <div className="h-px bg-[#dfe3e6]" />
+                <div className="h-px bg-fm-surface-container-high" />
 
                 {/* 2. Contenido extra vendido */}
                 <div>
-                  <p className="text-[11px] font-bold text-[#abadaf] uppercase tracking-wider mb-0.5">
+                  <p className="text-[11px] font-bold text-fm-outline-variant uppercase tracking-wider mb-0.5">
                     Contenido extra vendido
                   </p>
-                  <p className="text-[10px] text-[#747779] mb-3">
+                  <p className="text-[10px] text-fm-outline mb-3">
                     Cobros adicionales fuera del plan — fotografía, diseño, consultorías, etc.
                   </p>
 
                   {/* Mode toggle */}
-                  <div className="flex gap-1 mb-3 bg-[#f5f7f9] rounded-lg border border-[#dfe3e6] p-0.5 w-fit">
+                  <div className="flex gap-1 mb-3 bg-fm-background rounded-lg border border-fm-surface-container-high p-0.5 w-fit">
                     <button
                       onClick={() => setExtraIsCustom(false)}
                       className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                        !extraIsCustom ? 'bg-white text-[#2c2f31] shadow-sm' : 'text-[#747779]'
+                        !extraIsCustom ? 'bg-fm-surface-container-lowest text-fm-on-surface shadow-sm' : 'text-fm-outline'
                       }`}
                     >
                       Estándar
@@ -649,7 +649,7 @@ export default function ClientEditPage() {
                     <button
                       onClick={() => setExtraIsCustom(true)}
                       className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                        extraIsCustom ? 'bg-white text-[#2c2f31] shadow-sm' : 'text-[#747779]'
+                        extraIsCustom ? 'bg-fm-surface-container-lowest text-fm-on-surface shadow-sm' : 'text-fm-outline'
                       }`}
                     >
                       Personalizado
@@ -659,7 +659,7 @@ export default function ClientEditPage() {
                   {!extraIsCustom && (
                     <div className="flex gap-1.5 mb-3 flex-wrap">
                       {(Object.entries(EXTRA_CONTENT_PRICES) as [ContentType, number][]).map(([type, price]) => (
-                        <span key={type} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#f5f7f9] border border-[#dfe3e6] text-[#595c5e]">
+                        <span key={type} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-fm-background border border-fm-surface-container-high text-fm-on-surface-variant">
                           {CONTENT_TYPE_LABELS[type]} · ${price}
                         </span>
                       ))}
@@ -670,21 +670,21 @@ export default function ClientEditPage() {
                     {extraIsCustom ? (
                       <>
                         <div className="flex flex-col gap-1 flex-1">
-                          <label className="text-[10px] font-medium text-[#595c5e]">Descripción</label>
+                          <label className="text-[10px] font-medium text-fm-on-surface-variant">Descripción</label>
                           <Input placeholder="ej. Sesión fotográfica" value={extraLabel} onChange={e => setExtraLabel(e.target.value)}
-                            className="rounded-lg bg-[#f5f7f9] border-[#dfe3e6] h-8 text-sm" />
+                            className="rounded-lg bg-fm-background border-fm-surface-container-high h-8 text-sm" />
                         </div>
                         <div className="flex flex-col gap-1 flex-shrink-0 w-24">
-                          <label className="text-[10px] font-medium text-[#595c5e]">Precio/u (USD)</label>
+                          <label className="text-[10px] font-medium text-fm-on-surface-variant">Precio/u (USD)</label>
                           <Input type="number" step="0.01" placeholder="0.00" value={extraPrice} onChange={e => setExtraPrice(e.target.value)}
-                            className="rounded-lg bg-[#f5f7f9] border-[#dfe3e6] h-8 text-sm" />
+                            className="rounded-lg bg-fm-background border-fm-surface-container-high h-8 text-sm" />
                         </div>
                       </>
                     ) : (
                       <div className="flex flex-col gap-1 flex-1">
-                        <label className="text-[10px] font-medium text-[#595c5e]">Tipo</label>
+                        <label className="text-[10px] font-medium text-fm-on-surface-variant">Tipo</label>
                         <select value={extraType} onChange={e => setExtraType(e.target.value as ContentType)}
-                          className="h-8 px-2 rounded-lg border border-[#dfe3e6] bg-[#f5f7f9] text-xs text-[#2c2f31] focus:outline-none focus:border-[#00675c]">
+                          className="h-8 px-2 rounded-lg border border-fm-surface-container-high bg-fm-background text-xs text-fm-on-surface focus:outline-none focus:border-fm-primary">
                           {(Object.keys(EXTRA_CONTENT_PRICES) as ContentType[]).map(t => (
                             <option key={t} value={t}>{CONTENT_TYPE_LABELS[t]} · ${EXTRA_CONTENT_PRICES[t]}</option>
                           ))}
@@ -692,19 +692,19 @@ export default function ClientEditPage() {
                       </div>
                     )}
                     <div className="flex flex-col gap-1 flex-shrink-0 w-16">
-                      <label className="text-[10px] font-medium text-[#595c5e]">Cant.</label>
+                      <label className="text-[10px] font-medium text-fm-on-surface-variant">Cant.</label>
                       <Input type="number" min={1} value={extraQty} onChange={e => setExtraQty(e.target.value)}
-                        className="rounded-lg bg-[#f5f7f9] border-[#dfe3e6] h-8 text-sm" />
+                        className="rounded-lg bg-fm-background border-fm-surface-container-high h-8 text-sm" />
                     </div>
                     <div className="flex flex-col gap-1 flex-1">
-                      <label className="text-[10px] font-medium text-[#595c5e]">Nota</label>
+                      <label className="text-[10px] font-medium text-fm-on-surface-variant">Nota</label>
                       <Input placeholder="opcional" value={extraNote} onChange={e => setExtraNote(e.target.value)}
-                        className="rounded-lg bg-[#f5f7f9] border-[#dfe3e6] h-8 text-sm" />
+                        className="rounded-lg bg-fm-background border-fm-surface-container-high h-8 text-sm" />
                     </div>
                     <div className="flex flex-col gap-1 flex-shrink-0">
                       <label className="text-[10px] text-transparent">add</label>
                       <button onClick={addExtraContent}
-                        className="h-8 px-3 rounded-lg border border-[#00675c] text-[#00675c] text-xs font-semibold hover:bg-[#00675c]/5">
+                        className="h-8 px-3 rounded-lg border border-fm-primary text-fm-primary text-xs font-semibold hover:bg-fm-primary/5">
                         + Agregar
                       </button>
                     </div>
@@ -712,38 +712,38 @@ export default function ClientEditPage() {
 
                   <div className="space-y-1.5">
                     {extraContent.map((item, i) => (
-                      <div key={i} className="flex items-center gap-2 text-xs px-3 py-2 bg-[#f5f7f9] rounded-lg border border-[#dfe3e6]">
-                        <span className="flex-1 text-[#2c2f31]">
+                      <div key={i} className="flex items-center gap-2 text-xs px-3 py-2 bg-fm-background rounded-lg border border-fm-surface-container-high">
+                        <span className="flex-1 text-fm-on-surface">
                           {item.qty}× {item.label}
                           {item.note && ` · ${item.note}`}
                         </span>
-                        <span className="font-semibold text-[#00675c]">${(item.price_per_unit * item.qty).toFixed(2)}</span>
+                        <span className="font-semibold text-fm-primary">${(item.price_per_unit * item.qty).toFixed(2)}</span>
                         <button onClick={() => setExtraContent(prev => prev.filter((_, j) => j !== i))}
-                          className="text-[#b31b25] opacity-60 hover:opacity-100">
+                          className="text-fm-error opacity-60 hover:opacity-100">
                           <span className="material-symbols-outlined" style={{ fontSize: 14 }}>delete</span>
                         </button>
                       </div>
                     ))}
                     {extraContent.length === 0 && (
-                      <p className="text-xs text-[#abadaf] italic px-1">Sin contenido extra este ciclo.</p>
+                      <p className="text-xs text-fm-outline-variant italic px-1">Sin contenido extra este ciclo.</p>
                     )}
                   </div>
 
                   {extraContent.length > 0 && (
-                    <p className="text-xs text-[#595c5e] mt-2 px-1">
-                      Total facturado extra: <strong className="text-[#00675c]">${totalExtraRevenue.toFixed(2)}</strong>
+                    <p className="text-xs text-fm-on-surface-variant mt-2 px-1">
+                      Total facturado extra: <strong className="text-fm-primary">${totalExtraRevenue.toFixed(2)}</strong>
                     </p>
                   )}
                 </div>
 
-                <div className="h-px bg-[#dfe3e6]" />
+                <div className="h-px bg-fm-surface-container-high" />
 
                 {/* 3. Content overrides */}
                 <div>
-                  <p className="text-[11px] font-bold text-[#abadaf] uppercase tracking-wider mb-1">
+                  <p className="text-[11px] font-bold text-fm-outline-variant uppercase tracking-wider mb-1">
                     Cantidades de contenido — override este ciclo
                   </p>
-                  <p className="text-[10px] text-[#747779] mb-3">
+                  <p className="text-[10px] text-fm-outline mb-3">
                     Deja en blanco para usar el valor del plan. Solo aplica a este ciclo.
                   </p>
                   <div className="grid grid-cols-4 gap-2">
@@ -752,12 +752,12 @@ export default function ClientEditPage() {
                       const overrideVal = contentOverride[type]
                       const isModified = overrideVal !== undefined && overrideVal !== baseVal
                       return (
-                        <div key={type} className={`rounded-xl p-2.5 border ${isModified ? 'border-[#00675c]/30 bg-[#00675c]/04' : 'border-[#dfe3e6] bg-[#f5f7f9]'}`}
+                        <div key={type} className={`rounded-xl p-2.5 border ${isModified ? 'border-fm-primary/30 bg-fm-primary/04' : 'border-fm-surface-container-high bg-fm-background'}`}
                           style={isModified ? { background: 'rgba(0,103,92,.04)' } : {}}>
-                          <label className="text-[10px] font-medium text-[#595c5e] block mb-1">
+                          <label className="text-[10px] font-medium text-fm-on-surface-variant block mb-1">
                             {CONTENT_TYPE_LABELS[type]}
                           </label>
-                          <p className="text-[9px] text-[#abadaf] mb-1.5">Base: {baseVal}</p>
+                          <p className="text-[9px] text-fm-outline-variant mb-1.5">Base: {baseVal}</p>
                           <input
                             type="number" min={0}
                             placeholder={String(baseVal)}
@@ -773,8 +773,8 @@ export default function ClientEditPage() {
                             }}
                             className={`w-full h-7 px-2 rounded-lg text-xs font-bold border focus:outline-none ${
                               isModified
-                                ? 'border-[#00675c]/40 bg-white text-[#00675c]'
-                                : 'border-[#dfe3e6] bg-white text-[#2c2f31]'
+                                ? 'border-fm-primary/40 bg-fm-surface-container-lowest text-fm-primary'
+                                : 'border-fm-surface-container-high bg-fm-surface-container-lowest text-fm-on-surface'
                             }`}
                           />
                         </div>
@@ -796,11 +796,11 @@ export default function ClientEditPage() {
 
                   return (
                     <div>
-                      <div className="h-px bg-[#dfe3e6] mb-5" />
-                      <p className="text-[11px] font-bold text-[#abadaf] uppercase tracking-wider mb-1">
+                      <div className="h-px bg-fm-surface-container-high mb-5" />
+                      <p className="text-[11px] font-bold text-fm-outline-variant uppercase tracking-wider mb-1">
                         Distribución semanal del cambio
                       </p>
-                      <p className="text-[10px] text-[#747779] mb-3">
+                      <p className="text-[10px] text-fm-outline mb-3">
                         Para cada tipo modificado, elige cómo repartir la diferencia entre las 4 semanas.
                       </p>
 
@@ -808,14 +808,14 @@ export default function ClientEditPage() {
                         {modifiedTypes.map(({ type, delta }) => {
                           const strategy = distStrategy[type] ?? { mode: 'prorate' as const }
                           return (
-                            <div key={type} className="rounded-xl border border-[#00675c]/20 bg-[#00675c]/04 p-3"
+                            <div key={type} className="rounded-xl border border-fm-primary/20 bg-fm-primary/04 p-3"
                               style={{ background: 'rgba(0,103,92,.04)' }}>
-                              <p className="text-xs font-semibold text-[#00675c] mb-2">
+                              <p className="text-xs font-semibold text-fm-primary mb-2">
                                 {CONTENT_TYPE_LABELS[type]} — {delta > 0 ? `+${delta}` : delta}
                               </p>
 
                               <div className="flex flex-wrap items-center gap-3 text-xs mb-2">
-                                <label className="flex items-center gap-1.5 text-[#2c2f31]">
+                                <label className="flex items-center gap-1.5 text-fm-on-surface">
                                   <input
                                     type="radio"
                                     checked={strategy.mode === 'prorate'}
@@ -823,7 +823,7 @@ export default function ClientEditPage() {
                                   />
                                   Prorratear
                                 </label>
-                                <label className="flex items-center gap-1.5 text-[#2c2f31]">
+                                <label className="flex items-center gap-1.5 text-fm-on-surface">
                                   <input
                                     type="radio"
                                     checked={strategy.mode === 'accumulate'}
@@ -835,7 +835,7 @@ export default function ClientEditPage() {
                                   <select
                                     value={strategy.week}
                                     onChange={e => setDistStrategy(prev => ({ ...prev, [type]: { mode: 'accumulate', week: e.target.value as WeekKey } }))}
-                                    className="h-7 px-2 rounded-lg border border-[#dfe3e6] bg-white text-xs"
+                                    className="h-7 px-2 rounded-lg border border-fm-surface-container-high bg-fm-surface-container-lowest text-xs"
                                   >
                                     {(['S1', 'S2', 'S3', 'S4'] as WeekKey[]).map(w => (
                                       <option key={w} value={w}>{w}</option>
@@ -845,12 +845,12 @@ export default function ClientEditPage() {
                               </div>
 
                               {weeklyOverridePreview && (
-                                <p className="text-[11px] text-[#595c5e]">
+                                <p className="text-[11px] text-fm-on-surface-variant">
                                   Preview:{' '}
                                   {(['S1', 'S2', 'S3', 'S4'] as WeekKey[]).map(w => (
                                     <span key={w} className="mr-2">
-                                      <strong className="text-[#2c2f31]">{w}</strong>=
-                                      <strong className="text-[#00675c]">{weeklyOverridePreview[w]?.[type] ?? 0}</strong>
+                                      <strong className="text-fm-on-surface">{w}</strong>=
+                                      <strong className="text-fm-primary">{weeklyOverridePreview[w]?.[type] ?? 0}</strong>
                                     </span>
                                   ))}
                                 </p>
@@ -864,7 +864,7 @@ export default function ClientEditPage() {
                 })()}
 
                 {cycleError && (
-                  <p className="text-sm text-[#b31b25] bg-[#b31b25]/5 rounded-xl px-3 py-2 border border-[#b31b25]/20">
+                  <p className="text-sm text-fm-error bg-fm-error/5 rounded-xl px-3 py-2 border border-fm-error/20">
                     {cycleError}
                   </p>
                 )}

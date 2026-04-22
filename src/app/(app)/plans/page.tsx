@@ -30,7 +30,7 @@ export default async function PlansPage() {
       <div className="flex-1 p-6 space-y-5">
         {/* Header con botón crear (solo admin) */}
         <div className="flex items-center justify-between">
-          <p className="text-sm text-[#595c5e]">
+          <p className="text-sm text-fm-on-surface-variant">
             {plans?.length ?? 0} plan{plans?.length !== 1 ? 'es' : ''}
           </p>
           <PlansManager isAdmin={isAdmin} />
@@ -42,32 +42,32 @@ export default async function PlansPage() {
             return (
               <div
                 key={plan.id}
-                className={`bg-white rounded-2xl border p-6 ${
-                  !plan.active ? 'opacity-60 border-[#abadaf]/20' : 'border-[#abadaf]/20'
+                className={`bg-fm-surface-container-lowest rounded-2xl border p-6 ${
+                  !plan.active ? 'opacity-60 border-fm-outline-variant/20' : 'border-fm-outline-variant/20'
                 }`}
               >
                 <div className="flex items-start justify-between mb-4">
                   <div>
-                    <h3 className="text-lg font-bold text-[#2c2f31]">{plan.name}</h3>
-                    <p className="text-2xl font-bold text-[#00675c] mt-1">
+                    <h3 className="text-lg font-bold text-fm-on-surface">{plan.name}</h3>
+                    <p className="text-2xl font-bold text-fm-primary mt-1">
                       ${plan.price_usd}
-                      <span className="text-sm font-normal text-[#595c5e]">/mes</span>
+                      <span className="text-sm font-normal text-fm-on-surface-variant">/mes</span>
                     </p>
                   </div>
                   {!plan.active && (
-                    <span className="text-xs bg-[#abadaf]/20 text-[#747779] px-2 py-0.5 rounded-full">
+                    <span className="text-xs bg-fm-outline-variant/20 text-fm-outline px-2 py-0.5 rounded-full">
                       Inactivo
                     </span>
                   )}
                 </div>
 
-                <div className="space-y-2 border-t border-[#abadaf]/10 pt-4">
+                <div className="space-y-2 border-t border-fm-outline-variant/10 pt-4">
                   {CONTENT_TYPES.filter((t) => t !== 'reunion' && t !== 'produccion').map((type) => (
                     <div key={type} className="flex items-center justify-between">
-                      <span className="text-sm text-[#595c5e]">{CONTENT_TYPE_LABELS[type]}</span>
+                      <span className="text-sm text-fm-on-surface-variant">{CONTENT_TYPE_LABELS[type]}</span>
                       <span
                         className={`text-sm font-semibold ${
-                          limits[type] === 0 ? 'text-[#abadaf]' : 'text-[#2c2f31]'
+                          limits[type] === 0 ? 'text-fm-outline-variant' : 'text-fm-on-surface'
                         }`}
                       >
                         {limits[type] === 0 ? '—' : limits[type]}
@@ -77,14 +77,14 @@ export default async function PlansPage() {
 
                   {/* Producciones — solo conteo, sin pipeline de fases */}
                   {limits['produccion'] > 0 && (
-                    <div className="flex items-center justify-between pt-1 border-t border-[#abadaf]/10 mt-1">
-                      <span className="text-sm text-[#595c5e] flex items-center gap-1.5">
+                    <div className="flex items-center justify-between pt-1 border-t border-fm-outline-variant/10 mt-1">
+                      <span className="text-sm text-fm-on-surface-variant flex items-center gap-1.5">
                         Producciones
-                        <span className="text-[10px] font-semibold bg-[#abadaf]/15 text-[#747779] px-1.5 py-0.5 rounded-full">
+                        <span className="text-[10px] font-semibold bg-fm-outline-variant/15 text-fm-outline px-1.5 py-0.5 rounded-full">
                           solo conteo
                         </span>
                       </span>
-                      <span className="text-sm font-semibold text-[#2c2f31]">
+                      <span className="text-sm font-semibold text-fm-on-surface">
                         {limits['produccion']}
                       </span>
                     </div>
@@ -93,24 +93,24 @@ export default async function PlansPage() {
                   {/* Reuniones — con duración desglosada */}
                   {limits['reunion'] > 0 && (
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-[#595c5e]">Reuniones</span>
-                      <span className="text-sm font-semibold text-[#2c2f31]">
+                      <span className="text-sm text-fm-on-surface-variant">Reuniones</span>
+                      <span className="text-sm font-semibold text-fm-on-surface">
                         {limits['reunion']}
                         {plan.limits_json.reunion_duracion_horas
-                          ? <span className="text-xs font-normal text-[#595c5e]"> × {plan.limits_json.reunion_duracion_horas}h</span>
+                          ? <span className="text-xs font-normal text-fm-on-surface-variant"> × {plan.limits_json.reunion_duracion_horas}h</span>
                           : null}
                       </span>
                     </div>
                   )}
                   {limits['reunion'] === 0 && (
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-[#595c5e]">Reuniones</span>
-                      <span className="text-sm font-semibold text-[#abadaf]">—</span>
+                      <span className="text-sm text-fm-on-surface-variant">Reuniones</span>
+                      <span className="text-sm font-semibold text-fm-outline-variant">—</span>
                     </div>
                   )}
                 </div>
 
-                <p className="text-xs text-[#747779] mt-4 bg-[#f5f7f9] rounded-lg px-3 py-2">
+                <p className="text-xs text-fm-outline mt-4 bg-fm-background rounded-lg px-3 py-2">
                   Los cambios al catálogo no afectan ciclos activos (snapshot).
                 </p>
 

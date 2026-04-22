@@ -78,8 +78,8 @@ export function CardBody({
   const timerBg = phaseTimerBgClass(timerColor)
 
   const sharedClassName = `relative w-full text-left rounded-2xl border p-3 pr-3 pb-8 shadow-sm transition-all
-    ${timerBg || 'bg-white border-[#dfe3e6]'}
-    ${isDragging ? 'opacity-30' : 'hover:shadow-md hover:border-[#00675c]/30'}
+    ${timerBg || 'bg-fm-surface-container-lowest border-fm-surface-container-high'}
+    ${isDragging ? 'opacity-30' : 'hover:shadow-md hover:border-fm-primary/30'}
     ${dragHandleProps ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}
   `
 
@@ -92,11 +92,11 @@ export function CardBody({
             {item.client_logo_url ? (
               <img src={item.client_logo_url} alt={item.client_name} className="h-5 w-5 rounded-full object-cover flex-shrink-0" />
             ) : (
-              <div className="h-5 w-5 rounded-full bg-[#00675c]/20 flex items-center justify-center flex-shrink-0">
-                <span className="text-[8px] font-bold text-[#00675c]">{item.client_name.slice(0, 2).toUpperCase()}</span>
+              <div className="h-5 w-5 rounded-full bg-fm-primary/20 flex items-center justify-center flex-shrink-0">
+                <span className="text-[8px] font-bold text-fm-primary">{item.client_name.slice(0, 2).toUpperCase()}</span>
               </div>
             )}
-            <span className="text-xs font-medium text-[#2c2f31] truncate">{item.client_name}</span>
+            <span className="text-xs font-medium text-fm-on-surface truncate">{item.client_name}</span>
           </div>
         ) : <div />}
         {/* Priority dot */}
@@ -126,27 +126,27 @@ export function CardBody({
 
       {/* Title */}
       {item.title ? (
-        <p className="text-sm font-semibold text-[#2c2f31] mb-1 line-clamp-2">{item.title}</p>
+        <p className="text-sm font-semibold text-fm-on-surface mb-1 line-clamp-2">{item.title}</p>
       ) : null}
 
       {/* Notes */}
       {item.notes && (
-        <p className="text-xs text-[#595c5e] line-clamp-2 mb-2">{item.notes}</p>
+        <p className="text-xs text-fm-on-surface-variant line-clamp-2 mb-2">{item.notes}</p>
       )}
 
       {/* Bottom row: date + vencido chip + time chip + assignee */}
       <div className="flex items-center justify-between gap-2 mt-1">
         <div className="flex items-center gap-1.5 min-w-0">
-          <p className="text-xs text-[#abadaf] whitespace-nowrap">{relativeDate(item.last_moved_at)}</p>
+          <p className="text-xs text-fm-outline-variant whitespace-nowrap">{relativeDate(item.last_moved_at)}</p>
           {isOverdue && (
-            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#b31b25] text-white whitespace-nowrap">
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-fm-error text-white whitespace-nowrap">
               ⚠ Vencido
             </span>
           )}
         </div>
         <div className="flex items-center gap-1.5">
           {item.estimated_time_minutes != null && (
-            <span className="text-[10px] font-semibold text-[#595c5e] bg-[#f5f7f9] px-1.5 py-0.5 rounded-md">
+            <span className="text-[10px] font-semibold text-fm-on-surface-variant bg-fm-background px-1.5 py-0.5 rounded-md">
               ⏱ {item.estimated_time_minutes}m
             </span>
           )}
@@ -163,7 +163,7 @@ export function CardBody({
                 </span>
               ))}
               {item.assignees.length > 3 && (
-                <span className="ml-0.5 text-[9px] font-bold text-[#595c5e]">+{item.assignees.length - 3}</span>
+                <span className="ml-0.5 text-[9px] font-bold text-fm-on-surface-variant">+{item.assignees.length - 3}</span>
               )}
             </div>
           )}

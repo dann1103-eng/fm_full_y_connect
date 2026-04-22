@@ -124,8 +124,8 @@ export default function ProfilePage() {
       <div className="flex-1 p-6 space-y-6 max-w-lg">
 
         {/* Avatar + name */}
-        <div className="bg-white rounded-2xl border border-[#dfe3e6] p-6 space-y-5">
-          <h2 className="text-base font-bold text-[#2c2f31]">Información personal</h2>
+        <div className="bg-fm-surface-container-lowest rounded-2xl border border-fm-surface-container-high p-6 space-y-5">
+          <h2 className="text-base font-bold text-fm-on-surface">Información personal</h2>
 
           {/* Avatar */}
           <div className="flex items-center gap-4">
@@ -135,7 +135,7 @@ export default function ProfilePage() {
                 type="button"
                 onClick={() => fileRef.current?.click()}
                 disabled={uploading}
-                className="absolute -bottom-1 -right-1 w-6 h-6 bg-[#00675c] text-white rounded-full flex items-center justify-center hover:bg-[#005047] transition-colors disabled:opacity-60"
+                className="absolute -bottom-1 -right-1 w-6 h-6 bg-fm-primary text-white rounded-full flex items-center justify-center hover:bg-fm-primary-dim transition-colors disabled:opacity-60"
                 title="Cambiar foto"
               >
                 <span className="material-symbols-outlined text-sm leading-none">photo_camera</span>
@@ -149,9 +149,9 @@ export default function ProfilePage() {
               />
             </div>
             <div>
-              <p className="text-sm font-semibold text-[#2c2f31]">{user.full_name}</p>
-              <p className="text-xs text-[#595c5e]">{user.email}</p>
-              <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#00675c]/10 text-[#00675c]">
+              <p className="text-sm font-semibold text-fm-on-surface">{user.full_name}</p>
+              <p className="text-xs text-fm-on-surface-variant">{user.email}</p>
+              <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-fm-primary/10 text-fm-primary">
                 {ROLE_LABELS[user.role] ?? user.role}
               </span>
             </div>
@@ -166,15 +166,15 @@ export default function ProfilePage() {
                 onChange={e => setName(e.target.value)}
                 placeholder="Tu nombre"
                 required
-                className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                className="rounded-xl bg-fm-background border-fm-surface-container-high"
               />
             </div>
 
             {profileMsg && (
               <div className={`text-sm rounded-xl px-3 py-2 border ${
                 profileMsg.type === 'success'
-                  ? 'text-[#00675c] bg-[#00675c]/5 border-[#00675c]/20'
-                  : 'text-[#b31b25] bg-[#b31b25]/5 border-[#b31b25]/20'
+                  ? 'text-fm-primary bg-fm-primary/5 border-fm-primary/20'
+                  : 'text-fm-error bg-fm-error/5 border-fm-error/20'
               }`}>
                 {profileMsg.text}
               </div>
@@ -193,9 +193,9 @@ export default function ProfilePage() {
 
         {/* Agency logo — admin only */}
         {user.role === 'admin' && (
-          <div className="bg-white rounded-2xl border border-[#dfe3e6] p-6 space-y-4">
-            <h2 className="text-base font-bold text-[#2c2f31]">Logo de la agencia</h2>
-            <p className="text-xs text-[#595c5e]">
+          <div className="bg-fm-surface-container-lowest rounded-2xl border border-fm-surface-container-high p-6 space-y-4">
+            <h2 className="text-base font-bold text-fm-on-surface">Logo de la agencia</h2>
+            <p className="text-xs text-fm-on-surface-variant">
               Aparece en el menú lateral de todas las vistas del sistema.
               PNG, JPG, WebP o SVG · máx. 2 MB.
             </p>
@@ -219,8 +219,8 @@ export default function ProfilePage() {
             {agencyLogoMsg && (
               <div className={`text-sm rounded-xl px-3 py-2 border ${
                 agencyLogoMsg.type === 'success'
-                  ? 'text-[#00675c] bg-[#00675c]/5 border-[#00675c]/20'
-                  : 'text-[#b31b25] bg-[#b31b25]/5 border-[#b31b25]/20'
+                  ? 'text-fm-primary bg-fm-primary/5 border-fm-primary/20'
+                  : 'text-fm-error bg-fm-error/5 border-fm-error/20'
               }`}>
                 {agencyLogoMsg.text}
               </div>
@@ -238,7 +238,7 @@ export default function ProfilePage() {
               onClick={() => agencyLogoRef.current?.click()}
               disabled={agencyLogoUploading}
               variant="outline"
-              className="w-full rounded-xl border-[#dfe3e6] font-semibold"
+              className="w-full rounded-xl border-fm-surface-container-high font-semibold"
             >
               <span className="material-symbols-outlined text-sm mr-2">upload</span>
               {agencyLogoUploading ? 'Subiendo...' : 'Subir logo'}
@@ -247,8 +247,8 @@ export default function ProfilePage() {
         )}
 
         {/* Password change */}
-        <div className="bg-white rounded-2xl border border-[#dfe3e6] p-6 space-y-4">
-          <h2 className="text-base font-bold text-[#2c2f31]">Cambiar contraseña</h2>
+        <div className="bg-fm-surface-container-lowest rounded-2xl border border-fm-surface-container-high p-6 space-y-4">
+          <h2 className="text-base font-bold text-fm-on-surface">Cambiar contraseña</h2>
 
           <form onSubmit={handleChangePassword} className="space-y-4">
             <div className="space-y-1.5">
@@ -259,7 +259,7 @@ export default function ProfilePage() {
                 onChange={e => setNewPassword(e.target.value)}
                 placeholder="Mínimo 8 caracteres"
                 required
-                className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                className="rounded-xl bg-fm-background border-fm-surface-container-high"
               />
             </div>
             <div className="space-y-1.5">
@@ -270,15 +270,15 @@ export default function ProfilePage() {
                 onChange={e => setConfirmPassword(e.target.value)}
                 placeholder="Repite la contraseña"
                 required
-                className="rounded-xl bg-[#f5f7f9] border-[#dfe3e6]"
+                className="rounded-xl bg-fm-background border-fm-surface-container-high"
               />
             </div>
 
             {pwMessage && (
               <div className={`text-sm rounded-xl px-3 py-2 border ${
                 pwMessage.type === 'success'
-                  ? 'text-[#00675c] bg-[#00675c]/5 border-[#00675c]/20'
-                  : 'text-[#b31b25] bg-[#b31b25]/5 border-[#b31b25]/20'
+                  ? 'text-fm-primary bg-fm-primary/5 border-fm-primary/20'
+                  : 'text-fm-error bg-fm-error/5 border-fm-error/20'
               }`}>
                 {pwMessage.text}
               </div>

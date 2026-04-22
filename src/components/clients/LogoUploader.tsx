@@ -40,12 +40,12 @@ export function LogoUploader({ value, onChange, clientId, clientName, disabled }
     <div className="space-y-3">
       <div className="flex items-center gap-4">
         {/* Preview */}
-        <div className="w-16 h-16 rounded-2xl overflow-hidden border border-[#dfe3e6] flex-shrink-0 bg-[#f5f7f9] flex items-center justify-center">
+        <div className="w-16 h-16 rounded-2xl overflow-hidden border border-fm-surface-container-high flex-shrink-0 bg-fm-background flex items-center justify-center">
           {value ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={value} alt={clientName} className="w-full h-full object-cover" />
           ) : (
-            <span className="text-lg font-black text-[#abadaf]">{initials}</span>
+            <span className="text-lg font-black text-fm-outline-variant">{initials}</span>
           )}
         </div>
 
@@ -55,7 +55,7 @@ export function LogoUploader({ value, onChange, clientId, clientName, disabled }
               type="button"
               disabled={disabled || uploading}
               onClick={() => inputRef.current?.click()}
-              className="px-3 py-1.5 text-xs font-semibold border border-[#dfe3e6] rounded-lg hover:bg-[#f5f7f9] transition-colors disabled:opacity-50"
+              className="px-3 py-1.5 text-xs font-semibold border border-fm-surface-container-high rounded-lg hover:bg-fm-background transition-colors disabled:opacity-50"
             >
               {uploading ? 'Subiendo...' : value ? 'Cambiar logo' : 'Subir logo'}
             </button>
@@ -64,18 +64,18 @@ export function LogoUploader({ value, onChange, clientId, clientName, disabled }
                 type="button"
                 disabled={disabled || uploading}
                 onClick={() => { onChange(null); setError(null) }}
-                className="px-3 py-1.5 text-xs font-semibold text-[#b31b25] border border-[#b31b25]/30 rounded-lg hover:bg-[#b31b25]/5 transition-colors disabled:opacity-50"
+                className="px-3 py-1.5 text-xs font-semibold text-fm-error border border-fm-error/30 rounded-lg hover:bg-fm-error/5 transition-colors disabled:opacity-50"
               >
                 Quitar
               </button>
             )}
           </div>
-          <p className="text-[11px] text-[#abadaf]">PNG, JPG, WebP o SVG · máx. 2 MB</p>
+          <p className="text-[11px] text-fm-outline-variant">PNG, JPG, WebP o SVG · máx. 2 MB</p>
         </div>
       </div>
 
       {error && (
-        <p className="text-xs text-[#b31b25] bg-[#b31b25]/5 rounded-lg px-3 py-2 border border-[#b31b25]/20">
+        <p className="text-xs text-fm-error bg-fm-error/5 rounded-lg px-3 py-2 border border-fm-error/20">
           {error}
         </p>
       )}

@@ -28,7 +28,7 @@ export function ClientNotesPanel({ clientId, initialNotes }: ClientNotesPanelPro
   return (
     <div className="glass-panel p-6 rounded-[2rem] flex flex-col" style={{ minHeight: '340px' }}>
       <textarea
-        className="flex-1 w-full bg-transparent border border-[#abadaf]/30 rounded-2xl p-4 text-sm text-[#2c2f31] placeholder:text-[#747779]/50 resize-none outline-none transition-all focus:border-[#00675c]/50 focus:ring-2 focus:ring-[#5bf4de]/40"
+        className="flex-1 w-full bg-transparent border border-fm-outline-variant/30 rounded-2xl p-4 text-sm text-fm-on-surface placeholder:text-fm-outline/50 resize-none outline-none transition-all focus:border-fm-primary/50 focus:ring-2 focus:ring-fm-primary-container/40"
         rows={8}
         value={notes}
         onChange={(e) => setNotes(e.target.value)}

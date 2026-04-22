@@ -73,15 +73,15 @@ export function PipelineContainer({
         )}
 
         {/* View switcher */}
-        <div className="flex rounded-xl border border-[#dfe3e6] overflow-hidden bg-white text-sm mr-1">
+        <div className="flex rounded-xl border border-fm-surface-container-high overflow-hidden bg-fm-surface-container-lowest text-sm mr-1">
           {(['kanban', 'table'] as const).map(v => (
             <button
               key={v}
               onClick={() => setView(v)}
               className={`px-4 py-1.5 font-semibold transition-colors ${
                 view === v
-                  ? 'bg-[#00675c] text-white'
-                  : 'text-[#595c5e] hover:bg-[#f5f7f9]'
+                  ? 'bg-fm-primary text-white'
+                  : 'text-fm-on-surface-variant hover:bg-fm-background'
               }`}
             >
               {v === 'kanban' ? 'Kanban' : 'Tabla'}
@@ -91,7 +91,7 @@ export function PipelineContainer({
 
         {/* Search */}
         <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[#abadaf] text-base pointer-events-none">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-fm-outline-variant text-base pointer-events-none">
             search
           </span>
           <input
@@ -99,12 +99,12 @@ export function PipelineContainer({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar…"
-            className="w-52 pl-9 pr-8 py-1.5 text-sm bg-white border border-[#dfe3e6] rounded-xl focus:outline-none focus:border-[#00675c]/50 focus:ring-2 focus:ring-[#5bf4de]/30 text-[#2c2f31] placeholder:text-[#abadaf]"
+            className="w-52 pl-9 pr-8 py-1.5 text-sm bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-xl focus:outline-none focus:border-fm-primary/50 focus:ring-2 focus:ring-fm-primary-container/30 text-fm-on-surface placeholder:text-fm-outline-variant"
           />
           {search && (
             <button
               onClick={() => setSearch('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-[#abadaf] hover:text-[#595c5e]"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-fm-outline-variant hover:text-fm-on-surface-variant"
               aria-label="Limpiar búsqueda"
             >
               <span className="material-symbols-outlined text-base">close</span>
@@ -117,7 +117,7 @@ export function PipelineContainer({
           <select
             value={filterClientId}
             onChange={e => setFilterClientId(e.target.value)}
-            className="text-sm border border-[#dfe3e6] rounded-xl px-3 py-1.5 bg-white text-[#2c2f31]"
+            className="text-sm border border-fm-surface-container-high rounded-xl px-3 py-1.5 bg-fm-surface-container-lowest text-fm-on-surface"
           >
             <option value="">Todos los clientes</option>
             {clients.map(cl => (
@@ -130,7 +130,7 @@ export function PipelineContainer({
         <select
           value={filterPriority}
           onChange={e => setFilterPriority(e.target.value)}
-          className="text-sm border border-[#dfe3e6] rounded-xl px-3 py-1.5 bg-white text-[#2c2f31]"
+          className="text-sm border border-fm-surface-container-high rounded-xl px-3 py-1.5 bg-fm-surface-container-lowest text-fm-on-surface"
         >
           <option value="">Todas las prioridades</option>
           {(['alta', 'media', 'baja'] as Priority[]).map(p => (
@@ -142,7 +142,7 @@ export function PipelineContainer({
         <select
           value={filterPhase}
           onChange={e => setFilterPhase(e.target.value)}
-          className="text-sm border border-[#dfe3e6] rounded-xl px-3 py-1.5 bg-white text-[#2c2f31]"
+          className="text-sm border border-fm-surface-container-high rounded-xl px-3 py-1.5 bg-fm-surface-container-lowest text-fm-on-surface"
         >
           <option value="">Todas las fases</option>
           {PHASES.map(p => (
@@ -153,13 +153,13 @@ export function PipelineContainer({
         {hasFilters && (
           <button
             onClick={() => { setFilterClientId(''); setFilterPriority(''); setFilterPhase(''); setSearch('') }}
-            className="text-xs text-[#595c5e] hover:text-[#b31b25] px-2.5 py-1.5 rounded-lg border border-[#dfe3e6] transition-colors"
+            className="text-xs text-fm-on-surface-variant hover:text-fm-error px-2.5 py-1.5 rounded-lg border border-fm-surface-container-high transition-colors"
           >
             Limpiar
           </button>
         )}
 
-        <span className="text-xs text-[#abadaf] ml-auto">{filtered.length} pieza{filtered.length !== 1 ? 's' : ''}</span>
+        <span className="text-xs text-fm-outline-variant ml-auto">{filtered.length} pieza{filtered.length !== 1 ? 's' : ''}</span>
       </div>
 
       {/* View */}

@@ -215,18 +215,18 @@ export function RequirementModal({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="max-w-lg rounded-2xl border border-[#abadaf]/20 shadow-xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b border-[#f0f3f5] flex-shrink-0">
-          <DialogTitle className="text-lg font-semibold text-[#2c2f31]">
+      <DialogContent className="max-w-lg rounded-2xl border border-fm-outline-variant/20 shadow-xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-fm-surface-container-low flex-shrink-0">
+          <DialogTitle className="text-lg font-semibold text-fm-on-surface">
             Registrar requerimiento
           </DialogTitle>
-          <p className="text-sm text-[#595c5e] mt-0.5">{client.name}</p>
+          <p className="text-sm text-fm-on-surface-variant mt-0.5">{client.name}</p>
         </DialogHeader>
 
         <div className="px-6 pt-4 pb-4 space-y-4 overflow-y-auto flex-1 min-h-0">
           {/* Type selector */}
           <div>
-            <Label className="text-sm font-medium text-[#2c2f31] mb-2 block">
+            <Label className="text-sm font-medium text-fm-on-surface mb-2 block">
               Tipo de contenido
             </Label>
             <div className="grid grid-cols-3 gap-2">
@@ -242,17 +242,17 @@ export function RequirementModal({
                     onClick={() => setSelectedType(type)}
                     className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all text-center ${
                       isSelected
-                        ? 'border-[#00675c] bg-[#00675c]/5 text-[#00675c]'
+                        ? 'border-fm-primary bg-fm-primary/5 text-fm-primary'
                         : atLimit
-                        ? 'border-[#b31b25]/30 bg-[#b31b25]/5 text-[#b31b25]/70'
-                        : 'border-[#dfe3e6] bg-white text-[#595c5e] hover:border-[#00675c]/40'
+                        ? 'border-fm-error/30 bg-fm-error/5 text-fm-error/70'
+                        : 'border-fm-surface-container-high bg-fm-surface-container-lowest text-fm-on-surface-variant hover:border-fm-primary/40'
                     }`}
                   >
                     <span>{CONTENT_ICONS[type]}</span>
                     <span className="text-xs font-medium leading-tight">
                       {CONTENT_TYPE_LABELS[type]}
                     </span>
-                    <span className={`text-xs font-semibold ${atLimit ? 'text-[#b31b25]' : ''}`}>
+                    <span className={`text-xs font-semibold ${atLimit ? 'text-fm-error' : ''}`}>
                       {consumed}/{limit}
                     </span>
                   </button>
@@ -263,9 +263,9 @@ export function RequirementModal({
 
           {/* At-limit warning */}
           {selectedAtLimit && (
-            <div className="bg-[#b31b25]/5 border border-[#b31b25]/20 rounded-xl p-3">
-              <p className="text-sm text-[#b31b25] font-medium mb-1">Límite alcanzado</p>
-              <p className="text-xs text-[#b31b25]/80 mb-2">
+            <div className="bg-fm-error/5 border border-fm-error/20 rounded-xl p-3">
+              <p className="text-sm text-fm-error font-medium mb-1">Límite alcanzado</p>
+              <p className="text-xs text-fm-error/80 mb-2">
                 Este tipo de contenido ha alcanzado su límite mensual.
                 {isAdmin && ' Como admin, puedes forzar el registro (quedará marcado como excedente).'}
               </p>
@@ -275,9 +275,9 @@ export function RequirementModal({
                     type="checkbox"
                     checked={forceOverLimit}
                     onChange={(e) => setForceOverLimit(e.target.checked)}
-                    className="rounded border-[#b31b25]/30 accent-[#b31b25]"
+                    className="rounded border-fm-error/30 accent-fm-error"
                   />
-                  <span className="text-xs font-medium text-[#b31b25]">
+                  <span className="text-xs font-medium text-fm-error">
                     Forzar requerimiento (marcar como excedente)
                   </span>
                 </label>
@@ -289,8 +289,8 @@ export function RequirementModal({
           {selectedType && (
             <>
               <div>
-                <Label htmlFor="title" className="text-sm font-medium text-[#2c2f31] mb-1.5 block">
-                  Título{!isSimpleType && <span className="text-[#b31b25]"> *</span>}
+                <Label htmlFor="title" className="text-sm font-medium text-fm-on-surface mb-1.5 block">
+                  Título{!isSimpleType && <span className="text-fm-error"> *</span>}
                 </Label>
                 <input
                   id="title"
@@ -298,26 +298,26 @@ export function RequirementModal({
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder={isSimpleType ? 'Título (opcional)' : 'Ej. Reel de lanzamiento mayo'}
-                  className="w-full px-3 py-2 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl focus:outline-none focus:border-[#00675c] text-[#2c2f31]"
+                  className="w-full px-3 py-2 text-sm bg-fm-background border border-fm-surface-container-high rounded-xl focus:outline-none focus:border-fm-primary text-fm-on-surface"
                 />
               </div>
               <div>
-                <Label htmlFor="notes" className="text-sm font-medium text-[#2c2f31] mb-1.5 block">
-                  Notas <span className="text-[#747779] font-normal">(opcional)</span>
+                <Label htmlFor="notes" className="text-sm font-medium text-fm-on-surface mb-1.5 block">
+                  Notas <span className="text-fm-outline font-normal">(opcional)</span>
                 </Label>
                 <Textarea
                   id="notes"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Descripción del contenido, cliente, etc."
-                  className="resize-none bg-[#f5f7f9] border-[#dfe3e6] focus:border-[#00675c] focus:ring-[#00675c]/20 rounded-xl"
+                  className="resize-none bg-fm-background border-fm-surface-container-high focus:border-fm-primary focus:ring-fm-primary/20 rounded-xl"
                   rows={3}
                 />
               </div>
 
               {/* Priority */}
               <div>
-                <Label className="text-sm font-medium text-[#2c2f31] mb-1.5 block">Prioridad</Label>
+                <Label className="text-sm font-medium text-fm-on-surface mb-1.5 block">Prioridad</Label>
                 <div className="flex gap-2">
                   {(['baja', 'media', 'alta'] as Priority[]).map((p) => (
                     <button
@@ -325,7 +325,7 @@ export function RequirementModal({
                       type="button"
                       onClick={() => setPriority(p)}
                       className={`flex-1 py-2 rounded-xl text-sm font-bold border-2 transition-all flex items-center justify-center gap-1.5 ${
-                        priority === p ? 'border-current' : 'border-[#dfe3e6] text-[#595c5e]'
+                        priority === p ? 'border-current' : 'border-fm-surface-container-high text-fm-on-surface-variant'
                       }`}
                       style={priority === p ? { color: PRIORITY_COLORS[p], background: PRIORITY_COLORS[p] + '15' } : {}}
                     >
@@ -341,8 +341,8 @@ export function RequirementModal({
 
               {/* Estimated time */}
               <div>
-                <Label htmlFor="est-time" className="text-sm font-medium text-[#2c2f31] mb-1.5 block">
-                  Tiempo estimado <span className="text-[#747779] font-normal">(min, opcional)</span>
+                <Label htmlFor="est-time" className="text-sm font-medium text-fm-on-surface mb-1.5 block">
+                  Tiempo estimado <span className="text-fm-outline font-normal">(min, opcional)</span>
                 </Label>
                 <input
                   id="est-time"
@@ -351,45 +351,45 @@ export function RequirementModal({
                   value={estimatedTime}
                   onChange={(e) => setEstimatedTime(e.target.value)}
                   placeholder="ej. 90"
-                  className="w-full px-3 py-2 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl focus:outline-none focus:border-[#00675c] text-[#2c2f31]"
+                  className="w-full px-3 py-2 text-sm bg-fm-background border border-fm-surface-container-high rounded-xl focus:outline-none focus:border-fm-primary text-fm-on-surface"
                 />
               </div>
 
               {/* Deadline */}
               <div>
-                <Label htmlFor="deadline" className="text-sm font-medium text-[#2c2f31] mb-1.5 block">
-                  Fecha de entrega <span className="text-[#747779] font-normal">(opcional)</span>
+                <Label htmlFor="deadline" className="text-sm font-medium text-fm-on-surface mb-1.5 block">
+                  Fecha de entrega <span className="text-fm-outline font-normal">(opcional)</span>
                 </Label>
                 <input
                   id="deadline"
                   type="date"
                   value={deadline}
                   onChange={(e) => setDeadline(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl focus:outline-none focus:border-[#00675c] text-[#2c2f31]"
+                  className="w-full px-3 py-2 text-sm bg-fm-background border border-fm-surface-container-high rounded-xl focus:outline-none focus:border-fm-primary text-fm-on-surface"
                 />
               </div>
 
               {/* Includes story switch — solo tipos aplicables */}
               {storyApplicable && (
-                <div className="flex items-start gap-3 p-3 bg-[#f5f7f9] rounded-xl border border-[#dfe3e6]">
+                <div className="flex items-start gap-3 p-3 bg-fm-background rounded-xl border border-fm-surface-container-high">
                   <button
                     type="button"
                     role="switch"
                     aria-checked={includesStory}
                     onClick={() => setIncludesStory(!includesStory)}
                     className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors mt-0.5 ${
-                      includesStory ? 'bg-[#00675c]' : 'bg-[#abadaf]'
+                      includesStory ? 'bg-fm-primary' : 'bg-fm-outline-variant'
                     }`}
                   >
                     <span
-                      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                      className={`inline-block h-5 w-5 transform rounded-full bg-fm-surface-container-lowest shadow transition-transform ${
                         includesStory ? 'translate-x-5' : 'translate-x-0.5'
                       }`}
                     />
                   </button>
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-[#2c2f31]">Incluye story</p>
-                    <p className="text-xs text-[#747779] mt-0.5">
+                    <p className="text-sm font-medium text-fm-on-surface">Incluye story</p>
+                    <p className="text-xs text-fm-outline mt-0.5">
                       Suma 1 a historias sin crear un requerimiento aparte. Desactívalo si la story requiere producción propia.
                     </p>
                   </div>
@@ -399,10 +399,10 @@ export function RequirementModal({
               {/* Assign to — multi-select checkboxes for admin/supervisor */}
               {canAssign && assignableUsers.length > 0 && (
                 <div>
-                  <Label className="text-sm font-medium text-[#2c2f31] mb-1.5 block">
-                    Asignar a <span className="text-[#747779] font-normal">(opcional)</span>
+                  <Label className="text-sm font-medium text-fm-on-surface mb-1.5 block">
+                    Asignar a <span className="text-fm-outline font-normal">(opcional)</span>
                   </Label>
-                  <div className="bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl px-3 py-2 space-y-1.5 max-h-32 overflow-y-auto">
+                  <div className="bg-fm-background border border-fm-surface-container-high rounded-xl px-3 py-2 space-y-1.5 max-h-32 overflow-y-auto">
                     {assignableUsers.map((u) => {
                       const checked = assignedTo.includes(u.id)
                       return (
@@ -413,9 +413,9 @@ export function RequirementModal({
                             onChange={() => setAssignedTo(prev =>
                               checked ? prev.filter(id => id !== u.id) : [...prev, u.id]
                             )}
-                            className="rounded accent-[#00675c]"
+                            className="rounded accent-fm-primary"
                           />
-                          <span className="text-sm text-[#2c2f31]">{u.full_name}</span>
+                          <span className="text-sm text-fm-on-surface">{u.full_name}</span>
                         </label>
                       )
                     })}
@@ -427,27 +427,27 @@ export function RequirementModal({
 
           {/* Impact preview */}
           {selectedType && (
-            <div className="bg-[#f5f7f9] rounded-xl p-3 space-y-1">
+            <div className="bg-fm-background rounded-xl p-3 space-y-1">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-[#595c5e]">
+                <span className="text-sm text-fm-on-surface-variant">
                   {CONTENT_TYPE_LABELS[selectedType]}
                 </span>
-                <span className="text-sm font-semibold text-[#2c2f31]">
-                  {totals[selectedType]} → <span className="text-[#00675c]">{totals[selectedType] + 1}</span>
-                  <span className="text-[#595c5e] font-normal"> /{limits[selectedType]}</span>
+                <span className="text-sm font-semibold text-fm-on-surface">
+                  {totals[selectedType]} → <span className="text-fm-primary">{totals[selectedType] + 1}</span>
+                  <span className="text-fm-on-surface-variant font-normal"> /{limits[selectedType]}</span>
                 </span>
               </div>
               {storyApplicable && includesStory && (
-                <div className="flex items-center justify-between pt-1 border-t border-[#dfe3e6]/60">
-                  <span className="text-sm text-[#595c5e]">Historias (derivada)</span>
-                  <span className="text-sm font-semibold text-[#2c2f31]">
-                    {totals.historia} → <span className="text-[#00675c]">{totals.historia + 1}</span>
-                    <span className="text-[#595c5e] font-normal"> /{limits.historia}</span>
+                <div className="flex items-center justify-between pt-1 border-t border-fm-surface-container-high/60">
+                  <span className="text-sm text-fm-on-surface-variant">Historias (derivada)</span>
+                  <span className="text-sm font-semibold text-fm-on-surface">
+                    {totals.historia} → <span className="text-fm-primary">{totals.historia + 1}</span>
+                    <span className="text-fm-on-surface-variant font-normal"> /{limits.historia}</span>
                   </span>
                 </div>
               )}
               {selectedType === 'reunion' && cycle.limits_snapshot_json.reunion_duracion_horas && (
-                <p className="text-xs text-[#747779]">
+                <p className="text-xs text-fm-outline">
                   Duración por reunión: <span className="font-semibold">{cycle.limits_snapshot_json.reunion_duracion_horas}h</span>
                 </p>
               )}
@@ -457,9 +457,9 @@ export function RequirementModal({
         </div>
 
         {/* Footer fijo */}
-        <div className="px-6 py-4 border-t border-[#f0f3f5] flex-shrink-0 space-y-3">
+        <div className="px-6 py-4 border-t border-fm-surface-container-low flex-shrink-0 space-y-3">
           {error && (
-            <p className="text-sm text-[#b31b25] bg-[#b31b25]/5 rounded-xl px-3 py-2 border border-[#b31b25]/20">
+            <p className="text-sm text-fm-error bg-fm-error/5 rounded-xl px-3 py-2 border border-fm-error/20">
               {error}
             </p>
           )}
@@ -467,7 +467,7 @@ export function RequirementModal({
             <Button
               variant="outline"
               onClick={onClose}
-              className="flex-1 rounded-xl border-[#dfe3e6] text-[#595c5e]"
+              className="flex-1 rounded-xl border-fm-surface-container-high text-fm-on-surface-variant"
             >
               Cancelar
             </Button>

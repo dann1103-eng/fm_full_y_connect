@@ -75,7 +75,7 @@ function SocialChip({
       href={socialUrl(network, handle)}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center gap-1.5 px-3 py-1 bg-[#eef1f3] text-[#595c5e] text-[11px] font-bold rounded-full border border-[#abadaf]/20 hover:bg-[#00675c]/10 hover:text-[#00675c] transition-colors"
+      className="flex items-center gap-1.5 px-3 py-1 bg-fm-surface-container-low text-fm-on-surface-variant text-[11px] font-bold rounded-full border border-fm-outline-variant/20 hover:bg-fm-primary/10 hover:text-fm-primary transition-colors"
     >
       <span className="material-symbols-outlined text-sm">{icon}</span>
       {display}
@@ -262,19 +262,19 @@ export function RequirementPanel({
           <div className="text-center md:text-left space-y-2">
             {/* Name + badges */}
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
-              <h1 className="text-3xl font-extrabold tracking-tight text-[#2c2f31]">
+              <h1 className="text-3xl font-extrabold tracking-tight text-fm-on-surface">
                 {client.name}
               </h1>
-              <span className="px-3 py-1 bg-[#ceee93]/50 text-[#4a6319] text-xs font-extrabold rounded-full uppercase tracking-wider">
+              <span className="px-3 py-1 bg-fm-secondary-fixed/50 text-fm-secondary text-xs font-extrabold rounded-full uppercase tracking-wider">
                 Plan {client.plan.name}
               </span>
-              <span className="px-3 py-1 bg-[#ceee93] text-[#41590f] text-xs font-extrabold rounded-full uppercase tracking-wider">
+              <span className="px-3 py-1 bg-fm-secondary-fixed text-fm-on-secondary-container text-xs font-extrabold rounded-full uppercase tracking-wider">
                 {STATUS_LABELS[client.status] ?? client.status}
               </span>
             </div>
 
             {/* Cycle date + payment */}
-            <p className="text-[#595c5e] text-sm flex flex-wrap items-center justify-center md:justify-start gap-1.5">
+            <p className="text-fm-on-surface-variant text-sm flex flex-wrap items-center justify-center md:justify-start gap-1.5">
               {isUnifiedPool ? (
                 <span className="flex items-center gap-1">
                   <span className="material-symbols-outlined text-base">inventory_2</span>
@@ -289,38 +289,38 @@ export function RequirementPanel({
               )}
               {/* 1er pago (o único en monthly) */}
               {cycle.payment_status === 'paid' ? (
-                <span className="px-2 py-0.5 bg-[#00675c]/10 text-[#00675c] text-[10px] font-extrabold rounded-full border border-[#00675c]/20">
+                <span className="px-2 py-0.5 bg-fm-primary/10 text-fm-primary text-[10px] font-extrabold rounded-full border border-fm-primary/20">
                   ✓ {isBiweekly ? '1er pago' : 'Pagado'}
                 </span>
               ) : isAdmin ? (
                 <button
                   onClick={handleMarkPaid}
                   disabled={markingPaid}
-                  className="px-2 py-0.5 bg-[#b31b25]/10 text-[#b31b25] text-[10px] font-extrabold rounded-full border border-[#b31b25]/20 hover:bg-[#b31b25]/20 transition-colors"
+                  className="px-2 py-0.5 bg-fm-error/10 text-fm-error text-[10px] font-extrabold rounded-full border border-fm-error/20 hover:bg-fm-error/20 transition-colors"
                 >
                   {markingPaid ? '...' : isBiweekly ? 'Marcar 1er pago' : 'Marcar pagado'}
                 </button>
               ) : (
-                <span className="px-2 py-0.5 bg-[#b31b25]/10 text-[#b31b25] text-[10px] font-extrabold rounded-full border border-[#b31b25]/20">
+                <span className="px-2 py-0.5 bg-fm-error/10 text-fm-error text-[10px] font-extrabold rounded-full border border-fm-error/20">
                   {isBiweekly ? '1er pago pendiente' : 'Sin pago'}
                 </span>
               )}
               {/* 2do pago — solo biweekly */}
               {isBiweekly && (
                 cycle.payment_status_2 === 'paid' ? (
-                  <span className="px-2 py-0.5 bg-[#00675c]/10 text-[#00675c] text-[10px] font-extrabold rounded-full border border-[#00675c]/20">
+                  <span className="px-2 py-0.5 bg-fm-primary/10 text-fm-primary text-[10px] font-extrabold rounded-full border border-fm-primary/20">
                     ✓ 2do pago
                   </span>
                 ) : isAdmin ? (
                   <button
                     onClick={handleMarkPaid2}
                     disabled={markingPaid}
-                    className="px-2 py-0.5 bg-[#b31b25]/10 text-[#b31b25] text-[10px] font-extrabold rounded-full border border-[#b31b25]/20 hover:bg-[#b31b25]/20 transition-colors"
+                    className="px-2 py-0.5 bg-fm-error/10 text-fm-error text-[10px] font-extrabold rounded-full border border-fm-error/20 hover:bg-fm-error/20 transition-colors"
                   >
                     {markingPaid ? '...' : 'Marcar 2do pago'}
                   </button>
                 ) : (
-                  <span className="px-2 py-0.5 bg-[#b31b25]/10 text-[#b31b25] text-[10px] font-extrabold rounded-full border border-[#b31b25]/20">
+                  <span className="px-2 py-0.5 bg-fm-error/10 text-fm-error text-[10px] font-extrabold rounded-full border border-fm-error/20">
                     2do pago pendiente
                   </span>
                 )
@@ -376,14 +376,14 @@ export function RequirementPanel({
                     href={client.website_url.startsWith('http') ? client.website_url : `https://${client.website_url}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 px-3 py-1 bg-[#eef1f3] text-[#595c5e] text-[11px] font-bold rounded-full border border-[#abadaf]/20 hover:bg-[#00675c]/10 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1 bg-fm-surface-container-low text-fm-on-surface-variant text-[11px] font-bold rounded-full border border-fm-outline-variant/20 hover:bg-fm-primary/10 transition-colors"
                   >
                     <span className="material-symbols-outlined text-sm">language</span>
                     {client.website_url.replace(/^https?:\/\//, '')}
                   </a>
                 )}
                 {client.other_contact && (
-                  <span className="flex items-center gap-1.5 px-3 py-1 bg-[#eef1f3] text-[#595c5e] text-[11px] font-bold rounded-full border border-[#abadaf]/20">
+                  <span className="flex items-center gap-1.5 px-3 py-1 bg-fm-surface-container-low text-fm-on-surface-variant text-[11px] font-bold rounded-full border border-fm-outline-variant/20">
                     <span className="material-symbols-outlined text-sm">alternate_email</span>
                     {client.other_contact}
                   </span>
@@ -397,14 +397,14 @@ export function RequirementPanel({
         <div className="flex items-center gap-3 w-full md:w-auto flex-shrink-0">
           <Link
             href={`/clients/${client.id}/report`}
-            className="flex-1 md:flex-none px-5 py-2.5 border-2 border-[#595c5e] text-[#595c5e] font-bold rounded-full hover:bg-[#595c5e]/5 transition-all active:scale-95 text-sm text-center flex items-center justify-center gap-1.5"
+            className="flex-1 md:flex-none px-5 py-2.5 border-2 border-fm-on-surface-variant text-fm-on-surface-variant font-bold rounded-full hover:bg-fm-on-surface-variant/5 transition-all active:scale-95 text-sm text-center flex items-center justify-center gap-1.5"
           >
             <span className="material-symbols-outlined text-base">summarize</span>
             Ver reporte
           </Link>
           <Link
             href={`/clients/${client.id}/edit`}
-            className="flex-1 md:flex-none px-5 py-2.5 border-2 border-[#00675c] text-[#00675c] font-bold rounded-full hover:bg-[#00675c]/5 transition-all active:scale-95 text-sm text-center"
+            className="flex-1 md:flex-none px-5 py-2.5 border-2 border-fm-primary text-fm-primary font-bold rounded-full hover:bg-fm-primary/5 transition-all active:scale-95 text-sm text-center"
           >
             Editar cliente
           </Link>
@@ -424,11 +424,11 @@ export function RequirementPanel({
 
       {/* ── Overdue warning ── */}
       {isOverdue && (
-        <div className="bg-[#b31b25]/5 border border-[#b31b25]/20 rounded-2xl px-5 py-4 flex items-center gap-3">
-          <span className="material-symbols-outlined text-[#b31b25] text-xl flex-shrink-0">warning</span>
+        <div className="bg-fm-error/5 border border-fm-error/20 rounded-2xl px-5 py-4 flex items-center gap-3">
+          <span className="material-symbols-outlined text-fm-error text-xl flex-shrink-0">warning</span>
           <div>
-            <p className="text-sm font-semibold text-[#b31b25]">Cuenta vencida — registro de requerimientos bloqueado</p>
-            <p className="text-xs text-[#b31b25]/80 mt-0.5">
+            <p className="text-sm font-semibold text-fm-error">Cuenta vencida — registro de requerimientos bloqueado</p>
+            <p className="text-xs text-fm-error/80 mt-0.5">
               El ciclo venció y el pago está pendiente.
               {isAdmin ? ' Marca el pago como recibido para desbloquear.' : ' Contacta al administrador para regularizar el pago.'}
             </p>
@@ -438,12 +438,12 @@ export function RequirementPanel({
 
       {/* ── Package exhausted banner ── */}
       {isContentExhausted && (
-        <div className="bg-[#00675c]/5 border border-[#00675c]/20 rounded-2xl px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
+        <div className="bg-fm-primary/5 border border-fm-primary/20 rounded-2xl px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-start gap-3">
-            <span className="material-symbols-outlined text-[#00675c] text-xl flex-shrink-0">task_alt</span>
+            <span className="material-symbols-outlined text-fm-primary text-xl flex-shrink-0">task_alt</span>
             <div>
-              <p className="text-sm font-semibold text-[#00675c]">Paquete de 10 contenidos completado</p>
-              <p className="text-xs text-[#595c5e] mt-0.5">
+              <p className="text-sm font-semibold text-fm-primary">Paquete de 10 contenidos completado</p>
+              <p className="text-xs text-fm-on-surface-variant mt-0.5">
                 Se han registrado los {poolUsage!.limit} contenidos incluidos en el paquete.
                 {canCreate ? ' ¿El cliente desea contratar otro paquete?' : ''}
               </p>
@@ -466,10 +466,10 @@ export function RequirementPanel({
       {/* ── Requerimientos del ciclo ── */}
       <section className="space-y-5">
         <div>
-          <h2 className="text-2xl font-extrabold tracking-tight text-[#2c2f31]">
+          <h2 className="text-2xl font-extrabold tracking-tight text-fm-on-surface">
             Requerimientos del ciclo actual
           </h2>
-          <p className="text-[#595c5e] font-medium text-sm mt-1">
+          <p className="text-fm-on-surface-variant font-medium text-sm mt-1">
             {cycleMonthLabel}
             {!isUnifiedPool && daysLeft !== null && (
               <>
@@ -480,7 +480,7 @@ export function RequirementPanel({
               </>
             )}
             {isContentExhausted && (
-              <span className="font-bold text-[#b31b25] ml-2">· Paquete agotado</span>
+              <span className="font-bold text-fm-error ml-2">· Paquete agotado</span>
             )}
           </p>
         </div>
@@ -495,15 +495,15 @@ export function RequirementPanel({
             <div className="glass-panel p-6 rounded-[2rem] space-y-3">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-[#5bf4de]/30 rounded-xl w-fit">
-                    <span className="material-symbols-outlined text-[#00675c] text-xl">collections</span>
+                  <div className="p-2 bg-fm-primary-container/30 rounded-xl w-fit">
+                    <span className="material-symbols-outlined text-fm-primary text-xl">collections</span>
                   </div>
                   <div>
-                    <p className="text-[#595c5e] text-[11px] font-extrabold tracking-widest uppercase">
+                    <p className="text-fm-on-surface-variant text-[11px] font-extrabold tracking-widest uppercase">
                       Contenidos del ciclo (pool unificado)
                     </p>
-                    <p className="text-2xl font-black text-[#2c2f31] mt-0.5">
-                      {used} <span className="text-base font-medium text-[#747779]">/ {limit}</span>
+                    <p className="text-2xl font-black text-fm-on-surface mt-0.5">
+                      {used} <span className="text-base font-medium text-fm-outline">/ {limit}</span>
                     </p>
                   </div>
                 </div>
@@ -511,7 +511,7 @@ export function RequirementPanel({
                   {available} disponibles
                 </p>
               </div>
-              <div className="w-full bg-[#e5e9eb] rounded-full h-2 overflow-hidden">
+              <div className="w-full bg-fm-surface-container rounded-full h-2 overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-500"
                   style={{ width: `${pct}%`, backgroundColor: color }}
@@ -522,8 +522,8 @@ export function RequirementPanel({
                   const n = totals[t] ?? 0
                   if (n === 0) return null
                   return (
-                    <span key={t} className="flex items-center gap-1.5 text-[11px] font-bold text-[#595c5e]">
-                      <span className="material-symbols-outlined text-sm text-[#00675c]">
+                    <span key={t} className="flex items-center gap-1.5 text-[11px] font-bold text-fm-on-surface-variant">
+                      <span className="material-symbols-outlined text-sm text-fm-primary">
                         {CONTENT_ICONS[t]}
                       </span>
                       {CONTENT_TYPE_LABELS[t]}: {n}
@@ -531,7 +531,7 @@ export function RequirementPanel({
                   )
                 })}
                 {TIPPABLE_CONTENT_TYPES.every((t) => (totals[t] ?? 0) === 0) && (
-                  <span className="text-[11px] text-[#abadaf]">Sin registros aún — el operador elige el tipo al registrar.</span>
+                  <span className="text-[11px] text-fm-outline-variant">Sin registros aún — el operador elige el tipo al registrar.</span>
                 )}
               </div>
             </div>
@@ -571,8 +571,8 @@ export function RequirementPanel({
             const available = Math.max(0, effectiveTotal - consumed)
 
             const isAmber = AMBER_TYPES.has(type)
-            const iconBg = isAmber ? 'bg-amber-100/60' : 'bg-[#5bf4de]/30'
-            const iconColor = isAmber ? 'text-amber-600' : 'text-[#00675c]'
+            const iconBg = isAmber ? 'bg-amber-100/60' : 'bg-fm-primary-container/30'
+            const iconColor = isAmber ? 'text-amber-600' : 'text-fm-primary'
             const availableColor = isAmber ? '#d97706' : '#595c5e'
             const color = barColor(pct)
 
@@ -590,25 +590,25 @@ export function RequirementPanel({
 
                 {/* Label + count */}
                 <div>
-                  <p className="text-[#595c5e] text-[11px] font-extrabold tracking-widest uppercase">
+                  <p className="text-fm-on-surface-variant text-[11px] font-extrabold tracking-widest uppercase">
                     {CONTENT_TYPE_LABELS[type]}
                   </p>
-                  <p className="text-2xl font-black text-[#2c2f31] mt-0.5">
+                  <p className="text-2xl font-black text-fm-on-surface mt-0.5">
                     {consumed}{' '}
-                    <span className="text-base font-medium text-[#747779]">
+                    <span className="text-base font-medium text-fm-outline">
                       / {baseLimit}
                       {rollover > 0 && (
-                        <span className="text-[10px] text-[#4a6319] ml-1">(+{rollover})</span>
+                        <span className="text-[10px] text-fm-secondary ml-1">(+{rollover})</span>
                       )}
                       {extraSold > 0 && (
-                        <span className="text-[10px] text-[#006385] ml-1">(+{extraSold})</span>
+                        <span className="text-[10px] text-fm-tertiary ml-1">(+{extraSold})</span>
                       )}
                     </span>
                   </p>
                 </div>
 
                 {/* Progress bar */}
-                <div className="w-full bg-[#e5e9eb] rounded-full h-1.5 overflow-hidden">
+                <div className="w-full bg-fm-surface-container rounded-full h-1.5 overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500"
                     style={{ width: `${pct}%`, backgroundColor: color }}
@@ -622,7 +622,7 @@ export function RequirementPanel({
 
                 {/* Historia breakdown: propias + derivadas */}
                 {historiaBd && historiaBd.derivadas > 0 && (
-                  <p className="text-[10px] text-[#595c5e] leading-tight">
+                  <p className="text-[10px] text-fm-on-surface-variant leading-tight">
                     <span className="font-bold">{historiaBd.propias}</span> propias
                     {' + '}
                     <span className="font-bold text-purple-600">{historiaBd.derivadas}</span> derivadas
@@ -646,13 +646,13 @@ export function RequirementPanel({
 
           return (
             <div className="glass-panel rounded-2xl px-5 py-3 flex items-center gap-6 flex-wrap">
-              <p className="text-[11px] font-extrabold text-[#abadaf] uppercase tracking-widest shrink-0">
+              <p className="text-[11px] font-extrabold text-fm-outline-variant uppercase tracking-widest shrink-0">
                 Cambios del ciclo
               </p>
 
               <div className="flex items-center gap-3">
                 {/* Short progress bar */}
-                <div className="w-32 bg-[#e5e9eb] rounded-full h-1.5 overflow-hidden">
+                <div className="w-32 bg-fm-surface-container rounded-full h-1.5 overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500"
                     style={{ width: `${pct}%`, backgroundColor: color }}
@@ -665,18 +665,18 @@ export function RequirementPanel({
 
               <div className="flex items-center gap-4 flex-wrap">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-[#dfe3e6]" />
-                  <span className="text-[11px] text-[#595c5e]">
-                    Plan: <strong className="text-[#2c2f31]">{planBase}</strong>
+                  <span className="w-2 h-2 rounded-full bg-fm-surface-container-high" />
+                  <span className="text-[11px] text-fm-on-surface-variant">
+                    Plan: <strong className="text-fm-on-surface">{planBase}</strong>
                   </span>
                 </div>
                 {pkgTotal > 0 && (
                   <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-[#5bf4de]" />
-                    <span className="text-[11px] text-[#595c5e]">
-                      Comprados: <strong className="text-[#00675c]">+{pkgTotal}</strong>
+                    <span className="w-2 h-2 rounded-full bg-fm-primary-container" />
+                    <span className="text-[11px] text-fm-on-surface-variant">
+                      Comprados: <strong className="text-fm-primary">+{pkgTotal}</strong>
                       {packages.length > 0 && (
-                        <span className="ml-1 text-[#abadaf]">
+                        <span className="ml-1 text-fm-outline-variant">
                           ({packages.map(p => `${p.qty}${p.note ? ` — ${p.note}` : ''}`).join(', ')})
                         </span>
                       )}
@@ -695,7 +695,7 @@ export function RequirementPanel({
 
       {/* ── Desglose semanal ── */}
       {!isUnifiedPool && <section className="space-y-5">
-        <h3 className="text-xl font-extrabold tracking-tight text-[#2c2f31]">
+        <h3 className="text-xl font-extrabold tracking-tight text-fm-on-surface">
           Desglose semanal
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -717,23 +717,23 @@ export function RequirementPanel({
                       <p className="text-[11px] font-extrabold uppercase tracking-widest" style={{ color: week.isCurrent ? '#00675c' : '#595c5e' }}>
                         {weekLabel}{week.isCurrent && ' · Actual'}
                       </p>
-                      {week.isCurrent && <span className="flex h-2 w-2 rounded-full bg-[#00675c] animate-pulse flex-shrink-0" />}
+                      {week.isCurrent && <span className="flex h-2 w-2 rounded-full bg-fm-primary animate-pulse flex-shrink-0" />}
                     </div>
 
                     {!unlocked && (
-                      <div className="absolute inset-0 bg-white/85 backdrop-blur-[1px] rounded-[1.5rem] flex flex-col items-center justify-center gap-2 z-10">
-                        <span className="material-symbols-outlined text-2xl text-[#b31b25]">lock</span>
-                        <p className="text-xs font-bold text-[#b31b25] text-center px-4">
+                      <div className="absolute inset-0 bg-fm-surface-container-lowest/85 backdrop-blur-[1px] rounded-[1.5rem] flex flex-col items-center justify-center gap-2 z-10">
+                        <span className="material-symbols-outlined text-2xl text-fm-error">lock</span>
+                        <p className="text-xs font-bold text-fm-error text-center px-4">
                           {weekIdx <= 2 ? '1ra quincena' : '2da quincena'}
                         </p>
-                        <p className="text-[10px] text-[#595c5e] text-center px-4">
+                        <p className="text-[10px] text-fm-on-surface-variant text-center px-4">
                           Bloqueada — pago pendiente
                         </p>
                       </div>
                     )}
 
                     {budgetTypes.length === 0 && !hasActivity ? (
-                      <p className="text-xs text-[#abadaf]">{isFuture ? 'Pendiente' : 'Sin actividad'}</p>
+                      <p className="text-xs text-fm-outline-variant">{isFuture ? 'Pendiente' : 'Sin actividad'}</p>
                     ) : (
                       <div className="space-y-3">
                         {(budgetTypes.length > 0 ? budgetTypes : pipelineTypes.filter(t => (week.counts[t] ?? 0) > 0)).map((type) => {
@@ -746,23 +746,23 @@ export function RequirementPanel({
                           return (
                             <div key={type}>
                               <div className="flex justify-between items-center mb-1">
-                                <span className="flex items-center gap-1 text-[11px] text-[#595c5e] font-medium">
+                                <span className="flex items-center gap-1 text-[11px] text-fm-on-surface-variant font-medium">
                                   <span className="material-symbols-outlined text-sm">{CONTENT_ICONS[type]}</span>
                                   {CONTENT_TYPE_LABELS[type]}
                                 </span>
                                 <div className="flex items-center gap-1">
-                                  <span className="text-[11px] font-bold text-[#2c2f31]">
-                                    {consumed}<span className="font-normal text-[#abadaf]">/{budget}</span>
+                                  <span className="text-[11px] font-bold text-fm-on-surface">
+                                    {consumed}<span className="font-normal text-fm-outline-variant">/{budget}</span>
                                   </span>
                                   {extra > 0 && (
-                                    <span className="text-[9px] font-bold px-1 py-0.5 rounded-full bg-[#b31b25]/10 text-[#b31b25]">
+                                    <span className="text-[9px] font-bold px-1 py-0.5 rounded-full bg-fm-error/10 text-fm-error">
                                       +{extra}
                                     </span>
                                   )}
                                 </div>
                               </div>
                               {budget > 0 && (
-                                <div className="w-full bg-[#e5e9eb] rounded-full h-1.5 overflow-hidden">
+                                <div className="w-full bg-fm-surface-container rounded-full h-1.5 overflow-hidden">
                                   <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: weekBarColor }} />
                                 </div>
                               )}
@@ -781,17 +781,17 @@ export function RequirementPanel({
       {/* ── Matriz, producciones y reuniones del mes ── */}
       {(simpleTypes.length > 0 || hasMatriz) && (
         <section className="space-y-5">
-          <h3 className="text-xl font-extrabold tracking-tight text-[#2c2f31]">
+          <h3 className="text-xl font-extrabold tracking-tight text-fm-on-surface">
             {hasMatriz ? 'Matriz, producciones y reuniones del mes' : 'Producciones y reuniones del mes'}
           </h3>
           {/* Counter */}
           <div className="flex gap-4 flex-wrap">
             {hasMatriz && (
               <div className="flex items-center gap-2 px-4 py-2 glass-panel rounded-2xl">
-                <span className="material-symbols-outlined text-[#00675c] text-base">
+                <span className="material-symbols-outlined text-fm-primary text-base">
                   {CONTENT_ICONS.matriz_contenido}
                 </span>
-                <span className="text-sm font-bold text-[#2c2f31]">
+                <span className="text-sm font-bold text-fm-on-surface">
                   {totals.matriz_contenido ?? 0} / {limits.matriz_contenido}{' '}
                   {(totals.matriz_contenido ?? 0) === 1 ? 'matriz' : 'matrices'}
                 </span>
@@ -803,10 +803,10 @@ export function RequirementPanel({
               ).length
               return (
                 <div key={type} className="flex items-center gap-2 px-4 py-2 glass-panel rounded-2xl">
-                  <span className="material-symbols-outlined text-[#00675c] text-base">
+                  <span className="material-symbols-outlined text-fm-primary text-base">
                     {CONTENT_ICONS[type]}
                   </span>
-                  <span className="text-sm font-bold text-[#2c2f31]">
+                  <span className="text-sm font-bold text-fm-on-surface">
                     {count} {count !== 1
                       ? (type === 'produccion' ? 'producciones' : 'reuniones')
                       : CONTENT_TYPE_LABELS[type].toLowerCase()
@@ -826,33 +826,33 @@ export function RequirementPanel({
               if (simpleEntries.length === 0) {
                 return (
                   <div className="p-8 text-center">
-                    <p className="text-sm text-[#595c5e]">Sin registros este ciclo.</p>
+                    <p className="text-sm text-fm-on-surface-variant">Sin registros este ciclo.</p>
                   </div>
                 )
               }
 
               return (
-                <div className="divide-y divide-[#dfe3e6]/60">
+                <div className="divide-y divide-fm-surface-container-high/60">
                   {simpleEntries.map((r) => {
                     const type = r.content_type as ContentType
                     const date = new Date(r.registered_at)
                     const dateStr = `${date.getDate()} ${['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][date.getMonth()]} ${date.getFullYear()}`
                     return (
                       <div key={r.id} className="px-6 py-4 flex items-start gap-4">
-                        <div className="p-2 bg-[#5bf4de]/30 rounded-xl flex-shrink-0 mt-0.5">
-                          <span className="material-symbols-outlined text-[#00675c] text-base">
+                        <div className="p-2 bg-fm-primary-container/30 rounded-xl flex-shrink-0 mt-0.5">
+                          <span className="material-symbols-outlined text-fm-primary text-base">
                             {CONTENT_ICONS[type]}
                           </span>
                         </div>
                         <div>
-                          <p className="text-sm font-bold text-[#2c2f31]">
+                          <p className="text-sm font-bold text-fm-on-surface">
                             {CONTENT_TYPE_LABELS[type]} — {dateStr}
                           </p>
                           {r.notes && (
-                            <p className="text-xs text-[#595c5e] mt-0.5">{r.notes}</p>
+                            <p className="text-xs text-fm-on-surface-variant mt-0.5">{r.notes}</p>
                           )}
                           {r.title && (
-                            <p className="text-xs text-[#747779] mt-0.5 italic">{r.title}</p>
+                            <p className="text-xs text-fm-outline mt-0.5 italic">{r.title}</p>
                           )}
                         </div>
                       </div>
@@ -870,7 +870,7 @@ export function RequirementPanel({
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Cycle history — col-span-7 */}
           <div className="lg:col-span-7 space-y-4">
-            <h3 className="text-xl font-extrabold tracking-tight text-[#2c2f31]">
+            <h3 className="text-xl font-extrabold tracking-tight text-fm-on-surface">
               Historial del ciclo
             </h3>
             <RequirementHistory
@@ -884,12 +884,12 @@ export function RequirementPanel({
 
           {/* Internal notes — col-span-5 */}
           <div className="lg:col-span-5 space-y-4">
-            <h3 className="text-xl font-extrabold tracking-tight text-[#2c2f31]">
+            <h3 className="text-xl font-extrabold tracking-tight text-fm-on-surface">
               Notas internas
             </h3>
             <div className="glass-panel p-6 rounded-[2rem] flex flex-col" style={{ minHeight: '340px' }}>
               <textarea
-                className="flex-1 w-full bg-transparent border border-[#abadaf]/30 rounded-2xl p-4 text-sm text-[#2c2f31] placeholder:text-[#747779]/50 resize-none outline-none transition-all focus:border-[#00675c]/50 focus:ring-2 focus:ring-[#5bf4de]/40"
+                className="flex-1 w-full bg-transparent border border-fm-outline-variant/30 rounded-2xl p-4 text-sm text-fm-on-surface placeholder:text-fm-outline/50 resize-none outline-none transition-all focus:border-fm-primary/50 focus:ring-2 focus:ring-fm-primary-container/40"
                 rows={8}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}

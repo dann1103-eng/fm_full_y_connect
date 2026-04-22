@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { InboxSidebar } from '@/components/inbox/InboxSidebar'
+import { InboxResponsiveShell } from '@/components/inbox/InboxResponsiveShell'
 import type { AppUser, ConversationListItem } from '@/types/db'
 
 function formatSharePreview(body: string): string {
@@ -112,9 +113,10 @@ export default async function InboxLayout({ children }: { children: React.ReactN
   const [initialList, allUsers] = await Promise.all([loadInitialList(), loadAllUsers()])
 
   return (
-    <div className="flex h-full overflow-hidden">
-      <InboxSidebar initialList={initialList} allUsers={allUsers} />
-      <div className="flex-1 flex overflow-hidden">{children}</div>
-    </div>
+    <InboxResponsiveShell
+      sidebar={<InboxSidebar initialList={initialList} allUsers={allUsers} />}
+    >
+      {children}
+    </InboxResponsiveShell>
   )
 }

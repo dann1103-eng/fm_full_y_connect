@@ -16,7 +16,7 @@ export function DeleteClientButton({ clientId, clientName }: { clientId: string;
     return (
       <button
         onClick={() => setOpen(true)}
-        className="text-xs font-semibold text-[#b31b25] hover:underline"
+        className="text-xs font-semibold text-fm-error hover:underline"
       >
         Eliminar cliente
       </button>
@@ -24,23 +24,23 @@ export function DeleteClientButton({ clientId, clientName }: { clientId: string;
   }
 
   return (
-    <div className="glass-panel rounded-2xl p-5 border border-[#b31b25]/30 space-y-3">
-      <p className="text-sm font-semibold text-[#b31b25]">¿Eliminar a {clientName}?</p>
-      <p className="text-xs text-[#595c5e]">
+    <div className="glass-panel rounded-2xl p-5 border border-fm-error/30 space-y-3">
+      <p className="text-sm font-semibold text-fm-error">¿Eliminar a {clientName}?</p>
+      <p className="text-xs text-fm-on-surface-variant">
         Esta acción es irreversible. Se eliminarán todos sus ciclos, requerimientos y logs asociados.
       </p>
       <div className="flex gap-3">
         <button
           onClick={() => setOpen(false)}
           disabled={loading}
-          className="flex-1 py-2 text-sm border border-[#dfe3e6] rounded-xl text-[#595c5e] hover:bg-[#f5f7f9] transition-colors disabled:opacity-50"
+          className="flex-1 py-2 text-sm border border-fm-surface-container-high rounded-xl text-fm-on-surface-variant hover:bg-fm-background transition-colors disabled:opacity-50"
         >
           Cancelar
         </button>
         <button
           onClick={handleDelete}
           disabled={loading}
-          className="flex-1 py-2 text-sm bg-[#b31b25] text-white rounded-xl font-semibold hover:bg-[#a01820] transition-colors disabled:opacity-50"
+          className="flex-1 py-2 text-sm bg-fm-error text-white rounded-xl font-semibold hover:bg-fm-error-dim transition-colors disabled:opacity-50"
         >
           {loading ? 'Eliminando...' : 'Sí, eliminar'}
         </button>

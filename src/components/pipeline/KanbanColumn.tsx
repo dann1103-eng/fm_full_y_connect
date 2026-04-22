@@ -40,10 +40,10 @@ export function KanbanColumn({
                 : '#00675c',
             }}
           />
-          <h3 className="text-sm font-semibold text-[#2c2f31]">{PHASE_LABELS[phase]}</h3>
+          <h3 className="text-sm font-semibold text-fm-on-surface">{PHASE_LABELS[phase]}</h3>
         </div>
         {items.length > 0 && (
-          <span className="text-xs font-semibold bg-[#f5f7f9] text-[#595c5e] px-2 py-0.5 rounded-full">
+          <span className="text-xs font-semibold bg-fm-background text-fm-on-surface-variant px-2 py-0.5 rounded-full">
             {items.length}
           </span>
         )}
@@ -53,12 +53,12 @@ export function KanbanColumn({
         ref={setNodeRef}
         className={`flex-1 rounded-2xl p-2 space-y-2 min-h-[120px] transition-colors ${
           isOver
-            ? 'bg-[#00675c]/8 border-2 border-dashed border-[#00675c]'
-            : 'bg-[#f5f7f9]'
+            ? 'bg-fm-primary/8 border-2 border-dashed border-fm-primary'
+            : 'bg-fm-background'
         }`}
       >
         {items.length === 0 ? (
-          <p className="text-xs text-[#abadaf] text-center py-4">Sin piezas</p>
+          <p className="text-xs text-fm-outline-variant text-center py-4">Sin piezas</p>
         ) : (
           items.map((item) => (
             <PipelineCard

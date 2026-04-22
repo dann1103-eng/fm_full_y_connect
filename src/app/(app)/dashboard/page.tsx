@@ -108,8 +108,8 @@ export default async function DashboardPage({
           <KpiCard
             label="Clientes activos"
             value={activeCount}
-            color="text-[#00675c]"
-            bg="bg-[#00675c]/8"
+            color="text-fm-primary"
+            bg="bg-fm-primary/8"
             icon={
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
@@ -119,8 +119,8 @@ export default async function DashboardPage({
           <KpiCard
             label="Morosos"
             value={overdueCount}
-            color="text-[#b31b25]"
-            bg="bg-[#b31b25]/8"
+            color="text-fm-error"
+            bg="bg-fm-error/8"
             icon={
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
@@ -145,8 +145,8 @@ export default async function DashboardPage({
 
         {/* Client grid */}
         {items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-[#595c5e]">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mb-3 text-[#abadaf]" viewBox="0 0 24 24" fill="currentColor">
+          <div className="flex flex-col items-center justify-center py-20 text-fm-on-surface-variant">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mb-3 text-fm-outline-variant" viewBox="0 0 24 24" fill="currentColor">
               <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
             </svg>
             <p className="font-medium">No se encontraron clientes</p>
@@ -178,13 +178,13 @@ function KpiCard({
   icon: React.ReactNode
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-[#abadaf]/20 p-5 flex items-center gap-4">
+    <div className="bg-fm-surface-container-lowest rounded-2xl border border-fm-outline-variant/20 p-5 flex items-center gap-4">
       <div className={`w-11 h-11 rounded-xl ${bg} flex items-center justify-center flex-shrink-0 ${color}`}>
         {icon}
       </div>
       <div>
-        <p className="text-2xl font-bold text-[#2c2f31]">{value}</p>
-        <p className="text-sm text-[#595c5e]">{label}</p>
+        <p className="text-2xl font-bold text-fm-on-surface">{value}</p>
+        <p className="text-sm text-fm-on-surface-variant">{label}</p>
       </div>
     </div>
   )

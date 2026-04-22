@@ -39,7 +39,7 @@ export function MobileSidebar({ renewalCount, agencyLogoUrl }: MobileSidebarProp
         onClick={() => setOpen(false)}
       />
       <aside
-        className={`absolute inset-y-0 left-0 w-72 max-w-[85%] bg-white shadow-xl border-r border-[#abadaf]/30 transition-transform duration-200 ease-out ${
+        className={`absolute inset-y-0 left-0 w-72 max-w-[85%] bg-fm-surface-container-lowest shadow-xl border-r border-fm-outline-variant/30 transition-transform duration-200 ease-out ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

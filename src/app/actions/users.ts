@@ -55,6 +55,83 @@ export async function createUser(payload: {
   }
 }
 
+export async function updateUserProfile(payload: {
+  userId: string
+  fullName?: string
+  avatarUrl?: string | null
+  email?: string
+}) {
+  try {
+    await assertAdmin()
+
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return { error: 'Falta SUPABASE_SERVICE_ROLE_KEY en variables de entorno.' }
+    }
+
+    const admin = createAdminClient()
+
+    const profileUpdate: { full_name?: string; avatar_url?: string | null; email?: string } = {}
+    if (payload.fullName !== undefined) profileUpdate.full_name = payload.fullName
+    if (payload.avatarUrl !== undefined) profileUpdate.avatar_url = payload.avatarUrl
+    if (payload.email !== undefined) profileUpdate.email = payload.email
+
+    if (Object.keys(profileUpdate).length === 0) {
+      return { error: 'Sin cambios para guardar.' }
+    }
+
+    if (payload.email !== undefined) {
+      const { error: authError } = await admin.auth.admin.updateUserById(payload.userId, {
+        email: payload.email,
+      })
+      if (authError) return { error: authError.message }
+    }
+
+    if (payload.fullName !== undefined) {
+      await admin.auth.admin.updateUserById(payload.userId, {
+        user_metadata: { full_name: payload.fullName },
+      })
+    }
+
+    const { error } = await admin.from('users').update(profileUpdate).eq('id', payload.userId)
+    if (error) return { error: error.message }
+
+    revalidatePath('/users')
+    return { success: true }
+  } catch (e) {
+    console.error('updateUserProfile failed:', e)
+    return { error: e instanceof Error ? e.message : 'Error desconocido al actualizar perfil' }
+  }
+}
+
+export async function adminChangeUserPassword(payload: {
+  userId: string
+  newPassword: string
+}) {
+  try {
+    await assertAdmin()
+
+    if (payload.newPassword.length < 8) {
+      return { error: 'La contraseña debe tener al menos 8 caracteres.' }
+    }
+
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return { error: 'Falta SUPABASE_SERVICE_ROLE_KEY en variables de entorno.' }
+    }
+
+    const admin = createAdminClient()
+
+    const { error } = await admin.auth.admin.updateUserById(payload.userId, {
+      password: payload.newPassword,
+    })
+    if (error) return { error: error.message }
+
+    return { success: true }
+  } catch (e) {
+    console.error('adminChangeUserPassword failed:', e)
+    return { error: e instanceof Error ? e.message : 'Error desconocido al cambiar contraseña' }
+  }
+}
+
 export async function deleteUser(targetUserId: string) {
   try {
     await assertAdmin()

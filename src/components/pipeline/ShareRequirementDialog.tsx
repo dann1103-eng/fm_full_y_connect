@@ -51,13 +51,13 @@ export function ShareRequirementDialog({
         {menuOpen && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-            <div className="absolute right-0 top-full mt-1 z-50 w-56 bg-white rounded-lg shadow-lg ring-1 ring-black/10 overflow-hidden">
+            <div className="absolute right-0 top-full mt-1 z-50 w-56 bg-fm-surface-container-lowest rounded-lg shadow-lg ring-1 ring-black/10 overflow-hidden">
               <button
                 type="button"
                 onClick={handleCopy}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#2c2f31] hover:bg-[#f5f7f9]"
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-fm-on-surface hover:bg-fm-background"
               >
-                <span className="material-symbols-outlined text-[18px] text-[#00675c]">link</span>
+                <span className="material-symbols-outlined text-[18px] text-fm-primary">link</span>
                 {copied ? '¡Enlace copiado!' : 'Copiar enlace'}
               </button>
               <button
@@ -66,9 +66,9 @@ export function ShareRequirementDialog({
                   setMenuOpen(false)
                   setSendOpen(true)
                 }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#2c2f31] hover:bg-[#f5f7f9]"
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-fm-on-surface hover:bg-fm-background"
               >
-                <span className="material-symbols-outlined text-[18px] text-[#00675c]">send</span>
+                <span className="material-symbols-outlined text-[18px] text-fm-primary">send</span>
                 Enviar por Bandeja
               </button>
             </div>
@@ -152,25 +152,25 @@ function SendToInboxDialog({
 
         {sent ? (
           <div className="py-6 text-center">
-            <div className="w-12 h-12 rounded-full bg-[#00675c]/10 flex items-center justify-center mx-auto mb-3">
-              <span className="material-symbols-outlined text-[#00675c]">check</span>
+            <div className="w-12 h-12 rounded-full bg-fm-primary/10 flex items-center justify-center mx-auto mb-3">
+              <span className="material-symbols-outlined text-fm-primary">check</span>
             </div>
-            <p className="text-sm text-[#2c2f31] font-semibold">¡Enviado!</p>
+            <p className="text-sm text-fm-on-surface font-semibold">¡Enviado!</p>
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="text-xs text-[#595c5e]">
+            <div className="text-xs text-fm-on-surface-variant">
               Se compartirá:{' '}
-              <span className="font-semibold text-[#2c2f31]">{requirementTitle}</span>
+              <span className="font-semibold text-fm-on-surface">{requirementTitle}</span>
             </div>
             <Input
               placeholder="Buscar conversación..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
-            <div className="max-h-64 overflow-y-auto border border-[#dfe3e6] rounded-lg divide-y divide-[#dfe3e6]">
+            <div className="max-h-64 overflow-y-auto border border-fm-surface-container-high rounded-lg divide-y divide-fm-surface-container-high">
               {filtered.length === 0 && (
-                <div className="p-4 text-sm text-[#595c5e]/70 text-center">
+                <div className="p-4 text-sm text-fm-on-surface-variant/70 text-center">
                   No hay conversaciones disponibles.
                 </div>
               )}
@@ -183,7 +183,7 @@ function SendToInboxDialog({
                 />
               ))}
             </div>
-            {error && <div className="text-xs text-[#b31b25]">{error}</div>}
+            {error && <div className="text-xs text-fm-error">{error}</div>}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={resetAndClose} disabled={pending}>
                 Cancelar
@@ -214,20 +214,20 @@ function ConvRow({
       type="button"
       onClick={onSelect}
       className={cn(
-        'w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-[#f5f7f9] transition-colors',
-        selected && 'bg-[#00675c]/10',
+        'w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-fm-background transition-colors',
+        selected && 'bg-fm-primary/10',
       )}
     >
       {conv.type === 'channel' ? (
-        <span className="w-8 h-8 rounded-full bg-[#00675c]/10 flex items-center justify-center text-[#00675c] font-bold">
+        <span className="w-8 h-8 rounded-full bg-fm-primary/10 flex items-center justify-center text-fm-primary font-bold">
           #
         </span>
       ) : (
         <UserAvatar name={conv.counterpart?.full_name ?? '?'} avatarUrl={conv.counterpart?.avatar_url} size="sm" />
       )}
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-[#2c2f31] truncate">{label}</div>
-        <div className="text-xs text-[#595c5e]/70 capitalize">
+        <div className="text-sm font-medium text-fm-on-surface truncate">{label}</div>
+        <div className="text-xs text-fm-on-surface-variant/70 capitalize">
           {conv.type === 'channel' ? 'Canal' : 'Mensaje directo'}
         </div>
       </div>

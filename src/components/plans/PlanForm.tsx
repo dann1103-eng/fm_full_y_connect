@@ -110,14 +110,14 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-[2rem] p-8 w-full max-w-2xl space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-fm-surface-container-lowest rounded-[2rem] p-8 w-full max-w-2xl space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-extrabold text-[#2c2f31]">
+          <h3 className="text-lg font-extrabold text-fm-on-surface">
             {isEditing ? 'Editar plan' : 'Crear plan'}
           </h3>
           <button
             onClick={onClose}
-            className="p-1 rounded-full hover:bg-[#f5f7f9] text-[#595c5e]"
+            className="p-1 rounded-full hover:bg-fm-background text-fm-on-surface-variant"
           >
             <span className="material-symbols-outlined">close</span>
           </button>
@@ -126,18 +126,18 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
         {/* Datos generales */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-xs font-bold text-[#595c5e] uppercase tracking-wide">
+            <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">
               Nombre
             </label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Premium Plus"
-              className="mt-1.5 w-full border border-[#dfe3e6] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00675c]/30"
+              className="mt-1.5 w-full border border-fm-surface-container-high rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fm-primary/30"
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-[#595c5e] uppercase tracking-wide">
+            <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">
               Precio (USD)
             </label>
             <input
@@ -147,11 +147,11 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
               value={priceUsd}
               onChange={(e) => setPriceUsd(e.target.value)}
               placeholder="200"
-              className="mt-1.5 w-full border border-[#dfe3e6] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00675c]/30"
+              className="mt-1.5 w-full border border-fm-surface-container-high rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fm-primary/30"
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-[#595c5e] uppercase tracking-wide">
+            <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">
               Cambios incluidos
             </label>
             <input
@@ -160,7 +160,7 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
               step="1"
               value={cambiosIncluded}
               onChange={(e) => setCambiosIncluded(e.target.value)}
-              className="mt-1.5 w-full border border-[#dfe3e6] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00675c]/30"
+              className="mt-1.5 w-full border border-fm-surface-container-high rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fm-primary/30"
             />
           </div>
           <div className="flex items-end">
@@ -169,37 +169,37 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
                 type="checkbox"
                 checked={active}
                 onChange={(e) => setActive(e.target.checked)}
-                className="accent-[#00675c]"
+                className="accent-fm-primary"
               />
-              <span className="text-sm font-medium text-[#2c2f31]">Plan activo</span>
+              <span className="text-sm font-medium text-fm-on-surface">Plan activo</span>
             </label>
           </div>
         </div>
 
         {/* Pool unificado (plan Contenido) */}
-        <div className="bg-[#f5f7f9] rounded-xl p-4 space-y-2">
+        <div className="bg-fm-background rounded-xl p-4 space-y-2">
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
               checked={useUnifiedPool}
               onChange={(e) => setUseUnifiedPool(e.target.checked)}
-              className="accent-[#00675c]"
+              className="accent-fm-primary"
             />
-            <span className="text-xs font-bold text-[#595c5e] uppercase tracking-wide">
+            <span className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">
               Plan Contenido (pool unificado)
             </span>
           </label>
           {useUnifiedPool && (
             <div className="flex items-center gap-3 pl-6">
-              <span className="text-sm text-[#2c2f31]">Total de contenidos tippables:</span>
+              <span className="text-sm text-fm-on-surface">Total de contenidos tippables:</span>
               <input
                 type="number"
                 min="1"
                 value={unifiedPoolSize}
                 onChange={(e) => setUnifiedPoolSize(e.target.value)}
-                className="w-20 border border-[#dfe3e6] rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-[#00675c]/30"
+                className="w-20 border border-fm-surface-container-high rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-fm-primary/30"
               />
-              <span className="text-xs text-[#747779]">
+              <span className="text-xs text-fm-outline">
                 (estáticos + videos cortos + reels + shorts comparten este pool)
               </span>
             </div>
@@ -208,12 +208,12 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
 
         {/* Límites por tipo */}
         <div>
-          <label className="text-xs font-bold text-[#595c5e] uppercase tracking-wide block mb-2">
+          <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide block mb-2">
             {useUnifiedPool
               ? 'Límites extra (historias, producciones, reuniones, matriz) — tippables ignoran estos valores'
               : 'Límites por tipo de contenido (por ciclo)'}
           </label>
-          <div className="grid grid-cols-2 gap-3 bg-[#f5f7f9] rounded-xl p-4">
+          <div className="grid grid-cols-2 gap-3 bg-fm-background rounded-xl p-4">
             {[
               { key: 'historias' as const, label: 'Historias' },
               { key: 'estaticos' as const, label: 'Estáticos' },
@@ -226,13 +226,13 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
               { key: 'matrices_contenido' as const, label: 'Matriz contenido' },
             ].map(({ key, label }) => (
               <div key={key} className="flex items-center justify-between gap-3">
-                <span className="text-sm text-[#2c2f31]">{label}</span>
+                <span className="text-sm text-fm-on-surface">{label}</span>
                 <input
                   type="number"
                   min="0"
                   value={limits[key] ?? 0}
                   onChange={(e) => updateLimit(key, e.target.value)}
-                  className="w-20 border border-[#dfe3e6] rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-[#00675c]/30"
+                  className="w-20 border border-fm-surface-container-high rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-fm-primary/30"
                 />
               </div>
             ))}
@@ -246,20 +246,20 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
               type="checkbox"
               checked={useDistribution}
               onChange={(e) => setUseDistribution(e.target.checked)}
-              className="accent-[#00675c]"
+              className="accent-fm-primary"
             />
-            <span className="text-xs font-bold text-[#595c5e] uppercase tracking-wide">
+            <span className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">
               Usar distribución semanal personalizada
             </span>
           </label>
           {useDistribution && (
-            <div className="bg-[#f5f7f9] rounded-xl p-3 overflow-x-auto">
+            <div className="bg-fm-background rounded-xl p-3 overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr>
-                    <th className="text-left text-[#595c5e] font-bold pb-2">Semana</th>
+                    <th className="text-left text-fm-on-surface-variant font-bold pb-2">Semana</th>
                     {TIPPABLE.map((t) => (
-                      <th key={t} className="text-right text-[#595c5e] font-bold pb-2 pl-2">
+                      <th key={t} className="text-right text-fm-on-surface-variant font-bold pb-2 pl-2">
                         {CONTENT_TYPE_LABELS[t]}
                       </th>
                     ))}
@@ -268,7 +268,7 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
                 <tbody>
                   {WEEKS.map((w) => (
                     <tr key={w}>
-                      <td className="text-[#2c2f31] font-semibold py-1">{w}</td>
+                      <td className="text-fm-on-surface font-semibold py-1">{w}</td>
                       {TIPPABLE.map((t) => (
                         <td key={t} className="text-right pl-2">
                           <input
@@ -276,7 +276,7 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
                             min="0"
                             value={distribution[w]?.[t] ?? 0}
                             onChange={(e) => updateDist(w, t, e.target.value)}
-                            className="w-14 border border-[#dfe3e6] rounded px-1 py-0.5 text-right"
+                            className="w-14 border border-fm-surface-container-high rounded px-1 py-0.5 text-right"
                           />
                         </td>
                       ))}
@@ -289,26 +289,26 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
         </div>
 
         {error && (
-          <p className="text-xs text-[#b31b25] font-semibold bg-[#b31b25]/5 rounded-lg px-3 py-2">
+          <p className="text-xs text-fm-error font-semibold bg-fm-error/5 rounded-lg px-3 py-2">
             {error}
           </p>
         )}
 
-        <p className="text-xs text-[#747779] bg-[#f5f7f9] rounded-lg px-3 py-2">
+        <p className="text-xs text-fm-outline bg-fm-background rounded-lg px-3 py-2">
           Los cambios no afectan ciclos ya abiertos — solo nuevos ciclos usarán estos límites.
         </p>
 
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 border border-[#dfe3e6] rounded-full text-sm font-bold text-[#595c5e] hover:bg-[#f5f7f9]"
+            className="flex-1 py-2.5 border border-fm-surface-container-high rounded-full text-sm font-bold text-fm-on-surface-variant hover:bg-fm-background"
           >
             Cancelar
           </button>
           <button
             onClick={handleSubmit}
             disabled={saving}
-            className="flex-1 py-2.5 bg-[#00675c] text-white rounded-full text-sm font-bold hover:bg-[#005047] disabled:opacity-60"
+            className="flex-1 py-2.5 bg-fm-primary text-white rounded-full text-sm font-bold hover:bg-fm-primary-dim disabled:opacity-60"
           >
             {saving ? 'Guardando…' : isEditing ? 'Guardar' : 'Crear plan'}
           </button>

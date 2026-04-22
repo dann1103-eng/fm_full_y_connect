@@ -53,7 +53,7 @@ export default async function AppLayout({ children }: AppLayoutProps) {
   return (
     <UserProvider user={appUser}>
       <MobileSidebarProvider>
-        <div className="flex h-screen overflow-hidden bg-[#f5f7f9]">
+        <div className="flex h-screen overflow-hidden bg-fm-background">
           <Sidebar renewalCount={renewalCount} agencyLogoUrl={agencyLogoUrl} />
           <MobileSidebar renewalCount={renewalCount} agencyLogoUrl={agencyLogoUrl} />
           <div className="flex flex-col flex-1 md:ml-64 overflow-hidden">

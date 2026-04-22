@@ -96,7 +96,7 @@ export function ReactivatePanel({ client, plans }: ReactivatePanelProps) {
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-amber-200 p-5">
+    <div className="bg-fm-surface-container-lowest rounded-2xl border border-amber-200 p-5">
       <div className="flex items-center gap-2 mb-4">
         <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-amber-600" viewBox="0 0 24 24" fill="currentColor">
@@ -104,15 +104,15 @@ export function ReactivatePanel({ client, plans }: ReactivatePanelProps) {
           </svg>
         </div>
         <div>
-          <h3 className="font-semibold text-[#2c2f31]">Cliente pausado</h3>
-          <p className="text-xs text-[#595c5e]">Configura el nuevo ciclo para reactivarlo.</p>
+          <h3 className="font-semibold text-fm-on-surface">Cliente pausado</h3>
+          <p className="text-xs text-fm-on-surface-variant">Configura el nuevo ciclo para reactivarlo.</p>
         </div>
       </div>
 
       <div className="space-y-4">
         {/* Plan selector */}
         <div>
-          <label className="text-sm font-medium text-[#2c2f31] mb-2 block">Plan para el nuevo ciclo</label>
+          <label className="text-sm font-medium text-fm-on-surface mb-2 block">Plan para el nuevo ciclo</label>
           <div className="grid grid-cols-3 gap-2">
             {plans.map((plan) => (
               <button
@@ -120,16 +120,16 @@ export function ReactivatePanel({ client, plans }: ReactivatePanelProps) {
                 onClick={() => setSelectedPlanId(plan.id)}
                 className={`p-3 rounded-xl border-2 text-left transition-all ${
                   selectedPlanId === plan.id
-                    ? 'border-[#00675c] bg-[#00675c]/5'
-                    : 'border-[#dfe3e6] bg-[#f5f7f9] hover:border-[#00675c]/40'
+                    ? 'border-fm-primary bg-fm-primary/5'
+                    : 'border-fm-surface-container-high bg-fm-background hover:border-fm-primary/40'
                 }`}
               >
-                <p className={`text-sm font-semibold ${selectedPlanId === plan.id ? 'text-[#00675c]' : 'text-[#2c2f31]'}`}>
+                <p className={`text-sm font-semibold ${selectedPlanId === plan.id ? 'text-fm-primary' : 'text-fm-on-surface'}`}>
                   {plan.name}
                 </p>
-                <p className="text-xs text-[#595c5e]">${plan.price_usd}/mes</p>
+                <p className="text-xs text-fm-on-surface-variant">${plan.price_usd}/mes</p>
                 {plan.id === client.current_plan_id && (
-                  <p className="text-xs text-[#4a6319] mt-0.5">Plan actual</p>
+                  <p className="text-xs text-fm-secondary mt-0.5">Plan actual</p>
                 )}
               </button>
             ))}
@@ -139,21 +139,21 @@ export function ReactivatePanel({ client, plans }: ReactivatePanelProps) {
         {/* Start date */}
         <div className="flex items-end gap-4">
           <div className="flex-1 space-y-1.5">
-            <label className="text-sm font-medium text-[#2c2f31] block">Fecha de inicio del ciclo</label>
+            <label className="text-sm font-medium text-fm-on-surface block">Fecha de inicio del ciclo</label>
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full py-2 px-3 text-sm bg-[#f5f7f9] border border-[#dfe3e6] rounded-xl text-[#2c2f31] focus:outline-none focus:border-[#00675c]"
+              className="w-full py-2 px-3 text-sm bg-fm-background border border-fm-surface-container-high rounded-xl text-fm-on-surface focus:outline-none focus:border-fm-primary"
             />
           </div>
-          <div className="text-xs text-[#595c5e] pb-2.5">
-            Día de facturación: <span className="font-semibold text-[#2c2f31]">{client.billing_day}</span>
+          <div className="text-xs text-fm-on-surface-variant pb-2.5">
+            Día de facturación: <span className="font-semibold text-fm-on-surface">{client.billing_day}</span>
           </div>
         </div>
 
         {error && (
-          <p className="text-sm text-[#b31b25] bg-[#b31b25]/5 rounded-xl px-3 py-2 border border-[#b31b25]/20">
+          <p className="text-sm text-fm-error bg-fm-error/5 rounded-xl px-3 py-2 border border-fm-error/20">
             {error}
           </p>
         )}

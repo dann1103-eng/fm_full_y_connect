@@ -66,17 +66,17 @@ export function MessageList({ conversationId, currentUserId, initialMessages }: 
   return (
     <div
       ref={containerRef}
-      className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#f5f7f9]"
+      className="flex-1 overflow-y-auto p-6 space-y-6 bg-fm-background"
     >
       {messages.length === 0 && (
-        <div className="h-full flex items-center justify-center text-center text-[#595c5e]/70 text-sm">
+        <div className="h-full flex items-center justify-center text-center text-fm-on-surface-variant/70 text-sm">
           No hay mensajes aún. Envía el primero.
         </div>
       )}
       {groups.map((g) => (
         <div key={g.date} className="space-y-5">
           <div className="flex justify-center">
-            <span className="px-3 py-1 rounded-full bg-white border border-[#dfe3e6] text-[#595c5e] text-[10px] font-bold uppercase tracking-wider">
+            <span className="px-3 py-1 rounded-full bg-fm-surface-container-lowest border border-fm-surface-container-high text-fm-on-surface-variant text-[10px] font-bold uppercase tracking-wider">
               {dayLabel(g.date)}
             </span>
           </div>

@@ -10,9 +10,9 @@ const STATUS_LABELS: Record<string, string> = {
   overdue: 'Moroso',
 }
 const STATUS_COLORS: Record<string, string> = {
-  active: 'bg-[#00675c]/10 text-[#00675c]',
-  paused: 'bg-[#595c5e]/10 text-[#595c5e]',
-  overdue: 'bg-[#b31b25]/10 text-[#b31b25]',
+  active: 'bg-fm-primary/10 text-fm-primary',
+  paused: 'bg-fm-on-surface-variant/10 text-fm-on-surface-variant',
+  overdue: 'bg-fm-error/10 text-fm-error',
 }
 
 const avatarGradients = [
@@ -50,7 +50,7 @@ export function ClientsTable({ clients }: ClientsTableProps) {
     <div className="space-y-4">
       {/* Search */}
       <div className="relative w-full sm:w-72">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[#abadaf] text-base pointer-events-none">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-fm-outline-variant text-base pointer-events-none">
           search
         </span>
         <input
@@ -58,12 +58,12 @@ export function ClientsTable({ clients }: ClientsTableProps) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar cliente, plan…"
-          className="w-full pl-9 pr-8 py-2 text-sm bg-white border border-[#dfe3e6] rounded-xl focus:outline-none focus:border-[#00675c]/50 focus:ring-2 focus:ring-[#5bf4de]/30 text-[#2c2f31] placeholder:text-[#abadaf]"
+          className="w-full pl-9 pr-8 py-2 text-sm bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-xl focus:outline-none focus:border-fm-primary/50 focus:ring-2 focus:ring-fm-primary-container/30 text-fm-on-surface placeholder:text-fm-outline-variant"
         />
         {search && (
           <button
             onClick={() => setSearch('')}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-[#abadaf] hover:text-[#595c5e]"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-fm-outline-variant hover:text-fm-on-surface-variant"
             aria-label="Limpiar búsqueda"
           >
             <span className="material-symbols-outlined text-base">close</span>
@@ -72,20 +72,20 @@ export function ClientsTable({ clients }: ClientsTableProps) {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl border border-[#abadaf]/20 overflow-hidden">
+      <div className="bg-fm-surface-container-lowest rounded-2xl border border-fm-outline-variant/20 overflow-hidden">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-[#abadaf]/10">
-              <th className="text-left text-xs font-semibold text-[#747779] px-5 py-3">Cliente</th>
-              <th className="text-left text-xs font-semibold text-[#747779] px-4 py-3">Plan</th>
-              <th className="text-left text-xs font-semibold text-[#747779] px-4 py-3">Estado</th>
-              <th className="text-left text-xs font-semibold text-[#747779] px-4 py-3">Día de facturación</th>
-              <th className="text-left text-xs font-semibold text-[#747779] px-4 py-3 w-16"></th>
+            <tr className="border-b border-fm-outline-variant/10">
+              <th className="text-left text-xs font-semibold text-fm-outline px-5 py-3">Cliente</th>
+              <th className="text-left text-xs font-semibold text-fm-outline px-4 py-3">Plan</th>
+              <th className="text-left text-xs font-semibold text-fm-outline px-4 py-3">Estado</th>
+              <th className="text-left text-xs font-semibold text-fm-outline px-4 py-3">Día de facturación</th>
+              <th className="text-left text-xs font-semibold text-fm-outline px-4 py-3 w-16"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#abadaf]/10">
+          <tbody className="divide-y divide-fm-outline-variant/10">
             {filtered.map((client) => (
-              <tr key={client.id} className="hover:bg-[#f5f7f9] transition-colors">
+              <tr key={client.id} className="hover:bg-fm-background transition-colors">
                 <td className="px-5 py-3">
                   <Link
                     href={`/clients/${client.id}`}
@@ -103,15 +103,15 @@ export function ClientsTable({ clients }: ClientsTableProps) {
                       </div>
                     )}
                     <div>
-                      <p className="text-sm font-medium text-[#2c2f31]">{client.name}</p>
+                      <p className="text-sm font-medium text-fm-on-surface">{client.name}</p>
                       {client.contact_email && (
-                        <p className="text-xs text-[#747779]">{client.contact_email}</p>
+                        <p className="text-xs text-fm-outline">{client.contact_email}</p>
                       )}
                     </div>
                   </Link>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="text-sm text-[#2c2f31]">{client.plan.name}</span>
+                  <span className="text-sm text-fm-on-surface">{client.plan.name}</span>
                 </td>
                 <td className="px-4 py-3">
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[client.status]}`}>
@@ -119,12 +119,12 @@ export function ClientsTable({ clients }: ClientsTableProps) {
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="text-sm text-[#595c5e]">Día {client.billing_day}</span>
+                  <span className="text-sm text-fm-on-surface-variant">Día {client.billing_day}</span>
                 </td>
                 <td className="px-4 py-3">
                   <Link
                     href={`/clients/${client.id}`}
-                    className="text-xs text-[#00675c] hover:underline font-medium"
+                    className="text-xs text-fm-primary hover:underline font-medium"
                   >
                     Ver →
                   </Link>
@@ -134,14 +134,14 @@ export function ClientsTable({ clients }: ClientsTableProps) {
           </tbody>
         </table>
         {filtered.length === 0 && (
-          <div className="text-center py-10 text-[#595c5e] text-sm">
+          <div className="text-center py-10 text-fm-on-surface-variant text-sm">
             {search ? 'Sin resultados para esa búsqueda.' : 'No hay clientes registrados.'}
           </div>
         )}
       </div>
 
       {search && filtered.length > 0 && (
-        <p className="text-xs text-[#abadaf]">{filtered.length} resultado{filtered.length !== 1 ? 's' : ''}</p>
+        <p className="text-xs text-fm-outline-variant">{filtered.length} resultado{filtered.length !== 1 ? 's' : ''}</p>
       )}
     </div>
   )
