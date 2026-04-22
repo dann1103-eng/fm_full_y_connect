@@ -174,6 +174,7 @@ export function KanbanBoard({
           contentType={activeDetailItem.content_type}
           currentPhase={activeDetailItem.phase as Phase}
           clientName={activeDetailItem.client_name}
+          clientId={activeDetailItem.client_id}
           logs={detailLogs}
           currentUserId={currentUserId}
           title={activeDetailItem.title}

@@ -257,6 +257,7 @@ export function TableView({ items, logsMap, currentUserId, canAssign, isAdmin = 
           contentType={selectedItem.content_type}
           currentPhase={selectedItem.phase as Phase}
           clientName={selectedItem.client_name}
+          clientId={selectedItem.client_id}
           logs={logsMap[selectedItem.id] ?? []}
           currentUserId={currentUserId}
           title={selectedItem.title}

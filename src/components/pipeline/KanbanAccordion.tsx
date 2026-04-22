@@ -122,6 +122,7 @@ export function KanbanAccordion({
           contentType={deepLinkItem.content_type}
           currentPhase={deepLinkItem.phase as Phase}
           clientName={deepLinkItem.client_name}
+          clientId={deepLinkItem.client_id}
           logs={logsMap[deepLinkItem.id] ?? []}
           currentUserId={currentUserId}
           title={deepLinkItem.title}

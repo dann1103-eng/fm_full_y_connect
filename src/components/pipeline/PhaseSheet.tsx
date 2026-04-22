@@ -27,6 +27,7 @@ import { PRIORITY_LABELS, PRIORITY_COLORS } from '@/types/db'
 import { RequirementChat } from './RequirementChat'
 import { RequirementTimesheet } from './RequirementTimesheet'
 import { ShareRequirementDialog } from './ShareRequirementDialog'
+import { ContentReviewDialog } from '@/components/clients/review/ContentReviewDialog'
 
 type Tab = 'fases' | 'chat' | 'tiempo'
 
@@ -48,6 +49,7 @@ interface PhaseSheetProps {
   contentType: ContentType
   currentPhase: Phase
   clientName: string
+  clientId?: string
   logs: RequirementPhaseLog[]
   currentUserId: string
   title: string
@@ -72,6 +74,7 @@ export function PhaseSheet({
   contentType,
   currentPhase,
   clientName,
+  clientId,
   logs,
   currentUserId,
   title,
@@ -92,6 +95,7 @@ export function PhaseSheet({
   const storyApplicable = STORY_APPLICABLE_TYPES.includes(contentType)
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>('fases')
+  const [reviewOpen, setReviewOpen] = useState<boolean>(false)
 
   // Expand state (desktop only)
   const [expanded, setExpanded] = useState<boolean>(() => {
@@ -417,6 +421,18 @@ export function PhaseSheet({
               {tab.label}
             </button>
           ))}
+          {clientId && (
+            <button
+              onClick={() => setReviewOpen(true)}
+              className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 border-transparent text-fm-outline hover:text-fm-on-surface transition-colors flex-1 justify-center"
+              title="Abrir revisión de contenido"
+            >
+              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current">
+                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
+              </svg>
+              Revisión
+            </button>
+          )}
         </div>
 
         {/* ── Tab content (scrollable) ── */}
@@ -874,6 +890,16 @@ export function PhaseSheet({
         )}
 
       </SheetContent>
+      {clientId && (
+        <ContentReviewDialog
+          open={reviewOpen}
+          onClose={() => setReviewOpen(false)}
+          requirementId={requirementId}
+          clientId={clientId}
+          requirementTitle={title || CONTENT_TYPE_LABELS[contentType]}
+          currentUserId={currentUserId}
+        />
+      )}
     </Sheet>
   )
 }
