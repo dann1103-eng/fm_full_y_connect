@@ -33,7 +33,7 @@ const NOTIFICATION_SOUND = '/sounds/notification.mp3'
 const INBOX_SOUND = '/sounds/inbox.mp3'
 
 export function useNotificationToasts() {
-  const { items } = useNotifications()
+  const { items, loading } = useNotifications()
   const [toasts, setToasts] = useState<ToastItem[]>([])
   const seenIdsRef = useRef<Set<string>>(new Set())
   const initializedRef = useRef(false)
@@ -55,7 +55,7 @@ export function useNotificationToasts() {
 
   useEffect(() => {
     if (!initializedRef.current) {
-      // Seed known IDs on first load — don't toast existing notifications
+      if (loading) return // esperar a que el primer fetch complete
       for (const it of items) seenIdsRef.current.add(it.id)
       initializedRef.current = true
       return
