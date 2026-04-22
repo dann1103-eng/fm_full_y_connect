@@ -54,19 +54,21 @@ export function useNotificationToasts() {
   }, [])
 
   useEffect(() => {
+    const key = (it: NotificationItem) => `${it.id}:${it.created_at}`
+
     if (!initializedRef.current) {
       if (loading) return // esperar a que el primer fetch complete
-      for (const it of items) seenIdsRef.current.add(it.id)
+      for (const it of items) seenIdsRef.current.add(key(it))
       initializedRef.current = true
       return
     }
 
     const newItems = items.filter(
-      (it) => !seenIdsRef.current.has(it.id) && (it.kind === 'mention' || it.kind === 'dm' || it.kind === 'channel')
+      (it) => !seenIdsRef.current.has(key(it)) && (it.kind === 'mention' || it.kind === 'dm' || it.kind === 'channel')
     )
     if (newItems.length === 0) return
 
-    for (const it of newItems) seenIdsRef.current.add(it.id)
+    for (const it of newItems) seenIdsRef.current.add(key(it))
 
     const hasInbox = newItems.some((it) => it.kind === 'dm' || it.kind === 'channel')
     if (hasInbox) {

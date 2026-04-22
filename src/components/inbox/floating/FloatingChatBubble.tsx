@@ -19,7 +19,7 @@ interface FloatingChatBubbleProps {
 
 export function FloatingChatBubble({ conversation, onClose, onMinimize, minimized }: FloatingChatBubbleProps) {
   const user = useUser()
-  const { messages } = useConversationMessages(conversation.id)
+  const { messages, refresh } = useConversationMessages(conversation.id)
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -48,6 +48,7 @@ export function FloatingChatBubble({ conversation, onClose, onMinimize, minimize
     setSending(true)
     setBody('')
     await sendMessage({ conversationId: conversation.id, body: text })
+    refresh()
     setSending(false)
   }
 

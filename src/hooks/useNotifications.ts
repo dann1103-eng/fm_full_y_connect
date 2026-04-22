@@ -7,7 +7,6 @@ import { createClient } from '@/lib/supabase/client'
 const SAFETY_POLL_MS = 60_000
 const DEBOUNCE_MS = 400
 const DISMISSAL_KEY = 'overdue-seen'
-const NOTIFICATION_SOUND_URL = '/sounds/notification.mp3'
 
 type DismissalMap = Record<string, string>
 
@@ -38,39 +37,10 @@ export function useNotifications() {
   const [dismissal, setDismissal] = useState<DismissalMap>({})
   const abortRef = useRef<AbortController | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
-  const prevSignatureRef = useRef<string | null>(null)
-  const initializedRef = useRef(false)
 
   useEffect(() => {
     setDismissal(readDismissal())
   }, [])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (audioRef.current) return
-    const audio = new Audio(NOTIFICATION_SOUND_URL)
-    audio.preload = 'auto'
-    audio.volume = 0.4
-    audioRef.current = audio
-  }, [])
-
-  useEffect(() => {
-    const signature = items.map((it) => `${it.kind}:${it.id}:${it.created_at}`).join('|')
-    if (!initializedRef.current) {
-      initializedRef.current = true
-      prevSignatureRef.current = signature
-      return
-    }
-    if (signature === prevSignatureRef.current) return
-    const prevIds = new Set((prevSignatureRef.current ?? '').split('|'))
-    const hasNew = items.some((it) => !prevIds.has(`${it.kind}:${it.id}:${it.created_at}`))
-    prevSignatureRef.current = signature
-    if (hasNew && audioRef.current) {
-      audioRef.current.currentTime = 0
-      audioRef.current.play().catch(() => { /* autoplay blocked — ignore */ })
-    }
-  }, [items])
 
   const fetchItems = useCallback(async () => {
     abortRef.current?.abort()
