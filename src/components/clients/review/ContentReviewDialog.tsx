@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog'
 import { XIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -18,6 +18,8 @@ interface ContentReviewDialogProps {
   clientId: string
   requirementTitle: string
   currentUserId: string
+  /** Deep-link: seleccionar este pin (y su asset/versión) al abrir. */
+  initialPinId?: string | null
 }
 
 type UserMini = { id: string; full_name: string; avatar_url: string | null; role: string }
@@ -29,6 +31,7 @@ export function ContentReviewDialog({
   clientId,
   requirementTitle,
   currentUserId,
+  initialPinId = null,
 }: ContentReviewDialogProps) {
   const data = useReviewData(requirementId)
   const [users, setUsers] = useState<UserMini[]>([])
@@ -74,6 +77,31 @@ export function ContentReviewDialog({
       setSelectedVersionId(versions[versions.length - 1].id)
     }
   }, [data.loading, data.assets, data.versionsByAsset, selectedAssetId, selectedVersionId])
+
+  // Deep-link: si initialPinId está presente, navegar a ese pin al cargar.
+  const deepLinkAppliedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!open || data.loading || !initialPinId) return
+    if (deepLinkAppliedRef.current === initialPinId) return
+    for (const versionId of Object.keys(data.pinsByVersion)) {
+      const pin = data.pinsByVersion[versionId].find((p) => p.id === initialPinId)
+      if (pin) {
+        const version = Object.values(data.versionsByAsset)
+          .flat()
+          .find((v) => v.id === pin.version_id)
+        if (version) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setSelectedAssetId(version.asset_id)
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setSelectedVersionId(version.id)
+        }
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setSelectedPinId(pin.id)
+        deepLinkAppliedRef.current = initialPinId
+        return
+      }
+    }
+  }, [open, data.loading, data.pinsByVersion, data.versionsByAsset, initialPinId])
 
   const selectedAsset = useMemo(
     () => data.assets.find((a) => a.id === selectedAssetId) ?? null,

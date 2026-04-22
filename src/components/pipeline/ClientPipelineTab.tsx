@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { PipelineCard } from './PipelineCard'
 import { PHASES, PHASE_LABELS } from '@/lib/domain/pipeline'
 import type { PipelineItem } from '@/lib/domain/pipeline'
@@ -16,6 +17,10 @@ interface ClientPipelineTabProps {
 
 export function ClientPipelineTab({ items, logsMap, currentUserId, canAssign = false, isAdmin = false }: ClientPipelineTabProps) {
   const [nowMs, setNowMs] = useState<number>(() => new Date().getTime())
+  const searchParams = useSearchParams()
+  const deepReq = searchParams.get('req')
+  const deepTab = searchParams.get('tab')
+  const deepPin = searchParams.get('pin')
 
   useEffect(() => {
     const id = setInterval(() => setNowMs(new Date().getTime()), 60_000)
@@ -58,6 +63,9 @@ export function ClientPipelineTab({ items, logsMap, currentUserId, canAssign = f
                 canAssign={canAssign}
                 isAdmin={isAdmin}
                 nowMs={nowMs}
+                initialOpen={deepReq === item.id}
+                initialReviewOpen={deepReq === item.id && deepTab === 'revision'}
+                initialReviewPinId={deepReq === item.id ? deepPin : null}
               />
             ))}
           </div>
