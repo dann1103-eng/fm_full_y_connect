@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import type { ReviewPin, ReviewComment } from '@/types/db'
+import type { ReviewPin, ReviewComment, UserRole } from '@/types/db'
 import { CommentCard } from './CommentCard'
 
 type Tab = 'active' | 'resolved'
@@ -10,6 +10,7 @@ interface UserMini {
   id: string
   full_name: string
   avatar_url: string | null
+  role: UserRole
 }
 
 interface ReviewRightColumnProps {

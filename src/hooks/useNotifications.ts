@@ -139,15 +139,54 @@ export function useNotifications() {
     })
   }, [])
 
+  const dismissOverdue = useCallback((requirementId: string, createdAt: string) => {
+    const next: DismissalMap = { ...readDismissal(), [requirementId]: createdAt }
+    writeDismissal(next)
+    setDismissal(next)
+  }, [])
+
+  const dismissAllOverdue = useCallback(() => {
+    setItems((current) => {
+      const next: DismissalMap = { ...readDismissal() }
+      for (const it of current) {
+        if (it.kind === 'overdue' && it.overdue_requirement_id) {
+          next[it.overdue_requirement_id] = it.created_at
+        }
+      }
+      writeDismissal(next)
+      setDismissal(next)
+      return current
+    })
+  }, [])
+
+  const isOverdueDismissed = useCallback(
+    (it: NotificationItem): boolean => {
+      if (it.kind !== 'overdue') return false
+      const id = it.overdue_requirement_id
+      return !!id && dismissal[id] === it.created_at
+    },
+    [dismissal],
+  )
+
+  const visibleItems = items.filter((it) => !isOverdueDismissed(it))
+
   const unreadCount = items.reduce((sum, it) => {
     if (it.kind === 'overdue') {
-      const id = it.overdue_requirement_id
-      if (id && dismissal[id] === it.created_at) return sum
+      if (isOverdueDismissed(it)) return sum
       return sum + 1
     }
     if (it.kind === 'mention') return sum + (it.read ? 0 : 1)
     return sum + (it.unread_count ?? 0)
   }, 0)
 
-  return { items, unreadCount, loading, refresh: fetchItems, markOverdueSeen }
+  return {
+    items: visibleItems,
+    allItems: items,
+    unreadCount,
+    loading,
+    refresh: fetchItems,
+    markOverdueSeen,
+    dismissOverdue,
+    dismissAllOverdue,
+  }
 }

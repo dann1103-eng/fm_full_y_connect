@@ -811,6 +811,30 @@ export interface Database {
         }
         Relationships: []
       }
+      review_comment_mentions: {
+        Row: {
+          id: string
+          comment_id: string
+          requirement_id: string
+          mentioned_user_id: string
+          mentioned_by_user_id: string | null
+          read_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          comment_id: string
+          requirement_id: string
+          mentioned_user_id: string
+          mentioned_by_user_id?: string | null
+          read_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          read_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -833,6 +857,7 @@ export type ConversationMember = Database['public']['Tables']['conversation_memb
 export type Message = Database['public']['Tables']['messages']['Row']
 export type MessageAttachment = Database['public']['Tables']['message_attachments']['Row']
 export type RequirementMention = Database['public']['Tables']['requirement_mentions']['Row']
+export type ReviewCommentMention = Database['public']['Tables']['review_comment_mentions']['Row']
 
 /** Item unificado para el dropdown de notificaciones (TopNav). */
 export interface NotificationItem {
@@ -846,6 +871,13 @@ export interface NotificationItem {
   requirement_title?: string
   message_preview?: string
   mentioned_by?: Pick<AppUser, 'id' | 'full_name' | 'avatar_url'>
+  /** Distingue mención de review (pin/asset) vs mención de chat de requirement */
+  mention_source?: 'requirement' | 'review'
+  /** Solo para mention_source='review' */
+  review_pin_id?: string
+  review_asset_name?: string
+  review_version_id?: string
+  client_id?: string
   /* Para 'dm' | 'channel' */
   conversation_id?: string
   conversation_name?: string | null

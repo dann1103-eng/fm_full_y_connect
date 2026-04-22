@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   CheckIcon,
   RotateCcwIcon,
@@ -18,11 +18,14 @@ import {
   editReviewComment,
   deleteReviewComment,
 } from '@/app/actions/content-review'
+import { MentionAutocomplete } from '@/components/requirements/MentionAutocomplete'
+import type { UserRole } from '@/types/db'
 
 interface UserMini {
   id: string
   full_name: string
   avatar_url: string | null
+  role: UserRole
 }
 
 interface CommentCardProps {
@@ -63,6 +66,7 @@ function formatWhen(iso: string): string {
 function CommentRow({
   comment,
   userMap,
+  users,
   currentUserId,
   clientId,
   onCommentUpserted,
@@ -70,6 +74,7 @@ function CommentRow({
 }: {
   comment: ReviewComment
   userMap: Map<string, UserMini>
+  users: UserMini[]
   currentUserId: string
   clientId: string
   onCommentUpserted: (c: ReviewComment) => void
@@ -77,7 +82,9 @@ function CommentRow({
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(comment.body)
+  const [editMentionIds, setEditMentionIds] = useState<string[]>([])
   const [menuOpen, setMenuOpen] = useState(false)
+  const editRef = useRef<HTMLTextAreaElement | null>(null)
   const user = comment.user_id ? userMap.get(comment.user_id) : null
   const mine = comment.user_id === currentUserId
 
@@ -160,8 +167,17 @@ function CommentRow({
           )}
         </div>
         {editing ? (
-          <div className="mt-1">
+          <div className="mt-1 relative">
+            <MentionAutocomplete
+              textareaRef={editRef}
+              value={draft}
+              onChange={setDraft}
+              users={users}
+              currentMentionIds={editMentionIds}
+              onMentionsChange={setEditMentionIds}
+            />
             <textarea
+              ref={editRef}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               rows={2}
@@ -214,7 +230,9 @@ export function CommentCard({
   const replies = comments.filter((c) => c.id !== root?.id)
   const [replyOpen, setReplyOpen] = useState(false)
   const [replyBody, setReplyBody] = useState('')
+  const [replyMentionIds, setReplyMentionIds] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
+  const replyRef = useRef<HTMLTextAreaElement | null>(null)
 
   async function toggleResolved() {
     setBusy(true)
@@ -252,11 +270,13 @@ export function CommentCard({
       parentId: root.id,
       clientId,
       body,
+      mentionedUserIds: replyMentionIds,
     })
     setBusy(false)
     if ('ok' in res) {
       onCommentUpserted(res.data)
       setReplyBody('')
+      setReplyMentionIds([])
       setReplyOpen(false)
     }
   }
@@ -282,6 +302,7 @@ export function CommentCard({
           <CommentRow
             comment={root}
             userMap={userMap}
+            users={users}
             currentUserId={currentUserId}
             clientId={clientId}
             onCommentUpserted={onCommentUpserted}
@@ -297,6 +318,7 @@ export function CommentCard({
               key={r.id}
               comment={r}
               userMap={userMap}
+              users={users}
               currentUserId={currentUserId}
               clientId={clientId}
               onCommentUpserted={onCommentUpserted}
@@ -361,21 +383,32 @@ export function CommentCard({
           className="mt-2 pl-7"
           onClick={(e) => e.stopPropagation()}
         >
-          <textarea
-            value={replyBody}
-            onChange={(e) => setReplyBody(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                submitReply()
-              }
-              if (e.key === 'Escape') setReplyOpen(false)
-            }}
-            placeholder="Escribir respuesta..."
-            rows={2}
-            autoFocus
-            className="w-full text-xs text-[#2a2a2a] bg-[#f5f7f9] rounded-md px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-[#00675c]/30"
-          />
+          <div className="relative">
+            <MentionAutocomplete
+              textareaRef={replyRef}
+              value={replyBody}
+              onChange={setReplyBody}
+              users={users}
+              currentMentionIds={replyMentionIds}
+              onMentionsChange={setReplyMentionIds}
+            />
+            <textarea
+              ref={replyRef}
+              value={replyBody}
+              onChange={(e) => setReplyBody(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  submitReply()
+                }
+                if (e.key === 'Escape') setReplyOpen(false)
+              }}
+              placeholder="Escribir respuesta... (@ para mencionar)"
+              rows={2}
+              autoFocus
+              className="w-full text-xs text-[#2a2a2a] bg-[#f5f7f9] rounded-md px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-[#00675c]/30"
+            />
+          </div>
           <div className="flex justify-end gap-1 mt-1">
             <button
               onClick={() => setReplyOpen(false)}

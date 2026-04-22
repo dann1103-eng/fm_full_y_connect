@@ -35,6 +35,12 @@ interface PipelineCardProps {
   /** Timestamp (ms) used to compute phase-timer color. Passed from a
    *  board-level tick so all cards update in sync without each running its own interval. */
   nowMs?: number
+  /** Deep-link: abrir el PhaseSheet al montar si es la tarjeta objetivo. */
+  initialOpen?: boolean
+  /** Deep-link: abrir directamente el diálogo de revisión al montar. */
+  initialReviewOpen?: boolean
+  /** Deep-link: pin específico a seleccionar dentro del diálogo de revisión. */
+  initialReviewPinId?: string | null
 }
 
 /** Exported so KanbanBoard can render it directly inside DragOverlay without
@@ -210,8 +216,11 @@ export function PipelineCard({
   canAssign = false,
   isAdmin = false,
   nowMs,
+  initialOpen = false,
+  initialReviewOpen = false,
+  initialReviewPinId = null,
 }: PipelineCardProps) {
-  const [sheetOpen, setSheetOpen] = useState(false)
+  const [sheetOpen, setSheetOpen] = useState(initialOpen)
 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: item.id,
@@ -270,6 +279,8 @@ export function PipelineCard({
         includesStory={item.includes_story}
         deadline={item.deadline}
         isAdmin={isAdmin}
+        initialReviewOpen={initialReviewOpen}
+        initialReviewPinId={initialReviewPinId}
       />
     </>
   )

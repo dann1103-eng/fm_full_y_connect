@@ -1,13 +1,14 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { cn } from '@/lib/utils'
-import { shareRequirementToConversation } from '@/app/actions/inbox'
+import { shareRequirementToConversation, shareRequirementToUser } from '@/app/actions/inbox'
 import { useInboxList } from '@/hooks/useInboxPolling'
+import { createClient } from '@/lib/supabase/client'
 import type { ConversationListItem } from '@/types/db'
 
 interface ShareRequirementDialogProps {
@@ -93,6 +94,13 @@ interface SendToInboxDialogProps {
   requirementTitle: string
 }
 
+type UserRow = {
+  id: string
+  full_name: string
+  avatar_url: string | null
+  role: string
+}
+
 function SendToInboxDialog({
   open,
   onOpenChange,
@@ -100,40 +108,80 @@ function SendToInboxDialog({
   requirementTitle,
 }: SendToInboxDialogProps) {
   const { data: conversations } = useInboxList([])
+  const [activeTab, setActiveTab] = useState<'channels' | 'users'>('channels')
   const [query, setQuery] = useState('')
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null)
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [sent, setSent] = useState(false)
   const [pending, startTransition] = useTransition()
+  const [users, setUsers] = useState<UserRow[]>([])
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setCurrentUserId(user.id)
+    })
+    supabase
+      .from('users')
+      .select('id, full_name, avatar_url, role')
+      .order('full_name', { ascending: true })
+      .then(({ data }) => {
+        if (data) setUsers(data as UserRow[])
+      })
+  }, [open])
 
   function resetAndClose() {
     setQuery('')
-    setSelectedId(null)
+    setSelectedChannelId(null)
+    setSelectedUserId(null)
     setError(null)
     setSent(false)
+    setActiveTab('channels')
     onOpenChange(false)
   }
 
-  const filtered = useMemo(() => {
+  const channels = useMemo(
+    () => conversations.filter((c) => c.type === 'channel'),
+    [conversations],
+  )
+
+  const filteredChannels = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return conversations.filter((c) => {
-      const label = c.type === 'channel' ? c.name ?? '' : c.counterpart?.full_name ?? ''
-      return !q || label.toLowerCase().includes(q)
-    })
-  }, [conversations, query])
+    return channels.filter((c) => !q || (c.name ?? '').toLowerCase().includes(q))
+  }, [channels, query])
+
+  const filteredUsers = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return users
+      .filter((u) => u.id !== currentUserId)
+      .filter((u) => !q || u.full_name.toLowerCase().includes(q))
+      .sort((a, b) => a.full_name.toLowerCase().localeCompare(b.full_name.toLowerCase()))
+  }, [users, currentUserId, query])
+
+  const canSubmit = activeTab === 'channels' ? !!selectedChannelId : !!selectedUserId
 
   function submit() {
-    if (!selectedId) {
-      setError('Selecciona una conversación.')
+    if (!canSubmit) {
+      setError(activeTab === 'channels' ? 'Selecciona un canal.' : 'Selecciona un usuario.')
       return
     }
     setError(null)
     startTransition(async () => {
-      const res = await shareRequirementToConversation({
-        conversationId: selectedId,
-        requirementId,
-        requirementTitle,
-      })
+      const res =
+        activeTab === 'channels'
+          ? await shareRequirementToConversation({
+              conversationId: selectedChannelId!,
+              requirementId,
+              requirementTitle,
+            })
+          : await shareRequirementToUser({
+              userId: selectedUserId!,
+              requirementId,
+              requirementTitle,
+            })
       if ('error' in res && res.error) {
         setError(res.error)
         return
@@ -163,32 +211,86 @@ function SendToInboxDialog({
               Se compartirá:{' '}
               <span className="font-semibold text-fm-on-surface">{requirementTitle}</span>
             </div>
+
+            <div className="flex rounded-lg bg-fm-background p-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('channels')
+                  setQuery('')
+                  setError(null)
+                }}
+                className={cn(
+                  'flex-1 text-sm font-medium px-3 py-1.5 rounded-md transition-colors',
+                  activeTab === 'channels'
+                    ? 'bg-fm-surface-container-lowest text-fm-on-surface shadow-sm'
+                    : 'text-fm-on-surface-variant hover:text-fm-on-surface',
+                )}
+              >
+                Canales
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('users')
+                  setQuery('')
+                  setError(null)
+                }}
+                className={cn(
+                  'flex-1 text-sm font-medium px-3 py-1.5 rounded-md transition-colors',
+                  activeTab === 'users'
+                    ? 'bg-fm-surface-container-lowest text-fm-on-surface shadow-sm'
+                    : 'text-fm-on-surface-variant hover:text-fm-on-surface',
+                )}
+              >
+                Usuarios
+              </button>
+            </div>
+
             <Input
-              placeholder="Buscar conversación..."
+              placeholder={activeTab === 'channels' ? 'Buscar canal...' : 'Buscar usuario...'}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
+
             <div className="max-h-64 overflow-y-auto border border-fm-surface-container-high rounded-lg divide-y divide-fm-surface-container-high">
-              {filtered.length === 0 && (
+              {activeTab === 'channels' ? (
+                filteredChannels.length === 0 ? (
+                  <div className="p-4 text-sm text-fm-on-surface-variant/70 text-center">
+                    No hay canales disponibles.
+                  </div>
+                ) : (
+                  filteredChannels.map((c) => (
+                    <ChannelRow
+                      key={c.id}
+                      conv={c}
+                      selected={selectedChannelId === c.id}
+                      onSelect={() => setSelectedChannelId(c.id)}
+                    />
+                  ))
+                )
+              ) : filteredUsers.length === 0 ? (
                 <div className="p-4 text-sm text-fm-on-surface-variant/70 text-center">
-                  No hay conversaciones disponibles.
+                  No hay usuarios disponibles.
                 </div>
+              ) : (
+                filteredUsers.map((u) => (
+                  <UserRowButton
+                    key={u.id}
+                    user={u}
+                    selected={selectedUserId === u.id}
+                    onSelect={() => setSelectedUserId(u.id)}
+                  />
+                ))
               )}
-              {filtered.map((c) => (
-                <ConvRow
-                  key={c.id}
-                  conv={c}
-                  selected={selectedId === c.id}
-                  onSelect={() => setSelectedId(c.id)}
-                />
-              ))}
             </div>
+
             {error && <div className="text-xs text-fm-error">{error}</div>}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={resetAndClose} disabled={pending}>
                 Cancelar
               </Button>
-              <Button onClick={submit} disabled={pending || !selectedId}>
+              <Button onClick={submit} disabled={pending || !canSubmit}>
                 {pending ? 'Enviando...' : 'Enviar'}
               </Button>
             </div>
@@ -199,7 +301,7 @@ function SendToInboxDialog({
   )
 }
 
-function ConvRow({
+function ChannelRow({
   conv,
   selected,
   onSelect,
@@ -208,7 +310,7 @@ function ConvRow({
   selected: boolean
   onSelect: () => void
 }) {
-  const label = conv.type === 'channel' ? conv.name ?? 'canal' : conv.counterpart?.full_name ?? 'Usuario'
+  const label = conv.name ?? 'canal'
   return (
     <button
       type="button"
@@ -218,18 +320,39 @@ function ConvRow({
         selected && 'bg-fm-primary/10',
       )}
     >
-      {conv.type === 'channel' ? (
-        <span className="w-8 h-8 rounded-full bg-fm-primary/10 flex items-center justify-center text-fm-primary font-bold">
-          #
-        </span>
-      ) : (
-        <UserAvatar name={conv.counterpart?.full_name ?? '?'} avatarUrl={conv.counterpart?.avatar_url} size="sm" />
-      )}
+      <span className="w-8 h-8 rounded-full bg-fm-primary/10 flex items-center justify-center text-fm-primary font-bold">
+        #
+      </span>
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium text-fm-on-surface truncate">{label}</div>
-        <div className="text-xs text-fm-on-surface-variant/70 capitalize">
-          {conv.type === 'channel' ? 'Canal' : 'Mensaje directo'}
-        </div>
+        <div className="text-xs text-fm-on-surface-variant/70">Canal</div>
+      </div>
+    </button>
+  )
+}
+
+function UserRowButton({
+  user,
+  selected,
+  onSelect,
+}: {
+  user: UserRow
+  selected: boolean
+  onSelect: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        'w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-fm-background transition-colors',
+        selected && 'bg-fm-primary/10',
+      )}
+    >
+      <UserAvatar name={user.full_name} avatarUrl={user.avatar_url} size="sm" />
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium text-fm-on-surface truncate">{user.full_name}</div>
+        <div className="text-xs text-fm-on-surface-variant/70 capitalize">{user.role}</div>
       </div>
     </button>
   )

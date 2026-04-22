@@ -13,7 +13,34 @@ type MentionRow = {
   read_at: string | null
   created_at: string
   message: { body: string } | null
-  requirement: { title: string } | null
+  requirement: {
+    title: string
+    billing_cycle: { client: { id: string } | null } | null
+  } | null
+  mentioned_by: { id: string; full_name: string; avatar_url: string | null } | null
+}
+
+type ReviewMentionRow = {
+  id: string
+  comment_id: string
+  requirement_id: string
+  mentioned_by_user_id: string | null
+  read_at: string | null
+  created_at: string
+  comment: {
+    body: string
+    pin: {
+      id: string
+      version: {
+        id: string
+        asset: { name: string } | null
+      } | null
+    } | null
+  } | null
+  requirement: {
+    title: string
+    billing_cycle: { client: { id: string } | null } | null
+  } | null
   mentioned_by: { id: string; full_name: string; avatar_url: string | null } | null
 }
 
@@ -73,21 +100,56 @@ export async function GET() {
   const isAdminOrSupervisor =
     appUser?.role === 'admin' || appUser?.role === 'supervisor'
 
-  /* ── Menciones ─────────────────────────────────────────────── */
-  const { data: mentionsRaw } = await supabase
-    .from('requirement_mentions')
-    .select(`
-      id, message_id, requirement_id, mentioned_by_user_id, read_at, created_at,
-      message:requirement_messages!requirement_mentions_message_id_fkey(body),
-      requirement:requirements!requirement_mentions_requirement_id_fkey(title),
-      mentioned_by:users!requirement_mentions_mentioned_by_user_id_fkey(id, full_name, avatar_url)
-    `)
-    .eq('mentioned_user_id', user.id)
-    .or(`read_at.is.null,created_at.gte.${new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString()}`)
-    .order('created_at', { ascending: false })
-    .limit(50)
+  /* ── Menciones de chat de requerimiento ───────────────────── */
+  const mentionsSince = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString()
+  const [mentionsRes, reviewMentionsRes] = await Promise.all([
+    supabase
+      .from('requirement_mentions')
+      .select(`
+        id, message_id, requirement_id, mentioned_by_user_id, read_at, created_at,
+        message:requirement_messages!requirement_mentions_message_id_fkey(body),
+        requirement:requirements!requirement_mentions_requirement_id_fkey(
+          title,
+          billing_cycle:billing_cycles!requirements_billing_cycle_id_fkey(
+            client:clients!billing_cycles_client_id_fkey(id)
+          )
+        ),
+        mentioned_by:users!requirement_mentions_mentioned_by_user_id_fkey(id, full_name, avatar_url)
+      `)
+      .eq('mentioned_user_id', user.id)
+      .or(`read_at.is.null,created_at.gte.${mentionsSince}`)
+      .order('created_at', { ascending: false })
+      .limit(50),
+    supabase
+      .from('review_comment_mentions')
+      .select(`
+        id, comment_id, requirement_id, mentioned_by_user_id, read_at, created_at,
+        comment:review_comments!review_comment_mentions_comment_id_fkey(
+          body,
+          pin:review_pins!review_comments_pin_id_fkey(
+            id,
+            version:review_versions!review_pins_version_id_fkey(
+              id,
+              asset:review_assets!review_versions_asset_id_fkey(name)
+            )
+          )
+        ),
+        requirement:requirements!review_comment_mentions_requirement_id_fkey(
+          title,
+          billing_cycle:billing_cycles!requirements_billing_cycle_id_fkey(
+            client:clients!billing_cycles_client_id_fkey(id)
+          )
+        ),
+        mentioned_by:users!review_comment_mentions_mentioned_by_user_id_fkey(id, full_name, avatar_url)
+      `)
+      .eq('mentioned_user_id', user.id)
+      .or(`read_at.is.null,created_at.gte.${mentionsSince}`)
+      .order('created_at', { ascending: false })
+      .limit(50),
+  ])
 
-  const mentions = (mentionsRaw ?? []) as unknown as MentionRow[]
+  const mentions = (mentionsRes.data ?? []) as unknown as MentionRow[]
+  const reviewMentions = (reviewMentionsRes.data ?? []) as unknown as ReviewMentionRow[]
 
   const mentionItems: NotificationItem[] = mentions.map((m) => ({
     kind: 'mention',
@@ -97,6 +159,30 @@ export async function GET() {
     requirement_id: m.requirement_id,
     requirement_title: m.requirement?.title ?? 'Requerimiento',
     message_preview: (m.message?.body ?? '').slice(0, 140),
+    mention_source: 'requirement',
+    client_id: m.requirement?.billing_cycle?.client?.id,
+    mentioned_by: m.mentioned_by
+      ? {
+          id: m.mentioned_by.id,
+          full_name: m.mentioned_by.full_name,
+          avatar_url: m.mentioned_by.avatar_url,
+        }
+      : undefined,
+  }))
+
+  const reviewMentionItems: NotificationItem[] = reviewMentions.map((m) => ({
+    kind: 'mention',
+    id: m.id,
+    created_at: m.created_at,
+    read: m.read_at !== null,
+    requirement_id: m.requirement_id,
+    requirement_title: m.requirement?.title ?? 'Requerimiento',
+    message_preview: (m.comment?.body ?? '').slice(0, 140),
+    mention_source: 'review',
+    review_pin_id: m.comment?.pin?.id,
+    review_version_id: m.comment?.pin?.version?.id,
+    review_asset_name: m.comment?.pin?.version?.asset?.name,
+    client_id: m.requirement?.billing_cycle?.client?.id,
     mentioned_by: m.mentioned_by
       ? {
           id: m.mentioned_by.id,
@@ -221,7 +307,7 @@ export async function GET() {
   }
 
   /* ── Merge y sort: vencidos al frente, luego por fecha ─────── */
-  const items = [...overdueItems, ...mentionItems, ...convItems].sort((a, b) => {
+  const items = [...overdueItems, ...mentionItems, ...reviewMentionItems, ...convItems].sort((a, b) => {
     if (a.kind === 'overdue' && b.kind !== 'overdue') return -1
     if (a.kind !== 'overdue' && b.kind === 'overdue') return 1
     return a.created_at < b.created_at ? 1 : -1

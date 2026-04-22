@@ -1,10 +1,17 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import type { ReviewAsset, ReviewPin, ReviewVersion, ReviewComment } from '@/types/db'
+import type { ReviewAsset, ReviewPin, ReviewVersion, ReviewComment, UserRole } from '@/types/db'
 import { getSignedViewUrl, createReviewPin } from '@/app/actions/content-review'
 import { PinOverlay } from './PinOverlay'
 import { PinCommentBubble } from './PinCommentBubble'
+
+interface UserMini {
+  id: string
+  full_name: string
+  avatar_url: string | null
+  role: UserRole
+}
 
 interface ImageViewerProps {
   asset: ReviewAsset
@@ -13,6 +20,7 @@ interface ImageViewerProps {
   selectedPinId: string | null
   onSelectPin: (id: string | null) => void
   clientId: string
+  users: UserMini[]
   onPinCreated: (pin: ReviewPin, comment: ReviewComment) => void
 }
 
@@ -23,6 +31,7 @@ export function ImageViewer({
   selectedPinId,
   onSelectPin,
   clientId,
+  users,
   onPinCreated,
 }: ImageViewerProps) {
   const [url, setUrl] = useState<string | null>(null)
@@ -57,7 +66,7 @@ export function ImageViewer({
     setPending({ xPct: x, yPct: y })
   }
 
-  async function handleSubmitPin(body: string) {
+  async function handleSubmitPin(body: string, mentionedUserIds: string[]) {
     if (!pending) return
     setSubmitting(true)
     setError(null)
@@ -68,6 +77,7 @@ export function ImageViewer({
       posYPct: pending.yPct,
       timestampMs: null,
       body,
+      mentionedUserIds,
     })
     setSubmitting(false)
     if ('ok' in res) {
@@ -117,6 +127,7 @@ export function ImageViewer({
               <PinCommentBubble
                 xPct={pending.xPct}
                 yPct={pending.yPct}
+                users={users}
                 onSubmit={handleSubmitPin}
                 onCancel={() => setPending(null)}
                 submitting={submitting}

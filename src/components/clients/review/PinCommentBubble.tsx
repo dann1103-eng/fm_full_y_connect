@@ -2,11 +2,21 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { SendIcon, XIcon } from 'lucide-react'
+import { MentionAutocomplete } from '@/components/requirements/MentionAutocomplete'
+import type { UserRole } from '@/types/db'
+
+interface UserMini {
+  id: string
+  full_name: string
+  avatar_url: string | null
+  role: UserRole
+}
 
 interface PinCommentBubbleProps {
   xPct: number
   yPct: number
-  onSubmit: (body: string) => Promise<void> | void
+  users: UserMini[]
+  onSubmit: (body: string, mentionedUserIds: string[]) => Promise<void> | void
   onCancel: () => void
   submitting?: boolean
 }
@@ -14,11 +24,13 @@ interface PinCommentBubbleProps {
 export function PinCommentBubble({
   xPct,
   yPct,
+  users,
   onSubmit,
   onCancel,
   submitting,
 }: PinCommentBubbleProps) {
   const [body, setBody] = useState('')
+  const [mentionIds, setMentionIds] = useState<string[]>([])
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
 
   useEffect(() => {
@@ -31,7 +43,7 @@ export function PinCommentBubble({
   async function handleSubmit() {
     const trimmed = body.trim()
     if (!trimmed || submitting) return
-    await onSubmit(trimmed)
+    await onSubmit(trimmed, mentionIds)
   }
 
   return (
@@ -50,21 +62,31 @@ export function PinCommentBubble({
           <XIcon className="w-3.5 h-3.5" />
         </button>
       </div>
-      <textarea
-        ref={inputRef}
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault()
-            handleSubmit()
-          }
-          if (e.key === 'Escape') onCancel()
-        }}
-        placeholder="Escribir un mensaje..."
-        rows={2}
-        className="w-full text-xs text-[#2a2a2a] placeholder:text-[#8a8f93] bg-[#f5f7f9] rounded-md px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-[#00675c]/30"
-      />
+      <div className="relative">
+        <MentionAutocomplete
+          textareaRef={inputRef}
+          value={body}
+          onChange={setBody}
+          users={users}
+          currentMentionIds={mentionIds}
+          onMentionsChange={setMentionIds}
+        />
+        <textarea
+          ref={inputRef}
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault()
+              handleSubmit()
+            }
+            if (e.key === 'Escape') onCancel()
+          }}
+          placeholder="Escribir un mensaje... (@ para mencionar)"
+          rows={2}
+          className="w-full text-xs text-[#2a2a2a] placeholder:text-[#8a8f93] bg-[#f5f7f9] rounded-md px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-[#00675c]/30"
+        />
+      </div>
       <div className="flex justify-end mt-1">
         <button
           onClick={handleSubmit}

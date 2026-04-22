@@ -65,6 +65,8 @@ interface PhaseSheetProps {
   includesStory?: boolean
   deadline?: string | null
   isAdmin?: boolean
+  initialReviewOpen?: boolean
+  initialReviewPinId?: string | null
 }
 
 export function PhaseSheet({
@@ -90,12 +92,19 @@ export function PhaseSheet({
   includesStory: initialIncludesStory = false,
   deadline: initialDeadline = null,
   isAdmin = false,
+  initialReviewOpen = false,
+  initialReviewPinId = null,
 }: PhaseSheetProps) {
   const STORY_APPLICABLE_TYPES: ContentType[] = ['estatico', 'video_corto', 'reel', 'short']
   const storyApplicable = STORY_APPLICABLE_TYPES.includes(contentType)
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>('fases')
-  const [reviewOpen, setReviewOpen] = useState<boolean>(false)
+  const [reviewOpen, setReviewOpen] = useState<boolean>(initialReviewOpen)
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (initialReviewOpen) setReviewOpen(true)
+  }, [initialReviewOpen])
 
   // Expand state (desktop only)
   const [expanded, setExpanded] = useState<boolean>(() => {
@@ -898,6 +907,7 @@ export function PhaseSheet({
           clientId={clientId}
           requirementTitle={title || CONTENT_TYPE_LABELS[contentType]}
           currentUserId={currentUserId}
+          initialPinId={initialReviewPinId}
         />
       )}
     </Sheet>

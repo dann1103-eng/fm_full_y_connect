@@ -496,6 +496,82 @@ export async function shareRequirementToConversation(payload: {
   }
 }
 
+/* ─────────────────────────────────────────────────────────────────
+ * shareRequirementToUser — crea/reutiliza DM con userId y envía share
+ * ───────────────────────────────────────────────────────────────── */
+export async function shareRequirementToUser(payload: {
+  userId: string
+  requirementId: string
+  requirementTitle: string
+}) {
+  try {
+    const { userId: currentUserId } = await getCurrentUser()
+    if (payload.userId === currentUserId) {
+      return { error: 'No puedes compartir contigo mismo.' }
+    }
+
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return { error: 'Falta SUPABASE_SERVICE_ROLE_KEY en variables de entorno.' }
+    }
+    const admin = createAdminClient()
+
+    const { data: existing } = await admin
+      .from('conversations')
+      .select('id, conversation_members!inner(user_id)')
+      .eq('type', 'dm')
+
+    const match = (existing ?? []).find((c) => {
+      const members = (c.conversation_members as unknown as { user_id: string }[]) ?? []
+      const ids = new Set(members.map((m) => m.user_id))
+      return ids.has(currentUserId) && ids.has(payload.userId) && ids.size === 2
+    })
+
+    let conversationId: string
+    if (match) {
+      conversationId = match.id
+    } else {
+      const { data: created, error: createErr } = await admin
+        .from('conversations')
+        .insert({ type: 'dm', created_by: currentUserId })
+        .select('id')
+        .single()
+      if (createErr || !created) {
+        return { error: createErr?.message ?? 'No se pudo crear la conversación' }
+      }
+      const { error: memberErr } = await admin
+        .from('conversation_members')
+        .insert([
+          { conversation_id: created.id, user_id: currentUserId },
+          { conversation_id: created.id, user_id: payload.userId },
+        ])
+      if (memberErr) return { error: memberErr.message }
+      conversationId = created.id
+    }
+
+    const safeTitle = payload.requirementTitle.replace(/[\r\n<>]/g, ' ').trim() || 'Sin título'
+    const body = `<<<req-share:${payload.requirementId}:${safeTitle}>>>`
+    const { data: msg, error } = await admin
+      .from('messages')
+      .insert({
+        conversation_id: conversationId,
+        user_id: currentUserId,
+        body,
+      })
+      .select('id')
+      .single()
+    if (error || !msg) {
+      return { error: error?.message ?? 'No se pudo enviar el mensaje' }
+    }
+
+    revalidatePath(`/inbox/${conversationId}`)
+    revalidatePath('/inbox')
+    return { conversationId, messageId: msg.id }
+  } catch (e) {
+    console.error('shareRequirementToUser failed:', e)
+    return { error: e instanceof Error ? e.message : 'Error desconocido' }
+  }
+}
+
 export async function updateChannelMeta(payload: {
   conversationId: string
   name?: string

@@ -2,11 +2,18 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { PauseIcon, PlayIcon } from 'lucide-react'
-import type { ReviewAsset, ReviewPin, ReviewVersion, ReviewComment } from '@/types/db'
+import type { ReviewAsset, ReviewPin, ReviewVersion, ReviewComment, UserRole } from '@/types/db'
 import { getSignedViewUrl, createReviewPin } from '@/app/actions/content-review'
 import { PinOverlay } from './PinOverlay'
 import { PinCommentBubble } from './PinCommentBubble'
 import { VideoTimelineMarkers } from './VideoTimelineMarkers'
+
+interface UserMini {
+  id: string
+  full_name: string
+  avatar_url: string | null
+  role: UserRole
+}
 
 interface VideoViewerProps {
   asset: ReviewAsset
@@ -15,6 +22,7 @@ interface VideoViewerProps {
   selectedPinId: string | null
   onSelectPin: (id: string | null) => void
   clientId: string
+  users: UserMini[]
   onPinCreated: (pin: ReviewPin, comment: ReviewComment) => void
 }
 
@@ -34,6 +42,7 @@ export function VideoViewer({
   selectedPinId,
   onSelectPin,
   clientId,
+  users,
   onPinCreated,
 }: VideoViewerProps) {
   const [url, setUrl] = useState<string | null>(null)
@@ -77,7 +86,7 @@ export function VideoViewer({
     setPending({ xPct: x, yPct: y, timestampMs: Math.round((video?.currentTime ?? 0) * 1000) })
   }
 
-  async function handleSubmitPin(body: string) {
+  async function handleSubmitPin(body: string, mentionedUserIds: string[]) {
     if (!pending) return
     setSubmitting(true)
     setError(null)
@@ -88,6 +97,7 @@ export function VideoViewer({
       posYPct: pending.yPct,
       timestampMs: pending.timestampMs,
       body,
+      mentionedUserIds,
     })
     setSubmitting(false)
     if ('ok' in res) {
@@ -180,6 +190,7 @@ export function VideoViewer({
                 <PinCommentBubble
                   xPct={pending.xPct}
                   yPct={pending.yPct}
+                  users={users}
                   onSubmit={handleSubmitPin}
                   onCancel={() => setPending(null)}
                   submitting={submitting}
