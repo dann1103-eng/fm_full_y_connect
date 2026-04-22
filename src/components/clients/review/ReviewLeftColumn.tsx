@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { PlusIcon, DownloadIcon, ChevronLeftIcon, Trash2Icon } from 'lucide-react'
-import type { ReviewAsset, ReviewVersion } from '@/types/db'
+import type { ReviewAsset, ReviewVersion, ReviewPin } from '@/types/db'
 import { AssetThumbnail } from './AssetThumbnail'
 import { getSignedDownloadUrl, deleteReviewVersion } from '@/app/actions/content-review'
 import { useUser } from '@/contexts/UserContext'
@@ -10,6 +10,7 @@ import { useUser } from '@/contexts/UserContext'
 interface ReviewLeftColumnProps {
   assets: ReviewAsset[]
   versionsByAsset: Record<string, ReviewVersion[]>
+  pinsByVersion: Record<string, ReviewPin[]>
   selectedAssetId: string | null
   selectedVersionId: string | null
   clientId: string
@@ -23,6 +24,7 @@ interface ReviewLeftColumnProps {
 export function ReviewLeftColumn({
   assets,
   versionsByAsset,
+  pinsByVersion,
   selectedAssetId,
   selectedVersionId,
   clientId,
@@ -162,15 +164,27 @@ export function ReviewLeftColumn({
                     </div>
                   )
                 })}
-                {isSelectedAsset && (
-                  <button
-                    onClick={() => onAddVersion(asset.id)}
-                    className="w-full flex items-center justify-center gap-1 py-2 rounded-md border border-dashed border-fm-surface-container-high text-fm-primary hover:bg-fm-primary/5 hover:border-fm-primary/50 transition-colors text-xs"
-                  >
-                    <PlusIcon className="w-3.5 h-3.5" />
-                    Nueva versión
-                  </button>
-                )}
+                {isSelectedAsset && (() => {
+                  const latestV = versions[versions.length - 1]
+                  const latestHasActivePins = latestV
+                    ? (pinsByVersion[latestV.id] ?? []).some((p) => p.status === 'active')
+                    : false
+                  return (
+                    <button
+                      onClick={() => onAddVersion(asset.id)}
+                      disabled={latestHasActivePins}
+                      title={
+                        latestHasActivePins
+                          ? 'Resuelve los pines activos antes de subir una nueva versión'
+                          : undefined
+                      }
+                      className="w-full flex items-center justify-center gap-1 py-2 rounded-md border border-dashed border-fm-surface-container-high text-fm-primary hover:bg-fm-primary/5 hover:border-fm-primary/50 transition-colors text-xs disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-fm-surface-container-high"
+                    >
+                      <PlusIcon className="w-3.5 h-3.5" />
+                      Nueva versión
+                    </button>
+                  )
+                })()}
               </div>
             )
           })

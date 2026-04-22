@@ -7,6 +7,7 @@ import type {
   ReviewAssetKind,
   ReviewAsset,
   ReviewVersion,
+  ReviewVersionFile,
   ReviewPin,
   ReviewComment,
 } from '@/types/db'
@@ -139,6 +140,109 @@ export async function createReviewVersion(args: {
   return { ok: true, data: data as ReviewVersion }
 }
 
+export interface ReviewVersionFileInput {
+  storagePath: string
+  mimeType: string
+  byteSize: number
+  thumbnailPath?: string | null
+  durationMs?: number | null
+}
+
+/**
+ * Crea una versión con N archivos. Valida que no existan pines activos en la
+ * versión previa más reciente del mismo asset (gating de aprobación).
+ */
+export async function createReviewVersionWithFiles(args: {
+  assetId: string
+  clientId: string
+  files: ReviewVersionFileInput[]
+}): Promise<ActionResult<{ version: ReviewVersion; files: ReviewVersionFile[] }>> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado.' }
+  if (!args.files || args.files.length === 0) {
+    return { error: 'Debes incluir al menos un archivo.' }
+  }
+
+  const { data: latest } = await supabase
+    .from('review_versions')
+    .select('id, version_number')
+    .eq('asset_id', args.assetId)
+    .order('version_number', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  // Gating: si la última versión tiene pines activos, no permitir subir nueva.
+  if (latest?.id) {
+    const { count: activePins } = await supabase
+      .from('review_pins')
+      .select('id', { count: 'exact', head: true })
+      .eq('version_id', latest.id)
+      .eq('status', 'active')
+    if ((activePins ?? 0) > 0) {
+      return {
+        error:
+          'Resuelve los pines activos de la versión anterior antes de subir una nueva versión.',
+      }
+    }
+  }
+
+  const nextVersion = (latest?.version_number ?? 0) + 1
+  const primary = args.files[0]
+
+  const { data: version, error: versionErr } = await supabase
+    .from('review_versions')
+    .insert({
+      asset_id: args.assetId,
+      version_number: nextVersion,
+      storage_path: primary.storagePath,
+      mime_type: primary.mimeType,
+      byte_size: primary.byteSize,
+      duration_ms: primary.durationMs ?? null,
+      thumbnail_path: primary.thumbnailPath ?? null,
+      uploaded_by: user.id,
+    })
+    .select('*')
+    .single()
+
+  if (versionErr || !version) {
+    return { error: versionErr?.message ?? 'Error al crear la versión.' }
+  }
+
+  const fileRows = args.files.map((f, idx) => ({
+    version_id: version.id,
+    file_order: idx,
+    storage_path: f.storagePath,
+    thumbnail_path: f.thumbnailPath ?? null,
+    mime_type: f.mimeType,
+    byte_size: f.byteSize,
+    duration_ms: f.durationMs ?? null,
+  }))
+
+  const { data: files, error: filesErr } = await supabase
+    .from('review_version_files')
+    .insert(fileRows)
+    .select('*')
+
+  if (filesErr || !files) {
+    await supabase.from('review_versions').delete().eq('id', version.id)
+    return { error: filesErr?.message ?? 'Error al registrar los archivos.' }
+  }
+
+  revalidatePath(`/clients/${args.clientId}`)
+  return {
+    ok: true,
+    data: {
+      version: version as ReviewVersion,
+      files: (files as ReviewVersionFile[]).sort(
+        (a, b) => a.file_order - b.file_order,
+      ),
+    },
+  }
+}
+
 export async function getSignedDownloadUrl(args: {
   storagePath: string
   fileName?: string | null
@@ -174,6 +278,7 @@ export async function getSignedViewUrl(args: {
 
 export async function createReviewPin(args: {
   versionId: string
+  fileId?: string | null
   clientId: string
   posXPct: number
   posYPct: number
@@ -204,6 +309,7 @@ export async function createReviewPin(args: {
     .from('review_pins')
     .insert({
       version_id: args.versionId,
+      file_id: args.fileId ?? null,
       pin_number: pinNumber,
       pos_x_pct: args.posXPct,
       pos_y_pct: args.posYPct,
@@ -438,11 +544,21 @@ export async function deleteReviewVersion(args: {
   const isAuthor = version.uploaded_by === user.id
   if (!isAdmin && !isAuthor) return { error: 'Sin permisos para eliminar esta versión.' }
 
-  // Remove storage files
+  // Remove storage files (legacy version columns + all review_version_files)
+  const { data: verFiles } = await supabase
+    .from('review_version_files')
+    .select('storage_path, thumbnail_path')
+    .eq('version_id', args.versionId)
+
   const admin = createAdminClient()
-  const paths = [version.storage_path, version.thumbnail_path].filter((p): p is string => !!p)
-  if (paths.length > 0) {
-    await admin.storage.from('review-files').remove(paths)
+  const paths = [
+    version.storage_path,
+    version.thumbnail_path,
+    ...(verFiles ?? []).flatMap((f) => [f.storage_path, f.thumbnail_path]),
+  ].filter((p): p is string => !!p)
+  const uniquePaths = Array.from(new Set(paths))
+  if (uniquePaths.length > 0) {
+    await admin.storage.from('review-files').remove(uniquePaths)
   }
 
   // Delete version row (cascade removes pins/comments if FK ON DELETE CASCADE exists)

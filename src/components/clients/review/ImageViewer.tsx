@@ -1,10 +1,18 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import type { ReviewAsset, ReviewPin, ReviewVersion, ReviewComment, UserRole } from '@/types/db'
+import type {
+  ReviewAsset,
+  ReviewPin,
+  ReviewVersion,
+  ReviewVersionFile,
+  ReviewComment,
+  UserRole,
+} from '@/types/db'
 import { getSignedViewUrl, createReviewPin } from '@/app/actions/content-review'
 import { PinOverlay } from './PinOverlay'
 import { PinCommentBubble } from './PinCommentBubble'
+import { PinHoverBubble } from './PinHoverBubble'
 
 interface UserMini {
   id: string
@@ -16,34 +24,46 @@ interface UserMini {
 interface ImageViewerProps {
   asset: ReviewAsset
   version: ReviewVersion
+  file: ReviewVersionFile
   pins: ReviewPin[]
   selectedPinId: string | null
   onSelectPin: (id: string | null) => void
   clientId: string
   users: UserMini[]
+  commentsByPin: Record<string, ReviewComment[]>
   onPinCreated: (pin: ReviewPin, comment: ReviewComment) => void
 }
 
 export function ImageViewer({
   asset,
   version,
+  file,
   pins,
   selectedPinId,
   onSelectPin,
   clientId,
   users,
+  commentsByPin,
   onPinCreated,
 }: ImageViewerProps) {
   const [url, setUrl] = useState<string | null>(null)
   const [pending, setPending] = useState<{ xPct: number; yPct: number } | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [hoveredPinId, setHoveredPinId] = useState<string | null>(null)
   const imgRef = useRef<HTMLImageElement | null>(null)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHoveredPinId(null)
+  }, [file.id])
+
+  useEffect(() => {
     let cancelled = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setUrl(null)
-    getSignedViewUrl({ storagePath: version.storage_path }).then((res) => {
+    setPending(null)
+    getSignedViewUrl({ storagePath: file.storage_path }).then((res) => {
       if (cancelled) return
       if ('ok' in res) setUrl(res.data.url)
       else setError(res.error)
@@ -51,7 +71,7 @@ export function ImageViewer({
     return () => {
       cancelled = true
     }
-  }, [version.storage_path])
+  }, [file.storage_path])
 
   function handleClick(e: React.MouseEvent<HTMLDivElement>) {
     if (selectedPinId) {
@@ -72,6 +92,7 @@ export function ImageViewer({
     setError(null)
     const res = await createReviewPin({
       versionId: version.id,
+      fileId: file.id,
       clientId,
       posXPct: pending.xPct,
       posYPct: pending.yPct,
@@ -91,7 +112,7 @@ export function ImageViewer({
   return (
     <div className="relative flex-1 flex items-center justify-center overflow-hidden">
       {error && (
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 bg-[#b31b25] text-white text-xs px-3 py-1.5 rounded-md shadow">
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 bg-fm-error text-white text-xs px-3 py-1.5 rounded-md shadow">
           {error}
         </div>
       )}
@@ -105,7 +126,7 @@ export function ImageViewer({
             ref={imgRef}
             src={url}
             alt={asset.name}
-            className="max-w-full max-h-[calc(92vh-200px)] block select-none"
+            className="max-w-full max-h-[calc(92vh-260px)] block select-none"
             draggable={false}
           />
           {pins.map((pin) => (
@@ -114,12 +135,30 @@ export function ImageViewer({
               pin={pin}
               selected={pin.id === selectedPinId}
               onClick={() => onSelectPin(pin.id)}
+              onHoverStart={() => setHoveredPinId(pin.id)}
+              onHoverEnd={() => setHoveredPinId((cur) => (cur === pin.id ? null : cur))}
             />
           ))}
+          {(() => {
+            if (!hoveredPinId || hoveredPinId === selectedPinId || pending) return null
+            const hoveredPin = pins.find((p) => p.id === hoveredPinId)
+            if (!hoveredPin) return null
+            const firstComment = (commentsByPin[hoveredPin.id] ?? [])[0]
+            if (!firstComment) return null
+            const author = users.find((u) => u.id === firstComment.user_id) ?? null
+            return (
+              <PinHoverBubble
+                xPct={hoveredPin.pos_x_pct}
+                yPct={hoveredPin.pos_y_pct}
+                comment={firstComment}
+                author={author}
+              />
+            )
+          })()}
           {pending && (
             <>
               <div
-                className="absolute -translate-x-1/2 -translate-y-1/2 z-10 w-6 h-6 rounded-full bg-[#00675c] text-white flex items-center justify-center text-[11px] font-bold shadow-md ring-2 ring-white"
+                className="absolute -translate-x-1/2 -translate-y-1/2 z-10 w-6 h-6 rounded-full bg-fm-primary text-white flex items-center justify-center text-[11px] font-bold shadow-md ring-2 ring-white"
                 style={{ left: `${pending.xPct}%`, top: `${pending.yPct}%` }}
               >
                 {pins.length + 1}
@@ -136,7 +175,7 @@ export function ImageViewer({
           )}
         </div>
       ) : (
-        <div className="text-[#8a8f93] text-sm">Cargando imagen…</div>
+        <div className="text-fm-on-surface-variant text-sm">Cargando imagen…</div>
       )}
     </div>
   )

@@ -113,6 +113,20 @@ export function effectiveLimits(
 }
 
 /**
+ * Aplica `content_limits_override_json` sobre los límites calculados.
+ * El override es un mapa parcial ContentType → número absoluto que reemplaza
+ * la entrada correspondiente en los límites. Si no hay override, devuelve
+ * los límites sin cambios.
+ */
+export function applyContentLimitsWithOverride<T extends Record<string, number>>(
+  limits: T,
+  override: Record<string, number> | null | undefined,
+): T {
+  if (!override) return limits
+  return { ...limits, ...override }
+}
+
+/**
  * Ajusta los límites para planes con `unified_content_limit` (pool compartido).
  *
  * Toma los límites base (`effectiveLimits(...)`) y, si el snapshot incluye

@@ -50,7 +50,8 @@ export function ContentReviewDialog({
 
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null)
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null)
-  const [selectedPinId, setSelectedPinId] = useState<string | null>(null)
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(null)
+  const [selectedPinId, setSelectedPinIdRaw] = useState<string | null>(null)
   const [addFilesOpen, setAddFilesOpen] = useState(false)
   const [addFilesMode, setAddFilesMode] = useState<
     { kind: 'new-asset' } | { kind: 'new-version'; assetId: string }
@@ -79,6 +80,35 @@ export function ContentReviewDialog({
     }
   }, [data.loading, data.assets, data.versionsByAsset, selectedAssetId, selectedVersionId])
 
+  const selectedAsset = useMemo(
+    () => data.assets.find((a) => a.id === selectedAssetId) ?? null,
+    [data.assets, selectedAssetId]
+  )
+  const assetVersions = useMemo(
+    () => (selectedAssetId ? data.versionsByAsset[selectedAssetId] ?? [] : []),
+    [data.versionsByAsset, selectedAssetId]
+  )
+  const selectedVersion = useMemo(
+    () => assetVersions.find((v) => v.id === selectedVersionId) ?? null,
+    [assetVersions, selectedVersionId]
+  )
+  const pinsOnVersion = useMemo(
+    () => (selectedVersionId ? data.pinsByVersion[selectedVersionId] ?? [] : []),
+    [data.pinsByVersion, selectedVersionId]
+  )
+  const setSelectedPinId = useCallback(
+    (pinId: string | null) => {
+      if (pinId) {
+        const pin = Object.values(data.pinsByVersion)
+          .flat()
+          .find((p) => p.id === pinId)
+        if (pin?.file_id) setSelectedFileId(pin.file_id)
+      }
+      setSelectedPinIdRaw(pinId)
+    },
+    [data.pinsByVersion],
+  )
+
   // Deep-link: si initialPinId está presente, navegar a ese pin al cargar.
   const deepLinkAppliedRef = useRef<string | null>(null)
   useEffect(() => {
@@ -100,24 +130,26 @@ export function ContentReviewDialog({
         return
       }
     }
-  }, [open, data.loading, data.pinsByVersion, data.versionsByAsset, initialPinId])
+  }, [open, data.loading, data.pinsByVersion, data.versionsByAsset, initialPinId, setSelectedPinId])
 
-  const selectedAsset = useMemo(
-    () => data.assets.find((a) => a.id === selectedAssetId) ?? null,
-    [data.assets, selectedAssetId]
+  const filesOnVersion = useMemo(
+    () => (selectedVersionId ? data.filesByVersion[selectedVersionId] ?? [] : []),
+    [data.filesByVersion, selectedVersionId]
   )
-  const assetVersions = useMemo(
-    () => (selectedAssetId ? data.versionsByAsset[selectedAssetId] ?? [] : []),
-    [data.versionsByAsset, selectedAssetId]
-  )
-  const selectedVersion = useMemo(
-    () => assetVersions.find((v) => v.id === selectedVersionId) ?? null,
-    [assetVersions, selectedVersionId]
-  )
-  const pinsOnVersion = useMemo(
-    () => (selectedVersionId ? data.pinsByVersion[selectedVersionId] ?? [] : []),
-    [data.pinsByVersion, selectedVersionId]
-  )
+
+  // Reset selected file when version changes or files load.
+  useEffect(() => {
+    if (!selectedVersionId) {
+      if (selectedFileId !== null) setSelectedFileId(null)
+      return
+    }
+    if (filesOnVersion.length === 0) {
+      if (selectedFileId !== null) setSelectedFileId(null)
+      return
+    }
+    const valid = filesOnVersion.some((f) => f.id === selectedFileId)
+    if (!valid) setSelectedFileId(filesOnVersion[0].id)
+  }, [selectedVersionId, filesOnVersion, selectedFileId])
 
   const assetIds = useMemo(() => data.assets.map((a) => a.id), [data.assets])
   const versionIds = useMemo(
@@ -140,6 +172,13 @@ export function ContentReviewDialog({
     ({ event, row }: { event: 'INSERT' | 'UPDATE' | 'DELETE'; row: Parameters<typeof data.upsertVersion>[0] }) => {
       if (event === 'DELETE') return
       data.upsertVersion(row)
+    },
+    [data]
+  )
+  const onFileRt = useCallback(
+    ({ event, row }: { event: 'INSERT' | 'UPDATE' | 'DELETE'; row: Parameters<typeof data.upsertFile>[0] }) => {
+      if (event === 'DELETE') data.removeFile(row.id, row.version_id)
+      else data.upsertFile(row)
     },
     [data]
   )
@@ -166,6 +205,7 @@ export function ContentReviewDialog({
     pinIds,
     onAssetChange: onAssetRt,
     onVersionChange: onVersionRt,
+    onFileChange: onFileRt,
     onPinChange: onPinRt,
     onCommentChange: onCommentRt,
   })
@@ -211,6 +251,7 @@ export function ContentReviewDialog({
               <ReviewLeftColumn
                 assets={data.assets}
                 versionsByAsset={data.versionsByAsset}
+                pinsByVersion={data.pinsByVersion}
                 selectedAssetId={selectedAssetId}
                 selectedVersionId={selectedVersionId}
                 clientId={clientId}
@@ -244,11 +285,18 @@ export function ContentReviewDialog({
                 error={data.error}
                 asset={selectedAsset}
                 version={selectedVersion}
+                files={filesOnVersion}
+                selectedFileId={selectedFileId}
+                onSelectFile={(id) => {
+                  setSelectedFileId(id)
+                  setSelectedPinId(null)
+                }}
                 pins={pinsOnVersion}
                 selectedPinId={selectedPinId}
                 onSelectPin={setSelectedPinId}
                 clientId={clientId}
                 users={users}
+                commentsByPin={data.commentsByPin}
                 onPinCreated={(pin, comment) => {
                   data.upsertPin(pin)
                   data.upsertComment(comment)
@@ -285,13 +333,15 @@ export function ContentReviewDialog({
             mode={addFilesMode}
             requirementId={requirementId}
             clientId={clientId}
-            onUploaded={({ asset, version }) => {
+            onUploaded={({ asset, version, files }) => {
               if (asset) {
                 data.upsertAsset(asset)
                 setSelectedAssetId(asset.id)
               }
               data.upsertVersion(version)
+              data.setFilesForVersion(version.id, files)
               setSelectedVersionId(version.id)
+              setSelectedFileId(files[0]?.id ?? null)
               setSelectedPinId(null)
             }}
           />

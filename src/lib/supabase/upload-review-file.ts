@@ -40,6 +40,8 @@ export interface UploadReviewFileParams {
   requirementId: string
   assetId: string
   versionNumber: number
+  /** Índice dentro de la versión cuando la versión es multi-archivo. */
+  fileIndex?: number
 }
 
 export interface UploadReviewFileResult {
@@ -59,6 +61,7 @@ export async function uploadReviewFile({
   requirementId,
   assetId,
   versionNumber,
+  fileIndex,
 }: UploadReviewFileParams): Promise<UploadReviewFileResult> {
   const kind = kindForMime(file.type)
   if (!kind) {
@@ -71,7 +74,10 @@ export async function uploadReviewFile({
   }
 
   const ext = extensionForFile(file)
-  const storagePath = `${requirementId}/${assetId}/v${versionNumber}.${ext}`
+  const storagePath =
+    fileIndex != null
+      ? `${requirementId}/${assetId}/v${versionNumber}/${fileIndex}.${ext}`
+      : `${requirementId}/${assetId}/v${versionNumber}.${ext}`
 
   const supabase = createClient()
   const { error } = await supabase.storage
@@ -99,8 +105,12 @@ export async function uploadReviewThumbnail(params: {
   requirementId: string
   assetId: string
   versionNumber: number
+  fileIndex?: number
 }): Promise<string> {
-  const path = `${params.requirementId}/${params.assetId}/v${params.versionNumber}.thumb.jpg`
+  const path =
+    params.fileIndex != null
+      ? `${params.requirementId}/${params.assetId}/v${params.versionNumber}/${params.fileIndex}.thumb.jpg`
+      : `${params.requirementId}/${params.assetId}/v${params.versionNumber}.thumb.jpg`
   const supabase = createClient()
   const { error } = await supabase.storage
     .from('review-files')

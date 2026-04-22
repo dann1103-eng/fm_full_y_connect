@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { RequirementModal } from '@/components/clients/RequirementModal'
-import { CONTENT_TYPES, effectiveLimits, applyUnifiedPool } from '@/lib/domain/plans'
+import { CONTENT_TYPES, effectiveLimits, applyUnifiedPool, applyContentLimitsWithOverride } from '@/lib/domain/plans'
 import type { ClientWithPlan, BillingCycle, ContentType } from '@/types/db'
 
 interface Props {
@@ -65,10 +65,14 @@ export function NewRequirementFromPipeline({ clients, isAdmin, canAssign }: Prop
       cy.limits_snapshot_json,
       cy.rollover_from_previous_json as Parameters<typeof effectiveLimits>[1],
     )
+    const withOverride = applyContentLimitsWithOverride(
+      lim,
+      (cy.content_limits_override_json ?? null) as Record<string, number> | null,
+    )
     const snapshot = cy.limits_snapshot_json
     const finalLimits = snapshot.unified_content_limit != null
-      ? applyUnifiedPool(lim, snapshot, t)
-      : lim
+      ? applyUnifiedPool(withOverride, snapshot, t)
+      : withOverride
 
     setClientData(cl as ClientWithPlan)
     setCycle(cy as BillingCycle)

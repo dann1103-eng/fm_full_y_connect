@@ -6,7 +6,7 @@ import { markConversationRead } from '@/app/actions/inbox'
 import { sendMessage } from '@/app/actions/inbox'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { useUser } from '@/contexts/UserContext'
-import type { ConversationListItem } from '@/types/db'
+import type { ConversationListItem, MessageWithMeta } from '@/types/db'
 import { formatDistanceToNow, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -19,9 +19,10 @@ interface FloatingChatBubbleProps {
 
 export function FloatingChatBubble({ conversation, onClose, onMinimize, minimized }: FloatingChatBubbleProps) {
   const user = useUser()
-  const { messages, refresh } = useConversationMessages(conversation.id)
+  const { messages, refresh, addLocalMessage, removeMessage } = useConversationMessages(conversation.id)
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
+  const [failedIds, setFailedIds] = useState<Set<string>>(new Set())
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const label =
@@ -47,9 +48,52 @@ export function FloatingChatBubble({ conversation, onClose, onMinimize, minimize
     if (!text || sending) return
     setSending(true)
     setBody('')
-    await sendMessage({ conversationId: conversation.id, body: text })
-    refresh()
+    const tempId = `temp-${crypto.randomUUID()}`
+    const optimistic: MessageWithMeta = {
+      id: tempId,
+      conversation_id: conversation.id,
+      user_id: user.id,
+      body: text,
+      edited_at: null,
+      deleted_at: null,
+      created_at: new Date().toISOString(),
+      author: {
+        id: user.id,
+        full_name: user.full_name,
+        avatar_url: user.avatar_url,
+      },
+      attachments: [],
+    }
+    addLocalMessage(optimistic)
+    const res = await sendMessage({ conversationId: conversation.id, body: text })
     setSending(false)
+    if ('error' in res && res.error) {
+      setFailedIds((prev) => {
+        const next = new Set(prev)
+        next.add(tempId)
+        return next
+      })
+      setBody(text)
+      return
+    }
+    // El realtime insertará la fila real; eliminamos el optimistic al llegar.
+    // Como fallback, limpiamos el temp tras un refresh.
+    refresh()
+    // El refresh reemplaza el array por los mensajes del servidor (sin temp),
+    // así que no hace falta remover manualmente. Si refresh falla, el temp
+    // permanece hasta el próximo fetch/realtime.
+  }
+
+  function retryFailed(tempId: string) {
+    const msg = messages.find((m) => m.id === tempId)
+    if (!msg) return
+    removeMessage(tempId)
+    setFailedIds((prev) => {
+      const next = new Set(prev)
+      next.delete(tempId)
+      return next
+    })
+    setBody(msg.body)
   }
 
   return (
@@ -105,6 +149,8 @@ export function FloatingChatBubble({ conversation, onClose, onMinimize, minimize
             )}
             {messages.map((msg) => {
               const isMe = msg.user_id === user.id
+              const isPending = msg.id.startsWith('temp-')
+              const isFailed = failedIds.has(msg.id)
               return (
                 <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                   {!isMe && (
@@ -113,17 +159,29 @@ export function FloatingChatBubble({ conversation, onClose, onMinimize, minimize
                     </span>
                   )}
                   <div
-                    className={`max-w-[90%] rounded-xl px-3 py-1.5 text-xs ${
+                    className={`max-w-[90%] rounded-xl px-3 py-1.5 text-xs transition-opacity ${
                       isMe
                         ? 'bg-[#00675c] text-white rounded-br-sm'
                         : 'bg-fm-surface-container-low text-fm-on-surface border border-fm-surface-container-high rounded-bl-sm'
-                    }`}
+                    } ${isPending && !isFailed ? 'opacity-60' : ''} ${isFailed ? 'ring-1 ring-[#b31b25]' : ''}`}
                   >
                     {msg.body}
                   </div>
-                  <span className="text-[9px] text-fm-on-surface-variant/60 px-1 mt-0.5">
-                    {formatDistanceToNow(parseISO(msg.created_at), { locale: es, addSuffix: true })}
-                  </span>
+                  {isFailed ? (
+                    <button
+                      type="button"
+                      onClick={() => retryFailed(msg.id)}
+                      className="text-[9px] text-[#b31b25] px-1 mt-0.5 hover:underline"
+                    >
+                      Error al enviar · Reintentar
+                    </button>
+                  ) : (
+                    <span className="text-[9px] text-fm-on-surface-variant/60 px-1 mt-0.5">
+                      {isPending
+                        ? 'Enviando…'
+                        : formatDistanceToNow(parseISO(msg.created_at), { locale: es, addSuffix: true })}
+                    </span>
+                  )}
                 </div>
               )
             })}

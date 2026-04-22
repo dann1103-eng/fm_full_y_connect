@@ -832,10 +832,41 @@ export interface Database {
         }
         Relationships: []
       }
+      review_version_files: {
+        Row: {
+          id: string
+          version_id: string
+          file_order: number
+          storage_path: string
+          thumbnail_path: string | null
+          mime_type: string
+          byte_size: number
+          duration_ms: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          version_id: string
+          file_order: number
+          storage_path: string
+          thumbnail_path?: string | null
+          mime_type: string
+          byte_size: number
+          duration_ms?: number | null
+          created_at?: string
+        }
+        Update: {
+          file_order?: number
+          thumbnail_path?: string | null
+          duration_ms?: number | null
+        }
+        Relationships: []
+      }
       review_pins: {
         Row: {
           id: string
           version_id: string
+          file_id: string | null
           pin_number: number
           pos_x_pct: number
           pos_y_pct: number
@@ -849,6 +880,7 @@ export interface Database {
         Insert: {
           id?: string
           version_id: string
+          file_id?: string | null
           pin_number: number
           pos_x_pct: number
           pos_y_pct: number
@@ -1333,6 +1365,9 @@ export interface ReviewVersion {
 export interface ReviewPin {
   id: string
   version_id: string
+  /** Archivo específico dentro de la versión al que pertenece el pin.
+   *  Nullable durante migración — pines legacy quedan ligados al file_order=0. */
+  file_id: string | null
   pin_number: number
   pos_x_pct: number
   pos_y_pct: number
@@ -1342,6 +1377,18 @@ export interface ReviewPin {
   created_at: string
   resolved_by: string | null
   resolved_at: string | null
+}
+
+export interface ReviewVersionFile {
+  id: string
+  version_id: string
+  file_order: number
+  storage_path: string
+  thumbnail_path: string | null
+  mime_type: string
+  byte_size: number
+  duration_ms: number | null
+  created_at: string
 }
 
 export interface ReviewComment {

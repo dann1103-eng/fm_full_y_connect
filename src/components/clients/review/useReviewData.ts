@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import type {
   ReviewAsset,
   ReviewVersion,
+  ReviewVersionFile,
   ReviewPin,
   ReviewComment,
 } from '@/types/db'
@@ -14,6 +15,7 @@ export interface ReviewDataState {
   error: string | null
   assets: ReviewAsset[]
   versionsByAsset: Record<string, ReviewVersion[]>
+  filesByVersion: Record<string, ReviewVersionFile[]>
   pinsByVersion: Record<string, ReviewPin[]>
   commentsByPin: Record<string, ReviewComment[]>
 }
@@ -24,6 +26,9 @@ export interface ReviewDataActions {
   removeAsset: (assetId: string) => void
   upsertVersion: (version: ReviewVersion) => void
   removeVersion: (versionId: string, assetId: string) => void
+  upsertFile: (file: ReviewVersionFile) => void
+  removeFile: (fileId: string, versionId: string) => void
+  setFilesForVersion: (versionId: string, files: ReviewVersionFile[]) => void
   upsertPin: (pin: ReviewPin) => void
   removePin: (pinId: string, versionId: string) => void
   upsertComment: (comment: ReviewComment) => void
@@ -33,6 +38,7 @@ export interface ReviewDataActions {
 export function useReviewData(requirementId: string): ReviewDataState & ReviewDataActions {
   const [assets, setAssets] = useState<ReviewAsset[]>([])
   const [versionsByAsset, setVersionsByAsset] = useState<Record<string, ReviewVersion[]>>({})
+  const [filesByVersion, setFilesByVersion] = useState<Record<string, ReviewVersionFile[]>>({})
   const [pinsByVersion, setPinsByVersion] = useState<Record<string, ReviewPin[]>>({})
   const [commentsByPin, setCommentsByPin] = useState<Record<string, ReviewComment[]>>({})
   const [loading, setLoading] = useState<boolean>(true)
@@ -56,6 +62,7 @@ export function useReviewData(requirementId: string): ReviewDataState & ReviewDa
 
       if (assetList.length === 0) {
         setVersionsByAsset({})
+        setFilesByVersion({})
         setPinsByVersion({})
         setCommentsByPin({})
         return
@@ -78,12 +85,27 @@ export function useReviewData(requirementId: string): ReviewDataState & ReviewDa
       setVersionsByAsset(versionsByAssetNext)
 
       if (versionList.length === 0) {
+        setFilesByVersion({})
         setPinsByVersion({})
         setCommentsByPin({})
         return
       }
 
       const versionIds = versionList.map((v) => v.id)
+      const { data: fileRows, error: filesErr } = await supabase
+        .from('review_version_files')
+        .select('*')
+        .in('version_id', versionIds)
+        .order('file_order', { ascending: true })
+      if (filesErr) throw filesErr
+      const fileList = (fileRows ?? []) as ReviewVersionFile[]
+      const filesByVersionNext: Record<string, ReviewVersionFile[]> = {}
+      for (const f of fileList) {
+        if (!filesByVersionNext[f.version_id]) filesByVersionNext[f.version_id] = []
+        filesByVersionNext[f.version_id].push(f)
+      }
+      setFilesByVersion(filesByVersionNext)
+
       const { data: pinRows, error: pinsErr } = await supabase
         .from('review_pins')
         .select('*')
@@ -168,12 +190,50 @@ export function useReviewData(requirementId: string): ReviewDataState & ReviewDa
       const current = prev[assetId] ?? []
       return { ...prev, [assetId]: current.filter((v) => v.id !== versionId) }
     })
+    setFilesByVersion((prev) => {
+      const next = { ...prev }
+      delete next[versionId]
+      return next
+    })
     setPinsByVersion((prev) => {
       const next = { ...prev }
       delete next[versionId]
       return next
     })
   }, [])
+
+  const upsertFile = useCallback((file: ReviewVersionFile) => {
+    setFilesByVersion((prev) => {
+      const current = prev[file.version_id] ?? []
+      const idx = current.findIndex((f) => f.id === file.id)
+      let next: ReviewVersionFile[]
+      if (idx >= 0) {
+        next = [...current]
+        next[idx] = file
+      } else {
+        next = [...current, file]
+      }
+      next.sort((a, b) => a.file_order - b.file_order)
+      return { ...prev, [file.version_id]: next }
+    })
+  }, [])
+
+  const removeFile = useCallback((fileId: string, versionId: string) => {
+    setFilesByVersion((prev) => {
+      const current = prev[versionId] ?? []
+      return { ...prev, [versionId]: current.filter((f) => f.id !== fileId) }
+    })
+  }, [])
+
+  const setFilesForVersion = useCallback(
+    (versionId: string, files: ReviewVersionFile[]) => {
+      setFilesByVersion((prev) => ({
+        ...prev,
+        [versionId]: [...files].sort((a, b) => a.file_order - b.file_order),
+      }))
+    },
+    [],
+  )
 
   const upsertPin = useCallback((pin: ReviewPin) => {
     setPinsByVersion((prev) => {
@@ -227,8 +287,16 @@ export function useReviewData(requirementId: string): ReviewDataState & ReviewDa
   }, [])
 
   const state = useMemo(
-    () => ({ loading, error, assets, versionsByAsset, pinsByVersion, commentsByPin }),
-    [loading, error, assets, versionsByAsset, pinsByVersion, commentsByPin]
+    () => ({
+      loading,
+      error,
+      assets,
+      versionsByAsset,
+      filesByVersion,
+      pinsByVersion,
+      commentsByPin,
+    }),
+    [loading, error, assets, versionsByAsset, filesByVersion, pinsByVersion, commentsByPin]
   )
 
   return {
@@ -238,6 +306,9 @@ export function useReviewData(requirementId: string): ReviewDataState & ReviewDa
     removeAsset,
     upsertVersion,
     removeVersion,
+    upsertFile,
+    removeFile,
+    setFilesForVersion,
     upsertPin,
     removePin,
     upsertComment,

@@ -2,10 +2,18 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { PauseIcon, PlayIcon } from 'lucide-react'
-import type { ReviewAsset, ReviewPin, ReviewVersion, ReviewComment, UserRole } from '@/types/db'
+import type {
+  ReviewAsset,
+  ReviewPin,
+  ReviewVersion,
+  ReviewVersionFile,
+  ReviewComment,
+  UserRole,
+} from '@/types/db'
 import { getSignedViewUrl, createReviewPin } from '@/app/actions/content-review'
 import { PinOverlay } from './PinOverlay'
 import { PinCommentBubble } from './PinCommentBubble'
+import { PinHoverBubble } from './PinHoverBubble'
 import { VideoTimelineMarkers } from './VideoTimelineMarkers'
 
 interface UserMini {
@@ -18,11 +26,13 @@ interface UserMini {
 interface VideoViewerProps {
   asset: ReviewAsset
   version: ReviewVersion
+  file: ReviewVersionFile
   pins: ReviewPin[]
   selectedPinId: string | null
   onSelectPin: (id: string | null) => void
   clientId: string
   users: UserMini[]
+  commentsByPin: Record<string, ReviewComment[]>
   onPinCreated: (pin: ReviewPin, comment: ReviewComment) => void
 }
 
@@ -38,30 +48,40 @@ function formatTime(ms: number): string {
 export function VideoViewer({
   asset,
   version,
+  file,
   pins,
   selectedPinId,
   onSelectPin,
   clientId,
   users,
+  commentsByPin,
   onPinCreated,
 }: VideoViewerProps) {
   const [url, setUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentMs, setCurrentMs] = useState(0)
-  const [durationMs, setDurationMs] = useState<number>(version.duration_ms ?? 0)
+  const [durationMs, setDurationMs] = useState<number>(file.duration_ms ?? version.duration_ms ?? 0)
   const [pending, setPending] = useState<{
     xPct: number
     yPct: number
     timestampMs: number
   } | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [hoveredPinId, setHoveredPinId] = useState<string | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHoveredPinId(null)
+  }, [file.id])
+
+  useEffect(() => {
     let cancelled = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setUrl(null)
-    getSignedViewUrl({ storagePath: version.storage_path }).then((res) => {
+    setPending(null)
+    getSignedViewUrl({ storagePath: file.storage_path }).then((res) => {
       if (cancelled) return
       if ('ok' in res) setUrl(res.data.url)
       else setError(res.error)
@@ -69,7 +89,7 @@ export function VideoViewer({
     return () => {
       cancelled = true
     }
-  }, [version.storage_path])
+  }, [file.storage_path])
 
   function handleClick(e: React.MouseEvent<HTMLDivElement>) {
     if (selectedPinId) {
@@ -92,6 +112,7 @@ export function VideoViewer({
     setError(null)
     const res = await createReviewPin({
       versionId: version.id,
+      fileId: file.id,
       clientId,
       posXPct: pending.xPct,
       posYPct: pending.yPct,
@@ -177,8 +198,26 @@ export function VideoViewer({
                 pin={pin}
                 selected={pin.id === selectedPinId}
                 onClick={() => onSelectPin(pin.id)}
+                onHoverStart={() => setHoveredPinId(pin.id)}
+                onHoverEnd={() => setHoveredPinId((cur) => (cur === pin.id ? null : cur))}
               />
             ))}
+            {(() => {
+              if (!hoveredPinId || hoveredPinId === selectedPinId || pending) return null
+              const hoveredPin = visiblePins.find((p) => p.id === hoveredPinId)
+              if (!hoveredPin) return null
+              const firstComment = (commentsByPin[hoveredPin.id] ?? [])[0]
+              if (!firstComment) return null
+              const author = users.find((u) => u.id === firstComment.user_id) ?? null
+              return (
+                <PinHoverBubble
+                  xPct={hoveredPin.pos_x_pct}
+                  yPct={hoveredPin.pos_y_pct}
+                  comment={firstComment}
+                  author={author}
+                />
+              )
+            })()}
             {pending && (
               <>
                 <div

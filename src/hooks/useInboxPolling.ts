@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ConversationListItem, MessageWithMeta } from '@/types/db'
 import { createClient } from '@/lib/supabase/client'
 
-const SAFETY_POLL_MS = 60_000
+const SAFETY_POLL_MS = 10_000
 const DEBOUNCE_MS = 300
 
 function useVisible(): boolean {
@@ -175,5 +175,9 @@ export function useConversationMessages(
     setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, ...patch } : m)))
   }, [])
 
-  return { messages, loading, refresh, removeMessage, updateMessage }
+  const addLocalMessage = useCallback((msg: MessageWithMeta) => {
+    setMessages((prev) => [...prev, msg])
+  }, [])
+
+  return { messages, loading, refresh, removeMessage, updateMessage, addLocalMessage }
 }

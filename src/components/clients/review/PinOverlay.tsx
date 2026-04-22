@@ -6,9 +6,11 @@ interface PinOverlayProps {
   pin: ReviewPin
   selected: boolean
   onClick: () => void
+  onHoverStart?: () => void
+  onHoverEnd?: () => void
 }
 
-export function PinOverlay({ pin, selected, onClick }: PinOverlayProps) {
+export function PinOverlay({ pin, selected, onClick, onHoverStart, onHoverEnd }: PinOverlayProps) {
   return (
     <button
       type="button"
@@ -16,6 +18,8 @@ export function PinOverlay({ pin, selected, onClick }: PinOverlayProps) {
         e.stopPropagation()
         onClick()
       }}
+      onMouseEnter={onHoverStart}
+      onMouseLeave={onHoverEnd}
       className="absolute -translate-x-1/2 -translate-y-1/2 z-10"
       style={{ left: `${pin.pos_x_pct}%`, top: `${pin.pos_y_pct}%` }}
       aria-label={`Pin ${pin.pin_number}`}

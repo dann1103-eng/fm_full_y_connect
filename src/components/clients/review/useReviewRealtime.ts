@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import type {
   ReviewAsset,
   ReviewVersion,
+  ReviewVersionFile,
   ReviewPin,
   ReviewComment,
 } from '@/types/db'
@@ -22,6 +23,10 @@ interface UseReviewRealtimeParams {
   onVersionChange: (payload: {
     event: 'INSERT' | 'UPDATE' | 'DELETE'
     row: ReviewVersion
+  }) => void
+  onFileChange: (payload: {
+    event: 'INSERT' | 'UPDATE' | 'DELETE'
+    row: ReviewVersionFile
   }) => void
   onPinChange: (payload: {
     event: 'INSERT' | 'UPDATE' | 'DELETE'
@@ -46,6 +51,7 @@ export function useReviewRealtime({
   pinIds,
   onAssetChange,
   onVersionChange,
+  onFileChange,
   onPinChange,
   onCommentChange,
 }: UseReviewRealtimeParams) {
@@ -81,6 +87,18 @@ export function useReviewRealtime({
           const row = (payload.new ?? payload.old) as ReviewVersion
           if (!assetSet.has(row.asset_id)) return
           onVersionChange({
+            event: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
+            row,
+          })
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'review_version_files' },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as ReviewVersionFile
+          if (!versionSet.has(row.version_id)) return
+          onFileChange({
             event: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
             row,
           })
@@ -124,6 +142,7 @@ export function useReviewRealtime({
     pinIds.join(','),
     onAssetChange,
     onVersionChange,
+    onFileChange,
     onPinChange,
     onCommentChange,
   ])

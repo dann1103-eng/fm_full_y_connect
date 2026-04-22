@@ -7,7 +7,7 @@ import { CycleHistory } from '@/components/clients/CycleHistory'
 import { ReactivatePanel } from '@/components/clients/ReactivatePanel'
 import type { ClientWithPlan, BillingCycle, Requirement, Plan } from '@/types/db'
 import { computeTotals } from '@/lib/domain/requirement'
-import { effectiveLimits } from '@/lib/domain/plans'
+import { effectiveLimits, applyContentLimitsWithOverride } from '@/lib/domain/plans'
 import { daysUntilEnd } from '@/lib/domain/cycles'
 import { ClientPipelineTab } from '@/components/pipeline/ClientPipelineTab'
 import { PIPELINE_CONTENT_TYPES } from '@/lib/domain/pipeline'
@@ -161,10 +161,12 @@ export default async function ClientDetailPage({
   const baseLimits = cycle
     ? effectiveLimits(cycle.limits_snapshot_json, cycle.rollover_from_previous_json)
     : null
-  const contentOverride = (cycle?.content_limits_override_json ?? null) as Record<string, number> | null
-  const limits = baseLimits && contentOverride
-    ? { ...baseLimits, ...contentOverride }
-    : baseLimits
+  const limits = baseLimits
+    ? applyContentLimitsWithOverride(
+        baseLimits,
+        (cycle?.content_limits_override_json ?? null) as Record<string, number> | null,
+      )
+    : null
   const daysLeft = cycle ? daysUntilEnd(cycle.period_end) : null
 
   // Get current user role for permissions
