@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { SendIcon, XIcon } from 'lucide-react'
 import { MentionAutocomplete } from '@/components/requirements/MentionAutocomplete'
+import type { UserRole } from '@/types/db'
 
 interface UserMini {
   id: string
   full_name: string
   avatar_url: string | null
-  role: string
+  role: UserRole
 }
 
 interface PinCommentBubbleProps {

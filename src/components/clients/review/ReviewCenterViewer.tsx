@@ -1,7 +1,7 @@
 'use client'
 
 import { UploadCloudIcon } from 'lucide-react'
-import type { ReviewAsset, ReviewPin, ReviewVersion, ReviewComment } from '@/types/db'
+import type { ReviewAsset, ReviewPin, ReviewVersion, ReviewComment, UserRole } from '@/types/db'
 import { ImageViewer } from './ImageViewer'
 import { VideoViewer } from './VideoViewer'
 
@@ -9,7 +9,7 @@ interface UserMini {
   id: string
   full_name: string
   avatar_url: string | null
-  role: string
+  role: UserRole
 }
 
 interface ReviewCenterViewerProps {

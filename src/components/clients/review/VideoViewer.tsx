@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { PauseIcon, PlayIcon } from 'lucide-react'
-import type { ReviewAsset, ReviewPin, ReviewVersion, ReviewComment } from '@/types/db'
+import type { ReviewAsset, ReviewPin, ReviewVersion, ReviewComment, UserRole } from '@/types/db'
 import { getSignedViewUrl, createReviewPin } from '@/app/actions/content-review'
 import { PinOverlay } from './PinOverlay'
 import { PinCommentBubble } from './PinCommentBubble'
@@ -12,7 +12,7 @@ interface UserMini {
   id: string
   full_name: string
   avatar_url: string | null
-  role: string
+  role: UserRole
 }
 
 interface VideoViewerProps {

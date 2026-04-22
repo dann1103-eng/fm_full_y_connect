@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog'
 import { XIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import type { UserRole } from '@/types/db'
 import { useReviewData } from './useReviewData'
 import { useReviewRealtime } from './useReviewRealtime'
 import { ReviewLeftColumn } from './ReviewLeftColumn'
@@ -22,7 +23,7 @@ interface ContentReviewDialogProps {
   initialPinId?: string | null
 }
 
-type UserMini = { id: string; full_name: string; avatar_url: string | null; role: string }
+type UserMini = { id: string; full_name: string; avatar_url: string | null; role: UserRole }
 
 export function ContentReviewDialog({
   open,
