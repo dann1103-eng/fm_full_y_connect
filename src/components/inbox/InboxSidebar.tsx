@@ -25,10 +25,11 @@ export function InboxSidebar({ initialList, allUsers }: InboxSidebarProps) {
 
   const canCreateChannels = user.role === 'admin' || user.role === 'supervisor'
 
-  const { channels, dms } = useMemo(() => {
+  const { channels, dms, totalUnread } = useMemo(() => {
     const channels = data.filter((c) => c.type === 'channel')
     const dms = data.filter((c) => c.type === 'dm')
-    return { channels, dms }
+    const totalUnread = data.reduce((sum, c) => sum + c.unread_count, 0)
+    return { channels, dms, totalUnread }
   }, [data])
 
   const activeId = pathname.startsWith('/inbox/') ? pathname.split('/')[2] : null
@@ -38,6 +39,11 @@ export function InboxSidebar({ initialList, allUsers }: InboxSidebarProps) {
       <div className="px-5 py-4 border-b border-fm-surface-container-high">
         <div className="text-lg font-extrabold text-fm-primary">Inbox</div>
         <div className="text-xs text-fm-on-surface-variant mt-0.5">Chat interno del equipo</div>
+        {totalUnread > 0 && (
+          <div className="mt-2 text-xs font-semibold text-fm-error">
+            {totalUnread} mensaje{totalUnread !== 1 ? 's' : ''} nuevo{totalUnread !== 1 ? 's' : ''}
+          </div>
+        )}
       </div>
 
       <div className="p-4">

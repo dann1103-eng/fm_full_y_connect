@@ -4,6 +4,8 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { MobileSidebar } from '@/components/layout/MobileSidebar'
 import { MobileSidebarProvider } from '@/components/layout/MobileSidebarProvider'
 import { UserProvider } from '@/contexts/UserContext'
+import { NotificationToastHost } from '@/components/notifications/NotificationToastHost'
+import { FloatingChatDock } from '@/components/inbox/floating/FloatingChatDock'
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -60,6 +62,8 @@ export default async function AppLayout({ children }: AppLayoutProps) {
             <main className="flex-1 overflow-y-auto">{children}</main>
           </div>
         </div>
+        <NotificationToastHost />
+        <FloatingChatDock />
       </MobileSidebarProvider>
     </UserProvider>
   )

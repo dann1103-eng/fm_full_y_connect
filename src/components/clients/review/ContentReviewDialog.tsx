@@ -213,6 +213,7 @@ export function ContentReviewDialog({
                 versionsByAsset={data.versionsByAsset}
                 selectedAssetId={selectedAssetId}
                 selectedVersionId={selectedVersionId}
+                clientId={clientId}
                 onSelectAsset={(id) => {
                   setSelectedAssetId(id)
                   const versions = data.versionsByAsset[id] ?? []
@@ -225,6 +226,14 @@ export function ContentReviewDialog({
                 }}
                 onAddAsset={openAddFilesForNewAsset}
                 onAddVersion={(assetId) => openAddFilesForNewVersion(assetId)}
+                onVersionDeleted={(versionId, assetId) => {
+                  data.removeVersion(versionId, assetId)
+                  if (selectedVersionId === versionId) {
+                    const remaining = (data.versionsByAsset[assetId] ?? []).filter((v) => v.id !== versionId)
+                    setSelectedVersionId(remaining[remaining.length - 1]?.id ?? null)
+                    if (remaining.length === 0) setSelectedAssetId(null)
+                  }
+                }}
               />
             </div>
 

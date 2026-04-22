@@ -411,3 +411,59 @@ export async function deleteReviewComment(args: {
   revalidatePath(`/clients/${args.clientId}`)
   return { ok: true, data: null }
 }
+
+export async function deleteReviewVersion(args: {
+  versionId: string
+  clientId: string
+}): Promise<ActionResult<null>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado.' }
+
+  const { data: appUser } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  const { data: version } = await supabase
+    .from('review_versions')
+    .select('id, asset_id, storage_path, thumbnail_path, uploaded_by')
+    .eq('id', args.versionId)
+    .single()
+
+  if (!version) return { error: 'Versión no encontrada.' }
+
+  const isAdmin = appUser?.role === 'admin'
+  const isAuthor = version.uploaded_by === user.id
+  if (!isAdmin && !isAuthor) return { error: 'Sin permisos para eliminar esta versión.' }
+
+  // Remove storage files
+  const admin = createAdminClient()
+  const paths = [version.storage_path, version.thumbnail_path].filter((p): p is string => !!p)
+  if (paths.length > 0) {
+    await admin.storage.from('review-files').remove(paths)
+  }
+
+  // Delete version row (cascade removes pins/comments if FK ON DELETE CASCADE exists)
+  const { error: delErr } = await supabase
+    .from('review_versions')
+    .delete()
+    .eq('id', args.versionId)
+  if (delErr) return { error: delErr.message }
+
+  // If it was the only version, archive the asset
+  const { count } = await supabase
+    .from('review_versions')
+    .select('id', { count: 'exact', head: true })
+    .eq('asset_id', version.asset_id)
+  if ((count ?? 0) === 0) {
+    await supabase
+      .from('review_assets')
+      .update({ archived_at: new Date().toISOString() })
+      .eq('id', version.asset_id)
+  }
+
+  revalidatePath(`/clients/${args.clientId}`)
+  return { ok: true, data: null }
+}

@@ -1,20 +1,23 @@
 'use client'
 
 import { useState } from 'react'
-import { PlusIcon, DownloadIcon, ChevronLeftIcon } from 'lucide-react'
+import { PlusIcon, DownloadIcon, ChevronLeftIcon, Trash2Icon } from 'lucide-react'
 import type { ReviewAsset, ReviewVersion } from '@/types/db'
 import { AssetThumbnail } from './AssetThumbnail'
-import { getSignedDownloadUrl } from '@/app/actions/content-review'
+import { getSignedDownloadUrl, deleteReviewVersion } from '@/app/actions/content-review'
+import { useUser } from '@/contexts/UserContext'
 
 interface ReviewLeftColumnProps {
   assets: ReviewAsset[]
   versionsByAsset: Record<string, ReviewVersion[]>
   selectedAssetId: string | null
   selectedVersionId: string | null
+  clientId: string
   onSelectAsset: (assetId: string) => void
   onSelectVersion: (versionId: string) => void
   onAddAsset: () => void
   onAddVersion: (assetId: string) => void
+  onVersionDeleted: (versionId: string, assetId: string) => void
 }
 
 export function ReviewLeftColumn({
@@ -22,12 +25,16 @@ export function ReviewLeftColumn({
   versionsByAsset,
   selectedAssetId,
   selectedVersionId,
+  clientId,
   onSelectAsset,
   onSelectVersion,
   onAddAsset,
   onAddVersion,
+  onVersionDeleted,
 }: ReviewLeftColumnProps) {
+  const user = useUser()
   const [collapsed, setCollapsed] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const selectedAsset = assets.find((a) => a.id === selectedAssetId) ?? null
   const selectedVersions = selectedAssetId ? versionsByAsset[selectedAssetId] ?? [] : []
@@ -42,6 +49,22 @@ export function ReviewLeftColumn({
     if ('ok' in res) {
       window.open(res.data.url, '_blank', 'noopener,noreferrer')
     }
+  }
+
+  async function handleDeleteVersion(version: ReviewVersion) {
+    if (!window.confirm('¿Eliminar esta versión? Esta acción no se puede deshacer.')) return
+    setDeletingId(version.id)
+    const res = await deleteReviewVersion({ versionId: version.id, clientId })
+    setDeletingId(null)
+    if ('error' in res) {
+      alert(res.error)
+      return
+    }
+    onVersionDeleted(version.id, version.asset_id)
+  }
+
+  function canDeleteVersion(version: ReviewVersion): boolean {
+    return user.role === 'admin' || version.uploaded_by === user.id
   }
 
   if (collapsed) {
@@ -115,14 +138,26 @@ export function ReviewLeftColumn({
                         </span>
                       </div>
                       {isLatest && isSelectedAsset && (
-                        <button
-                          onClick={handleDownload}
-                          className="w-full flex items-center justify-center gap-1 text-[10px] font-semibold text-[#00675c] hover:bg-[#00675c]/10 py-1.5 rounded transition-colors"
-                          title="Descargar última versión"
-                        >
-                          <DownloadIcon className="w-3 h-3" />
-                          Descargar
-                        </button>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={handleDownload}
+                            className="flex-1 flex items-center justify-center gap-1 text-[10px] font-semibold text-[#00675c] hover:bg-[#00675c]/10 py-1.5 rounded transition-colors"
+                            title="Descargar última versión"
+                          >
+                            <DownloadIcon className="w-3 h-3" />
+                            Descargar
+                          </button>
+                          {canDeleteVersion(version) && (
+                            <button
+                              onClick={() => handleDeleteVersion(version)}
+                              disabled={deletingId === version.id}
+                              className="flex items-center justify-center px-2 py-1.5 rounded text-[#b31b25] hover:bg-[#b31b25]/10 transition-colors disabled:opacity-40"
+                              title="Eliminar versión"
+                            >
+                              <Trash2Icon className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   )

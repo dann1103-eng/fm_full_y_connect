@@ -23,6 +23,7 @@ export interface ReviewDataActions {
   upsertAsset: (asset: ReviewAsset) => void
   removeAsset: (assetId: string) => void
   upsertVersion: (version: ReviewVersion) => void
+  removeVersion: (versionId: string, assetId: string) => void
   upsertPin: (pin: ReviewPin) => void
   removePin: (pinId: string, versionId: string) => void
   upsertComment: (comment: ReviewComment) => void
@@ -162,6 +163,18 @@ export function useReviewData(requirementId: string): ReviewDataState & ReviewDa
     })
   }, [])
 
+  const removeVersion = useCallback((versionId: string, assetId: string) => {
+    setVersionsByAsset((prev) => {
+      const current = prev[assetId] ?? []
+      return { ...prev, [assetId]: current.filter((v) => v.id !== versionId) }
+    })
+    setPinsByVersion((prev) => {
+      const next = { ...prev }
+      delete next[versionId]
+      return next
+    })
+  }, [])
+
   const upsertPin = useCallback((pin: ReviewPin) => {
     setPinsByVersion((prev) => {
       const current = prev[pin.version_id] ?? []
@@ -224,6 +237,7 @@ export function useReviewData(requirementId: string): ReviewDataState & ReviewDa
     upsertAsset,
     removeAsset,
     upsertVersion,
+    removeVersion,
     upsertPin,
     removePin,
     upsertComment,
