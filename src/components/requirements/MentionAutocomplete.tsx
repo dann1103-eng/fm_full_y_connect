@@ -56,14 +56,28 @@ export function MentionAutocomplete({
   currentMentionIds,
 }: MentionAutocompleteProps) {
   const [state, setState] = useState<MentionState>({ active: false, start: 0, query: '', selectedIdx: 0 })
+  const [placement, setPlacement] = useState<'top' | 'bottom'>('top')
   const listRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!state.active) return
+    const ta = textareaRef.current
+    if (!ta) return
+    const rect = ta.getBoundingClientRect()
+    const spaceAbove = rect.top
+    const spaceBelow = window.innerHeight - rect.bottom
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPlacement(spaceAbove < 220 && spaceBelow > spaceAbove ? 'bottom' : 'top')
+  }, [state.active, textareaRef])
 
   const filtered = useMemo(() => {
     if (!state.active) return []
     const q = stripAccents(state.query.trim())
-    const base = users.filter((u) => u.full_name)
-    if (!q) return base.slice(0, 8)
-    return base.filter((u) => stripAccents(u.full_name ?? '').includes(q)).slice(0, 8)
+    const base = users
+      .filter((u) => u.full_name)
+      .sort((a, b) => stripAccents(a.full_name ?? '').localeCompare(stripAccents(b.full_name ?? '')))
+    if (!q) return base
+    return base.filter((u) => stripAccents(u.full_name ?? '').includes(q))
   }, [users, state.active, state.query])
 
   useEffect(() => {
@@ -150,7 +164,10 @@ export function MentionAutocomplete({
   return (
     <div
       ref={listRef}
-      className="absolute bottom-full left-0 right-0 mb-1 mx-5 z-50 bg-fm-surface-container-lowest rounded-xl shadow-xl ring-1 ring-black/10 overflow-hidden max-h-64 overflow-y-auto"
+      className={
+        'absolute left-0 right-0 mx-5 z-50 bg-fm-surface-container-lowest rounded-xl shadow-xl ring-1 ring-black/10 max-h-64 overflow-y-auto ' +
+        (placement === 'top' ? 'bottom-full mb-1' : 'top-full mt-1')
+      }
     >
       {filtered.map((u, idx) => (
         <button
