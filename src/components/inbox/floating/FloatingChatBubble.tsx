@@ -53,7 +53,7 @@ export function FloatingChatBubble({ conversation, onClose, onMinimize, minimize
   }
 
   return (
-    <div className="flex flex-col bg-white border border-[#dfe3e6] rounded-xl shadow-xl overflow-hidden w-[280px]">
+    <div className="flex flex-col bg-white border border-[#dfe3e6] rounded-xl shadow-xl overflow-hidden w-[280px] max-w-[calc(100vw-2rem)] max-h-[calc(100vh-5rem)]">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 bg-[#00675c] text-white">
         <div className="flex items-center gap-2 min-w-0">
@@ -99,7 +99,7 @@ export function FloatingChatBubble({ conversation, onClose, onMinimize, minimize
       {!minimized && (
         <>
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2 h-52 bg-[#f5f7f9]">
+          <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2 min-h-0 h-52 bg-[#f5f7f9]">
             {messages.length === 0 && (
               <p className="text-xs text-[#595c5e] text-center mt-6">Sin mensajes aún</p>
             )}

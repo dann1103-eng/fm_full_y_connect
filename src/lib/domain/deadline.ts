@@ -11,10 +11,9 @@ export function getDeadlineStatus(
 ): { status: DeadlineStatus; daysLeft: number | null } {
   if (!deadline) return { status: 'none', daysLeft: null }
 
-  // Interpret stored date as end-of-day local to avoid marking today as overdue.
-  const end = new Date(`${deadline}T23:59:59`)
+  const deadlineDay = new Date(`${deadline}T00:00:00`)
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const diffDays = Math.ceil((end.getTime() - today.getTime()) / 86400000)
+  const diffDays = Math.round((deadlineDay.getTime() - today.getTime()) / 86400000)
 
   if (diffDays < 0) {
     if (TERMINAL_PHASES.includes(phase)) {

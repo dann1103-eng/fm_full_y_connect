@@ -87,9 +87,9 @@ export function FloatingChatDock() {
   }
 
   return (
-    <div className="fixed bottom-4 left-4 z-[200] flex flex-col-reverse items-start gap-2">
-      {/* Bubbles row — rendered above launcher, left to right */}
-      <div className="flex items-end gap-2">
+    <div className="fixed bottom-4 left-4 md:left-[272px] z-[200] flex flex-col-reverse items-start gap-2">
+      {/* Bubbles row — launcher + open chats */}
+      <div className="flex items-end gap-2 max-w-[calc(100vw-2rem)] md:max-w-[calc(100vw-288px)] overflow-x-auto">
         <FloatingChatLauncher
           unreadCount={totalUnread}
           open={panelOpen}
@@ -110,7 +110,7 @@ export function FloatingChatDock() {
       {panelOpen && (
         <div
           ref={panelRef}
-          className="absolute bottom-14 left-0 w-[320px] max-h-[420px] bg-white border border-[#dfe3e6] rounded-xl shadow-xl flex flex-col overflow-hidden"
+          className="absolute bottom-14 left-0 w-[320px] max-w-[calc(100vw-2rem)] max-h-[420px] bg-white border border-[#dfe3e6] rounded-xl shadow-xl flex flex-col overflow-hidden"
         >
           <div className="px-4 py-3 border-b border-[#dfe3e6] flex items-center justify-between">
             <span className="text-sm font-bold text-[#2a2a2a]">Mensajes</span>

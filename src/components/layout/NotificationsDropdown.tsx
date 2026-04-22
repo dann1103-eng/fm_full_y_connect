@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { formatDistanceToNow, parseISO } from 'date-fns'
@@ -17,7 +18,7 @@ import type { NotificationItem } from '@/types/db'
 
 export function NotificationsDropdown() {
   const router = useRouter()
-  const { items, unreadCount, refresh, dismissOverdue, dismissAllOverdue } = useNotifications()
+  const { items, allItems, unreadCount, refresh, dismissOverdue, dismissAllOverdue } = useNotifications()
   const [open, setOpen] = useState(false)
   const [, startTransition] = useTransition()
 
@@ -96,6 +97,7 @@ export function NotificationsDropdown() {
   }
 
   const hasItems = items.length > 0
+  const overdueCount = allItems.filter((it) => it.kind === 'overdue').length
 
   return (
     <div className="relative">
@@ -146,6 +148,22 @@ export function NotificationsDropdown() {
                 ))
               )}
             </div>
+
+            {overdueCount > 0 && (
+              <div className="border-t border-fm-surface-container-high px-4 py-2.5">
+                <Link
+                  href="/pipeline"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center justify-between text-[11px] font-semibold text-fm-error hover:underline"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[14px]">warning</span>
+                    Ver {overdueCount} vencido{overdueCount !== 1 ? 's' : ''} en Pipeline
+                  </span>
+                  <span>→</span>
+                </Link>
+              </div>
+            )}
           </div>
         </>
       )}
