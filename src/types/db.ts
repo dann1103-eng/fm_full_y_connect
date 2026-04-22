@@ -52,6 +52,59 @@ export type PaymentStatus = 'paid' | 'unpaid'
 export type UserRole = 'admin' | 'supervisor' | 'operator'
 export type ConversationType = 'dm' | 'channel'
 
+// ── Billing (migración 0048) ─────────────────────────────────
+export type PersonType = 'natural' | 'juridical'
+export type InvoiceStatus = 'draft' | 'issued' | 'paid' | 'void'
+export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
+export type InvoicePaymentMethod = 'cash' | 'transfer' | 'check' | 'card' | 'other'
+
+export interface PaymentMethodConfig {
+  id: string
+  type: 'bank' | 'card' | 'other'
+  label: string
+  account_holder?: string
+  account_number?: string
+  account_type?: string
+  note?: string
+}
+
+export interface TermAndCondition {
+  id: string
+  order: number
+  text: string
+}
+
+/** Snapshot inmutable de los datos fiscales del cliente al momento de emisión. */
+export interface ClientFiscalSnapshot {
+  id: string
+  name: string
+  legal_name: string | null
+  person_type: PersonType | null
+  nit: string | null
+  nrc: string | null
+  dui: string | null
+  fiscal_address: string | null
+  giro: string | null
+  country_code: string | null
+  contact_email: string | null
+  contact_phone: string | null
+}
+
+/** Snapshot inmutable de `company_settings` al momento de emisión. */
+export interface EmitterSnapshot {
+  legal_name: string
+  trade_name: string | null
+  nit: string | null
+  nrc: string | null
+  fiscal_address: string | null
+  giro: string | null
+  phone: string | null
+  email: string | null
+  logo_url: string | null
+  invoice_footer_note: string | null
+  payment_methods: PaymentMethodConfig[]
+}
+
 export interface PlanLimits {
   historias: number
   estaticos: number
@@ -174,6 +227,15 @@ export interface Database {
           weekly_targets_json: Partial<Record<ContentType, number>> | null
           weekly_distribution_json: WeeklyDistribution | null
           billing_period: BillingPeriod
+          legal_name: string | null
+          person_type: PersonType | null
+          nit: string | null
+          nrc: string | null
+          dui: string | null
+          fiscal_address: string | null
+          giro: string | null
+          country_code: string | null
+          default_tax_rate: number | null
         }
         Insert: {
           id?: string
@@ -197,6 +259,15 @@ export interface Database {
           weekly_targets_json?: Partial<Record<ContentType, number>> | null
           weekly_distribution_json?: WeeklyDistribution | null
           billing_period?: BillingPeriod
+          legal_name?: string | null
+          person_type?: PersonType | null
+          nit?: string | null
+          nrc?: string | null
+          dui?: string | null
+          fiscal_address?: string | null
+          giro?: string | null
+          country_code?: string | null
+          default_tax_rate?: number | null
         }
         Update: {
           name?: string
@@ -219,6 +290,15 @@ export interface Database {
           weekly_targets_json?: Partial<Record<ContentType, number>> | null
           weekly_distribution_json?: WeeklyDistribution | null
           billing_period?: BillingPeriod
+          legal_name?: string | null
+          person_type?: PersonType | null
+          nit?: string | null
+          nrc?: string | null
+          dui?: string | null
+          fiscal_address?: string | null
+          giro?: string | null
+          country_code?: string | null
+          default_tax_rate?: number | null
         }
         Relationships: [
           {
@@ -835,6 +915,255 @@ export interface Database {
         }
         Relationships: []
       }
+      company_settings: {
+        Row: {
+          id: string
+          legal_name: string
+          trade_name: string | null
+          nit: string | null
+          nrc: string | null
+          fiscal_address: string | null
+          giro: string | null
+          phone: string | null
+          email: string | null
+          logo_url: string | null
+          invoice_footer_note: string | null
+          payment_methods_json: PaymentMethodConfig[]
+          terms_and_conditions_json: TermAndCondition[]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          legal_name: string
+          trade_name?: string | null
+          nit?: string | null
+          nrc?: string | null
+          fiscal_address?: string | null
+          giro?: string | null
+          phone?: string | null
+          email?: string | null
+          logo_url?: string | null
+          invoice_footer_note?: string | null
+          payment_methods_json?: PaymentMethodConfig[]
+          terms_and_conditions_json?: TermAndCondition[]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          legal_name?: string
+          trade_name?: string | null
+          nit?: string | null
+          nrc?: string | null
+          fiscal_address?: string | null
+          giro?: string | null
+          phone?: string | null
+          email?: string | null
+          logo_url?: string | null
+          invoice_footer_note?: string | null
+          payment_methods_json?: PaymentMethodConfig[]
+          terms_and_conditions_json?: TermAndCondition[]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      invoices: {
+        Row: {
+          id: string
+          invoice_number: string
+          client_id: string
+          billing_cycle_id: string | null
+          quote_id: string | null
+          issue_date: string
+          due_date: string | null
+          currency: string
+          subtotal: number
+          discount_amount: number
+          tax_rate: number
+          tax_amount: number
+          total: number
+          status: InvoiceStatus
+          payment_date: string | null
+          payment_method: InvoicePaymentMethod | null
+          payment_reference: string | null
+          notes: string | null
+          client_snapshot_json: ClientFiscalSnapshot
+          emitter_snapshot_json: EmitterSnapshot
+          void_reason: string | null
+          void_by: string | null
+          void_at: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          invoice_number: string
+          client_id: string
+          billing_cycle_id?: string | null
+          quote_id?: string | null
+          issue_date?: string
+          due_date?: string | null
+          currency?: string
+          subtotal?: number
+          discount_amount?: number
+          tax_rate?: number
+          tax_amount?: number
+          total?: number
+          status?: InvoiceStatus
+          payment_date?: string | null
+          payment_method?: InvoicePaymentMethod | null
+          payment_reference?: string | null
+          notes?: string | null
+          client_snapshot_json: ClientFiscalSnapshot
+          emitter_snapshot_json: EmitterSnapshot
+          void_reason?: string | null
+          void_by?: string | null
+          void_at?: string | null
+          created_by?: string | null
+        }
+        Update: {
+          invoice_number?: string
+          billing_cycle_id?: string | null
+          quote_id?: string | null
+          issue_date?: string
+          due_date?: string | null
+          currency?: string
+          subtotal?: number
+          discount_amount?: number
+          tax_rate?: number
+          tax_amount?: number
+          total?: number
+          status?: InvoiceStatus
+          payment_date?: string | null
+          payment_method?: InvoicePaymentMethod | null
+          payment_reference?: string | null
+          notes?: string | null
+          client_snapshot_json?: ClientFiscalSnapshot
+          emitter_snapshot_json?: EmitterSnapshot
+          void_reason?: string | null
+          void_by?: string | null
+          void_at?: string | null
+        }
+        Relationships: []
+      }
+      invoice_items: {
+        Row: {
+          id: string
+          invoice_id: string
+          description: string
+          quantity: number
+          unit_price: number
+          line_total: number
+          sort_order: number
+        }
+        Insert: {
+          id?: string
+          invoice_id: string
+          description: string
+          quantity?: number
+          unit_price: number
+          line_total: number
+          sort_order?: number
+        }
+        Update: {
+          description?: string
+          quantity?: number
+          unit_price?: number
+          line_total?: number
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      quotes: {
+        Row: {
+          id: string
+          quote_number: string
+          client_id: string
+          issue_date: string
+          valid_until: string | null
+          currency: string
+          subtotal: number
+          discount_amount: number
+          tax_rate: number
+          tax_amount: number
+          total: number
+          status: QuoteStatus
+          notes: string | null
+          client_snapshot_json: ClientFiscalSnapshot
+          emitter_snapshot_json: EmitterSnapshot
+          terms_snapshot_json: TermAndCondition[]
+          converted_invoice_id: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          quote_number: string
+          client_id: string
+          issue_date?: string
+          valid_until?: string | null
+          currency?: string
+          subtotal?: number
+          discount_amount?: number
+          tax_rate?: number
+          tax_amount?: number
+          total?: number
+          status?: QuoteStatus
+          notes?: string | null
+          client_snapshot_json: ClientFiscalSnapshot
+          emitter_snapshot_json: EmitterSnapshot
+          terms_snapshot_json?: TermAndCondition[]
+          converted_invoice_id?: string | null
+          created_by?: string | null
+        }
+        Update: {
+          quote_number?: string
+          issue_date?: string
+          valid_until?: string | null
+          currency?: string
+          subtotal?: number
+          discount_amount?: number
+          tax_rate?: number
+          tax_amount?: number
+          total?: number
+          status?: QuoteStatus
+          notes?: string | null
+          terms_snapshot_json?: TermAndCondition[]
+          converted_invoice_id?: string | null
+        }
+        Relationships: []
+      }
+      quote_items: {
+        Row: {
+          id: string
+          quote_id: string
+          description: string
+          quantity: number
+          unit_price: number
+          line_total: number
+          sort_order: number
+        }
+        Insert: {
+          id?: string
+          quote_id: string
+          description: string
+          quantity?: number
+          unit_price: number
+          line_total: number
+          sort_order?: number
+        }
+        Update: {
+          description?: string
+          quantity?: number
+          unit_price?: number
+          line_total?: number
+          sort_order?: number
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -858,6 +1187,42 @@ export type Message = Database['public']['Tables']['messages']['Row']
 export type MessageAttachment = Database['public']['Tables']['message_attachments']['Row']
 export type RequirementMention = Database['public']['Tables']['requirement_mentions']['Row']
 export type ReviewCommentMention = Database['public']['Tables']['review_comment_mentions']['Row']
+export type CompanySettings = Database['public']['Tables']['company_settings']['Row']
+export type Invoice = Database['public']['Tables']['invoices']['Row']
+export type InvoiceItem = Database['public']['Tables']['invoice_items']['Row']
+export type Quote = Database['public']['Tables']['quotes']['Row']
+export type QuoteItem = Database['public']['Tables']['quote_items']['Row']
+
+export interface InvoiceWithItems extends Invoice {
+  items: InvoiceItem[]
+}
+
+export interface QuoteWithItems extends Quote {
+  items: QuoteItem[]
+}
+
+export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
+  draft:  'Borrador',
+  issued: 'Emitida',
+  paid:   'Pagada',
+  void:   'Anulada',
+}
+
+export const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
+  draft:    'Borrador',
+  sent:     'Enviada',
+  accepted: 'Aceptada',
+  rejected: 'Rechazada',
+  expired:  'Expirada',
+}
+
+export const PAYMENT_METHOD_LABELS: Record<InvoicePaymentMethod, string> = {
+  cash:     'Efectivo',
+  transfer: 'Transferencia',
+  check:    'Cheque',
+  card:     'Tarjeta',
+  other:    'Otro',
+}
 
 /** Item unificado para el dropdown de notificaciones (TopNav). */
 export interface NotificationItem {

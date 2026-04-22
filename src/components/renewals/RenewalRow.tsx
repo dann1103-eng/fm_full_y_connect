@@ -185,14 +185,22 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans }: Renew
           </span>
 
           {cycle.payment_status === 'unpaid' && isAdmin && (
-            <button
-              onClick={markPaid}
-              disabled={isPending}
-              className="text-xs text-white font-medium px-3 py-1.5 rounded-lg transition-all hover:opacity-90"
-              style={{ background: 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)' }}
-            >
-              Marcar pagado
-            </button>
+            <>
+              <Link
+                href={`/billing/invoices/new?client_id=${client.id}&cycle_id=${cycle.id}`}
+                className="text-xs font-medium px-3 py-1.5 rounded-lg transition-all border border-fm-primary/30 text-fm-primary bg-fm-primary/10 hover:bg-fm-primary/15"
+              >
+                Emitir factura
+              </Link>
+              <button
+                onClick={markPaid}
+                disabled={isPending}
+                className="text-xs text-white font-medium px-3 py-1.5 rounded-lg transition-all hover:opacity-90"
+                style={{ background: 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)' }}
+              >
+                Marcar pagado
+              </button>
+            </>
           )}
 
           {isAdmin && (
