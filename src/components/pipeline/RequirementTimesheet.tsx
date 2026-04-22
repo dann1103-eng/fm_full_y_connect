@@ -116,6 +116,15 @@ export function RequirementTimesheet({
       .then(({ data }) => setAssignableUsers(data ?? []))
   }, [canAssignToOthers])
 
+  // Si hay timer activo propio y canAssignToOthers, auto-seleccionar el primer usuario distinto
+  useEffect(() => {
+    if (!globalActiveWarning || !canAssignToOthers) return
+    if (manualTargetUserId !== currentUserId) return
+    const firstOther = assignableUsers.find((u) => u.id !== currentUserId)
+    if (firstOther) setManualTargetUserId(firstOther.id)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [globalActiveWarning, assignableUsers])
+
   async function checkGlobalActive() {
     const supabase = createClient()
     const { data } = await supabase
@@ -231,6 +240,12 @@ export function RequirementTimesheet({
 
     if (secs <= 0) {
       setManualError('La hora de fin debe ser posterior a la de inicio.')
+      return
+    }
+
+    // Admin/supervisor con timer activo no puede registrar tiempo a sí mismo
+    if (globalActiveWarning && (!canAssignToOthers || manualTargetUserId === currentUserId)) {
+      setManualError('Tienes un timer activo en otro lugar. Solo puedes registrar tiempo a otras personas.')
       return
     }
 
@@ -371,12 +386,23 @@ export function RequirementTimesheet({
         </div>
       )}
 
-      {/* New entry form (hidden for non-trackable phases or while timer runs) */}
-      {canTrackTime && !activeTimer && !globalActiveWarning && (
+      {/* New entry form.
+          Admin/supervisor con timer propio activo en otro lado (globalActiveWarning):
+          se les muestra el formulario igualmente para que puedan registrar tiempo a
+          OTRAS personas, pero no a sí mismos. */}
+      {canTrackTime && !activeTimer && (!globalActiveWarning || canAssignToOthers) && (
         <div className="border border-dashed border-fm-surface-container-high rounded-2xl p-4 space-y-3 flex-shrink-0">
           <p className="text-[10px] font-bold text-fm-outline-variant uppercase tracking-wider">
             Nueva entrada de tiempo
           </p>
+
+          {/* Aviso informativo cuando el admin/supervisor tiene su propio timer corriendo */}
+          {globalActiveWarning && canAssignToOthers && (
+            <div className="flex gap-2 items-start bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-500/30 rounded-xl p-3 text-xs text-amber-800 dark:text-amber-300">
+              <span className="material-symbols-outlined text-base text-amber-500 flex-shrink-0">info</span>
+              <span>Tienes un timer activo. Solo puedes registrar tiempo <strong>a otras personas</strong>.</span>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <input
@@ -404,27 +430,33 @@ export function RequirementTimesheet({
           </select>
 
           <div className="flex gap-2">
-            <button
-              onClick={startTimer}
-              disabled={saving}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-bold text-white rounded-xl disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg,#00675c,#5bf4de)' }}
-            >
-              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-white"><path d="M8 5v14l11-7z"/></svg>
-              Iniciar timer
-            </button>
-            <button
-              onClick={() => setShowManual((v) => !v)}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-bold text-fm-on-surface-variant bg-fm-background border border-fm-surface-container-high rounded-xl"
-            >
-              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-fm-on-surface-variant">
-                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
-              </svg>
-              Manual
-            </button>
+            {/* Iniciar timer solo si el usuario no tiene otro timer corriendo */}
+            {!globalActiveWarning && (
+              <button
+                onClick={startTimer}
+                disabled={saving}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-bold text-white rounded-xl disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg,#00675c,#5bf4de)' }}
+              >
+                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-white"><path d="M8 5v14l11-7z"/></svg>
+                Iniciar timer
+              </button>
+            )}
+            {/* Ingreso manual: solo admin/supervisor */}
+            {canAssignToOthers && (
+              <button
+                onClick={() => setShowManual((v) => !v)}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-bold text-fm-on-surface-variant bg-fm-background border border-fm-surface-container-high rounded-xl"
+              >
+                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-fm-on-surface-variant">
+                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+                </svg>
+                Manual
+              </button>
+            )}
           </div>
 
-          {showManual && (
+          {showManual && canAssignToOthers && (
             <div className="space-y-2 pt-1">
               {canAssignToOthers && assignableUsers.length > 0 && (
                 <div className="space-y-1">
@@ -436,7 +468,10 @@ export function RequirementTimesheet({
                     onChange={(e) => setManualTargetUserId(e.target.value)}
                     className="w-full px-3 py-2 text-sm bg-fm-background border border-fm-surface-container-high rounded-xl outline-none text-fm-on-surface"
                   >
-                    <option value={currentUserId}>Yo mismo</option>
+                    {/* "Yo mismo" deshabilitado si el admin/supervisor ya tiene timer activo */}
+                    <option value={currentUserId} disabled={!!globalActiveWarning}>
+                      {globalActiveWarning ? 'Yo mismo (timer activo)' : 'Yo mismo'}
+                    </option>
                     {assignableUsers
                       .filter((u) => u.id !== currentUserId)
                       .map((u) => (
