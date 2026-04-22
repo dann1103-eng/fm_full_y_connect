@@ -20,7 +20,7 @@ interface ContentReviewDialogProps {
   currentUserId: string
 }
 
-type UserMini = { id: string; full_name: string; avatar_url: string | null }
+type UserMini = { id: string; full_name: string; avatar_url: string | null; role: string }
 
 export function ContentReviewDialog({
   open,
@@ -38,7 +38,7 @@ export function ContentReviewDialog({
     const supabase = createClient()
     supabase
       .from('users')
-      .select('id, full_name, avatar_url')
+      .select('id, full_name, avatar_url, role')
       .then(({ data: rows }) => {
         if (rows) setUsers(rows as UserMini[])
       })
@@ -212,6 +212,7 @@ export function ContentReviewDialog({
                 selectedPinId={selectedPinId}
                 onSelectPin={setSelectedPinId}
                 clientId={clientId}
+                users={users}
                 onPinCreated={(pin, comment) => {
                   data.upsertPin(pin)
                   data.upsertComment(comment)

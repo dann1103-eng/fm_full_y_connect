@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import type {
   ReviewAssetKind,
   ReviewAsset,
@@ -9,6 +10,32 @@ import type {
   ReviewPin,
   ReviewComment,
 } from '@/types/db'
+
+async function insertReviewMentions(args: {
+  commentId: string
+  requirementId: string
+  mentionedUserIds: string[]
+  mentionedByUserId: string
+}) {
+  const ids = Array.from(new Set(args.mentionedUserIds)).filter(
+    (uid) => uid && uid !== args.mentionedByUserId,
+  )
+  if (ids.length === 0) return
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return
+  const admin = createAdminClient()
+  const rows = ids.map((uid) => ({
+    comment_id: args.commentId,
+    requirement_id: args.requirementId,
+    mentioned_user_id: uid,
+    mentioned_by_user_id: args.mentionedByUserId,
+  }))
+  const { error } = await admin
+    .from('review_comment_mentions')
+    .upsert(rows, { onConflict: 'comment_id,mentioned_user_id' })
+  if (error) {
+    console.error('insertReviewMentions failed:', error)
+  }
+}
 
 const DOWNLOAD_URL_EXPIRES_SECONDS = 60 * 60 // 1 hora
 
@@ -152,6 +179,7 @@ export async function createReviewPin(args: {
   posYPct: number
   timestampMs: number | null
   body: string
+  mentionedUserIds?: string[]
 }): Promise<ActionResult<{ pin: ReviewPin; comment: ReviewComment }>> {
   const supabase = await createClient()
   const {
@@ -205,6 +233,25 @@ export async function createReviewPin(args: {
     // rollback del pin si falla el comentario raíz
     await supabase.from('review_pins').delete().eq('id', pin.id)
     return { error: commentErr?.message ?? 'Error al crear el comentario.' }
+  }
+
+  const mentionIds = args.mentionedUserIds ?? []
+  if (mentionIds.length > 0) {
+    const { data: version } = await supabase
+      .from('review_versions')
+      .select('asset:review_assets(requirement_id)')
+      .eq('id', args.versionId)
+      .single()
+    const asset = (version as unknown as { asset: { requirement_id: string } | null } | null)?.asset
+    const requirementId = asset?.requirement_id
+    if (requirementId) {
+      await insertReviewMentions({
+        commentId: comment.id,
+        requirementId,
+        mentionedUserIds: mentionIds,
+        mentionedByUserId: user.id,
+      })
+    }
   }
 
   revalidatePath(`/clients/${args.clientId}`)
@@ -273,6 +320,7 @@ export async function addReviewCommentReply(args: {
   parentId: string
   clientId: string
   body: string
+  mentionedUserIds?: string[]
 }): Promise<ActionResult<ReviewComment>> {
   const supabase = await createClient()
   const {
@@ -295,6 +343,28 @@ export async function addReviewCommentReply(args: {
     .single()
 
   if (error || !data) return { error: error?.message ?? 'Error al responder.' }
+
+  const mentionIds = args.mentionedUserIds ?? []
+  if (mentionIds.length > 0) {
+    const { data: pinRow } = await supabase
+      .from('review_pins')
+      .select('version:review_versions(asset:review_assets(requirement_id))')
+      .eq('id', args.pinId)
+      .single()
+    const requirementId = (
+      pinRow as unknown as {
+        version: { asset: { requirement_id: string } | null } | null
+      } | null
+    )?.version?.asset?.requirement_id
+    if (requirementId) {
+      await insertReviewMentions({
+        commentId: data.id,
+        requirementId,
+        mentionedUserIds: mentionIds,
+        mentionedByUserId: user.id,
+      })
+    }
+  }
 
   revalidatePath(`/clients/${args.clientId}`)
   return { ok: true, data: data as ReviewComment }

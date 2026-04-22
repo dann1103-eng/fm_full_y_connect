@@ -5,6 +5,13 @@ import type { ReviewAsset, ReviewPin, ReviewVersion, ReviewComment } from '@/typ
 import { ImageViewer } from './ImageViewer'
 import { VideoViewer } from './VideoViewer'
 
+interface UserMini {
+  id: string
+  full_name: string
+  avatar_url: string | null
+  role: string
+}
+
 interface ReviewCenterViewerProps {
   loading: boolean
   error: string | null
@@ -14,6 +21,7 @@ interface ReviewCenterViewerProps {
   selectedPinId: string | null
   onSelectPin: (id: string | null) => void
   clientId: string
+  users: UserMini[]
   onPinCreated: (pin: ReviewPin, comment: ReviewComment) => void
   onEmptyAddFiles: () => void
 }
@@ -27,6 +35,7 @@ export function ReviewCenterViewer({
   selectedPinId,
   onSelectPin,
   clientId,
+  users,
   onPinCreated,
   onEmptyAddFiles,
 }: ReviewCenterViewerProps) {
@@ -79,6 +88,7 @@ export function ReviewCenterViewer({
         selectedPinId={selectedPinId}
         onSelectPin={onSelectPin}
         clientId={clientId}
+        users={users}
         onPinCreated={onPinCreated}
       />
     )
@@ -92,6 +102,7 @@ export function ReviewCenterViewer({
       selectedPinId={selectedPinId}
       onSelectPin={onSelectPin}
       clientId={clientId}
+      users={users}
       onPinCreated={onPinCreated}
     />
   )
