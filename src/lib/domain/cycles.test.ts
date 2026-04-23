@@ -113,9 +113,9 @@ describe('daysUntilEnd / isRenewalDue', () => {
     expect(daysUntilEnd('2026-04-15', '2026-04-20')).toBe(-5)
   })
 
-  it('isRenewalDue: true si faltan ≤ 7 días', () => {
-    expect(isRenewalDue('2026-04-25', '2026-04-20')).toBe(true)
-    expect(isRenewalDue('2026-04-28', '2026-04-20')).toBe(false)
+  it('isRenewalDue: true si faltan ≤ 3 días', () => {
+    expect(isRenewalDue('2026-04-23', '2026-04-20')).toBe(true)
+    expect(isRenewalDue('2026-04-24', '2026-04-20')).toBe(false)
   })
 
   it('isRenewalDue: true si ya venció', () => {

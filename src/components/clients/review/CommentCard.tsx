@@ -19,6 +19,7 @@ import {
   deleteReviewComment,
 } from '@/app/actions/content-review'
 import { MentionAutocomplete } from '@/components/requirements/MentionAutocomplete'
+import { EmojiPicker, insertAtCursor } from '@/components/ui/EmojiPicker'
 import type { UserRole } from '@/types/db'
 
 interface UserMini {
@@ -409,7 +410,22 @@ export function CommentCard({
               className="w-full text-xs text-fm-on-surface bg-fm-background rounded-md px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-fm-primary/30"
             />
           </div>
-          <div className="flex justify-end gap-1 mt-1">
+          <div className="flex justify-end items-center gap-1 mt-1">
+            <EmojiPicker
+              align="top-right"
+              triggerClassName="p-1 rounded text-fm-on-surface-variant hover:text-fm-primary hover:bg-fm-surface-container transition-colors mr-auto"
+              onSelect={(char) => {
+                const { next, caret } = insertAtCursor(replyRef.current, replyBody, char)
+                setReplyBody(next)
+                queueMicrotask(() => {
+                  const el = replyRef.current
+                  if (el) {
+                    el.focus()
+                    el.setSelectionRange(caret, caret)
+                  }
+                })
+              }}
+            />
             <button
               onClick={() => setReplyOpen(false)}
               className="px-2 py-0.5 text-[11px] rounded hover:bg-[#f5f7f9] text-[#595c5e]"

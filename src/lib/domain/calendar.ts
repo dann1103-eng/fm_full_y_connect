@@ -131,6 +131,14 @@ export const KIND_COLORS: Record<CalendarEventKind, string> = {
   reunion_interna: '#595c5e',
 }
 
+/** Colors adjusted for dark-mode (lighter so they pop on dark surfaces). */
+export const KIND_COLORS_DARK: Record<CalendarEventKind, string> = {
+  arte:            '#48e5d0',
+  reunion:         '#818cf8',
+  produccion:      '#f87171',
+  reunion_interna: '#9ca3af',
+}
+
 export const KIND_LABELS: Record<CalendarEventKind, string> = {
   arte:            'Requerimiento',
   reunion:         'Reunión',

@@ -14,7 +14,7 @@ interface AppLayoutProps {
 async function getPendingRenewalsCount(
   supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<number> {
-  const in7Days = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+  const in3Days = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
     .toISOString()
     .split('T')[0]
 
@@ -22,7 +22,7 @@ async function getPendingRenewalsCount(
     .from('billing_cycles')
     .select('*', { count: 'exact', head: true })
     .in('status', ['current', 'pending_renewal'])
-    .lte('period_end', in7Days)
+    .lte('period_end', in3Days)
 
   return count ?? 0
 }

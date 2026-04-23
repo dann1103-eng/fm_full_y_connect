@@ -34,16 +34,16 @@ export default async function RenewalsPage({
   const isAdmin = appUser?.role === 'admin'
   if (!isAdmin) redirect('/')
 
-  const in7Days = new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000)
+  const in3Days = new Date(new Date().getTime() + 3 * 24 * 60 * 60 * 1000)
     .toISOString()
     .split('T')[0]
 
-  // Cycles due in ≤7 days or overdue
+  // Cycles due in ≤3 days or overdue
   const { data: cycles } = await supabase
     .from('billing_cycles')
     .select('*')
     .in('status', ['current', 'pending_renewal'])
-    .lte('period_end', in7Days)
+    .lte('period_end', in3Days)
     .order('period_end')
 
   if (!cycles || cycles.length === 0) {
@@ -56,7 +56,7 @@ export default async function RenewalsPage({
               <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
             </svg>
             <p className="text-fm-on-surface-variant font-medium">Sin renovaciones pendientes</p>
-            <p className="text-sm text-fm-outline mt-1">No hay ciclos que venzan en los próximos 7 días.</p>
+            <p className="text-sm text-fm-outline mt-1">No hay ciclos que venzan en los próximos 3 días.</p>
           </div>
         </div>
       </div>

@@ -103,7 +103,7 @@ export function daysUntilEnd(periodEnd: DateString, referenceDate?: DateString):
   return daysBetween(today, periodEnd)
 }
 
-/** Un ciclo entra a la bandeja de renovaciones si faltan ≤ 7 días o ya venció. */
+/** Un ciclo entra a la bandeja de renovaciones si faltan ≤ 3 días o ya venció. */
 export function isRenewalDue(periodEnd: DateString, referenceDate?: DateString): boolean {
-  return daysUntilEnd(periodEnd, referenceDate) <= 7
+  return daysUntilEnd(periodEnd, referenceDate) <= 3
 }

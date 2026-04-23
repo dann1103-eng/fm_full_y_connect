@@ -319,10 +319,10 @@
     border-color: var(--color-fm-surface-container-high) !important;
   }
   .calendar-wrapper .rbc-off-range-bg {
-    background: var(--color-fm-surface-container-low);
+    background: var(--color-fm-surface-container-low) !important;
   }
   .calendar-wrapper .rbc-today {
-    background: color-mix(in srgb, var(--color-fm-primary) 8%, transparent);
+    background: color-mix(in srgb, var(--color-fm-primary) 10%, transparent) !important;
   }
   .calendar-wrapper .rbc-date-cell {
     font-size: 0.75rem;
@@ -368,4 +368,43 @@
     max-height: 80px !important;
     overflow: hidden;
   }
+
+  /* Month view: limit day row height to avoid vertical overflow */
+  .calendar-wrapper .rbc-month-row {
+    overflow: hidden;
+    min-height: 110px;
+  }
+  .calendar-wrapper .rbc-row-segment {
+    padding: 0 2px;
+  }
+  .calendar-wrapper .rbc-month-view .rbc-event {
+    padding: 0 !important;
+    font-size: 10px;
+    min-height: 20px;
+    max-height: 22px;
+  }
+
+  /* Week/day view: make 30-min slots tall enough for full cards */
+  .calendar-wrapper .rbc-time-view .rbc-timeslot-group {
+    min-height: 640px;
+  }
+
+  /* Dark mode calendar overrides — !important needed to beat unlayered RBC CSS */
+  .dark .calendar-wrapper .rbc-today {
+    background: rgba(72, 229, 208, 0.05) !important;
+  }
+  .dark .calendar-wrapper .rbc-off-range-bg {
+    background: var(--color-fm-surface-dim) !important;
+  }
+  .dark .calendar-wrapper .rbc-header {
+    background: var(--color-fm-surface-container-low) !important;
+  }
+  .dark .calendar-wrapper .rbc-month-view,
+  .dark .calendar-wrapper .rbc-time-view {
+    background: var(--color-fm-surface-container-lowest) !important;
+  }
+}
+
+body.review-dialog-open .floating-chat-dock {
+  display: none !important;
 }

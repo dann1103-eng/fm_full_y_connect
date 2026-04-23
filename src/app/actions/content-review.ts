@@ -387,7 +387,6 @@ export async function resolveReviewPin(args: {
     .eq('id', args.pinId)
 
   if (error) return { error: error.message }
-  revalidatePath(`/clients/${args.clientId}`)
   return { ok: true, data: null }
 }
 

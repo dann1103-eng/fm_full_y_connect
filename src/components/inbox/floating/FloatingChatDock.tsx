@@ -87,7 +87,7 @@ export function FloatingChatDock() {
   }
 
   return (
-    <div className="fixed bottom-4 left-4 md:left-[272px] z-[200] flex flex-col-reverse items-start gap-2">
+    <div className="floating-chat-dock fixed bottom-4 left-4 md:left-[272px] z-[200] flex flex-col-reverse items-start gap-2">
       {/* Bubbles row — launcher + open chats */}
       <div className="flex items-end gap-2 max-w-[calc(100vw-2rem)] md:max-w-[calc(100vw-288px)] overflow-x-auto">
         <FloatingChatLauncher

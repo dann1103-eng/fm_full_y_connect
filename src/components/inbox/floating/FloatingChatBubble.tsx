@@ -5,6 +5,7 @@ import { useConversationMessages } from '@/hooks/useInboxPolling'
 import { markConversationRead } from '@/app/actions/inbox'
 import { sendMessage } from '@/app/actions/inbox'
 import { UserAvatar } from '@/components/ui/UserAvatar'
+import { EmojiPicker } from '@/components/ui/EmojiPicker'
 import { useUser } from '@/contexts/UserContext'
 import type { ConversationListItem, MessageWithMeta } from '@/types/db'
 import { formatDistanceToNow, parseISO } from 'date-fns'
@@ -190,6 +191,11 @@ export function FloatingChatBubble({ conversation, onClose, onMinimize, minimize
 
           {/* Input */}
           <form onSubmit={handleSend} className="flex items-center gap-1 px-2 py-2 border-t border-fm-surface-container-high">
+            <EmojiPicker
+              align="top-left"
+              triggerClassName="p-1.5 rounded-lg text-fm-on-surface-variant hover:text-fm-primary hover:bg-fm-surface-container transition-colors"
+              onSelect={(char) => setBody(b => b + char)}
+            />
             <input
               value={body}
               onChange={(e) => setBody(e.target.value)}

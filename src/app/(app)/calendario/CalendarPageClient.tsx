@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar'
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop'
 import {
@@ -10,12 +10,34 @@ import {
 import { es } from 'date-fns/locale'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css'
-import type { AppUser } from '@/types/db'
+import type { AppUser, ContentType, Phase, Priority, RequirementPhaseLog } from '@/types/db'
+import { createClient } from '@/lib/supabase/client'
 import { useCalendarEvents } from '@/hooks/useCalendarEvents'
 import { NewInternalEventModal } from './NewInternalEventModal'
+import { PhaseSheet } from '@/components/pipeline/PhaseSheet'
 import { rescheduleEvent } from '@/app/actions/calendar'
 import type { CalendarEvent, CalendarEventKind } from '@/lib/domain/calendar'
-import { KIND_COLORS, KIND_LABELS, isScheduledKind } from '@/lib/domain/calendar'
+import { KIND_COLORS, KIND_COLORS_DARK, KIND_LABELS, isScheduledKind } from '@/lib/domain/calendar'
+import { Loader2 } from 'lucide-react'
+
+interface CalendarReqDetail {
+  requirementId: string
+  contentType: ContentType
+  currentPhase: Phase
+  clientName: string
+  clientId: string
+  title: string
+  notes: string | null
+  cambiosCount: number
+  reviewStartedAt: string | null
+  priority: Priority
+  estimatedTimeMinutes: number | null
+  assignedTo: string[] | null
+  assignees: { id: string; name: string; avatar_url: string | null }[]
+  maxCambios: number
+  deadline: string | null
+  includesStory: boolean
+}
 
 const locales = { es }
 const localizer = dateFnsLocalizer({
@@ -32,12 +54,41 @@ type FilterKind = 'todos' | 'produccion_reunion' | 'requerimientos'
 
 // ── Event card ──────────────────────────────────────────────────────────────
 
-function makeCalendarEventCard(allUsers: { id: string; full_name: string }[]) {
+function makeCalendarEventCard(allUsers: { id: string; full_name: string }[], isDark: boolean, view: ViewType) {
   function CalendarEventCard({ event }: { event: CalendarEvent }) {
-    const color = KIND_COLORS[event.kind]
+    const color = isDark ? KIND_COLORS_DARK[event.kind] : KIND_COLORS[event.kind]
+    const lightColor = KIND_COLORS[event.kind]
     const scheduled = isScheduledKind(event.kind)
 
-    // ── All-day deadline chip (arte / legacy scheduled) ──
+    // ── Month view: compact single-line chip for ALL events ──
+    if (view === 'month') {
+      const chipTextColor = scheduled ? '#fff' : color
+      const dotColor = scheduled ? lightColor : color
+      return (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 3,
+          padding: '0 5px', height: '100%', overflow: 'hidden',
+        }}>
+          <span style={{
+            width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+            background: dotColor,
+          }} />
+          {event.clientLogoUrl && (
+            <img src={event.clientLogoUrl} alt=""
+              style={{ width: 11, height: 11, borderRadius: 2, objectFit: 'cover', flexShrink: 0 }} />
+          )}
+          <span style={{
+            fontSize: 10, fontWeight: 600,
+            color: chipTextColor,
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
+            {event.title}
+          </span>
+        </div>
+      )
+    }
+
+    // ── All-day deadline chip (arte / legacy scheduled in week/day view) ──
     if (event.allDay || !scheduled) {
       return (
         <div style={{
@@ -80,6 +131,13 @@ function makeCalendarEventCard(allUsers: { id: string; full_name: string }[]) {
     const avatarColors = ['#7c5cbf', '#2196f3', '#e91e63', '#4caf50', '#ff9800', '#00bcd4']
     const avatarColor = (name: string) => avatarColors[name.charCodeAt(0) % avatarColors.length]
 
+    // Both modes now use solid opaque card bg → white text works in both
+    const textColor = '#fff'
+    const pillBg = 'rgba(255,255,255,.18)'
+    const pillBorder = 'none'
+    const avatarBorder = '1.5px solid rgba(255,255,255,.6)'
+    const avatarInitialBg = 'rgba(255,255,255,.25)'
+
     return (
       <div style={{ padding: '7px 8px', overflow: 'hidden', height: '100%', display: 'flex', flexDirection: 'column' }}>
 
@@ -87,19 +145,19 @@ function makeCalendarEventCard(allUsers: { id: string; full_name: string }[]) {
         {event.kind === 'reunion_interna' ? (
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 3,
-            background: 'rgba(255,255,255,.18)', borderRadius: 4,
+            background: pillBg, borderRadius: 4, border: pillBorder,
             padding: '1px 5px', fontSize: 9, fontWeight: 700,
-            letterSpacing: '.04em', marginBottom: 3, width: 'fit-content', color: '#fff',
+            letterSpacing: '.04em', marginBottom: 3, width: 'fit-content', color: textColor,
           }}>
             ● Interno FM
           </div>
         ) : (
           <div style={{
             display: 'inline-flex', alignItems: 'center',
-            background: 'rgba(255,255,255,.15)', borderRadius: 3,
+            background: pillBg, borderRadius: 3, border: pillBorder,
             padding: '1px 5px', fontSize: 9, fontWeight: 700,
             letterSpacing: '.04em', marginBottom: 4, textTransform: 'uppercase',
-            color: '#fff', width: 'fit-content',
+            color: textColor, width: 'fit-content',
           }}>
             {event.kind === 'reunion' ? 'Reunión' : 'Producción'}
           </div>
@@ -114,7 +172,7 @@ function makeCalendarEventCard(allUsers: { id: string; full_name: string }[]) {
             ) : event.clientName ? (
               <span style={{
                 width: 18, height: 18, borderRadius: 4, flexShrink: 0,
-                background: 'rgba(255,255,255,.25)', color: '#fff',
+                background: avatarInitialBg, color: textColor,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 8, fontWeight: 800,
               }}>
@@ -123,7 +181,7 @@ function makeCalendarEventCard(allUsers: { id: string; full_name: string }[]) {
             ) : null
           )}
           <span style={{
-            fontSize: 11.5, fontWeight: 700, lineHeight: 1.2, color: '#fff',
+            fontSize: 11.5, fontWeight: 700, lineHeight: 1.2, color: textColor,
             overflow: 'hidden', display: '-webkit-box',
             WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', flex: 1,
           }}>
@@ -132,7 +190,7 @@ function makeCalendarEventCard(allUsers: { id: string; full_name: string }[]) {
         </div>
 
         {/* Time */}
-        <div style={{ fontSize: 9.5, fontWeight: 500, opacity: .82, marginBottom: 5, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ fontSize: 9.5, fontWeight: 500, opacity: .82, marginBottom: 5, color: textColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {timeStr}{event.clientName && event.kind !== 'reunion_interna' ? ` · ${event.clientName}` : ''}
         </div>
 
@@ -142,7 +200,7 @@ function makeCalendarEventCard(allUsers: { id: string; full_name: string }[]) {
             {visibleAttendees.map((u, i) => (
               <span key={u.id} title={u.full_name} style={{
                 width: 17, height: 17, borderRadius: '50%',
-                border: '1.5px solid rgba(255,255,255,.6)',
+                border: avatarBorder,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 7, fontWeight: 800,
                 marginLeft: i === 0 ? 0 : -5,
@@ -155,10 +213,11 @@ function makeCalendarEventCard(allUsers: { id: string; full_name: string }[]) {
             {extraCount > 0 && (
               <span style={{
                 width: 17, height: 17, borderRadius: '50%',
-                border: '1.5px solid rgba(255,255,255,.6)',
+                border: avatarBorder,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 7, fontWeight: 800, marginLeft: -5,
-                background: 'rgba(255,255,255,.2)', color: 'rgba(255,255,255,.9)',
+                background: 'rgba(255,255,255,.2)',
+                color: 'rgba(255,255,255,.9)',
               }}>
                 +{extraCount}
               </span>
@@ -189,6 +248,20 @@ export function CalendarPageClient({ currentUser, isPrivileged, allUsers, client
   const [filterClientId, setFilterClientId] = useState<string>('')
   const [newEventSlot, setNewEventSlot] = useState<string | null>(null)
   const [dragError, setDragError] = useState<string | null>(null)
+  const [sheetLoading, setSheetLoading] = useState(false)
+  const [detailReq, setDetailReq] = useState<CalendarReqDetail | null>(null)
+  const [detailLogs, setDetailLogs] = useState<Array<RequirementPhaseLog & { moved_by_user?: { id: string; full_name: string | null; avatar_url: string | null } | null }>>([])
+
+  const [isDark, setIsDark] = useState<boolean>(() =>
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+  )
+  useEffect(() => {
+    const obs = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'))
+    })
+    obs.observe(document.documentElement, { attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
 
   const rangeStart = useMemo(() => {
     if (view === 'month') return startOfMonth(addDays(date, -7))
@@ -234,24 +307,62 @@ export function CalendarPageClient({ currentUser, isPrivileged, allUsers, client
   }, [sortedEvents, filterKind, filterClientId])
 
   const eventPropGetter = useCallback((event: CalendarEvent) => {
-    const color = KIND_COLORS[event.kind]
+    const lightColor = KIND_COLORS[event.kind]
+    const darkColor = KIND_COLORS_DARK[event.kind]
+    const color = isDark ? darkColor : lightColor
     const scheduled = isScheduledKind(event.kind)
-    if (scheduled && !event.allDay) {
+
+    if (view === 'month') {
+      // Month view: compact pill — scheduled use solid color, arte use tinted bg + left border
+      if (scheduled) {
+        return {
+          style: {
+            background: lightColor,
+            border: 'none',
+            borderRadius: '4px',
+            padding: 0,
+            color: '#fff',
+            boxShadow: 'none',
+          },
+        }
+      }
+      // Arte deadline chip in month view
       return {
         style: {
-          background: color,
+          background: isDark ? `${darkColor}20` : `${lightColor}18`,
           border: 'none',
-          borderRadius: '8px',
+          borderLeft: `3px solid ${color}`,
+          borderRadius: '4px',
           padding: 0,
-          color: '#fff',
-          boxShadow: '0 1px 4px rgba(0,0,0,.1)',
+          color,
+          boxShadow: 'none',
         },
       }
     }
-    // All-day arte chip
+
+    if (scheduled && !event.allDay) {
+      // Week/day view: solid opaque card background
+      const darkBg: Record<string, string> = {
+        reunion:         '#363d8c',
+        produccion:      '#7a1219',
+        reunion_interna: '#383b3d',
+      }
+      const bg = isDark ? (darkBg[event.kind] ?? lightColor) : lightColor
+      return {
+        style: {
+          background: bg,
+          border: isDark ? `1px solid ${darkColor}99` : 'none',
+          borderRadius: '8px',
+          padding: 0,
+          color: '#fff',
+          boxShadow: isDark ? '0 1px 6px rgba(0,0,0,.4)' : '0 1px 4px rgba(0,0,0,.1)',
+        },
+      }
+    }
+    // All-day arte chip (week/day view)
     return {
       style: {
-        background: color + '18',
+        background: isDark ? `${darkColor}20` : `${lightColor}18`,
         border: 'none',
         borderLeft: `3px solid ${color}`,
         borderRadius: '4px',
@@ -260,13 +371,13 @@ export function CalendarPageClient({ currentUser, isPrivileged, allUsers, client
         boxShadow: 'none',
       },
     }
-  }, [])
+  }, [isDark, view])
 
   // Custom components — memoized to avoid re-mounting on every render
   const components = useMemo(() => ({
-    event: makeCalendarEventCard(allUsers),
+    event: makeCalendarEventCard(allUsers, isDark, view),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [allUsers])
+  }), [allUsers, isDark, view])
 
   const handleSelectSlot = useCallback(({ start }: { start: Date }) => {
     if (!isPrivileged) return
@@ -288,6 +399,61 @@ export function CalendarPageClient({ currentUser, isPrivileged, allUsers, client
     const res = await rescheduleEvent({ source: event.source, id: rawId, new_starts_at: newStart.toISOString() })
     if (res.error) setDragError(res.error)
   }, [isPrivileged])
+
+  const handleSelectEvent = useCallback(async (event: CalendarEvent) => {
+    if (!event.requirementId) return
+    setSheetLoading(true)
+    setDetailReq(null)
+    setDetailLogs([])
+
+    const supabase = createClient()
+    const [{ data: req }, { data: logs }] = await Promise.all([
+      supabase
+        .from('requirements')
+        .select(`
+          id, content_type, phase, title, notes, cambios_count, deadline, includes_story,
+          review_started_at, priority, estimated_time_minutes, assigned_to,
+          billing_cycles ( clients ( id, name, max_cambios ) )
+        `)
+        .eq('id', event.requirementId)
+        .single(),
+      supabase
+        .from('requirement_phase_logs')
+        .select('*, moved_by_user:users!moved_by(id, full_name, avatar_url)')
+        .eq('requirement_id', event.requirementId)
+        .order('created_at'),
+    ])
+
+    setSheetLoading(false)
+    if (!req) return
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cycle = (req as any).billing_cycles
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const client = (cycle as any)?.clients
+
+    setDetailReq({
+      requirementId: req.id,
+      contentType: req.content_type as ContentType,
+      currentPhase: req.phase as Phase,
+      clientName: client?.name ?? '—',
+      clientId: client?.id ?? '',
+      title: req.title ?? '',
+      notes: req.notes,
+      cambiosCount: req.cambios_count,
+      reviewStartedAt: req.review_started_at,
+      priority: (req.priority as Priority) ?? 'media',
+      estimatedTimeMinutes: req.estimated_time_minutes,
+      assignedTo: req.assigned_to,
+      assignees: allUsers
+        .filter(u => (req.assigned_to ?? []).includes(u.id))
+        .map(u => ({ id: u.id, name: u.full_name, avatar_url: null })),
+      maxCambios: client?.max_cambios ?? 2,
+      deadline: req.deadline ?? null,
+      includesStory: req.includes_story ?? false,
+    })
+    setDetailLogs((logs ?? []) as unknown as typeof detailLogs)
+  }, [allUsers])
 
   const messages = {
     today: 'Hoy', previous: '‹', next: '›',
@@ -411,11 +577,13 @@ export function CalendarPageClient({ currentUser, isPrivileged, allUsers, client
           eventPropGetter={eventPropGetter}
           selectable={isPrivileged}
           onSelectSlot={handleSelectSlot}
+          onSelectEvent={handleSelectEvent}
           draggableAccessor={() => isPrivileged}
           onEventDrop={handleEventDrop}
           resizable={false}
           style={{ height: '100%' }}
           popup
+          dayLayoutAlgorithm="no-overlap"
           startAccessor="start"
           endAccessor="end"
           titleAccessor="title"
@@ -430,6 +598,44 @@ export function CalendarPageClient({ currentUser, isPrivileged, allUsers, client
         allUsers={allUsers}
         currentUserId={currentUser.id}
       />
+
+      {/* Loading indicator while fetching requirement */}
+      {sheetLoading && (
+        <div className="fixed inset-y-0 right-0 z-50 w-80 flex items-center justify-center bg-fm-surface-container-lowest/80 backdrop-blur-sm border-l border-fm-surface-container-high shadow-2xl">
+          <div className="flex flex-col items-center gap-3 text-fm-on-surface-variant">
+            <Loader2 className="w-6 h-6 animate-spin text-fm-primary" />
+            <span className="text-sm">Cargando requerimiento…</span>
+          </div>
+        </div>
+      )}
+
+      {/* Requirement detail sheet — opens on card click */}
+      {detailReq && (
+        <PhaseSheet
+          open={true}
+          onClose={() => setDetailReq(null)}
+          requirementId={detailReq.requirementId}
+          contentType={detailReq.contentType}
+          currentPhase={detailReq.currentPhase}
+          clientName={detailReq.clientName}
+          clientId={detailReq.clientId}
+          logs={detailLogs}
+          currentUserId={currentUser.id}
+          title={detailReq.title}
+          requirementNotes={detailReq.notes}
+          cambiosCount={detailReq.cambiosCount}
+          reviewStartedAt={detailReq.reviewStartedAt}
+          priority={detailReq.priority}
+          estimatedTimeMinutes={detailReq.estimatedTimeMinutes}
+          assignedTo={detailReq.assignedTo}
+          assignees={detailReq.assignees}
+          canAssign={isPrivileged}
+          includesStory={detailReq.includesStory}
+          deadline={detailReq.deadline}
+          isAdmin={isPrivileged}
+          showMoveSection={isPrivileged}
+        />
+      )}
     </div>
   )
 }

@@ -50,7 +50,7 @@ interface PhaseSheetProps {
   currentPhase: Phase
   clientName: string
   clientId?: string
-  logs: RequirementPhaseLog[]
+  logs: Array<RequirementPhaseLog & { moved_by_user?: { id: string; full_name: string | null; avatar_url: string | null } | null }>
   currentUserId: string
   title: string
   requirementNotes: string | null
@@ -788,6 +788,9 @@ export function PhaseSheet({
                             {log.from_phase
                               ? `${PHASE_LABELS[log.from_phase as Phase]} → ${PHASE_LABELS[log.to_phase as Phase]}`
                               : `Creado en ${PHASE_LABELS[log.to_phase as Phase]}`}
+                          </p>
+                          <p className="text-[11px] text-fm-on-surface-variant mt-0.5">
+                            por {log.moved_by_user?.full_name ?? '—'}
                           </p>
                           {log.ended_at && (log.standby_seconds != null || log.worked_seconds != null) && (
                             <p className="text-[11px] text-fm-on-surface-variant mt-1">

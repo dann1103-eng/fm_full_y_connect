@@ -77,7 +77,7 @@ export function KanbanBoard({
     const supabase = createClient()
     supabase
       .from('requirement_phase_logs')
-      .select('*')
+      .select('*, moved_by_user:users!moved_by(id, full_name, avatar_url)')
       .eq('requirement_id', activeDetailItem.id)
       .order('created_at')
       .then(({ data }) => {

@@ -38,13 +38,13 @@ export default async function TiempoPage() {
 
   const { data: entriesRaw } = await supabase
     .from('time_entries')
-    .select('*')
+    .select('*, requirement:requirements!requirement_id(id, title, billing_cycles!inner(clients!inner(id, name)))')
     .eq('user_id', authUser.id)
     .not('ended_at', 'is', null)
     .gte('started_at', monthStart)
     .lt('started_at', monthEnd)
     .order('started_at', { ascending: false })
-  const entries = (entriesRaw ?? []) as TimeEntry[]
+  const entries = (entriesRaw ?? []) as unknown as TimeEntry[]
 
   // All users (admin + supervisor)
   let allUsers: AppUser[] = []

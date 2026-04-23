@@ -1,16 +1,43 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
+import { useState, useEffect, useTransition, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ADMIN_CATEGORY_LABELS, formatDuration, formatTime, formatDayLabel, isoDateStr } from '@/lib/domain/time'
-import type { TimeEntry, AdminCategory } from '@/types/db'
+import type { TimeEntry, AdminCategory, ContentType, Phase, Priority, RequirementPhaseLog } from '@/types/db'
+import { PhaseSheet } from '@/components/pipeline/PhaseSheet'
+
+type TimeEntryWithContext = TimeEntry & {
+  requirement?: {
+    id: string
+    title: string
+    billing_cycles?: {
+      clients?: { id: string; name: string } | null
+    } | null
+  } | null
+}
 
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
 interface DayGroup {
   date: string
-  entries: TimeEntry[]
+  entries: TimeEntryWithContext[]
   totalSeconds: number
+}
+
+interface SheetData {
+  requirementId: string
+  contentType: ContentType
+  currentPhase: Phase
+  clientName: string
+  logs: RequirementPhaseLog[]
+  title: string
+  requirementNotes: string | null
+  cambiosCount: number
+  reviewStartedAt: string | null
+  priority: Priority
+  estimatedTimeMinutes: number | null
+  assignedTo: string[]
+  assignees: { id: string; name: string; avatar_url: string | null }[]
 }
 
 interface Props {
@@ -18,14 +45,65 @@ interface Props {
   initialEntries: TimeEntry[]
   initialYear: number
   initialMonth: number
+  isAdmin?: boolean
 }
 
-export function MyTimeHistory({ userId, initialEntries, initialYear, initialMonth }: Props) {
+export function MyTimeHistory({ userId, initialEntries, initialYear, initialMonth, isAdmin = false }: Props) {
   const [year, setYear] = useState(initialYear)
   const [month, setMonth] = useState(initialMonth)
-  const [entries, setEntries] = useState<TimeEntry[]>(initialEntries)
+  const [entries, setEntries] = useState<TimeEntryWithContext[]>(initialEntries as TimeEntryWithContext[])
   const [loading, setLoading] = useState(false)
   const [, startTransition] = useTransition()
+  const [sheetData, setSheetData] = useState<SheetData | null>(null)
+
+  const handleOpenReq = useCallback(async (reqId: string) => {
+    const supabase = createClient()
+    const { data: req, error } = await supabase
+      .from('requirements')
+      .select(`
+        id, content_type, phase, title, notes, cambios_count,
+        review_started_at, priority, estimated_time_minutes, assigned_to,
+        billing_cycles ( clients ( name ) )
+      `)
+      .eq('id', reqId)
+      .single()
+    if (error || !req) return
+
+    const { data: logs } = await supabase
+      .from('requirement_phase_logs')
+      .select('*')
+      .eq('requirement_id', reqId)
+      .order('created_at', { ascending: true })
+
+    const assignedIds = (req.assigned_to ?? []) as string[]
+    let assigneesList: { id: string; name: string; avatar_url: string | null }[] = []
+    if (assignedIds.length > 0) {
+      const { data: usersRaw } = await supabase
+        .from('users')
+        .select('id, full_name, avatar_url')
+        .in('id', assignedIds)
+      assigneesList = (usersRaw ?? []).map(u => ({ id: u.id, name: u.full_name, avatar_url: u.avatar_url ?? null }))
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const clientName = (req as any).billing_cycles?.clients?.name ?? '—'
+
+    setSheetData({
+      requirementId: req.id,
+      contentType: req.content_type as ContentType,
+      currentPhase: req.phase as Phase,
+      clientName,
+      logs: (logs ?? []) as RequirementPhaseLog[],
+      title: req.title ?? '',
+      requirementNotes: req.notes,
+      cambiosCount: req.cambios_count,
+      reviewStartedAt: req.review_started_at,
+      priority: (req.priority as Priority) ?? 'media',
+      estimatedTimeMinutes: req.estimated_time_minutes,
+      assignedTo: assignedIds,
+      assignees: assigneesList,
+    })
+  }, [])
 
   useEffect(() => {
     if (year === initialYear && month === initialMonth) return
@@ -36,13 +114,13 @@ export function MyTimeHistory({ userId, initialEntries, initialYear, initialMont
       const end = new Date(year, month + 1, 1).toISOString()
       const { data } = await supabase
         .from('time_entries')
-        .select('*')
+        .select('*, requirement:requirements!requirement_id(id, title, billing_cycles!inner(clients!inner(id, name)))')
         .eq('user_id', userId)
         .not('ended_at', 'is', null)
         .gte('started_at', start)
         .lt('started_at', end)
         .order('started_at', { ascending: false })
-      setEntries((data ?? []) as TimeEntry[])
+      setEntries((data ?? []) as unknown as TimeEntryWithContext[])
       setLoading(false)
     })
   }, [year, month, userId, initialYear, initialMonth])
@@ -77,6 +155,7 @@ export function MyTimeHistory({ userId, initialEntries, initialYear, initialMont
   const todayTotal = todayEntries.reduce((s, e) => s + (e.duration_seconds ?? 0), 0)
 
   return (
+    <>
     <div className="space-y-5">
       {/* Today summary */}
       {todayTotal > 0 && (
@@ -139,24 +218,52 @@ export function MyTimeHistory({ userId, initialEntries, initialYear, initialMont
             </div>
             <div className="space-y-1.5">
               {day.entries.map(e => (
-                <EntryRow key={e.id} entry={e} />
+                <EntryRow key={e.id} entry={e} onOpenReq={handleOpenReq} />
               ))}
             </div>
           </div>
         ))}
       </div>
     </div>
+
+    {sheetData && (
+      <PhaseSheet
+        open={true}
+        onClose={() => setSheetData(null)}
+        requirementId={sheetData.requirementId}
+        contentType={sheetData.contentType}
+        currentPhase={sheetData.currentPhase}
+        clientName={sheetData.clientName}
+        logs={sheetData.logs}
+        currentUserId={userId}
+        title={sheetData.title}
+        requirementNotes={sheetData.requirementNotes}
+        cambiosCount={sheetData.cambiosCount}
+        reviewStartedAt={sheetData.reviewStartedAt}
+        showMoveSection={false}
+        priority={sheetData.priority}
+        estimatedTimeMinutes={sheetData.estimatedTimeMinutes}
+        assignedTo={sheetData.assignedTo}
+        assignees={sheetData.assignees}
+        canAssign={false}
+        isAdmin={isAdmin}
+      />
+    )}
+    </>
   )
 }
 
-function EntryRow({ entry }: { entry: TimeEntry }) {
+function EntryRow({ entry, onOpenReq }: { entry: TimeEntryWithContext; onOpenReq: (id: string) => void }) {
   const isReq = entry.entry_type === 'requirement'
   const label = isReq
     ? entry.title
     : ADMIN_CATEGORY_LABELS[entry.category as AdminCategory] ?? entry.title
 
-  return (
-    <div className="px-4 py-2.5 rounded-xl bg-fm-surface-container-low hover:bg-fm-surface-container-low transition-colors">
+  const clientName = entry.requirement?.billing_cycles?.clients?.name
+  const reqTitle = entry.requirement?.title
+
+  const body = (
+    <>
       <div className="flex items-center gap-3">
         <span
           className="w-2 h-2 rounded-full flex-shrink-0"
@@ -175,9 +282,31 @@ function EntryRow({ entry }: { entry: TimeEntry }) {
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-fm-surface-container-low text-fm-on-surface-variant">ADM</span>
         )}
       </div>
+      {isReq && clientName && (
+        <p className="text-[11px] text-fm-on-surface-variant mt-1 ml-5 pl-0.5 truncate">
+          {clientName}{reqTitle ? ` · ${reqTitle}` : ''}
+        </p>
+      )}
       {entry.notes && (
         <p className="text-xs text-fm-outline mt-1 ml-5 pl-0.5 truncate">{entry.notes}</p>
       )}
+    </>
+  )
+
+  if (isReq && entry.requirement_id) {
+    return (
+      <button
+        onClick={() => onOpenReq(entry.requirement_id!)}
+        className="block w-full text-left px-4 py-2.5 rounded-xl bg-fm-surface-container-low hover:bg-fm-surface-container transition-colors cursor-pointer"
+      >
+        {body}
+      </button>
+    )
+  }
+
+  return (
+    <div className="px-4 py-2.5 rounded-xl bg-fm-surface-container-low transition-colors">
+      {body}
     </div>
   )
 }

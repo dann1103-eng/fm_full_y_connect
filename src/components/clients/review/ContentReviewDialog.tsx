@@ -48,6 +48,14 @@ export function ContentReviewDialog({
       })
   }, [open])
 
+  useEffect(() => {
+    if (!open) return
+    document.body.classList.add('review-dialog-open')
+    return () => {
+      document.body.classList.remove('review-dialog-open')
+    }
+  }, [open])
+
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null)
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null)
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null)
