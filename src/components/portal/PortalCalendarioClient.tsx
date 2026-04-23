@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar'
-import { format, parse, startOfWeek, getDay, parseISO } from 'date-fns'
+import { format, parse, startOfWeek, getDay, parseISO, isValid } from 'date-fns'
 import { es } from 'date-fns/locale'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import { KIND_COLORS } from '@/lib/domain/calendar'
@@ -19,7 +19,7 @@ const localizer = dateFnsLocalizer({
 
 type SerialEvent = {
   id: string
-  kind: string
+  kind: CalendarEventKind
   title: string
   start: string
   end: string
@@ -44,19 +44,28 @@ type ViewType = 'month' | 'week' | 'day'
 
 export function PortalCalendarioClient({ events, defaultDate }: Props) {
   const [view, setView] = useState<ViewType>('month')
-  const [date, setDate] = useState(() => parseISO(defaultDate))
+  const [date, setDate] = useState(() => {
+    const parsed = parseISO(defaultDate)
+    return isValid(parsed) ? parsed : new Date()
+  })
 
-  const calEvents = useMemo<CalEvent[]>(() =>
-    events.map(e => ({
-      id: e.id,
-      kind: e.kind as CalendarEventKind,
-      title: e.title,
-      start: parseISO(e.start),
-      end: parseISO(e.end),
-      allDay: e.allDay,
-    })),
-    [events]
-  )
+  const calEvents = useMemo<CalEvent[]>(() => {
+    const result: CalEvent[] = []
+    for (const e of events) {
+      const start = parseISO(e.start)
+      const end = parseISO(e.end)
+      if (!isValid(start) || !isValid(end)) continue
+      result.push({
+        id: e.id,
+        kind: e.kind,
+        title: e.title,
+        start,
+        end,
+        allDay: e.allDay,
+      })
+    }
+    return result
+  }, [events])
 
   const eventStyleGetter = (event: CalEvent) => {
     const color = KIND_COLORS[event.kind] ?? '#595c5e'

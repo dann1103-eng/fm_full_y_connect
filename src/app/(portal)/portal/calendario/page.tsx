@@ -3,6 +3,7 @@ import { getActiveClientId } from '@/lib/supabase/active-client'
 import { redirect } from 'next/navigation'
 import { PortalCalendarioClient } from '@/components/portal/PortalCalendarioClient'
 import { requirementToCalendarEvent } from '@/lib/domain/calendar'
+import type { CalendarEventKind } from '@/lib/domain/calendar'
 import type { ContentType } from '@/types/db'
 
 export const dynamic = 'force-dynamic'
@@ -41,7 +42,7 @@ export default async function PortalCalendarioPage() {
   // Convert to serializable event shape (ISO strings, not Date objects — server component)
   type SerialEvent = {
     id: string
-    kind: string
+    kind: CalendarEventKind
     title: string
     start: string
     end: string
