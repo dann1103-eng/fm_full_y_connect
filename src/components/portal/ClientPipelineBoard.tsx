@@ -1,6 +1,6 @@
 'use client'
 
-import { format, parseISO } from 'date-fns'
+import { format, parseISO, isValid } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { CLIENT_PHASE_ORDER, CLIENT_PHASE_LABELS } from '@/lib/domain/pipeline'
 import type { ClientPhase } from '@/lib/domain/pipeline'
@@ -56,11 +56,14 @@ export function ClientPipelineBoard({ groups }: Props) {
                     {item.notes}
                   </p>
                 )}
-                {item.deadline && (
-                  <p className="text-xs text-fm-on-surface-variant mt-1">
-                    Entrega: {format(parseISO(item.deadline), 'dd MMM yyyy', { locale: es })}
-                  </p>
-                )}
+                {item.deadline && (() => {
+                  const d = parseISO(item.deadline)
+                  return isValid(d) ? (
+                    <p className="text-xs text-fm-on-surface-variant mt-1">
+                      Entrega: {format(d, 'dd MMM yyyy', { locale: es })}
+                    </p>
+                  ) : null
+                })()}
               </div>
             ))
           )}
