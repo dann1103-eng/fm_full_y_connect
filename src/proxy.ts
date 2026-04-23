@@ -1,6 +1,27 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+const STAFF_PREFIXES = [
+  '/dashboard',
+  '/clients',
+  '/pipeline',
+  '/plans',
+  '/calendario',
+  '/inbox',
+  '/tiempo',
+  '/reports',
+  '/renewals',
+  '/billing',
+  '/users',
+  '/profile',
+]
+
+const PORTAL_PREFIX = '/portal'
+
+function startsWithAny(pathname: string, prefixes: string[]): boolean {
+  return prefixes.some((p) => pathname === p || pathname.startsWith(p + '/'))
+}
+
 export async function proxy(request: NextRequest) {
   try {
     let supabaseResponse = NextResponse.next({ request })
@@ -43,9 +64,16 @@ export async function proxy(request: NextRequest) {
 
     // Public routes — /login and /auth/* (signout route handler)
     if (pathname.startsWith('/login') || pathname.startsWith('/auth')) {
-      // Redirect already-authenticated users away from login
+      // Redirect already-authenticated users away from login (role-aware)
       if (user && pathname.startsWith('/login')) {
-        return NextResponse.redirect(new URL('/dashboard', request.url))
+        const { data: appUser } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle()
+        const dest =
+          appUser?.role === 'client' ? '/portal/dashboard' : '/dashboard'
+        return NextResponse.redirect(new URL(dest, request.url))
       }
       return supabaseResponse
     }
@@ -53,6 +81,25 @@ export async function proxy(request: NextRequest) {
     // All other routes require auth
     if (!user) {
       return NextResponse.redirect(new URL('/login', request.url))
+    }
+
+    // Fetch role for authenticated, non-public requests
+    let role: string | null = null
+    const { data: appUser } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle()
+    role = appUser?.role ?? null
+
+    // Rule 2: clients trying to access staff prefixes → /portal/dashboard
+    if (role === 'client' && startsWithAny(pathname, STAFF_PREFIXES)) {
+      return NextResponse.redirect(new URL('/portal/dashboard', request.url))
+    }
+
+    // Rule 3: staff trying to access /portal/* → /dashboard
+    if (role && role !== 'client' && pathname.startsWith(PORTAL_PREFIX)) {
+      return NextResponse.redirect(new URL('/dashboard', request.url))
     }
 
     return supabaseResponse
