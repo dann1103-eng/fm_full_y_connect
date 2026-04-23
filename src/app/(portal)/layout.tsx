@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { getActiveClientId, getActiveClientIds } from '@/lib/supabase/active-client'
 import { PortalSidebar } from '@/components/portal/PortalSidebar'
@@ -26,8 +27,22 @@ export default async function PortalLayout({ children }: { children: React.React
     redirect('/login')
   }
 
+  const hdrs = await headers()
+  const currentPath = hdrs.get('x-pathname') ?? ''
+  const isSelectingBrand = currentPath === '/portal/seleccionar-marca'
+
   const activeId = await getActiveClientId()
-  if (!activeId) redirect('/portal/seleccionar-marca')
+  if (!activeId && !isSelectingBrand) redirect('/portal/seleccionar-marca')
+
+  if (isSelectingBrand && !activeId) {
+    return (
+      <UserProvider user={appUser}>
+        <div className="flex h-screen overflow-hidden bg-fm-background">
+          <main className="flex-1 overflow-y-auto">{children}</main>
+        </div>
+      </UserProvider>
+    )
+  }
 
   const { data: clientOptions } = await supabase
     .from('clients')
@@ -42,7 +57,7 @@ export default async function PortalLayout({ children }: { children: React.React
       <div className="flex h-screen overflow-hidden bg-fm-background">
         <PortalSidebar
           clientOptions={clientOptions ?? []}
-          activeClientId={activeId}
+          activeClientId={activeId!}
           clientDisplayName={clientDisplayName}
         />
         <div className="flex flex-col flex-1 md:ml-64 overflow-hidden">
