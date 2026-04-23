@@ -82,6 +82,7 @@ export function RequirementChat({ requirementId, currentUserId, isAdmin = false 
       .from('users')
       .select('id, full_name, avatar_url, role')
       .neq('id', currentUserId)
+      .not('role', 'eq', 'client')
       .then(({ data }) => {
         setUsers((data ?? []) as MentionableUser[])
       })

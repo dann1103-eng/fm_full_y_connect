@@ -22,6 +22,7 @@ export default async function UsersPage() {
   const { data: users } = await supabase
     .from('users')
     .select('id, email, full_name, role, created_at, avatar_url, default_assignee')
+    .not('role', 'eq', 'client')
     .order('created_at')
 
   return (

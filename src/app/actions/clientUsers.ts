@@ -19,22 +19,20 @@ async function requireAdmin() {
   return { supabase, adminUserId: user.id }
 }
 
-export async function inviteClientUser(params: {
+export async function createClientUser(params: {
   clientId: string
   email: string
+  password: string
   fullName?: string
-}): Promise<{ emailSent: boolean }> {
-  const { clientId, email, fullName } = params
+}): Promise<{ userId: string }> {
+  const { clientId, email, password, fullName } = params
   const clean = email.trim().toLowerCase()
   if (!clean || !clean.includes('@')) throw new Error('Email inválido')
+  if (!password || password.length < 8) throw new Error('La contraseña debe tener al menos 8 caracteres')
 
   await requireAdmin()
   const admin = createAdminClient()
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
-  const redirectTo = `${siteUrl}/auth/callback?next=/portal/dashboard`
-
-  // 1) ¿Ya existe ese email en public.users?
   const { data: existing } = await admin
     .from('users')
     .select('id, role')
@@ -42,35 +40,31 @@ export async function inviteClientUser(params: {
     .maybeSingle()
 
   let userId: string
-  let emailSent = false
 
   if (existing) {
-    userId = existing.id
     if (existing.role !== 'client') {
       throw new Error(
-        `${clean} ya tiene cuenta como ${existing.role}. No se puede convertir en cliente.`
+        `${clean} ya tiene cuenta como ${existing.role}. No se puede reutilizar este correo para un cliente.`
       )
     }
-    // Intentar reenviar invitación (funciona si aún no confirmó el correo).
-    // Si Supabase devuelve error "already registered", el usuario ya tiene cuenta activa — no hay email.
-    const { error: inviteErr } = await admin.auth.admin.inviteUserByEmail(clean, {
-      data: { role: 'client', full_name: fullName ?? null },
-      redirectTo,
-    })
-    emailSent = !inviteErr
+    userId = existing.id
+    const { error: updErr } = await admin.auth.admin.updateUserById(userId, { password })
+    if (updErr) throw new Error(`No se pudo actualizar la contraseña: ${updErr.message}`)
+    if (fullName) {
+      await admin.from('users').update({ full_name: fullName }).eq('id', userId)
+    }
   } else {
-    // 2) Nuevo usuario — invitar por email.
-    const { data, error } = await admin.auth.admin.inviteUserByEmail(clean, {
-      data: { role: 'client', full_name: fullName ?? null },
-      redirectTo,
+    const { data, error } = await admin.auth.admin.createUser({
+      email: clean,
+      password,
+      email_confirm: true,
+      user_metadata: { role: 'client', full_name: fullName ?? null },
     })
     if (error || !data.user) {
-      throw new Error(`No se pudo enviar invitación: ${error?.message ?? 'desconocido'}`)
+      throw new Error(`No se pudo crear el usuario: ${error?.message ?? 'desconocido'}`)
     }
     userId = data.user.id
-    emailSent = true
 
-    // 3) Registrar en public.users con role='client'.
     const { error: upsertErr } = await admin.from('users').upsert({
       id: userId,
       email: clean,
@@ -78,11 +72,11 @@ export async function inviteClientUser(params: {
       role: 'client',
     })
     if (upsertErr) {
+      await admin.auth.admin.deleteUser(userId).catch(() => undefined)
       throw new Error(`No se pudo registrar el usuario: ${upsertErr.message}`)
     }
   }
 
-  // 4) Vincular al cliente (restaura acceso si fue revocado).
   const { error: linkErr } = await admin
     .from('client_users')
     .upsert(
@@ -92,19 +86,43 @@ export async function inviteClientUser(params: {
   if (linkErr) throw new Error(`No se pudo vincular al cliente: ${linkErr.message}`)
 
   revalidatePath(`/clients/${clientId}`)
-  return { emailSent }
+  return { userId }
 }
 
 export async function revokeClientUser(params: { clientId: string; userId: string }) {
   await requireAdmin()
   const admin = createAdminClient()
 
-  const { error } = await admin
+  const { data: target } = await admin
+    .from('users')
+    .select('role')
+    .eq('id', params.userId)
+    .maybeSingle()
+  if (!target) throw new Error('Usuario no encontrado')
+  if (target.role !== 'client') {
+    throw new Error('Solo se pueden revocar accesos de clientes')
+  }
+
+  const { error: unlinkErr } = await admin
     .from('client_users')
     .delete()
     .eq('client_id', params.clientId)
     .eq('user_id', params.userId)
-  if (error) throw new Error(`No se pudo revocar acceso: ${error.message}`)
+  if (unlinkErr) throw new Error(`No se pudo desvincular del cliente: ${unlinkErr.message}`)
+
+  const { data: remaining } = await admin
+    .from('client_users')
+    .select('id')
+    .eq('user_id', params.userId)
+    .limit(1)
+
+  if (!remaining || remaining.length === 0) {
+    const { error: delPubErr } = await admin.from('users').delete().eq('id', params.userId)
+    if (delPubErr) throw new Error(`No se pudo eliminar el registro público: ${delPubErr.message}`)
+
+    const { error: delAuthErr } = await admin.auth.admin.deleteUser(params.userId)
+    if (delAuthErr) throw new Error(`No se pudo eliminar la cuenta: ${delAuthErr.message}`)
+  }
 
   revalidatePath(`/clients/${params.clientId}`)
 }
