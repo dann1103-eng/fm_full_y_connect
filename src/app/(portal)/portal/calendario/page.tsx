@@ -17,7 +17,7 @@ export default async function PortalCalendarioPage() {
   // Get current billing cycle
   const { data: cycle } = await supabase
     .from('billing_cycles')
-    .select('id, start_date, end_date')
+    .select('id, period_start, period_end')
     .eq('client_id', clientId)
     .eq('status', 'current')
     .maybeSingle()
@@ -77,7 +77,7 @@ export default async function PortalCalendarioPage() {
   }
 
   // Default calendar date: start of current cycle or today
-  const defaultDate = cycle.start_date ?? new Date().toISOString().split('T')[0]
+  const defaultDate = cycle.period_start ?? new Date().toISOString().split('T')[0]
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)]">

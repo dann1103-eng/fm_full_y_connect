@@ -96,8 +96,6 @@ export function PortalCalendarioClient({ events, defaultDate }: Props) {
         onNavigate={setDate}
         culture="es"
         selectable={false}
-        draggableAccessor={() => false}
-        resizable={false}
         eventPropGetter={eventStyleGetter}
         views={['month', 'week', 'day']}
         messages={{
