@@ -296,7 +296,7 @@ export function CalendarPageClient({ currentUser, isPrivileged, allUsers, client
     return endOfDay(date)
   }, [view, date])
 
-  const { events, loading } = useCalendarEvents({
+  const { events, loading, refetch } = useCalendarEvents({
     userId: currentUser.id,
     isGeneral: calendarMode === 'general' && isPrivileged,
     rangeStart,
@@ -418,8 +418,13 @@ export function CalendarPageClient({ currentUser, isPrivileged, allUsers, client
     const newStart = typeof start === 'string' ? new Date(start) : start
     const rawId = event.requirementId ?? event.id.replace('te-', '')
     const res = await rescheduleEvent({ source: event.source, id: rawId, new_starts_at: newStart.toISOString() })
-    if (res.error) setDragError(res.error)
-  }, [isPrivileged])
+    if (res.error) {
+      setDragError(res.error)
+      return
+    }
+    // Server updated; refresh local events so the card lands at the new time
+    refetch()
+  }, [isPrivileged, refetch])
 
   const handleSelectEvent = useCallback(async (event: CalendarEvent) => {
     if (!event.requirementId) return

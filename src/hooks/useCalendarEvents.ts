@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { requirementToCalendarEvent, timeEntryToCalendarEvent } from '@/lib/domain/calendar'
 import type { CalendarEvent } from '@/lib/domain/calendar'
@@ -17,6 +17,15 @@ interface UseCalendarEventsOptions {
 export function useCalendarEvents({ userId, isGeneral, rangeStart, rangeEnd, allUsers }: UseCalendarEventsOptions) {
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(true)
+  const [refetchKey, setRefetchKey] = useState(0)
+  const refetch = useCallback(() => setRefetchKey(k => k + 1), [])
+
+  // Keep the latest range in refs so `refetch` can be called without
+  // re-running the effect when only the range changed.
+  const rangeStartRef = useRef(rangeStart)
+  const rangeEndRef = useRef(rangeEnd)
+  rangeStartRef.current = rangeStart
+  rangeEndRef.current = rangeEnd
 
   useEffect(() => {
     let cancelled = false
@@ -105,7 +114,7 @@ export function useCalendarEvents({ userId, isGeneral, rangeStart, rangeEnd, all
     fetchEvents()
     return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, isGeneral, rangeStart.getTime(), rangeEnd.getTime()])
+  }, [userId, isGeneral, rangeStart.getTime(), rangeEnd.getTime(), refetchKey])
 
-  return { events, loading }
+  return { events, loading, refetch }
 }
