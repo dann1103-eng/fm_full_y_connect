@@ -40,7 +40,7 @@ export function NewRequirementFromPipeline({ clients, isAdmin, canAssign }: Prop
       supabase.from('clients').select('*, plan:plans(*)').eq('id', clientId).single(),
       supabase.from('billing_cycles').select('*').eq('client_id', clientId).eq('status', 'current').single(),
       canAssign
-        ? supabase.from('users').select('id, full_name, default_assignee').order('full_name')
+        ? supabase.from('users').select('id, full_name, default_assignee').not('role', 'eq', 'client').order('full_name')
         : Promise.resolve({ data: [] }),
     ])
 

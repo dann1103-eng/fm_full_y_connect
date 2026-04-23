@@ -209,6 +209,45 @@ export async function insertInitialPhaseLog(
   })
 }
 
+// ---------------------------------------------------------------------------
+// Client-facing phase mapping
+// ---------------------------------------------------------------------------
+
+export type ClientPhase = 'diseno' | 'revision_cliente' | 'aprobado' | 'pendiente_publicar' | 'publicado'
+
+export const CLIENT_PHASE_MAP: Record<Phase, ClientPhase | null> = {
+  pendiente:           'diseno',
+  proceso_edicion:     'diseno',
+  proceso_diseno:      'diseno',
+  proceso_animacion:   'diseno',
+  cambios:             'diseno',
+  pausa:               'diseno',
+  revision_interna:    'diseno',
+  revision_diseno:     'diseno',
+  revision_cliente:    'revision_cliente',
+  aprobado:            'aprobado',
+  pendiente_publicar:  'pendiente_publicar',
+  publicado_entregado: 'publicado',
+}
+
+export const CLIENT_PHASE_LABELS: Record<ClientPhase, string> = {
+  diseno:             'En diseño',
+  revision_cliente:   'Revisión de cliente',
+  aprobado:           'Aprobado',
+  pendiente_publicar: 'Pendiente de publicar',
+  publicado:          'Publicado',
+}
+
+export const CLIENT_PHASE_ORDER: ClientPhase[] = [
+  'diseno', 'revision_cliente', 'aprobado', 'pendiente_publicar', 'publicado',
+]
+
+export function clientPhaseOf(phase: Phase): ClientPhase | null {
+  return CLIENT_PHASE_MAP[phase] ?? null
+}
+
+// ---------------------------------------------------------------------------
+
 /**
  * Traslada automáticamente los requerimientos abiertos del ciclo anterior al nuevo ciclo.
  * - Solo tipos en PIPELINE_CONTENT_TYPES (excluye 'produccion')

@@ -16,6 +16,8 @@ import type { RequirementPhaseLog, RequirementCambioLog } from '@/types/db'
 import { DeleteClientButton } from '@/components/clients/DeleteClientButton'
 import { RequirementHistory } from '@/components/clients/RequirementHistory'
 import { ClientNotesPanel } from '@/components/clients/ClientNotesPanel'
+import { ClientPortalInvite } from '@/components/clients/ClientPortalInvite'
+import { listClientUsers } from '@/app/actions/clientUsers'
 
 export const dynamic = 'force-dynamic'
 
@@ -175,6 +177,7 @@ export default async function ClientDetailPage({
     ? await supabase.from('users').select('role').eq('id', authUser.id).single()
     : { data: null }
   const isAdmin = appUser?.role === 'admin'
+  const portalUsers = isAdmin ? await listClientUsers(id) : []
   const canCreate = appUser?.role === 'admin' || appUser?.role === 'supervisor'
 
   return (
@@ -270,6 +273,11 @@ export default async function ClientDetailPage({
             supabase={null}
             plansMap={Object.fromEntries((plans ?? []).map((p) => [p.id, p.name]))}
           />
+        )}
+
+        {/* Portal del cliente — solo admin */}
+        {isAdmin && (
+          <ClientPortalInvite clientId={id} users={portalUsers} />
         )}
 
         {/* Delete client — admin only */}

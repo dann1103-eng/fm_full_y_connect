@@ -13,3 +13,12 @@ export const canViewUsers         = (role: UserRole | null | undefined) => role 
 export const canManageOthersTime  = (role: UserRole | null | undefined) => role === 'admin'
 export const canMarkPayment       = (role: UserRole | null | undefined) => role === 'admin'
 export const canVoidRequirement   = (role: UserRole | null | undefined) => role === 'admin'
+
+export const isClientRole = (role: UserRole | null | undefined): role is 'client' =>
+  role === 'client'
+
+export const isStaffRole = (role: UserRole | null | undefined): boolean =>
+  role === 'admin' || role === 'supervisor' || role === 'operator'
+
+export const canAccessPortal = (role: UserRole | null | undefined): boolean =>
+  isClientRole(role)

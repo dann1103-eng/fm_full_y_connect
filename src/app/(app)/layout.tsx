@@ -42,6 +42,7 @@ export default async function AppLayout({ children }: AppLayoutProps) {
     .single()
 
   if (!appUser) redirect('/login')
+  if (appUser.role === 'client') redirect('/portal/dashboard')
 
   const renewalCount = await getPendingRenewalsCount(supabase)
 

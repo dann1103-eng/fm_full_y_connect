@@ -206,7 +206,7 @@ export function PhaseSheet({
   useEffect(() => {
     if (!canAssign) return
     const supabase = createClient()
-    supabase.from('users').select('id, full_name').then(({ data }) => {
+    supabase.from('users').select('id, full_name').not('role', 'eq', 'client').then(({ data }) => {
       setAssignableUsers(data ?? [])
     })
   }, [canAssign])
