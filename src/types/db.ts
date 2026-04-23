@@ -49,8 +49,34 @@ export const PRIORITY_COLORS: Record<Priority, string> = {
 export type ClientStatus = 'active' | 'paused' | 'overdue'
 export type CycleStatus = 'current' | 'archived' | 'pending_renewal'
 export type PaymentStatus = 'paid' | 'unpaid'
-export type UserRole = 'admin' | 'supervisor' | 'operator'
+export type UserRole = 'admin' | 'supervisor' | 'operator' | 'client'
 export type ConversationType = 'dm' | 'channel'
+
+export type ClientUserRole = 'owner' | 'viewer'
+
+export interface ClientUser {
+  id: string
+  user_id: string
+  client_id: string
+  role: ClientUserRole
+  created_at: string
+}
+
+export type RenewalRequestStatus = 'pending' | 'approved' | 'rejected' | 'completed'
+
+export interface RenewalRequest {
+  id: string
+  client_id: string
+  requested_by: string
+  from_cycle_id: string | null
+  status: RenewalRequestStatus
+  rollover_items_json: Array<{ requirement_id: string; action: 'carry' | 'drop' }>
+  addons_json: Record<string, unknown>
+  admin_notes: string | null
+  created_at: string
+  decided_at: string | null
+  decided_by: string | null
+}
 
 // ── Billing (migración 0048) ─────────────────────────────────
 export type PersonType = 'natural' | 'juridical'
@@ -532,6 +558,7 @@ export interface Database {
           attachment_path: string | null
           attachment_type: string | null
           attachment_name: string | null
+          visible_to_client: boolean
         }
         Insert: {
           id?: string
@@ -542,6 +569,7 @@ export interface Database {
           attachment_path?: string | null
           attachment_type?: string | null
           attachment_name?: string | null
+          visible_to_client?: boolean
         }
         Update: Record<string, never>
         Relationships: [
@@ -1205,6 +1233,64 @@ export interface Database {
           unit_price?: number
           line_total?: number
           sort_order?: number
+        }
+        Relationships: []
+      }
+      client_users: {
+        Row: {
+          id: string
+          user_id: string
+          client_id: string
+          role: ClientUserRole
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          client_id: string
+          role?: ClientUserRole
+          created_at?: string
+        }
+        Update: {
+          role?: ClientUserRole
+        }
+        Relationships: []
+      }
+      renewal_requests: {
+        Row: {
+          id: string
+          client_id: string
+          requested_by: string
+          from_cycle_id: string | null
+          status: RenewalRequestStatus
+          rollover_items_json: Array<{ requirement_id: string; action: 'carry' | 'drop' }>
+          addons_json: Record<string, unknown>
+          admin_notes: string | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+        }
+        Insert: {
+          id?: string
+          client_id: string
+          requested_by: string
+          from_cycle_id?: string | null
+          status?: RenewalRequestStatus
+          rollover_items_json?: Array<{ requirement_id: string; action: 'carry' | 'drop' }>
+          addons_json?: Record<string, unknown>
+          admin_notes?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+        }
+        Update: {
+          from_cycle_id?: string | null
+          status?: RenewalRequestStatus
+          rollover_items_json?: Array<{ requirement_id: string; action: 'carry' | 'drop' }>
+          addons_json?: Record<string, unknown>
+          admin_notes?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
         }
         Relationships: []
       }
