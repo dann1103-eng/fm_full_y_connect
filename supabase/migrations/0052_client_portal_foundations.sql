@@ -20,7 +20,12 @@ alter table public.users add constraint users_role_check
 
 -- 1b) Refactor is_agency_user: excluir role='client'
 create or replace function public.is_agency_user()
-returns boolean language sql stable security definer as $$
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
   select exists (
     select 1 from public.users
     where id = auth.uid()
@@ -55,7 +60,12 @@ create policy "Admins manage client_users"
 
 -- 3) Helper is_client_of(client_id)
 create or replace function public.is_client_of(target_client_id uuid)
-returns boolean language sql stable security definer as $$
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
   select exists (
     select 1 from public.client_users
     where user_id = auth.uid()
@@ -97,7 +107,8 @@ create policy "Owner-client can create renewal_requests"
   with check (public.is_client_of(client_id) and requested_by = auth.uid());
 create policy "Admin can decide renewal_requests"
   on public.renewal_requests for update
-  using (public.is_admin());
+  using (public.is_admin())
+  with check (public.is_admin());
 
 -- 6) Extender policies existentes para que clients vean lo suyo.
 --    Patrón: añadir policies PERMISSIVE adicionales (no alterar las de staff).
@@ -105,9 +116,6 @@ create policy "Admin can decide renewal_requests"
 -- clients
 create policy "Client can view own client row"
   on public.clients for select
-  using (public.is_client_of(id));
-create policy "Client can update own client row"
-  on public.clients for update
   using (public.is_client_of(id));
 
 -- billing_cycles
