@@ -11,7 +11,7 @@ interface Props {
   open: boolean
   onClose: () => void
   initialDatetime?: string
-  allUsers: { id: string; full_name: string }[]
+  allUsers: { id: string; full_name: string; avatar_url: string | null }[]
   currentUserId: string
 }
 

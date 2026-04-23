@@ -369,24 +369,27 @@
     overflow: hidden;
   }
 
-  /* Month view: limit day row height to avoid vertical overflow */
+  /* Month view: give rows room to show the card content */
   .calendar-wrapper .rbc-month-row {
     overflow: hidden;
-    min-height: 110px;
+    min-height: 140px !important;
   }
   .calendar-wrapper .rbc-row-segment {
-    padding: 0 2px;
+    padding: 1px 2px;
   }
   .calendar-wrapper .rbc-month-view .rbc-event {
     padding: 0 !important;
-    font-size: 10px;
-    min-height: 20px;
-    max-height: 22px;
+    font-size: 11px;
+    min-height: 22px !important;
   }
 
-  /* Week/day view: make 30-min slots tall enough for full cards */
+  /* Week/day view: make 30-min slots tall enough for the full rich card.
+     !important needed to beat unlayered RBC CSS (our styles live in @layer utilities). */
   .calendar-wrapper .rbc-time-view .rbc-timeslot-group {
-    min-height: 640px;
+    min-height: 140px !important;
+  }
+  .calendar-wrapper .rbc-time-view .rbc-timeslot {
+    min-height: 70px !important;
   }
 
   /* Dark mode calendar overrides — !important needed to beat unlayered RBC CSS */

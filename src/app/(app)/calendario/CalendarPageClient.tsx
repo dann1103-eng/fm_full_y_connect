@@ -34,10 +34,11 @@ interface CalendarReqDetail {
   estimatedTimeMinutes: number | null
   assignedTo: string[] | null
   assignees: { id: string; name: string; avatar_url: string | null }[]
-  maxCambios: number
   deadline: string | null
   includesStory: boolean
 }
+
+type UserLite = { id: string; full_name: string; avatar_url: string | null }
 
 const locales = { es }
 const localizer = dateFnsLocalizer({
@@ -54,7 +55,7 @@ type FilterKind = 'todos' | 'produccion_reunion' | 'requerimientos'
 
 // ── Event card ──────────────────────────────────────────────────────────────
 
-function makeCalendarEventCard(allUsers: { id: string; full_name: string }[], isDark: boolean, view: ViewType) {
+function makeCalendarEventCard(allUsers: UserLite[], isDark: boolean, view: ViewType) {
   function CalendarEventCard({ event }: { event: CalendarEvent }) {
     const color = isDark ? KIND_COLORS_DARK[event.kind] : KIND_COLORS[event.kind]
     const lightColor = KIND_COLORS[event.kind]
@@ -123,7 +124,7 @@ function makeCalendarEventCard(allUsers: { id: string; full_name: string }[], is
 
     const attendeeUsers = event.attendees
       .map(id => allUsers.find(u => u.id === id))
-      .filter((u): u is { id: string; full_name: string } => !!u)
+      .filter((u): u is UserLite => !!u)
     const visibleAttendees = attendeeUsers.slice(0, 3)
     const extraCount = event.attendees.length - 3
 
@@ -198,17 +199,33 @@ function makeCalendarEventCard(allUsers: { id: string; full_name: string }[], is
         {visibleAttendees.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', marginTop: 'auto' }}>
             {visibleAttendees.map((u, i) => (
-              <span key={u.id} title={u.full_name} style={{
-                width: 17, height: 17, borderRadius: '50%',
-                border: avatarBorder,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 7, fontWeight: 800,
-                marginLeft: i === 0 ? 0 : -5,
-                background: avatarColor(u.full_name),
-                color: '#fff', flexShrink: 0,
-              }}>
-                {u.full_name[0].toUpperCase()}
-              </span>
+              u.avatar_url ? (
+                <img
+                  key={u.id}
+                  src={u.avatar_url}
+                  alt={u.full_name}
+                  title={u.full_name}
+                  style={{
+                    width: 17, height: 17, borderRadius: '50%',
+                    border: avatarBorder,
+                    objectFit: 'cover',
+                    marginLeft: i === 0 ? 0 : -5,
+                    flexShrink: 0,
+                  }}
+                />
+              ) : (
+                <span key={u.id} title={u.full_name} style={{
+                  width: 17, height: 17, borderRadius: '50%',
+                  border: avatarBorder,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 7, fontWeight: 800,
+                  marginLeft: i === 0 ? 0 : -5,
+                  background: avatarColor(u.full_name),
+                  color: '#fff', flexShrink: 0,
+                }}>
+                  {u.full_name[0].toUpperCase()}
+                </span>
+              )
             ))}
             {extraCount > 0 && (
               <span style={{
@@ -236,7 +253,7 @@ function makeCalendarEventCard(allUsers: { id: string; full_name: string }[], is
 interface Props {
   currentUser: AppUser
   isPrivileged: boolean
-  allUsers: { id: string; full_name: string }[]
+  allUsers: UserLite[]
   clients: { id: string; name: string }[]
 }
 
@@ -413,7 +430,7 @@ export function CalendarPageClient({ currentUser, isPrivileged, allUsers, client
         .select(`
           id, content_type, phase, title, notes, cambios_count, deadline, includes_story,
           review_started_at, priority, estimated_time_minutes, assigned_to,
-          billing_cycles ( clients ( id, name, max_cambios ) )
+          billing_cycles ( clients ( id, name ) )
         `)
         .eq('id', event.requirementId)
         .single(),
@@ -447,8 +464,7 @@ export function CalendarPageClient({ currentUser, isPrivileged, allUsers, client
       assignedTo: req.assigned_to,
       assignees: allUsers
         .filter(u => (req.assigned_to ?? []).includes(u.id))
-        .map(u => ({ id: u.id, name: u.full_name, avatar_url: null })),
-      maxCambios: client?.max_cambios ?? 2,
+        .map(u => ({ id: u.id, name: u.full_name, avatar_url: u.avatar_url })),
       deadline: req.deadline ?? null,
       includesStory: req.includes_story ?? false,
     })
@@ -567,6 +583,7 @@ export function CalendarPageClient({ currentUser, isPrivileged, allUsers, client
         <DnDCalendar
           localizer={localizer}
           events={filteredEvents}
+          views={['month', 'week', 'day']}
           view={view}
           date={date}
           onView={(v) => setView(v as ViewType)}
@@ -578,8 +595,9 @@ export function CalendarPageClient({ currentUser, isPrivileged, allUsers, client
           selectable={isPrivileged}
           onSelectSlot={handleSelectSlot}
           onSelectEvent={handleSelectEvent}
-          draggableAccessor={() => isPrivileged}
+          draggableAccessor={(event) => isPrivileged && isScheduledKind((event as CalendarEvent).kind)}
           onEventDrop={handleEventDrop}
+          onDragOver={(e) => e.preventDefault()}
           resizable={false}
           style={{ height: '100%' }}
           popup

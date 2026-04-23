@@ -23,7 +23,7 @@ export default async function CalendarioPage() {
   // Usuarios asignables (para modal de reunión interna)
   const { data: allUsers } = await supabase
     .from('users')
-    .select('id, full_name')
+    .select('id, full_name, avatar_url')
     .order('full_name')
 
   // Clientes activos (para filtros)

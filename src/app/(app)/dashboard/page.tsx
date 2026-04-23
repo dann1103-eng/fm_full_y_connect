@@ -5,7 +5,7 @@ import { DashboardFilters } from '@/components/clients/DashboardFilters'
 import type { ClientWithPlan, BillingCycle, Requirement } from '@/types/db'
 import { daysUntilEnd } from '@/lib/domain/cycles'
 import { computeTotals } from '@/lib/domain/requirement'
-import { effectiveLimits, limitsToRecord } from '@/lib/domain/plans'
+import { effectiveLimits, limitsToRecord, applyContentLimitsWithOverride } from '@/lib/domain/plans'
 
 export const dynamic = 'force-dynamic'
 
@@ -79,9 +79,12 @@ export default async function DashboardPage({
     const cycle = cycleMap.get(client.id) ?? null
     const cycleReqs = cycle ? (requirementsByCycle.get(cycle.id) ?? []) : []
     const totals = computeTotals(cycleReqs)
-    const limits = cycle
+    const baseLimits = cycle
       ? effectiveLimits(cycle.limits_snapshot_json, cycle.rollover_from_previous_json)
       : limitsToRecord(client.plan.limits_json)
+    const limits = cycle
+      ? applyContentLimitsWithOverride(baseLimits, cycle.content_limits_override_json)
+      : baseLimits
     const isContentPackage = cycle?.limits_snapshot_json?.unified_content_limit != null
     const daysLeft = cycle && !isContentPackage ? daysUntilEnd(cycle.period_end) : null
 
