@@ -21,10 +21,8 @@ export default async function PortalLayout({ children }: { children: React.React
 
   const ids = await getActiveClientIds()
   if (ids.length === 0) {
-    // Cliente sin ninguna marca asignada — cerrar sesión correctamente antes de redirigir.
-    // No usar redirect('/auth/signout') porque esa ruta es POST-only y no limpiaría la sesión.
-    await supabase.auth.signOut()
-    redirect('/login')
+    // Route Handler puede limpiar cookies; signOut() en Server Component es silenciado.
+    redirect('/auth/signout')
   }
 
   const hdrs = await headers()
