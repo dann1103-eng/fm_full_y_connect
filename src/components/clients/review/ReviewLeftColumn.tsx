@@ -44,9 +44,13 @@ export function ReviewLeftColumn({
 
   async function handleDownload() {
     if (!latestVersion) return
+    const ext = latestVersion.storage_path.split('.').pop() ?? ''
+    const baseName = selectedAsset
+      ? `${selectedAsset.name}-v${latestVersion.version_number}`
+      : `archivo-v${latestVersion.version_number}`
     const res = await getSignedDownloadUrl({
       storagePath: latestVersion.storage_path,
-      fileName: selectedAsset ? `${selectedAsset.name}-v${latestVersion.version_number}` : null,
+      fileName: ext ? `${baseName}.${ext}` : baseName,
     })
     if ('ok' in res) {
       window.open(res.data.url, '_blank', 'noopener,noreferrer')
