@@ -400,6 +400,7 @@ export interface Database {
           assigned_to: string[] | null
           includes_story: boolean
           deadline: string | null
+          starts_at: string | null
         }
         Insert: {
           id?: string
@@ -422,6 +423,7 @@ export interface Database {
           assigned_to?: string[] | null
           includes_story?: boolean
           deadline?: string | null
+          starts_at?: string | null
         }
         Update: {
           billing_cycle_id?: string
@@ -442,6 +444,7 @@ export interface Database {
           assigned_to?: string[] | null
           includes_story?: boolean
           deadline?: string | null
+          starts_at?: string | null
         }
         Relationships: [
           {
@@ -565,6 +568,9 @@ export interface Database {
           duration_seconds: number | null
           notes: string | null
           created_at: string
+          scheduled_at: string | null
+          scheduled_duration_minutes: number | null
+          scheduled_attendees: string[]
         }
         Insert: {
           id?: string
@@ -579,6 +585,9 @@ export interface Database {
           duration_seconds?: number | null
           notes?: string | null
           created_at?: string
+          scheduled_at?: string | null
+          scheduled_duration_minutes?: number | null
+          scheduled_attendees?: string[]
         }
         Update: {
           requirement_id?: string | null
@@ -590,6 +599,9 @@ export interface Database {
           ended_at?: string | null
           duration_seconds?: number | null
           notes?: string | null
+          scheduled_at?: string | null
+          scheduled_duration_minutes?: number | null
+          scheduled_attendees?: string[]
         }
         Relationships: [
           {

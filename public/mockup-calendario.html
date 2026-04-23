@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FM CRM — Calendario Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --fm-primary:       #00675c;
+    --fm-primary-light: #e6f4f2;
+    --fm-error:         #b31b25;
+    --fm-error-light:   #fbeaea;
+    --fm-gray:          #595c5e;
+    --fm-gray-light:    #f0f1f1;
+    --fm-border:        #dfe3e6;
+    --fm-bg:            #f5f7f9;
+    --fm-surface:       #ffffff;
+    --fm-on-surface:    #1a1d1e;
+    --fm-subtle:        #717577;
+
+    /* event colors */
+    --c-reunion:   #4f6ef7;
+    --c-prod:      #b31b25;
+    --c-interna:   #595c5e;
+    --c-req:       #00675c;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--fm-bg);
+    color: var(--fm-on-surface);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── TOOLBAR ─────────────────────────────────── */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 20px;
+    background: #fff;
+    border-bottom: 1px solid var(--fm-border);
+    flex-shrink: 0;
+  }
+
+  .nav-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    border: 1px solid var(--fm-border);
+    background: #fff;
+    cursor: pointer;
+    color: var(--fm-subtle);
+    font-size: 16px;
+    transition: background .15s;
+  }
+  .nav-btn:hover { background: var(--fm-bg); }
+
+  .period-label {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--fm-on-surface);
+    min-width: 160px;
+  }
+
+  .view-group {
+    display: flex;
+    border: 1px solid var(--fm-border);
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .view-btn {
+    padding: 5px 12px;
+    background: #fff;
+    border: none;
+    cursor: pointer;
+    color: var(--fm-subtle);
+    transition: background .12s, color .12s;
+  }
+  .view-btn.active {
+    background: var(--fm-on-surface);
+    color: #fff;
+  }
+
+  .filter-select {
+    padding: 5px 10px;
+    border: 1px solid var(--fm-border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--fm-on-surface);
+    background: #fff;
+    cursor: pointer;
+    outline: none;
+  }
+
+  .legend {
+    margin-left: auto;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--fm-subtle);
+    font-weight: 500;
+  }
+  .legend-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .today-btn {
+    padding: 5px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--fm-border);
+    background: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--fm-on-surface);
+    cursor: pointer;
+  }
+
+  /* ── CALENDAR GRID ───────────────────────────── */
+  .cal-wrapper {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .cal-grid {
+    display: grid;
+    grid-template-columns: 52px repeat(7, 1fr);
+  }
+
+  /* Day headers */
+  .day-headers {
+    border-bottom: 1px solid var(--fm-border);
+    background: #fff;
+    flex-shrink: 0;
+  }
+  .day-headers .cal-grid {
+    height: 52px;
+  }
+  .gutter-head {
+    border-right: 1px solid var(--fm-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .gutter-tz {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--fm-subtle);
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+  .day-head {
+    border-right: 1px solid var(--fm-border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+  }
+  .day-head:last-child { border-right: none; }
+  .day-head .wd {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--fm-subtle);
+  }
+  .day-head .dn {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--fm-on-surface);
+  }
+  .day-head.today .wd { color: var(--fm-primary); }
+  .day-head.today .dn {
+    color: #fff;
+    background: var(--fm-primary);
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+
+  /* All-day strip */
+  .allday-strip {
+    border-bottom: 1px solid var(--fm-border);
+    background: #fafbfc;
+    flex-shrink: 0;
+  }
+  .allday-strip .cal-grid {
+    min-height: 36px;
+    align-items: start;
+  }
+  .allday-label {
+    border-right: 1px solid var(--fm-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 0;
+  }
+  .allday-label span {
+    font-size: 8.5px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--fm-subtle);
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+  }
+  .allday-cell {
+    border-right: 1px solid var(--fm-border);
+    padding: 4px 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .allday-cell:last-child { border-right: none; }
+
+  /* Req chip (all-day / deadline) */
+  .req-chip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border-left: 3px solid var(--c-req);
+    background: #e6f4f2;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--fm-primary);
+    cursor: pointer;
+    transition: opacity .12s;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .req-chip:hover { opacity: .82; }
+  .req-chip .cl-logo {
+    width: 13px; height: 13px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 7px;
+    font-weight: 800;
+    flex-shrink: 0;
+    color: #fff;
+  }
+
+  /* Time grid */
+  .time-grid-scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .time-grid-scroll::-webkit-scrollbar { width: 4px; }
+  .time-grid-scroll::-webkit-scrollbar-thumb { background: var(--fm-border); border-radius: 4px; }
+
+  .time-grid .cal-grid {
+    position: relative;
+  }
+
+  .time-gutter {
+    border-right: 1px solid var(--fm-border);
+    background: #fafbfc;
+  }
+  .time-slot-label {
+    height: 80px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 6px;
+    border-bottom: 1px solid var(--fm-border);
+  }
+  .time-slot-label span {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--fm-subtle);
+  }
+
+  .day-col {
+    border-right: 1px solid var(--fm-border);
+    position: relative;
+  }
+  .day-col:last-child { border-right: none; }
+  .day-col.today { background: #f8fffe; }
+
+  .hour-slot {
+    height: 80px;
+    border-bottom: 1px solid var(--fm-border);
+    position: relative;
+  }
+  .half-line {
+    position: absolute;
+    top: 50%; left: 0; right: 0;
+    height: 1px;
+    background: var(--fm-border);
+    opacity: .4;
+  }
+
+  /* ── EVENT CARDS ─────────────────────────────── */
+  .event-card {
+    position: absolute;
+    left: 4px; right: 4px;
+    border-radius: 8px;
+    padding: 7px 8px;
+    cursor: pointer;
+    overflow: hidden;
+    transition: filter .15s, transform .12s, box-shadow .15s;
+    z-index: 2;
+  }
+  .event-card:hover {
+    filter: brightness(1.03);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(0,0,0,.14);
+  }
+
+  /* Scheduled card (reunion / produccion / interna) */
+  .event-card.scheduled {
+    border: none;
+    box-shadow: 0 1px 4px rgba(0,0,0,.1);
+  }
+  .event-card.reunion  { background: var(--c-reunion); color: #fff; }
+  .event-card.produccion { background: var(--c-prod); color: #fff; }
+  .event-card.interna  { background: var(--c-interna); color: #fff; }
+
+  .card-top {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 3px;
+  }
+
+  /* Client logo square */
+  .card-logo {
+    width: 18px; height: 18px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    font-weight: 800;
+    flex-shrink: 0;
+    letter-spacing: -.01em;
+  }
+  .scheduled .card-logo {
+    background: rgba(255,255,255,.25);
+    color: #fff;
+  }
+
+  .card-title {
+    font-size: 11.5px;
+    font-weight: 700;
+    line-height: 1.2;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    flex: 1;
+  }
+
+  .card-time {
+    font-size: 9.5px;
+    font-weight: 500;
+    opacity: .82;
+    margin-bottom: 5px;
+  }
+
+  /* Assignee avatars */
+  .card-avatars {
+    display: flex;
+    align-items: center;
+  }
+  .avatar {
+    width: 17px; height: 17px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 7px;
+    font-weight: 800;
+    margin-left: -5px;
+    color: #fff;
+    flex-shrink: 0;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .avatar:first-child { margin-left: 0; }
+  .avatar-more {
+    background: rgba(255,255,255,.2);
+    color: rgba(255,255,255,.9);
+    font-size: 7px;
+  }
+
+  /* Interna: no client logo, show "Interno FM" label */
+  .badge-interno {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: rgba(255,255,255,.18);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    margin-bottom: 3px;
+    width: fit-content;
+  }
+
+  /* Now indicator */
+  .now-line {
+    position: absolute;
+    left: 0; right: 0;
+    z-index: 10;
+    pointer-events: none;
+  }
+  .now-line::before {
+    content: '';
+    position: absolute;
+    left: -1px; top: -4px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--fm-error);
+  }
+  .now-line::after {
+    content: '';
+    position: absolute;
+    left: 6px; right: 0; top: -1px;
+    height: 2px;
+    background: var(--fm-error);
+    opacity: .6;
+  }
+
+  /* Pill tag for event type */
+  .type-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: rgba(255,255,255,.15);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <button class="nav-btn">‹</button>
+  <button class="nav-btn">›</button>
+  <span class="period-label">Semana del 19 – 25 Abr 2026</span>
+  <button class="today-btn">Hoy</button>
+
+  <div class="view-group">
+    <button class="view-btn">Mes</button>
+    <button class="view-btn active">Semana</button>
+    <button class="view-btn">Día</button>
+  </div>
+
+  <select class="filter-select">
+    <option>Todos</option>
+    <option>Reuniones y Producciones</option>
+    <option>Solo Requerimientos</option>
+  </select>
+
+  <select class="filter-select">
+    <option>Todos los clientes</option>
+    <option>Claro El Salvador</option>
+    <option>Bancoagrícola</option>
+    <option>Almacenes Simán</option>
+  </select>
+
+  <div class="legend">
+    <div class="legend-item"><span class="legend-dot" style="background:var(--c-reunion)"></span>Reunión</div>
+    <div class="legend-item"><span class="legend-dot" style="background:var(--c-prod)"></span>Producción</div>
+    <div class="legend-item"><span class="legend-dot" style="background:var(--c-interna)"></span>Reunión interna</div>
+    <div class="legend-item"><span class="legend-dot" style="background:var(--c-req)"></span>Requerimiento</div>
+  </div>
+</div>
+
+<!-- CALENDAR WRAPPER -->
+<div class="cal-wrapper">
+
+  <!-- DAY HEADERS -->
+  <div class="day-headers">
+    <div class="cal-grid">
+      <div class="gutter-head"><span class="gutter-tz">CST</span></div>
+      <div class="day-head"><span class="wd">LUN</span><span class="dn">19</span></div>
+      <div class="day-head today"><span class="wd">MAR</span><span class="dn">20</span></div>
+      <div class="day-head"><span class="wd">MIÉ</span><span class="dn">21</span></div>
+      <div class="day-head"><span class="wd">JUE</span><span class="dn">22</span></div>
+      <div class="day-head"><span class="wd">VIE</span><span class="dn">23</span></div>
+      <div class="day-head"><span class="wd">SÁB</span><span class="dn">24</span></div>
+      <div class="day-head"><span class="wd">DOM</span><span class="dn">25</span></div>
+    </div>
+  </div>
+
+  <!-- ALL-DAY (Deadlines de requerimientos) -->
+  <div class="allday-strip">
+    <div class="cal-grid">
+      <div class="allday-label"><span>deadline</span></div>
+      <!-- LUN -->
+      <div class="allday-cell"></div>
+      <!-- MAR (today) -->
+      <div class="allday-cell">
+        <div class="req-chip">
+          <div class="cl-logo" style="background:#0077b6">C</div>
+          Reel verano — Claro
+        </div>
+      </div>
+      <!-- MIÉ -->
+      <div class="allday-cell">
+        <div class="req-chip">
+          <div class="cl-logo" style="background:#7b2d8b">S</div>
+          Estático lanzamiento Q2 — Simán
+        </div>
+        <div class="req-chip">
+          <div class="cl-logo" style="background:#c77d3a">B</div>
+          Historia producto — Bancoagrícola
+        </div>
+      </div>
+      <!-- JUE -->
+      <div class="allday-cell"></div>
+      <!-- VIE -->
+      <div class="allday-cell">
+        <div class="req-chip">
+          <div class="cl-logo" style="background:#0077b6">C</div>
+          Video corto TikTok — Claro
+        </div>
+      </div>
+      <!-- SÁB / DOM -->
+      <div class="allday-cell"></div>
+      <div class="allday-cell"></div>
+    </div>
+  </div>
+
+  <!-- TIME GRID -->
+  <div class="time-grid-scroll">
+    <div class="time-grid">
+      <div class="cal-grid">
+
+        <!-- TIME GUTTER -->
+        <div class="time-gutter">
+          <div class="time-slot-label"><span>8:00</span></div>
+          <div class="time-slot-label"><span>9:00</span></div>
+          <div class="time-slot-label"><span>10:00</span></div>
+          <div class="time-slot-label"><span>11:00</span></div>
+          <div class="time-slot-label"><span>12:00</span></div>
+          <div class="time-slot-label"><span>13:00</span></div>
+          <div class="time-slot-label"><span>14:00</span></div>
+          <div class="time-slot-label"><span>15:00</span></div>
+          <div class="time-slot-label"><span>16:00</span></div>
+          <div class="time-slot-label"><span>17:00</span></div>
+        </div>
+
+        <!-- LUN col -->
+        <div class="day-col">
+          <div class="hour-slot"><div class="half-line"></div>
+            <!-- Reunión Interna 8:00-8:30 -->
+            <div class="event-card scheduled interna" style="top:0;height:42px">
+              <div class="badge-interno">
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg>
+                Interno FM
+              </div>
+              <div class="card-top">
+                <span class="card-title">Standup semanal</span>
+              </div>
+              <div class="card-avatars">
+                <div class="avatar" style="background:#7c5cbf">D</div>
+                <div class="avatar" style="background:#2196f3">M</div>
+                <div class="avatar" style="background:#e91e63">K</div>
+                <div class="avatar avatar-more">+3</div>
+              </div>
+            </div>
+          </div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+        </div>
+
+        <!-- MAR col (today) -->
+        <div class="day-col today" style="position:relative">
+          <div class="hour-slot"><div class="half-line"></div>
+            <!-- Reunión interna 8:00-8:30 -->
+            <div class="event-card scheduled interna" style="top:0;height:42px">
+              <div class="badge-interno">Interno FM</div>
+              <div class="card-top">
+                <span class="card-title">Standup semanal</span>
+              </div>
+              <div class="card-avatars">
+                <div class="avatar" style="background:#7c5cbf">D</div>
+                <div class="avatar" style="background:#2196f3">M</div>
+                <div class="avatar" style="background:#e91e63">K</div>
+                <div class="avatar avatar-more">+3</div>
+              </div>
+            </div>
+          </div>
+          <div class="hour-slot"><div class="half-line"></div>
+            <!-- Reunión cliente 9:00-10:00 -->
+            <div class="event-card scheduled reunion" style="top:0;height:76px">
+              <div class="type-tag">Reunión</div>
+              <div class="card-top">
+                <div class="card-logo">C</div>
+                <span class="card-title">Briefing Campaña Mayo</span>
+              </div>
+              <div class="card-time">9:00 – 10:00 AM · Claro El Salvador</div>
+              <div class="card-avatars">
+                <div class="avatar" style="background:#7c5cbf">D</div>
+                <div class="avatar" style="background:#e91e63">K</div>
+              </div>
+            </div>
+          </div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div>
+            <!-- Now indicator at ~13:20 -->
+            <div class="now-line" style="top:27px"></div>
+          </div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+        </div>
+
+        <!-- MIÉ col -->
+        <div class="day-col">
+          <div class="hour-slot"><div class="half-line"></div>
+            <div class="event-card scheduled interna" style="top:0;height:42px">
+              <div class="badge-interno">Interno FM</div>
+              <div class="card-top">
+                <span class="card-title">Standup semanal</span>
+              </div>
+              <div class="card-avatars">
+                <div class="avatar" style="background:#7c5cbf">D</div>
+                <div class="avatar" style="background:#2196f3">M</div>
+                <div class="avatar avatar-more">+4</div>
+              </div>
+            </div>
+          </div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div>
+            <!-- Producción Simán 10:30 - 12:00 -->
+            <div class="event-card scheduled produccion" style="top:40px;height:118px">
+              <div class="type-tag">Producción</div>
+              <div class="card-top">
+                <div class="card-logo">S</div>
+                <span class="card-title">Sesión Foto Colección Verano</span>
+              </div>
+              <div class="card-time">10:30 – 12:00 PM · Almacenes Simán</div>
+              <div class="card-avatars">
+                <div class="avatar" style="background:#2196f3">M</div>
+                <div class="avatar" style="background:#4caf50">J</div>
+                <div class="avatar" style="background:#ff9800">R</div>
+              </div>
+            </div>
+          </div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+        </div>
+
+        <!-- JUE col -->
+        <div class="day-col">
+          <div class="hour-slot"><div class="half-line"></div>
+            <div class="event-card scheduled interna" style="top:0;height:42px">
+              <div class="badge-interno">Interno FM</div>
+              <div class="card-top">
+                <span class="card-title">Standup semanal</span>
+              </div>
+              <div class="card-avatars">
+                <div class="avatar" style="background:#7c5cbf">D</div>
+                <div class="avatar" style="background:#2196f3">M</div>
+                <div class="avatar avatar-more">+4</div>
+              </div>
+            </div>
+          </div>
+          <div class="hour-slot"><div class="half-line"></div>
+            <!-- Reunión Banco 9:30-10:30 -->
+            <div class="event-card scheduled reunion" style="top:40px;height:79px">
+              <div class="type-tag">Reunión</div>
+              <div class="card-top">
+                <div class="card-logo">B</div>
+                <span class="card-title">Presentación Propuesta Q3</span>
+              </div>
+              <div class="card-time">9:30 – 10:30 AM · Bancoagrícola</div>
+              <div class="card-avatars">
+                <div class="avatar" style="background:#7c5cbf">D</div>
+                <div class="avatar" style="background:#e91e63">K</div>
+              </div>
+            </div>
+          </div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div>
+            <!-- Reunión interna 12:00 -->
+            <div class="event-card scheduled interna" style="top:0;height:62px">
+              <div class="badge-interno">Interno FM</div>
+              <div class="card-top">
+                <span class="card-title">Revisión contenidos semana</span>
+              </div>
+              <div class="card-time">12:00 – 12:45 PM</div>
+              <div class="card-avatars">
+                <div class="avatar" style="background:#7c5cbf">D</div>
+                <div class="avatar" style="background:#4caf50">J</div>
+                <div class="avatar" style="background:#2196f3">M</div>
+              </div>
+            </div>
+          </div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+        </div>
+
+        <!-- VIE col -->
+        <div class="day-col">
+          <div class="hour-slot"><div class="half-line"></div>
+            <div class="event-card scheduled interna" style="top:0;height:42px">
+              <div class="badge-interno">Interno FM</div>
+              <div class="card-top">
+                <span class="card-title">Standup semanal</span>
+              </div>
+              <div class="card-avatars">
+                <div class="avatar" style="background:#7c5cbf">D</div>
+                <div class="avatar" style="background:#2196f3">M</div>
+                <div class="avatar avatar-more">+4</div>
+              </div>
+            </div>
+          </div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div>
+            <!-- Producción Claro 10:00 - 13:00 -->
+            <div class="event-card scheduled produccion" style="top:0;height:236px">
+              <div class="type-tag">Producción</div>
+              <div class="card-top">
+                <div class="card-logo">C</div>
+                <span class="card-title">Grabación Spot Radial Promoción Junio</span>
+              </div>
+              <div class="card-time">10:00 AM – 1:00 PM · Claro El Salvador</div>
+              <div class="card-avatars" style="margin-top:8px">
+                <div class="avatar" style="background:#4caf50">J</div>
+                <div class="avatar" style="background:#ff9800">R</div>
+                <div class="avatar" style="background:#2196f3">M</div>
+              </div>
+            </div>
+          </div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+        </div>
+
+        <!-- SÁB col -->
+        <div class="day-col">
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+        </div>
+
+        <!-- DOM col -->
+        <div class="day-col">
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+          <div class="hour-slot"><div class="half-line"></div></div>
+        </div>
+
+      </div><!-- cal-grid -->
+    </div><!-- time-grid -->
+  </div><!-- time-grid-scroll -->
+
+</div><!-- cal-wrapper -->
+
+</body>
+</html>

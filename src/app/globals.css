@@ -289,4 +289,83 @@
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
   }
+
+  /* ── react-big-calendar overrides ── */
+  .calendar-wrapper .rbc-calendar {
+    font-family: inherit;
+    color: var(--color-fm-on-surface);
+    background: transparent;
+  }
+  .calendar-wrapper .rbc-toolbar {
+    display: none; /* usamos nuestro propio toolbar */
+  }
+  .calendar-wrapper .rbc-header {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-fm-on-surface-variant);
+    border-color: var(--color-fm-surface-container-high);
+    padding: 6px 0;
+    background: var(--color-fm-surface-container-lowest);
+  }
+  .calendar-wrapper .rbc-month-view,
+  .calendar-wrapper .rbc-time-view {
+    border-color: var(--color-fm-surface-container-high);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--color-fm-surface-container-lowest);
+  }
+  .calendar-wrapper .rbc-day-bg,
+  .calendar-wrapper .rbc-time-slot {
+    border-color: var(--color-fm-surface-container-high) !important;
+  }
+  .calendar-wrapper .rbc-off-range-bg {
+    background: var(--color-fm-surface-container-low);
+  }
+  .calendar-wrapper .rbc-today {
+    background: color-mix(in srgb, var(--color-fm-primary) 8%, transparent);
+  }
+  .calendar-wrapper .rbc-date-cell {
+    font-size: 0.75rem;
+    color: var(--color-fm-on-surface);
+    padding: 4px 6px;
+  }
+  .calendar-wrapper .rbc-date-cell.rbc-now a {
+    color: var(--color-fm-primary);
+    font-weight: 700;
+  }
+  .calendar-wrapper .rbc-show-more {
+    font-size: 0.7rem;
+    color: var(--color-fm-primary);
+    background: transparent;
+    padding: 2px 6px;
+  }
+  .calendar-wrapper .rbc-event {
+    padding: 0 !important;
+    border-radius: 8px;
+  }
+  .calendar-wrapper .rbc-event:focus {
+    outline: 2px solid var(--color-fm-primary);
+  }
+  .calendar-wrapper .rbc-time-content {
+    border-color: var(--color-fm-surface-container-high);
+  }
+  .calendar-wrapper .rbc-current-time-indicator {
+    background-color: var(--color-fm-error);
+    height: 2px;
+  }
+  .calendar-wrapper .rbc-time-gutter .rbc-timeslot-group,
+  .calendar-wrapper .rbc-label {
+    font-size: 0.7rem;
+    color: var(--color-fm-on-surface-variant);
+  }
+
+  /* Limit all-day row height — prevent deadline events from collapsing the time grid */
+  .calendar-wrapper .rbc-allday-cell {
+    max-height: 80px !important;
+    overflow-y: auto;
+  }
+  .calendar-wrapper .rbc-time-header-gutter {
+    max-height: 80px !important;
+    overflow: hidden;
+  }
 }

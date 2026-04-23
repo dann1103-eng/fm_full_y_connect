@@ -107,11 +107,13 @@ export function RequirementModal({
   // Dependemos de `open` y `assignableUsers` — no incluir assignedTo para no sobrescribir cambios manuales
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, assignableUsers])
+  const [startsAt, setStartsAt] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const activeTypes = CONTENT_TYPES.filter((t) => limits[t] > 0)
   const isSimpleType = selectedType === 'produccion' || selectedType === 'reunion'
+  const isScheduledType = isSimpleType
   const STORY_APPLICABLE_TYPES: ContentType[] = ['estatico', 'video_corto', 'reel', 'short']
   const storyApplicable = selectedType !== null && STORY_APPLICABLE_TYPES.includes(selectedType)
 
@@ -163,6 +165,51 @@ export function RequirementModal({
     }
 
     const estMins = estimatedTime.trim() ? parseInt(estimatedTime.trim(), 10) : null
+
+    if (isScheduledType) {
+      if (!startsAt) {
+        setError('La fecha y hora son obligatorias para reuniones y producciones.')
+        setLoading(false)
+        return
+      }
+      if (!estMins || isNaN(estMins) || estMins < 1) {
+        setError('La duración es obligatoria para reuniones y producciones.')
+        setLoading(false)
+        return
+      }
+
+      // Anti-choque: buscar solapamiento con mismos usuarios asignados
+      if (assignedTo.length > 0) {
+        const newStart = new Date(startsAt)
+        const newEnd = new Date(newStart.getTime() + estMins * 60 * 1000)
+        const { data: conflicts } = await supabase
+          .from('requirements')
+          .select('id, title, starts_at, estimated_time_minutes, assigned_to')
+          .in('content_type', ['reunion', 'produccion'])
+          .eq('voided', false)
+          .not('starts_at', 'is', null)
+          .overlaps('assigned_to', assignedTo)
+        if (conflicts) {
+          for (const c of conflicts) {
+            const cStart = new Date(c.starts_at!)
+            const cEnd = new Date(cStart.getTime() + (c.estimated_time_minutes ?? 60) * 60 * 1000)
+            if (newStart < cEnd && newEnd > cStart) {
+              const conflictingIds = (c.assigned_to ?? []).filter((id: string) => assignedTo.includes(id))
+              const names = conflictingIds
+                .map((id: string) => assignableUsers.find(u => u.id === id)?.full_name ?? id)
+              setError(
+                `${names.join(', ')} ya ${names.length === 1 ? 'está programado' : 'están programados'} para "${c.title || 'otra reunión/producción'}" a esa hora.`
+              )
+              setLoading(false)
+              return
+            }
+          }
+        }
+      }
+    }
+
+    const startsAtISO = isScheduledType && startsAt ? new Date(startsAt).toISOString() : null
+
     const { data: newRequirement, error: insertError } = await supabase
       .from('requirements')
       .insert({
@@ -173,11 +220,12 @@ export function RequirementModal({
         notes: notes.trim() || null,
         voided: false,
         over_limit: !allowed,
-        priority,
+        priority: isScheduledType ? undefined : priority,
         estimated_time_minutes: estMins && !isNaN(estMins) ? estMins : null,
         assigned_to: assignedTo.length > 0 ? assignedTo : null,
         includes_story: storyApplicable ? includesStory : false,
-        deadline: deadline.trim() || null,
+        deadline: isScheduledType ? null : (deadline.trim() || null),
+        starts_at: startsAtISO,
       })
       .select('id')
       .single()
@@ -205,6 +253,7 @@ export function RequirementModal({
     setAssignedTo([])
     setForceOverLimit(false)
     setDeadline('')
+    setStartsAt('')
     setIncludesStory(true)
     onClose()
     router.refresh()
@@ -315,34 +364,68 @@ export function RequirementModal({
                 />
               </div>
 
-              {/* Priority */}
-              <div>
-                <Label className="text-sm font-medium text-fm-on-surface mb-1.5 block">Prioridad</Label>
-                <div className="flex gap-2">
-                  {(['baja', 'media', 'alta'] as Priority[]).map((p) => (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => setPriority(p)}
-                      className={`flex-1 py-2 rounded-xl text-sm font-bold border-2 transition-all flex items-center justify-center gap-1.5 ${
-                        priority === p ? 'border-current' : 'border-fm-surface-container-high text-fm-on-surface-variant'
-                      }`}
-                      style={priority === p ? { color: PRIORITY_COLORS[p], background: PRIORITY_COLORS[p] + '15' } : {}}
-                    >
-                      <span
-                        className="w-2 h-2 rounded-full"
-                        style={{ background: PRIORITY_COLORS[p] }}
-                      />
-                      {PRIORITY_LABELS[p]}
-                    </button>
-                  ))}
+              {/* Priority — oculto para reunion/produccion */}
+              {!isScheduledType && (
+                <div>
+                  <Label className="text-sm font-medium text-fm-on-surface mb-1.5 block">Prioridad</Label>
+                  <div className="flex gap-2">
+                    {(['baja', 'media', 'alta'] as Priority[]).map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setPriority(p)}
+                        className={`flex-1 py-2 rounded-xl text-sm font-bold border-2 transition-all flex items-center justify-center gap-1.5 ${
+                          priority === p ? 'border-current' : 'border-fm-surface-container-high text-fm-on-surface-variant'
+                        }`}
+                        style={priority === p ? { color: PRIORITY_COLORS[p], background: PRIORITY_COLORS[p] + '15' } : {}}
+                      >
+                        <span
+                          className="w-2 h-2 rounded-full"
+                          style={{ background: PRIORITY_COLORS[p] }}
+                        />
+                        {PRIORITY_LABELS[p]}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Estimated time */}
+              {/* Fecha y hora (reunion/produccion) o deadline (artes) */}
+              {isScheduledType ? (
+                <div>
+                  <Label htmlFor="starts-at" className="text-sm font-medium text-fm-on-surface mb-1.5 block">
+                    Fecha y hora <span className="text-fm-error">*</span>
+                  </Label>
+                  <input
+                    id="starts-at"
+                    type="datetime-local"
+                    value={startsAt}
+                    onChange={(e) => setStartsAt(e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-fm-background border border-fm-surface-container-high rounded-xl focus:outline-none focus:border-fm-primary text-fm-on-surface"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <Label htmlFor="deadline" className="text-sm font-medium text-fm-on-surface mb-1.5 block">
+                    Fecha de entrega <span className="text-fm-outline font-normal">(opcional)</span>
+                  </Label>
+                  <input
+                    id="deadline"
+                    type="date"
+                    value={deadline}
+                    onChange={(e) => setDeadline(e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-fm-background border border-fm-surface-container-high rounded-xl focus:outline-none focus:border-fm-primary text-fm-on-surface"
+                  />
+                </div>
+              )}
+
+              {/* Duración: obligatoria para reunion/produccion, opcional para artes */}
               <div>
                 <Label htmlFor="est-time" className="text-sm font-medium text-fm-on-surface mb-1.5 block">
-                  Tiempo estimado <span className="text-fm-outline font-normal">(min, opcional)</span>
+                  Duración (min){isScheduledType
+                    ? <span className="text-fm-error"> *</span>
+                    : <span className="text-fm-outline font-normal"> (opcional)</span>
+                  }
                 </Label>
                 <input
                   id="est-time"
@@ -350,21 +433,7 @@ export function RequirementModal({
                   min="1"
                   value={estimatedTime}
                   onChange={(e) => setEstimatedTime(e.target.value)}
-                  placeholder="ej. 90"
-                  className="w-full px-3 py-2 text-sm bg-fm-background border border-fm-surface-container-high rounded-xl focus:outline-none focus:border-fm-primary text-fm-on-surface"
-                />
-              </div>
-
-              {/* Deadline */}
-              <div>
-                <Label htmlFor="deadline" className="text-sm font-medium text-fm-on-surface mb-1.5 block">
-                  Fecha de entrega <span className="text-fm-outline font-normal">(opcional)</span>
-                </Label>
-                <input
-                  id="deadline"
-                  type="date"
-                  value={deadline}
-                  onChange={(e) => setDeadline(e.target.value)}
+                  placeholder={isScheduledType ? 'ej. 60' : 'ej. 90'}
                   className="w-full px-3 py-2 text-sm bg-fm-background border border-fm-surface-container-high rounded-xl focus:outline-none focus:border-fm-primary text-fm-on-surface"
                 />
               </div>
@@ -477,7 +546,8 @@ export function RequirementModal({
                 !selectedType ||
                 loading ||
                 (!title.trim() && !isSimpleType) ||
-                (selectedAtLimit && !forceOverLimit)
+                (selectedAtLimit && !forceOverLimit) ||
+                (isScheduledType && (!startsAt || !estimatedTime.trim()))
               }
               className="flex-1 rounded-xl text-white font-semibold"
               style={{ background: 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)' }}

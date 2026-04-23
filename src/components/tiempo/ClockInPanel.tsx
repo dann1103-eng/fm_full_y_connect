@@ -49,6 +49,9 @@ export function ClockInPanel({ initialActive }: Props) {
         notes: notes.trim() || null,
         created_at: new Date().toISOString(),
         requirement_id: null,
+        scheduled_at: null,
+        scheduled_duration_minutes: null,
+        scheduled_attendees: [],
       })
       setActiveNotesDraft(notes.trim())
       setNotes('')
