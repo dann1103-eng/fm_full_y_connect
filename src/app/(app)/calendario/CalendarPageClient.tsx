@@ -50,6 +50,10 @@ const localizer = dateFnsLocalizer({
 })
 const DnDCalendar = withDragAndDrop<CalendarEvent>(Calendar)
 
+// Working-hours range (6am – 6pm). Time-grid views (week/day) only render this span.
+const workDayMin = new Date(1970, 0, 1, 6, 0, 0)
+const workDayMax = new Date(1970, 0, 1, 18, 0, 0)
+
 type ViewType = 'month' | 'week' | 'day'
 type FilterKind = 'todos' | 'produccion_reunion' | 'requerimientos'
 
@@ -597,8 +601,10 @@ export function CalendarPageClient({ currentUser, isPrivileged, allUsers, client
           onSelectEvent={handleSelectEvent}
           draggableAccessor={(event) => isPrivileged && isScheduledKind((event as CalendarEvent).kind)}
           onEventDrop={handleEventDrop}
-          onDragOver={(e) => e.preventDefault()}
           resizable={false}
+          min={workDayMin}
+          max={workDayMax}
+          scrollToTime={workDayMin}
           style={{ height: '100%' }}
           popup
           dayLayoutAlgorithm="no-overlap"

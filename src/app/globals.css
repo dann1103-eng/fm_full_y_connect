@@ -392,6 +392,13 @@
     min-height: 70px !important;
   }
 
+  /* Prevent native HTML5 image-drag from hijacking RBC's mouse-based DnD on events */
+  .calendar-wrapper .rbc-event img {
+    -webkit-user-drag: none;
+    user-select: none;
+    pointer-events: none;
+  }
+
   /* Dark mode calendar overrides — !important needed to beat unlayered RBC CSS */
   .dark .calendar-wrapper .rbc-today {
     background: rgba(72, 229, 208, 0.05) !important;
