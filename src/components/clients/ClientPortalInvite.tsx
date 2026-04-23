@@ -24,10 +24,14 @@ export function ClientPortalInvite({ clientId, users }: Props) {
     setMsg(null)
     startTransition(async () => {
       try {
-        await inviteClientUser({ clientId, email, fullName: name || undefined })
+        const { emailSent } = await inviteClientUser({ clientId, email, fullName: name || undefined })
         setEmail('')
         setName('')
-        setMsg('Invitación enviada')
+        setMsg(
+          emailSent
+            ? 'Invitación enviada. El cliente recibirá un correo con el link de acceso.'
+            : 'Este usuario ya tenía cuenta activa. Se restauró su acceso al portal. Puede ingresar en /login.'
+        )
       } catch (err) {
         setMsg(err instanceof Error ? err.message : 'Error al invitar')
       }

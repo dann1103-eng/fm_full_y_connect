@@ -26,28 +26,35 @@ export default function PortalConfigPage() {
     startTransition(async () => {
       const supabase = createClient()
 
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user?.email) {
-        setMsg({ ok: false, text: 'No se pudo obtener tu sesión. Recarga la página.' })
-        return
-      }
-
-      const { error: reAuthErr } = await supabase.auth.signInWithPassword({
-        email: user.email,
-        password: currentPassword,
-      })
-      if (reAuthErr) {
-        setMsg({ ok: false, text: 'Contraseña actual incorrecta.' })
-        return
+      // Si el usuario ingresó su contraseña actual, re-autenticar primero.
+      // Si la dejó vacía (p.ej. primera vez con link de invitación), saltar este paso.
+      if (currentPassword) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user?.email) {
+          setMsg({ ok: false, text: 'No se pudo obtener tu sesión. Recarga la página.' })
+          return
+        }
+        const { error: reAuthErr } = await supabase.auth.signInWithPassword({
+          email: user.email,
+          password: currentPassword,
+        })
+        if (reAuthErr) {
+          setMsg({ ok: false, text: 'Contraseña actual incorrecta.' })
+          return
+        }
       }
 
       const { error: updateErr } = await supabase.auth.updateUser({ password: newPassword })
       if (updateErr) {
-        setMsg({ ok: false, text: `Error al actualizar: ${updateErr.message}` })
+        if (updateErr.message.toLowerCase().includes('reauthentication')) {
+          setMsg({ ok: false, text: 'Tu sesión expiró. Por favor cierra sesión, ingresa nuevamente y vuelve a intentarlo.' })
+        } else {
+          setMsg({ ok: false, text: `Error al actualizar: ${updateErr.message}` })
+        }
         return
       }
 
-      setMsg({ ok: true, text: 'Contraseña actualizada correctamente.' })
+      setMsg({ ok: true, text: 'Contraseña establecida correctamente.' })
       setCurrentPassword('')
       setNewPassword('')
       setConfirm('')
@@ -57,18 +64,21 @@ export default function PortalConfigPage() {
   return (
     <div className="p-6 max-w-md">
       <h1 className="text-xl font-semibold text-fm-on-surface mb-1">Configuración</h1>
-      <p className="text-sm text-fm-on-surface-variant mb-6">Cambia tu contraseña de acceso al portal.</p>
+      <p className="text-sm text-fm-on-surface-variant mb-6">Establece o cambia tu contraseña de acceso al portal.</p>
 
       <form onSubmit={handleSubmit} className="glass-panel p-5 space-y-4">
         <h2 className="text-base font-semibold text-fm-on-surface">Cambiar contraseña</h2>
 
         <div className="space-y-1.5">
-          <label className="text-sm font-medium text-fm-on-surface">Contraseña actual</label>
+          <label className="text-sm font-medium text-fm-on-surface">
+            Contraseña actual
+            <span className="ml-1 text-xs text-fm-on-surface-variant font-normal">(opcional si es tu primera vez)</span>
+          </label>
           <input
             type="password"
-            required
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
+            placeholder="Dejar vacío si ingresaste por link de invitación"
             className="w-full rounded-lg border border-fm-outline-variant/40 px-3 py-2 text-sm"
           />
         </div>
@@ -105,7 +115,7 @@ export default function PortalConfigPage() {
           disabled={isPending}
           className="w-full rounded-lg bg-fm-primary text-white px-4 py-2 text-sm font-medium disabled:opacity-50"
         >
-          {isPending ? 'Guardando…' : 'Cambiar contraseña'}
+          {isPending ? 'Guardando…' : 'Guardar contraseña'}
         </button>
       </form>
     </div>

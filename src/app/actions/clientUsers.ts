@@ -23,13 +23,16 @@ export async function inviteClientUser(params: {
   clientId: string
   email: string
   fullName?: string
-}) {
+}): Promise<{ emailSent: boolean }> {
   const { clientId, email, fullName } = params
   const clean = email.trim().toLowerCase()
   if (!clean || !clean.includes('@')) throw new Error('Email inválido')
 
   await requireAdmin()
   const admin = createAdminClient()
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+  const redirectTo = `${siteUrl}/auth/callback?next=/portal/dashboard`
 
   // 1) ¿Ya existe ese email en public.users?
   const { data: existing } = await admin
@@ -39,6 +42,8 @@ export async function inviteClientUser(params: {
     .maybeSingle()
 
   let userId: string
+  let emailSent = false
+
   if (existing) {
     userId = existing.id
     if (existing.role !== 'client') {
@@ -46,16 +51,24 @@ export async function inviteClientUser(params: {
         `${clean} ya tiene cuenta como ${existing.role}. No se puede convertir en cliente.`
       )
     }
+    // Intentar reenviar invitación (funciona si aún no confirmó el correo).
+    // Si Supabase devuelve error "already registered", el usuario ya tiene cuenta activa — no hay email.
+    const { error: inviteErr } = await admin.auth.admin.inviteUserByEmail(clean, {
+      data: { role: 'client', full_name: fullName ?? null },
+      redirectTo,
+    })
+    emailSent = !inviteErr
   } else {
-    // 2) Invitar por email vía Supabase Auth.
+    // 2) Nuevo usuario — invitar por email.
     const { data, error } = await admin.auth.admin.inviteUserByEmail(clean, {
       data: { role: 'client', full_name: fullName ?? null },
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'}/portal/dashboard`,
+      redirectTo,
     })
     if (error || !data.user) {
       throw new Error(`No se pudo enviar invitación: ${error?.message ?? 'desconocido'}`)
     }
     userId = data.user.id
+    emailSent = true
 
     // 3) Registrar en public.users con role='client'.
     const { error: upsertErr } = await admin.from('users').upsert({
@@ -69,7 +82,7 @@ export async function inviteClientUser(params: {
     }
   }
 
-  // 4) Vincular al cliente.
+  // 4) Vincular al cliente (restaura acceso si fue revocado).
   const { error: linkErr } = await admin
     .from('client_users')
     .upsert(
@@ -79,6 +92,7 @@ export async function inviteClientUser(params: {
   if (linkErr) throw new Error(`No se pudo vincular al cliente: ${linkErr.message}`)
 
   revalidatePath(`/clients/${clientId}`)
+  return { emailSent }
 }
 
 export async function revokeClientUser(params: { clientId: string; userId: string }) {
