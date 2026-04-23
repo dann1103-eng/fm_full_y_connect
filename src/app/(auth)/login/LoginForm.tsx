@@ -47,7 +47,18 @@ export function LoginForm({ agencyLogoUrl }: LoginFormProps) {
       return
     }
 
-    router.push('/dashboard')
+    const { data: { user } } = await supabase.auth.getUser()
+    let destination = '/dashboard'
+    if (user) {
+      const { data: appUser } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle()
+      if (appUser?.role === 'client') destination = '/portal/dashboard'
+    }
+
+    router.push(destination)
     router.refresh()
   }
 
