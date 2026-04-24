@@ -20,6 +20,10 @@ interface QuickTimerDialogProps {
   contentType: ContentType
   currentPhase: Phase
   assignees?: { id: string; name: string; avatar_url: string | null }[]
+  /** ISO timestamp when the event starts. Used to enforce the time window. */
+  startsAt: string | null
+  /** Duration in minutes. Defaults to 60 when null. */
+  estimatedTimeMinutes: number | null
 }
 
 function formatClock(seconds: number): string {
@@ -27,6 +31,23 @@ function formatClock(seconds: number): string {
   const m = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0')
   const s = String(seconds % 60).padStart(2, '0')
   return `${h}:${m}:${s}`
+}
+
+function formatTime(iso: string): string {
+  try {
+    return new Intl.DateTimeFormat('es', { hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
+  } catch {
+    return iso
+  }
+}
+
+/** Returns true if now is within [startsAt - 15min, startsAt + duration + 15min]. */
+function isWithinEventWindow(startsAt: string, durationMinutes: number): boolean {
+  const start = new Date(startsAt).getTime()
+  const end = start + durationMinutes * 60 * 1000
+  const now = new Date().getTime()
+  const buffer = 15 * 60 * 1000
+  return now >= start - buffer && now <= end + buffer
 }
 
 export function QuickTimerDialog({
@@ -40,6 +61,8 @@ export function QuickTimerDialog({
   contentType,
   currentPhase,
   assignees = [],
+  startsAt,
+  estimatedTimeMinutes,
 }: QuickTimerDialogProps) {
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null)
   const [elapsed, setElapsed] = useState(0)
@@ -66,6 +89,23 @@ export function QuickTimerDialog({
     }, 1000)
     return () => clearInterval(id)
   }, [activeTimer])
+
+  const duration = estimatedTimeMinutes ?? 60
+  const canStart = !startsAt || isWithinEventWindow(startsAt, duration)
+
+  const windowLabel = (() => {
+    if (!startsAt) return null
+    const start = new Date(startsAt)
+    const end = new Date(start.getTime() + duration * 60 * 1000)
+    const now = new Date().getTime()
+    if (now < start.getTime() - 15 * 60 * 1000) {
+      return `El evento comienza a las ${formatTime(startsAt)}`
+    }
+    if (now > end.getTime() + 15 * 60 * 1000) {
+      return `El evento finalizó a las ${formatTime(end.toISOString())}`
+    }
+    return null
+  })()
 
   async function handleStart() {
     setBusy(true)
@@ -169,6 +209,12 @@ export function QuickTimerDialog({
           )}
         </div>
 
+        {windowLabel && (
+          <p className="text-xs text-fm-outline bg-fm-surface-container-low rounded-lg px-3 py-2 flex items-center gap-1.5">
+            <span>🕐</span> {windowLabel}
+          </p>
+        )}
+
         {error && (
           <p className="text-xs text-fm-error bg-fm-error/5 rounded-lg px-3 py-2 border border-fm-error/20">
             {error}
@@ -194,9 +240,10 @@ export function QuickTimerDialog({
           ) : (
             <Button
               onClick={handleStart}
-              disabled={busy}
-              className="flex-1 rounded-xl h-10 text-white font-semibold"
-              style={{ background: 'linear-gradient(135deg,#00675c,#5bf4de)' }}
+              disabled={busy || !canStart}
+              title={windowLabel ?? undefined}
+              className="flex-1 rounded-xl h-10 text-white font-semibold disabled:opacity-50"
+              style={canStart ? { background: 'linear-gradient(135deg,#00675c,#5bf4de)' } : {}}
             >
               {busy ? 'Iniciando…' : 'Iniciar timer'}
             </Button>

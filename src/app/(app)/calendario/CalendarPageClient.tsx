@@ -37,6 +37,7 @@ interface CalendarReqDetail {
   assignees: { id: string; name: string; avatar_url: string | null }[]
   deadline: string | null
   includesStory: boolean
+  startsAt: string | null
 }
 
 type UserLite = { id: string; full_name: string; avatar_url: string | null }
@@ -441,7 +442,7 @@ export function CalendarPageClient({ currentUser, isPrivileged, allUsers, client
         .from('requirements')
         .select(`
           id, content_type, phase, title, notes, cambios_count, deadline, includes_story,
-          review_started_at, priority, estimated_time_minutes, assigned_to,
+          review_started_at, priority, estimated_time_minutes, assigned_to, starts_at,
           billing_cycles ( clients ( id, name ) )
         `)
         .eq('id', event.requirementId)
@@ -479,6 +480,7 @@ export function CalendarPageClient({ currentUser, isPrivileged, allUsers, client
         .map(u => ({ id: u.id, name: u.full_name, avatar_url: u.avatar_url })),
       deadline: req.deadline ?? null,
       includesStory: req.includes_story ?? false,
+      startsAt: req.starts_at ?? null,
     }
 
     if (detail.contentType === 'reunion' || detail.contentType === 'produccion') {
@@ -688,6 +690,8 @@ export function CalendarPageClient({ currentUser, isPrivileged, allUsers, client
           contentType={quickTimerReq.contentType}
           currentPhase={quickTimerReq.currentPhase}
           assignees={quickTimerReq.assignees}
+          startsAt={quickTimerReq.startsAt}
+          estimatedTimeMinutes={quickTimerReq.estimatedTimeMinutes}
         />
       )}
     </div>

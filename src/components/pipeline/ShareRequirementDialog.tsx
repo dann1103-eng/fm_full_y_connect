@@ -127,6 +127,7 @@ function SendToInboxDialog({
     supabase
       .from('users')
       .select('id, full_name, avatar_url, role')
+      .in('role', ['admin', 'supervisor', 'operator'])
       .order('full_name', { ascending: true })
       .then(({ data }) => {
         if (data) setUsers(data as UserRow[])

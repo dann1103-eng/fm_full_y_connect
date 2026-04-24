@@ -134,7 +134,7 @@ export function ClientCard({ item }: { item: ClientDashboardItem }) {
                 {unifiedPool ? `${unifiedPool.used}/${unifiedPool.limit} · ${pct}%` : `${pct}%`}
               </span>
             </div>
-            <div className="w-full h-1.5 bg-fm-surface-container-low dark:bg-fm-surface-container-high rounded-full overflow-hidden mb-3">
+            <div className="w-full h-1.5 bg-fm-surface-container-low dark:bg-white/15 rounded-full overflow-hidden mb-3">
               <div
                 className={`h-full rounded-full transition-all ${barColor}`}
                 style={{ width: `${pct}%` }}
@@ -164,7 +164,7 @@ export function ClientCard({ item }: { item: ClientDashboardItem }) {
                 <span className="text-xs font-medium text-fm-on-surface">
                   {consumed}/{limit}
                 </span>
-                <div className="w-full h-1 bg-fm-surface-container-low dark:bg-fm-surface-container-high rounded-full overflow-hidden">
+                <div className="w-full h-1 bg-fm-surface-container-low dark:bg-white/15 rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full ${col}`}
                     style={{ width: `${limit > 0 ? Math.min(100, (consumed / limit) * 100) : 0}%` }}

@@ -270,6 +270,8 @@ export function PipelineCard({
           contentType={item.content_type}
           currentPhase={item.phase as Phase}
           assignees={item.assignees}
+          startsAt={item.starts_at}
+          estimatedTimeMinutes={item.estimated_time_minutes}
         />
       </>
     )

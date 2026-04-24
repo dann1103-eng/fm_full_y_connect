@@ -84,6 +84,7 @@ export interface PipelineItem {
   assignees: { id: string; name: string; avatar_url: string | null }[]
   includes_story: boolean
   deadline: string | null
+  starts_at: string | null
 }
 
 /**

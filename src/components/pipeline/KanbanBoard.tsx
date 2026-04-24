@@ -216,6 +216,8 @@ export function KanbanBoard({
           contentType={quickTimerItem.content_type}
           currentPhase={quickTimerItem.phase as Phase}
           assignees={quickTimerItem.assignees}
+          startsAt={quickTimerItem.starts_at}
+          estimatedTimeMinutes={quickTimerItem.estimated_time_minutes}
         />
       )}
     </>

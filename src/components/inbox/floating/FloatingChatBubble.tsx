@@ -99,9 +99,9 @@ export function FloatingChatBubble({ conversation, onClose, onMinimize, minimize
   }
 
   return (
-    <div className="flex flex-col bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-xl shadow-xl overflow-hidden w-[322px] max-w-[calc(100vw-2rem)]">
+    <div className="flex flex-col bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-xl shadow-xl w-[322px] max-w-[calc(100vw-2rem)]">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 bg-[#00675c] text-white">
+      <div className="flex items-center justify-between px-3 py-2 bg-[#00675c] text-white rounded-t-xl overflow-hidden">
         <div className="flex items-center gap-2 min-w-0">
           {conversation.type === 'dm' ? (
             <UserAvatar
