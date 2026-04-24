@@ -62,7 +62,7 @@ export function RequirementChat({ requirementId, currentUserId, isAdmin = false,
     const scheduleReload = () => {
       if (debounce) clearTimeout(debounce)
       debounce = setTimeout(() => {
-        loadMessages()
+        loadMessages(true)
       }, 250)
     }
     const channel = supabase
@@ -93,8 +93,8 @@ export function RequirementChat({ requirementId, currentUserId, isAdmin = false,
       })
   }, [currentUserId, clientMode])
 
-  async function loadMessages() {
-    setLoading(true)
+  async function loadMessages(silent = false) {
+    if (!silent) setLoading(true)
     const supabase = createClient()
     const { data } = await supabase
       .from('requirement_messages')
@@ -102,7 +102,7 @@ export function RequirementChat({ requirementId, currentUserId, isAdmin = false,
       .eq('requirement_id', requirementId)
       .order('created_at', { ascending: true })
     setMessages((data ?? []) as ChatMessage[])
-    setLoading(false)
+    if (!silent) setLoading(false)
   }
 
   useEffect(() => {
