@@ -46,6 +46,10 @@ export function NotificationsDropdown() {
       router.push(`/pipeline?req=${item.overdue_requirement_id}`)
       return
     }
+    if (item.kind === 'calendar') {
+      router.push('/calendario')
+      return
+    }
     if (item.kind === 'mention') {
       startTransition(async () => {
         if (item.mention_source === 'review') {
@@ -189,6 +193,7 @@ function NotificationRow({
   })()
 
   const isOverdue = item.kind === 'overdue'
+  const isCalendar = item.kind === 'calendar'
   const isMention = item.kind === 'mention'
   const isReviewMention = isMention && item.mention_source === 'review'
 
@@ -208,6 +213,41 @@ function NotificationRow({
       <XIcon className="w-3 h-3" />
     </button>
   )
+
+  if (isCalendar) {
+    const scheduled = item.calendar_scheduled_at ? parseISO(item.calendar_scheduled_at) : null
+    const scheduledLabel = scheduled
+      ? new Intl.DateTimeFormat('es', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(scheduled)
+      : null
+    const isAssigned = item.calendar_reason === 'assigned'
+    return (
+      <div className="relative group">
+        <button
+          type="button"
+          onClick={onClick}
+          className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-fm-primary/10 transition-colors border-b border-fm-surface-container-high/60 last:border-b-0"
+        >
+          <span className="w-8 h-8 rounded-full bg-fm-primary/10 flex items-center justify-center flex-shrink-0">
+            <span className="material-symbols-outlined text-[18px] text-fm-primary">event</span>
+          </span>
+          <div className="flex-1 min-w-0 pr-5">
+            <div className="text-xs leading-tight">
+              <span className="font-bold text-fm-primary uppercase tracking-wide text-[10px]">
+                {isAssigned ? 'Evento asignado' : 'Evento próximo'}
+              </span>
+              <div className="font-semibold text-fm-on-surface mt-0.5 truncate">
+                {item.calendar_title ?? 'Evento'}
+              </div>
+              {scheduledLabel && (
+                <div className="text-fm-on-surface-variant/70 text-[11px]">{scheduledLabel}</div>
+              )}
+            </div>
+          </div>
+        </button>
+        {dismissButton}
+      </div>
+    )
+  }
 
   if (isOverdue) {
     return (

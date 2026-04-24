@@ -6,6 +6,7 @@ import { markConversationRead } from '@/app/actions/inbox'
 import { sendMessage } from '@/app/actions/inbox'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { EmojiPicker } from '@/components/ui/EmojiPicker'
+import { RequirementShareCard, parseReqShareBody } from '@/components/inbox/RequirementShareCard'
 import { useUser } from '@/contexts/UserContext'
 import type { ConversationListItem, MessageWithMeta } from '@/types/db'
 import { formatDistanceToNow, parseISO } from 'date-fns'
@@ -98,7 +99,7 @@ export function FloatingChatBubble({ conversation, onClose, onMinimize, minimize
   }
 
   return (
-    <div className="flex flex-col bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-xl shadow-xl overflow-hidden w-[280px] max-w-[calc(100vw-2rem)]">
+    <div className="flex flex-col bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-xl shadow-xl overflow-hidden w-[322px] max-w-[calc(100vw-2rem)]">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 bg-[#00675c] text-white">
         <div className="flex items-center gap-2 min-w-0">
@@ -144,7 +145,7 @@ export function FloatingChatBubble({ conversation, onClose, onMinimize, minimize
       {!minimized && (
         <>
           {/* Messages */}
-          <div className="overflow-y-auto px-3 py-2 space-y-2 bg-fm-background h-[160px]">
+          <div className="overflow-y-auto px-3 py-2 space-y-2 bg-fm-background h-[184px]">
             {messages.length === 0 && (
               <p className="text-xs text-fm-on-surface-variant text-center mt-6">Sin mensajes aún</p>
             )}
@@ -152,6 +153,7 @@ export function FloatingChatBubble({ conversation, onClose, onMinimize, minimize
               const isMe = msg.user_id === user.id
               const isPending = msg.id.startsWith('temp-')
               const isFailed = failedIds.has(msg.id)
+              const share = parseReqShareBody(msg.body)
               return (
                 <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                   {!isMe && (
@@ -159,15 +161,25 @@ export function FloatingChatBubble({ conversation, onClose, onMinimize, minimize
                       {msg.author?.full_name ?? 'Usuario'}
                     </span>
                   )}
-                  <div
-                    className={`max-w-[90%] rounded-xl px-3 py-1.5 text-xs transition-opacity ${
-                      isMe
-                        ? 'bg-[#00675c] text-white rounded-br-sm'
-                        : 'bg-fm-surface-container-low text-fm-on-surface border border-fm-surface-container-high rounded-bl-sm'
-                    } ${isPending && !isFailed ? 'opacity-60' : ''} ${isFailed ? 'ring-1 ring-[#b31b25]' : ''}`}
-                  >
-                    {msg.body}
-                  </div>
+                  {share ? (
+                    <div className={`max-w-[95%] ${isPending && !isFailed ? 'opacity-60' : ''} ${isFailed ? 'ring-1 ring-[#b31b25] rounded-lg' : ''}`}>
+                      <RequirementShareCard
+                        requirementId={share.requirementId}
+                        title={share.title}
+                        isMine={isMe}
+                      />
+                    </div>
+                  ) : (
+                    <div
+                      className={`max-w-[90%] rounded-xl px-3 py-1.5 text-xs transition-opacity ${
+                        isMe
+                          ? 'bg-[#00675c] text-white rounded-br-sm'
+                          : 'bg-fm-surface-container-low text-fm-on-surface border border-fm-surface-container-high rounded-bl-sm'
+                      } ${isPending && !isFailed ? 'opacity-60' : ''} ${isFailed ? 'ring-1 ring-[#b31b25]' : ''}`}
+                    >
+                      {msg.body}
+                    </div>
+                  )}
                   {isFailed ? (
                     <button
                       type="button"

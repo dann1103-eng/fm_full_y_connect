@@ -408,10 +408,44 @@
   }
   .dark .calendar-wrapper .rbc-header {
     background: var(--color-fm-surface-container-low) !important;
+    color: var(--color-fm-on-surface) !important;
   }
   .dark .calendar-wrapper .rbc-month-view,
   .dark .calendar-wrapper .rbc-time-view {
     background: var(--color-fm-surface-container-lowest) !important;
+  }
+
+  /* Text colors in dark mode — overcome RBC's hardcoded inline colors */
+  .dark .calendar-wrapper .rbc-date-cell,
+  .dark .calendar-wrapper .rbc-date-cell a,
+  .dark .calendar-wrapper .rbc-button-link {
+    color: var(--color-fm-on-surface) !important;
+  }
+  .dark .calendar-wrapper .rbc-off-range,
+  .dark .calendar-wrapper .rbc-off-range a {
+    color: var(--color-fm-outline-variant) !important;
+  }
+  .dark .calendar-wrapper .rbc-time-gutter,
+  .dark .calendar-wrapper .rbc-time-gutter .rbc-timeslot-group,
+  .dark .calendar-wrapper .rbc-label,
+  .dark .calendar-wrapper .rbc-time-header-content {
+    color: var(--color-fm-on-surface-variant) !important;
+  }
+  .dark .calendar-wrapper .rbc-agenda-view,
+  .dark .calendar-wrapper .rbc-agenda-view table,
+  .dark .calendar-wrapper .rbc-agenda-view td,
+  .dark .calendar-wrapper .rbc-agenda-view th {
+    color: var(--color-fm-on-surface) !important;
+    border-color: var(--color-fm-surface-container-high) !important;
+  }
+  .dark .calendar-wrapper .rbc-agenda-empty {
+    color: var(--color-fm-on-surface-variant) !important;
+  }
+  .dark .calendar-wrapper .rbc-show-more {
+    color: var(--color-fm-primary) !important;
+  }
+  .dark .calendar-wrapper .rbc-date-cell.rbc-now a {
+    color: var(--color-fm-primary) !important;
   }
 }
 

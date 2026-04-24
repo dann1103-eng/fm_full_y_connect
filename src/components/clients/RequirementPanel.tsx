@@ -99,6 +99,9 @@ interface RequirementPanelProps {
   /** Si true, omite la sección "Historial del ciclo + Notas internas" al final del panel.
    *  Útil cuando el padre quiere renderizarla en una posición diferente. */
   hideHistorySection?: boolean
+  /** Si true, oculta los action buttons del admin (Ver reporte, Editar cliente,
+   *  Registrar requerimiento). Usado por el portal del cliente. */
+  portalMode?: boolean
 }
 
 export function RequirementPanel({
@@ -115,6 +118,7 @@ export function RequirementPanel({
   assignableUsers = [],
   cambioLogsMap = {},
   hideHistorySection = false,
+  portalMode = false,
 }: RequirementPanelProps) {
   const [modalOpen, setModalOpen] = useState(false)
   const [markingPaid, setMarkingPaid] = useState(false)
@@ -393,33 +397,35 @@ export function RequirementPanel({
           </div>
         </div>
 
-        {/* Action buttons */}
-        <div className="flex items-center gap-3 w-full md:w-auto flex-shrink-0">
-          <Link
-            href={`/clients/${client.id}/report`}
-            className="flex-1 md:flex-none px-5 py-2.5 border-2 border-fm-on-surface-variant text-fm-on-surface-variant font-bold rounded-full hover:bg-fm-on-surface-variant/5 transition-all active:scale-95 text-sm text-center flex items-center justify-center gap-1.5"
-          >
-            <span className="material-symbols-outlined text-base">summarize</span>
-            Ver reporte
-          </Link>
-          <Link
-            href={`/clients/${client.id}/edit`}
-            className="flex-1 md:flex-none px-5 py-2.5 border-2 border-fm-primary text-fm-primary font-bold rounded-full hover:bg-fm-primary/5 transition-all active:scale-95 text-sm text-center"
-          >
-            Editar cliente
-          </Link>
-          {canCreate && (
-            <button
-              onClick={() => !isOverdue && !isContentExhausted && setModalOpen(true)}
-              disabled={isOverdue || isContentExhausted}
-              className={`flex-1 md:flex-none px-5 py-2.5 text-white font-bold rounded-full flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 text-sm ${(isOverdue || isContentExhausted) ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-110'}`}
-              style={{ background: (isOverdue || isContentExhausted) ? '#b31b25' : 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)', boxShadow: '0 4px 15px rgba(0,103,92,0.25)' }}
+        {/* Action buttons — ocultos en portal del cliente */}
+        {!portalMode && (
+          <div className="flex items-center gap-3 w-full md:w-auto flex-shrink-0">
+            <Link
+              href={`/clients/${client.id}/report`}
+              className="flex-1 md:flex-none px-5 py-2.5 border-2 border-fm-on-surface-variant text-fm-on-surface-variant font-bold rounded-full hover:bg-fm-on-surface-variant/5 transition-all active:scale-95 text-sm text-center flex items-center justify-center gap-1.5"
             >
-              <span className="material-symbols-outlined text-base">{(isOverdue || isContentExhausted) ? 'block' : 'add'}</span>
-              {isOverdue ? 'Cuenta vencida' : isContentExhausted ? 'Paquete agotado' : 'Registrar requerimiento'}
-            </button>
-          )}
-        </div>
+              <span className="material-symbols-outlined text-base">summarize</span>
+              Ver reporte
+            </Link>
+            <Link
+              href={`/clients/${client.id}/edit`}
+              className="flex-1 md:flex-none px-5 py-2.5 border-2 border-fm-primary text-fm-primary font-bold rounded-full hover:bg-fm-primary/5 transition-all active:scale-95 text-sm text-center"
+            >
+              Editar cliente
+            </Link>
+            {canCreate && (
+              <button
+                onClick={() => !isOverdue && !isContentExhausted && setModalOpen(true)}
+                disabled={isOverdue || isContentExhausted}
+                className={`flex-1 md:flex-none px-5 py-2.5 text-white font-bold rounded-full flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 text-sm ${(isOverdue || isContentExhausted) ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-110'}`}
+                style={{ background: (isOverdue || isContentExhausted) ? '#b31b25' : 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)', boxShadow: '0 4px 15px rgba(0,103,92,0.25)' }}
+              >
+                <span className="material-symbols-outlined text-base">{(isOverdue || isContentExhausted) ? 'block' : 'add'}</span>
+                {isOverdue ? 'Cuenta vencida' : isContentExhausted ? 'Paquete agotado' : 'Registrar requerimiento'}
+              </button>
+            )}
+          </div>
+        )}
       </section>
 
       {/* ── Overdue warning ── */}
@@ -511,7 +517,7 @@ export function RequirementPanel({
                   {available} disponibles
                 </p>
               </div>
-              <div className="w-full bg-fm-surface-container rounded-full h-2 overflow-hidden">
+              <div className="w-full bg-fm-surface-container dark:bg-fm-surface-container-high rounded-full h-2 overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-500"
                   style={{ width: `${pct}%`, backgroundColor: color }}
@@ -608,7 +614,7 @@ export function RequirementPanel({
                 </div>
 
                 {/* Progress bar */}
-                <div className="w-full bg-fm-surface-container rounded-full h-1.5 overflow-hidden">
+                <div className="w-full bg-fm-surface-container dark:bg-fm-surface-container-high rounded-full h-1.5 overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500"
                     style={{ width: `${pct}%`, backgroundColor: color }}
@@ -652,7 +658,7 @@ export function RequirementPanel({
 
               <div className="flex items-center gap-3">
                 {/* Short progress bar */}
-                <div className="w-32 bg-fm-surface-container rounded-full h-1.5 overflow-hidden">
+                <div className="w-32 bg-fm-surface-container dark:bg-fm-surface-container-high rounded-full h-1.5 overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500"
                     style={{ width: `${pct}%`, backgroundColor: color }}
@@ -762,7 +768,7 @@ export function RequirementPanel({
                                 </div>
                               </div>
                               {budget > 0 && (
-                                <div className="w-full bg-fm-surface-container rounded-full h-1.5 overflow-hidden">
+                                <div className="w-full bg-fm-surface-container dark:bg-fm-surface-container-high rounded-full h-1.5 overflow-hidden">
                                   <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: weekBarColor }} />
                                 </div>
                               )}

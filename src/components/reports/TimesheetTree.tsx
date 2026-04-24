@@ -36,7 +36,7 @@ function isGroupArray(c: TimesheetGroup['children']): c is TimesheetGroup[] {
 function Progress({ pct }: { pct: number }) {
   return (
     <div className="flex items-center gap-2 min-w-[60px] sm:min-w-[140px]">
-      <div className="flex-1 bg-fm-surface-container rounded-full h-1.5 overflow-hidden">
+      <div className="flex-1 bg-fm-surface-container dark:bg-fm-surface-container-high rounded-full h-1.5 overflow-hidden">
         <div
           className="h-full rounded-full bg-fm-primary"
           style={{ width: `${Math.min(100, pct)}%` }}

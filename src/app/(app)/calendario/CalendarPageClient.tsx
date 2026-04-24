@@ -15,6 +15,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useCalendarEvents } from '@/hooks/useCalendarEvents'
 import { NewInternalEventModal } from './NewInternalEventModal'
 import { PhaseSheet } from '@/components/pipeline/PhaseSheet'
+import { QuickTimerDialog } from '@/components/pipeline/QuickTimerDialog'
 import { rescheduleEvent } from '@/app/actions/calendar'
 import type { CalendarEvent, CalendarEventKind } from '@/lib/domain/calendar'
 import { KIND_COLORS, KIND_COLORS_DARK, KIND_LABELS, isScheduledKind } from '@/lib/domain/calendar'
@@ -271,6 +272,7 @@ export function CalendarPageClient({ currentUser, isPrivileged, allUsers, client
   const [dragError, setDragError] = useState<string | null>(null)
   const [sheetLoading, setSheetLoading] = useState(false)
   const [detailReq, setDetailReq] = useState<CalendarReqDetail | null>(null)
+  const [quickTimerReq, setQuickTimerReq] = useState<CalendarReqDetail | null>(null)
   const [detailLogs, setDetailLogs] = useState<Array<RequirementPhaseLog & { moved_by_user?: { id: string; full_name: string | null; avatar_url: string | null } | null }>>([])
 
   const [isDark, setIsDark] = useState<boolean>(() =>
@@ -430,6 +432,7 @@ export function CalendarPageClient({ currentUser, isPrivileged, allUsers, client
     if (!event.requirementId) return
     setSheetLoading(true)
     setDetailReq(null)
+    setQuickTimerReq(null)
     setDetailLogs([])
 
     const supabase = createClient()
@@ -458,7 +461,7 @@ export function CalendarPageClient({ currentUser, isPrivileged, allUsers, client
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const client = (cycle as any)?.clients
 
-    setDetailReq({
+    const detail: CalendarReqDetail = {
       requirementId: req.id,
       contentType: req.content_type as ContentType,
       currentPhase: req.phase as Phase,
@@ -476,8 +479,14 @@ export function CalendarPageClient({ currentUser, isPrivileged, allUsers, client
         .map(u => ({ id: u.id, name: u.full_name, avatar_url: u.avatar_url })),
       deadline: req.deadline ?? null,
       includesStory: req.includes_story ?? false,
-    })
-    setDetailLogs((logs ?? []) as unknown as typeof detailLogs)
+    }
+
+    if (detail.contentType === 'reunion' || detail.contentType === 'produccion') {
+      setQuickTimerReq(detail)
+    } else {
+      setDetailReq(detail)
+      setDetailLogs((logs ?? []) as unknown as typeof detailLogs)
+    }
   }, [allUsers])
 
   const messages = {
@@ -663,6 +672,22 @@ export function CalendarPageClient({ currentUser, isPrivileged, allUsers, client
           deadline={detailReq.deadline}
           isAdmin={isPrivileged}
           showMoveSection={isPrivileged}
+        />
+      )}
+
+      {/* Quick timer dialog — for reunion/produccion requirements */}
+      {quickTimerReq && (
+        <QuickTimerDialog
+          open={true}
+          onClose={() => setQuickTimerReq(null)}
+          requirementId={quickTimerReq.requirementId}
+          currentUserId={currentUser.id}
+          title={quickTimerReq.title}
+          notes={quickTimerReq.notes}
+          clientName={quickTimerReq.clientName}
+          contentType={quickTimerReq.contentType}
+          currentPhase={quickTimerReq.currentPhase}
+          assignees={quickTimerReq.assignees}
         />
       )}
     </div>

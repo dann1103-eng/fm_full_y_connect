@@ -16,6 +16,7 @@ import { CardBody } from './PipelineCard'
 import { KanbanAccordion } from './KanbanAccordion'
 import { MovePhaseModal } from './MovePhaseModal'
 import { PhaseSheet } from './PhaseSheet'
+import { QuickTimerDialog } from './QuickTimerDialog'
 import { createClient } from '@/lib/supabase/client'
 import { PHASES } from '@/lib/domain/pipeline'
 import { useIsMobile } from '@/lib/hooks/useMediaQuery'
@@ -49,7 +50,16 @@ export function KanbanBoard({
   const [activeItem, setActiveItem] = useState<PipelineItem | null>(null)
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null)
   const [activeDetailItem, setActiveDetailItem] = useState<PipelineItem | null>(null)
+  const [quickTimerItem, setQuickTimerItem] = useState<PipelineItem | null>(null)
   const [detailLogs, setDetailLogs] = useState<RequirementPhaseLog[]>([])
+
+  function openItemDetail(item: PipelineItem) {
+    if (item.content_type === 'reunion' || item.content_type === 'produccion') {
+      setQuickTimerItem(item)
+    } else {
+      setActiveDetailItem(item)
+    }
+  }
   const [nowMs, setNowMs] = useState<number>(() => new Date().getTime())
   const isMobile = useIsMobile()
 
@@ -58,7 +68,7 @@ export function KanbanBoard({
     for (const phase of PHASES) {
       const match = byPhase[phase]?.find((it) => it.id === initialOpenRequirementId)
       if (match) {
-        setActiveDetailItem(match)
+        openItemDetail(match)
         break
       }
     }
@@ -136,7 +146,7 @@ export function KanbanBoard({
               logsMap={logsMap}
               currentUserId={currentUserId}
               draggableCards
-              onDoubleClick={(item) => setActiveDetailItem(item)}
+              onDoubleClick={(item) => openItemDetail(item)}
               nowMs={nowMs}
             />
           ))}
@@ -190,6 +200,22 @@ export function KanbanBoard({
           includesStory={activeDetailItem.includes_story}
           deadline={activeDetailItem.deadline}
           isAdmin={isAdmin}
+        />
+      )}
+
+      {/* Quick timer dialog — for reunion/produccion */}
+      {quickTimerItem && (
+        <QuickTimerDialog
+          open={true}
+          onClose={() => setQuickTimerItem(null)}
+          requirementId={quickTimerItem.id}
+          currentUserId={currentUserId}
+          title={quickTimerItem.title}
+          notes={quickTimerItem.notes}
+          clientName={quickTimerItem.client_name}
+          contentType={quickTimerItem.content_type}
+          currentPhase={quickTimerItem.phase as Phase}
+          assignees={quickTimerItem.assignees}
         />
       )}
     </>

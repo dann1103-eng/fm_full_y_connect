@@ -257,7 +257,7 @@ export default async function ClientReportPage({
                         </td>
                         <td className="py-3 pl-4 text-right font-bold" style={{ color }}>{pct}%</td>
                         <td className="py-3 pl-4">
-                          <div className="w-full bg-fm-surface-container rounded-full h-1.5 overflow-hidden">
+                          <div className="w-full bg-fm-surface-container dark:bg-fm-surface-container-high rounded-full h-1.5 overflow-hidden">
                             <div
                               className="h-full rounded-full"
                               style={{ width: `${pct}%`, backgroundColor: color }}

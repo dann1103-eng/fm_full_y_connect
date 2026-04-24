@@ -58,7 +58,7 @@ export function EmojiPicker({ onSelect, align = 'top-right', triggerClassName }:
       </button>
       {open && (
         <div
-          className={`absolute ${panelPos} z-50 w-[320px] bg-fm-surface-container-lowest rounded-xl shadow-xl ring-1 ring-black/10 overflow-hidden`}
+          className={`absolute ${panelPos} z-50 w-[300px] max-w-[calc(100vw-2rem)] bg-fm-surface-container-lowest rounded-xl shadow-xl ring-1 ring-black/10 overflow-hidden`}
           onMouseDown={(e) => e.stopPropagation()}
         >
           <div className="p-2 border-b border-fm-surface-container-low">
@@ -93,7 +93,7 @@ export function EmojiPicker({ onSelect, align = 'top-right', triggerClassName }:
             {visible.length === 0 ? (
               <p className="text-center text-xs text-fm-outline py-6">Sin resultados</p>
             ) : (
-              <div className="grid grid-cols-8 gap-0.5">
+              <div className="grid grid-cols-7 gap-0.5">
                 {visible.map(e => (
                   <button
                     key={e.char}

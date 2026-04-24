@@ -27,6 +27,7 @@ function buildHref(item: NotificationItem): string {
     if (item.requirement_id) return `/pipeline?req=${item.requirement_id}`
     return '/pipeline'
   }
+  if (item.kind === 'calendar') return '/calendario'
   if (item.conversation_id) return `/inbox/${item.conversation_id}`
   return '/inbox'
 }
@@ -84,7 +85,7 @@ export function useNotificationToasts() {
     }
 
     const newItems = items.filter(
-      (it) => !seenIdsRef.current.has(key(it)) && (it.kind === 'mention' || it.kind === 'dm' || it.kind === 'channel')
+      (it) => !seenIdsRef.current.has(key(it)) && (it.kind === 'mention' || it.kind === 'dm' || it.kind === 'channel' || it.kind === 'calendar')
     )
     if (newItems.length === 0) return
 

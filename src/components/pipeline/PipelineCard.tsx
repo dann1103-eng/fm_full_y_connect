@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { PhaseSheet } from './PhaseSheet'
+import { QuickTimerDialog } from './QuickTimerDialog'
 import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import type { PipelineItem } from '@/lib/domain/pipeline'
 import type { RequirementPhaseLog, ContentType, Phase, Priority } from '@/types/db'
@@ -146,7 +147,7 @@ export function CardBody({
         <div className="flex items-center gap-1.5 min-w-0">
           <p className="text-xs text-fm-outline-variant whitespace-nowrap">{relativeDate(item.last_moved_at)}</p>
           {isOverdue && (
-            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-fm-error text-white whitespace-nowrap">
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-fm-error text-white dark:bg-fm-error/20 dark:text-fm-error dark:ring-1 dark:ring-fm-error/40 whitespace-nowrap">
               ⚠ Vencido
             </span>
           )}
@@ -244,6 +245,33 @@ export function PipelineCard({
           nowMs={nowMs}
         />
       </div>
+    )
+  }
+
+  const isQuickTimer = item.content_type === 'reunion' || item.content_type === 'produccion'
+
+  if (isQuickTimer) {
+    return (
+      <>
+        <CardBody
+          item={item}
+          showClient={showClient}
+          onClick={() => setSheetOpen(true)}
+          nowMs={nowMs}
+        />
+        <QuickTimerDialog
+          open={sheetOpen}
+          onClose={() => setSheetOpen(false)}
+          requirementId={item.id}
+          currentUserId={currentUserId}
+          title={item.title}
+          notes={item.notes}
+          clientName={item.client_name}
+          contentType={item.content_type}
+          currentPhase={item.phase as Phase}
+          assignees={item.assignees}
+        />
+      </>
     )
   }
 

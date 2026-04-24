@@ -306,8 +306,64 @@ export async function GET() {
     }
   }
 
+  /* ── Eventos de calendario (asignaciones recientes + próximos 24h) ── */
+  const calendarItems: NotificationItem[] = []
+  {
+    const now = new Date()
+    const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString()
+    const last7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
+    const { data: eventsRaw } = await supabase
+      .from('time_entries')
+      .select('id, title, scheduled_at, scheduled_attendees, created_at')
+      .eq('category', 'reunion_interna')
+      .contains('scheduled_attendees', [user.id])
+      .gte('scheduled_at', now.toISOString())
+      .lte('scheduled_at', in24h)
+      .order('scheduled_at', { ascending: true })
+      .limit(50)
+
+    const { data: recentAssignedRaw } = await supabase
+      .from('time_entries')
+      .select('id, title, scheduled_at, scheduled_attendees, created_at')
+      .eq('category', 'reunion_interna')
+      .contains('scheduled_attendees', [user.id])
+      .gte('created_at', last7d)
+      .order('created_at', { ascending: false })
+      .limit(50)
+
+    const seen = new Set<string>()
+    for (const r of (eventsRaw ?? []) as Array<{ id: string; title: string; scheduled_at: string | null; created_at: string }>) {
+      if (!r.scheduled_at) continue
+      seen.add(r.id)
+      calendarItems.push({
+        kind: 'calendar',
+        id: `cal-upcoming-${r.id}`,
+        created_at: r.scheduled_at,
+        read: false,
+        calendar_entry_id: r.id,
+        calendar_title: r.title,
+        calendar_scheduled_at: r.scheduled_at,
+        calendar_reason: 'upcoming',
+      })
+    }
+    for (const r of (recentAssignedRaw ?? []) as Array<{ id: string; title: string; scheduled_at: string | null; created_at: string }>) {
+      if (seen.has(r.id)) continue
+      calendarItems.push({
+        kind: 'calendar',
+        id: `cal-assigned-${r.id}`,
+        created_at: r.created_at,
+        read: false,
+        calendar_entry_id: r.id,
+        calendar_title: r.title,
+        calendar_scheduled_at: r.scheduled_at ?? undefined,
+        calendar_reason: 'assigned',
+      })
+    }
+  }
+
   /* ── Merge y sort: vencidos al frente, luego por fecha ─────── */
-  const items = [...overdueItems, ...mentionItems, ...reviewMentionItems, ...convItems].sort((a, b) => {
+  const items = [...overdueItems, ...mentionItems, ...reviewMentionItems, ...calendarItems, ...convItems].sort((a, b) => {
     if (a.kind === 'overdue' && b.kind !== 'overdue') return -1
     if (a.kind !== 'overdue' && b.kind === 'overdue') return 1
     return a.created_at < b.created_at ? 1 : -1

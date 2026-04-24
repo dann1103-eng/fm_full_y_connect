@@ -310,7 +310,7 @@ export default async function ReportsPage() {
                         <td className="py-3 px-4 text-right text-fm-on-surface-variant">{limit}</td>
                         <td className="py-3 pl-4 text-right font-bold" style={{ color }}>{pct}%</td>
                         <td className="py-3 pl-4">
-                          <div className="w-full bg-fm-surface-container rounded-full h-1.5 overflow-hidden">
+                          <div className="w-full bg-fm-surface-container dark:bg-fm-surface-container-high rounded-full h-1.5 overflow-hidden">
                             <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
                           </div>
                         </td>
@@ -389,7 +389,7 @@ export default async function ReportsPage() {
                         <td className="py-3 px-4 text-fm-on-surface-variant">{row.planName}</td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2 min-w-[120px]">
-                            <div className="flex-1 bg-fm-surface-container rounded-full h-1.5 overflow-hidden">
+                            <div className="flex-1 bg-fm-surface-container dark:bg-fm-surface-container-high rounded-full h-1.5 overflow-hidden">
                               <div
                                 className="h-full rounded-full"
                                 style={{

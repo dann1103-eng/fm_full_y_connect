@@ -1356,7 +1356,7 @@ export const PAYMENT_METHOD_LABELS: Record<InvoicePaymentMethod, string> = {
 
 /** Item unificado para el dropdown de notificaciones (TopNav). */
 export interface NotificationItem {
-  kind: 'mention' | 'dm' | 'channel' | 'overdue'
+  kind: 'mention' | 'dm' | 'channel' | 'overdue' | 'calendar'
   /** mention.id | conversation.id | requirement.id */
   id: string
   created_at: string
@@ -1385,6 +1385,11 @@ export interface NotificationItem {
   overdue_requirement_title?: string
   overdue_client_name?: string
   overdue_days?: number
+  /* Para 'calendar' */
+  calendar_entry_id?: string
+  calendar_title?: string
+  calendar_scheduled_at?: string
+  calendar_reason?: 'assigned' | 'upcoming'
 }
 
 /** Mensaje enriquecido con autor y adjuntos para UI */

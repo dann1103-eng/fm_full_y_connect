@@ -47,6 +47,12 @@ function kindLabel(item: NotificationItem): { title: string; body: string } {
       body: item.message_preview ?? item.requirement_title ?? '',
     }
   }
+  if (item.kind === 'calendar') {
+    return {
+      title: item.calendar_reason === 'assigned' ? 'Te asignaron a un evento' : 'Evento próximo',
+      body: item.calendar_title ?? '',
+    }
+  }
   return { title: 'Notificación', body: '' }
 }
 

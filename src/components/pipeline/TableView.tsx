@@ -174,7 +174,7 @@ export function TableView({ items, logsMap, currentUserId, canAssign, isAdmin = 
                       <span className="text-xs text-fm-outline-variant">—</span>
                     ) : isOverdue ? (
                       <span
-                        className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap bg-fm-error text-white uppercase tracking-wide"
+                        className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap bg-fm-error text-white dark:bg-fm-error/20 dark:text-fm-error dark:ring-1 dark:ring-fm-error/40 uppercase tracking-wide"
                         title={`Fecha de entrega: ${formatDeadlineDate(item.deadline)}`}
                       >
                         ⚠ Vencido
