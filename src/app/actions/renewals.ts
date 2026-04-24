@@ -109,7 +109,7 @@ export async function renewCycle(args: RenewArgs) {
     .eq('billing_cycle_id', args.cycleId)
   const remainingIds = (remainingReqs ?? []).map((r) => r.id)
   if (remainingIds.length > 0) {
-    await cleanupCycleStorage(supabase, remainingIds)
+    await cleanupCycleStorage(remainingIds)
   }
 
   revalidatePath('/renewals')
@@ -150,7 +150,7 @@ export async function pauseClient(clientId: string, cycleId: string) {
     .eq('billing_cycle_id', cycleId)
   const pausedIds = (pausedReqs ?? []).map((r) => r.id)
   if (pausedIds.length > 0) {
-    await cleanupCycleStorage(supabase, pausedIds)
+    await cleanupCycleStorage(pausedIds)
   }
 
   revalidatePath('/renewals')

@@ -62,7 +62,7 @@ export async function renewContentPackage(
     .eq('billing_cycle_id', currentCycleId)
   const closedIds = (closedReqs ?? []).map((r) => r.id)
   if (closedIds.length > 0) {
-    await cleanupCycleStorage(supabase, closedIds)
+    await cleanupCycleStorage(closedIds)
   }
 
   revalidatePath(`/clients/${clientId}`)
