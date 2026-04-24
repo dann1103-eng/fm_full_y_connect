@@ -6,13 +6,16 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
+import { ClientSearchSelect } from '@/components/ui/ClientSearchSelect'
 import { createClient } from '@/lib/supabase/client'
 import { calculateTotals, formatCurrency, suggestItemsFromPlan, STANDARD_CAMBIOS_PACKAGES, type LineItemInput } from '@/lib/domain/invoices'
+import { invoicePeriodLabel } from '@/lib/domain/billing'
+import { nextCycleDates } from '@/lib/domain/cycles'
 import { EXTRA_CONTENT_PRICES, CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import { createInvoice } from '@/app/actions/invoices'
 import { createQuote } from '@/app/actions/quotes'
 import { LineItemsEditor } from './LineItemsEditor'
-import type { Client, Plan, BillingCycle, CambiosPackage, ExtraContentItem } from '@/types/db'
+import type { Client, Plan, BillingCycle, CambiosPackage, ExtraContentItem, Invoice } from '@/types/db'
 
 interface CatalogItem {
   label: string
@@ -47,6 +50,9 @@ export function InvoiceForm({ mode, initialClientId, initialCycleId }: BillingFo
   const [notes, setNotes] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [validUntil, setValidUntil] = useState('')
+  const [biweeklyHalf, setBiweeklyHalf] = useState<'first' | 'second' | null>(null)
+  const [currentCyclePaid, setCurrentCyclePaid] = useState(false)
+  const [useNextCycle, setUseNextCycle] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -70,28 +76,79 @@ export function InvoiceForm({ mode, initialClientId, initialCycleId }: BillingFo
     setTaxRate(client.default_tax_rate ?? 0.13)
 
     const supabase = createClient()
-    supabase
-      .from('billing_cycles')
-      .select('*')
-      .eq('client_id', clientId)
-      .eq('status', 'current')
-      .maybeSingle()
-      .then(({ data }) => {
-        const cyc = data as BillingCycle | null
+    Promise.all([
+      supabase
+        .from('billing_cycles')
+        .select('*')
+        .eq('client_id', clientId)
+        .eq('status', 'current')
+        .maybeSingle(),
+      supabase
+        .from('invoices')
+        .select('id, status, biweekly_half, billing_cycle_id')
+        .eq('client_id', clientId),
+    ]).then(([{ data: cycData }, { data: invData }]) => {
+        const cyc = cycData as BillingCycle | null
         setCycle(cyc)
-        if (mode === 'invoice' && !initialCycleId && cyc) setCycleId(cyc.id)
+
+        const existingInvoices = (invData ?? []) as Pick<Invoice, 'id' | 'status' | 'biweekly_half' | 'billing_cycle_id'>[]
+
+        // ¿el ciclo actual ya tiene factura pagada?
+        const currentPaid = !!cyc && existingInvoices.some(
+          (inv) => inv.billing_cycle_id === cyc.id && inv.status === 'paid',
+        )
+        setCurrentCyclePaid(currentPaid)
+
+        // Autoselect: si no se pasó initialCycleId y el ciclo actual no está pagado → usarlo
+        if (mode === 'invoice' && !initialCycleId) {
+          if (cyc && !currentPaid) setCycleId(cyc.id)
+          else setCycleId('')
+        }
+        // Si el ciclo actual ya está pagado, sugerimos el siguiente por default
+        setUseNextCycle(currentPaid)
+
+        // Resetear selector de quincena según billing_period
+        if (client.billing_period === 'biweekly') setBiweeklyHalf('first')
+        else setBiweeklyHalf(null)
 
         // Sugerir ítem del plan si el form aún tiene solo la línea vacía
         const plan = plans.find(p => p.id === client.current_plan_id)
         if (plan && items.length === 1 && !items[0].description && items[0].unit_price === 0) {
-          const label = cyc
-            ? `${plan.name} (${cyc.period_start} — ${cyc.period_end})`
+          const targetPeriod = currentPaid && cyc
+            ? nextCycleDates(cyc.period_end, { billingPeriod: client.billing_period })
+            : cyc
+              ? { periodStart: cyc.period_start, periodEnd: cyc.period_end }
+              : null
+          const half: 'first' | 'second' | null =
+            client.billing_period === 'biweekly' ? 'first' : null
+          const label = targetPeriod
+            ? invoicePeriodLabel(targetPeriod.periodStart, targetPeriod.periodEnd, client.billing_period, half)
             : undefined
           setItems(suggestItemsFromPlan(plan, label))
         }
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId, loading])
+
+  // Re-calcular label del item precargado cuando el usuario cambia la quincena o el ciclo destino
+  useEffect(() => {
+    const client = clients.find((c) => c.id === clientId)
+    if (!client || !cycle) return
+    if (items.length !== 1) return
+    const plan = plans.find((p) => p.id === client.current_plan_id)
+    if (!plan) return
+    // Solo re-aplicamos si la línea sigue siendo el item auto-precargado del plan.
+    if (!items[0].description.startsWith(`Plan ${plan.name}`)) return
+
+    const targetPeriod = useNextCycle
+      ? nextCycleDates(cycle.period_end, { billingPeriod: client.billing_period })
+      : { periodStart: cycle.period_start, periodEnd: cycle.period_end }
+    const half: 'first' | 'second' | null =
+      client.billing_period === 'biweekly' ? biweeklyHalf : null
+    const label = invoicePeriodLabel(targetPeriod.periodStart, targetPeriod.periodEnd, client.billing_period, half)
+    setItems(suggestItemsFromPlan(plan, label))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [biweeklyHalf, useNextCycle])
 
   const totals = useMemo(
     () => calculateTotals({ items, tax_rate: taxRate, discount_amount: discount }),
@@ -189,6 +246,7 @@ export function InvoiceForm({ mode, initialClientId, initialCycleId }: BillingFo
           discountAmount: discount,
           dueDate: dueDate || null,
           notes: notes || null,
+          biweeklyHalf: selectedClient?.billing_period === 'biweekly' ? biweeklyHalf : null,
         })
       : await createQuote({
           clientId,
@@ -225,14 +283,30 @@ export function InvoiceForm({ mode, initialClientId, initialCycleId }: BillingFo
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2 space-y-1.5">
             <Label>Cliente *</Label>
-            <select required value={clientId} onChange={(e) => setClientId(e.target.value)}
-              className="w-full py-2 px-3 text-sm bg-fm-background border border-fm-surface-container-high rounded-xl text-fm-on-surface focus:outline-none focus:border-fm-primary">
-              <option value="">Seleccionar cliente…</option>
-              {clients.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
+            <ClientSearchSelect
+              clients={clients}
+              value={clientId}
+              onChange={setClientId}
+              required
+              disabled={saving}
+            />
           </div>
+
+          {mode === 'invoice' && cycle && currentCyclePaid && (
+            <div className="col-span-2 rounded-xl bg-fm-primary/5 border border-fm-primary/20 p-3 text-xs text-fm-on-surface">
+              <p>
+                <strong>Este cliente ya pagó el ciclo actual.</strong> Pre-llenamos la factura
+                con el siguiente ciclo.
+              </p>
+              <button
+                type="button"
+                onClick={() => setUseNextCycle((v) => !v)}
+                className="mt-1 text-fm-primary font-semibold hover:underline"
+              >
+                {useNextCycle ? 'Volver al ciclo actual' : 'Facturar el siguiente ciclo'}
+              </button>
+            </div>
+          )}
 
           {mode === 'invoice' && cycle && (
             <div className="col-span-2 space-y-1.5">
@@ -247,6 +321,38 @@ export function InvoiceForm({ mode, initialClientId, initialCycleId }: BillingFo
               <p className="text-xs text-fm-outline">
                 Al marcar pagada una factura ligada al ciclo, el ciclo también se marca pagado.
               </p>
+            </div>
+          )}
+
+          {mode === 'invoice' && selectedClient?.billing_period === 'biweekly' && (
+            <div className="col-span-2 space-y-1.5">
+              <Label>Quincena a cobrar</Label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBiweeklyHalf('first')}
+                  className={
+                    'flex-1 py-2 px-3 text-sm rounded-xl border transition-colors ' +
+                    (biweeklyHalf === 'first'
+                      ? 'bg-fm-primary/10 border-fm-primary text-fm-primary font-semibold'
+                      : 'bg-fm-background border-fm-surface-container-high text-fm-on-surface hover:border-fm-primary/40')
+                  }
+                >
+                  1ª quincena (01–15)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBiweeklyHalf('second')}
+                  className={
+                    'flex-1 py-2 px-3 text-sm rounded-xl border transition-colors ' +
+                    (biweeklyHalf === 'second'
+                      ? 'bg-fm-primary/10 border-fm-primary text-fm-primary font-semibold'
+                      : 'bg-fm-background border-fm-surface-container-high text-fm-on-surface hover:border-fm-primary/40')
+                  }
+                >
+                  2ª quincena (16–fin)
+                </button>
+              </div>
             </div>
           )}
 

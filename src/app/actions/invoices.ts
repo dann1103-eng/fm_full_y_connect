@@ -7,10 +7,12 @@ import {
   buildClientSnapshot,
   buildEmitterSnapshot,
   calculateTotals,
+  suggestItemsFromPlan,
   type LineItemInput,
 } from '@/lib/domain/invoices'
+import { invoicePeriodLabel } from '@/lib/domain/billing'
 import { today as todayString } from '@/lib/domain/dates'
-import type { Client, CompanySettings, InvoicePaymentMethod } from '@/types/db'
+import type { Client, CompanySettings, InvoicePaymentMethod, Plan, BillingCycle } from '@/types/db'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -36,6 +38,7 @@ export interface CreateInvoiceInput {
   discountAmount?: number
   dueDate?: string | null
   notes?: string | null
+  biweeklyHalf?: 'first' | 'second' | null
 }
 
 export async function createInvoice(
@@ -90,6 +93,7 @@ export async function createInvoice(
       client_snapshot_json: buildClientSnapshot(client),
       emitter_snapshot_json: buildEmitterSnapshot(emitter),
       created_by: auth.userId,
+      biweekly_half: input.biweeklyHalf ?? null,
     })
     .select('id')
     .single()
@@ -144,7 +148,7 @@ export async function markInvoicePaid(args: {
 
   const { data: inv } = await admin
     .from('invoices')
-    .select('id, client_id, billing_cycle_id')
+    .select('id, client_id, billing_cycle_id, biweekly_half')
     .eq('id', args.id)
     .single()
   if (!inv) return { error: 'Factura no encontrada' as const }
@@ -161,13 +165,30 @@ export async function markInvoicePaid(args: {
     .eq('id', args.id)
   if (error) return { error: 'Error al marcar la factura como pagada' as const }
 
-  // Sincroniza con billing_cycles si la factura está ligada a un ciclo.
+  // Sincroniza con billing_cycles según biweekly_half.
   if (inv.billing_cycle_id) {
-    await admin
-      .from('billing_cycles')
-      .update({ payment_status: 'paid', payment_date: payDate })
-      .eq('id', inv.billing_cycle_id)
+    const halfUpdate =
+      inv.biweekly_half === 'second'
+        ? { payment_status_2: 'paid' as const, payment_date_2: payDate }
+        : inv.biweekly_half === 'first'
+          ? { payment_status: 'paid' as const, payment_date: payDate }
+          : {
+              payment_status: 'paid' as const,
+              payment_date: payDate,
+              payment_status_2: 'paid' as const,
+              payment_date_2: payDate,
+            }
+    await admin.from('billing_cycles').update(halfUpdate).eq('id', inv.billing_cycle_id)
     revalidatePath('/renewals')
+
+    // Si fue la primera quincena: generar reactivamente la factura 'second' si no existe.
+    if (inv.biweekly_half === 'first') {
+      await generateBiweeklySecondIfNeeded({
+        cycleId: inv.billing_cycle_id,
+        clientId: inv.client_id,
+        issuedBy: auth.userId,
+      })
+    }
   }
 
   revalidatePath('/billing')
@@ -176,6 +197,92 @@ export async function markInvoicePaid(args: {
   revalidatePath(`/clients/${inv.client_id}`)
   revalidatePath('/dashboard')
   return { ok: true as const }
+}
+
+async function generateBiweeklySecondIfNeeded(args: {
+  cycleId: string
+  clientId: string
+  issuedBy: string
+}) {
+  const admin = createAdminClient()
+
+  const { data: existingSecond } = await admin
+    .from('invoices')
+    .select('id')
+    .eq('billing_cycle_id', args.cycleId)
+    .eq('biweekly_half', 'second')
+    .neq('status', 'void')
+    .maybeSingle()
+  if (existingSecond) return
+
+  const [{ data: cycle }, { data: client }, emitter] = await Promise.all([
+    admin
+      .from('billing_cycles')
+      .select('id, period_start, period_end, plan_id_snapshot')
+      .eq('id', args.cycleId)
+      .single(),
+    admin.from('clients').select('*').eq('id', args.clientId).single(),
+    loadEmitter(),
+  ])
+  if (!cycle || !client || !emitter) return
+
+  const { data: plan } = await admin
+    .from('plans')
+    .select('*')
+    .eq('id', (cycle as BillingCycle).plan_id_snapshot)
+    .single()
+  if (!plan) return
+
+  // Computar periodo de la segunda quincena: medio del ciclo → period_end.
+  const start = new Date((cycle as BillingCycle).period_start)
+  const secondHalfStart = new Date(start)
+  secondHalfStart.setDate(start.getDate() + 7)
+  const secondStartISO = secondHalfStart.toISOString().split('T')[0]
+  const secondEndISO = (cycle as BillingCycle).period_end
+
+  const label = invoicePeriodLabel(secondStartISO, secondEndISO, 'biweekly', 'second')
+  const items = suggestItemsFromPlan(plan as Plan, label)
+  const totals = calculateTotals({ items, tax_rate: 0, discount_amount: 0 })
+
+  const { data: numberRow, error: numberErr } = await admin.rpc('next_invoice_number')
+  if (numberErr || !numberRow) return
+
+  const { data: inserted, error: insertErr } = await admin
+    .from('invoices')
+    .insert({
+      invoice_number: numberRow as unknown as string,
+      client_id: (client as Client).id,
+      billing_cycle_id: args.cycleId,
+      quote_id: null,
+      issue_date: todayString(),
+      currency: 'USD',
+      subtotal: totals.subtotal,
+      discount_amount: totals.discount_amount,
+      tax_rate: 0,
+      tax_amount: totals.tax_amount,
+      total: totals.total,
+      status: 'issued',
+      client_snapshot_json: buildClientSnapshot(client as Client),
+      emitter_snapshot_json: buildEmitterSnapshot(emitter),
+      created_by: null,
+      biweekly_half: 'second',
+    })
+    .select('id')
+    .single()
+  if (insertErr || !inserted) return
+
+  await admin.from('invoice_items').insert(
+    totals.items.map((it) => ({
+      invoice_id: inserted.id,
+      description: it.description,
+      quantity: it.quantity,
+      unit_price: it.unit_price,
+      line_total: it.line_total,
+      sort_order: it.sort_order,
+    }))
+  )
+  // El issuedBy queda registrado implícitamente por ser una acción del admin que pagó la 1ra.
+  void args.issuedBy
 }
 
 export async function voidInvoice(id: string, reason: string): Promise<{ error: string } | { ok: true }> {

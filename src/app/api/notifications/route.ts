@@ -362,8 +362,43 @@ export async function GET() {
     }
   }
 
+  /* ── Facturas auto-emitidas recientes (solo admin) ─────────── */
+  const invoiceAutoItems: NotificationItem[] = []
+  if (appUser?.role === 'admin') {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    const { data: autoInvoices } = await supabase
+      .from('invoices')
+      .select('id, invoice_number, total, currency, created_at, client:clients!invoices_client_id_fkey(name)')
+      .eq('status', 'issued')
+      .is('created_by', null)
+      .gte('created_at', sevenDaysAgo)
+      .order('created_at', { ascending: false })
+      .limit(30)
+
+    for (const inv of (autoInvoices ?? []) as Array<{
+      id: string
+      invoice_number: string
+      total: number
+      currency: string
+      created_at: string
+      client: { name: string } | null
+    }>) {
+      invoiceAutoItems.push({
+        kind: 'invoice_auto',
+        id: `inv-auto-${inv.id}`,
+        created_at: inv.created_at,
+        read: false,
+        invoice_id: inv.id,
+        invoice_number: inv.invoice_number,
+        invoice_client_name: inv.client?.name ?? '',
+        invoice_total: inv.total,
+        invoice_currency: inv.currency,
+      })
+    }
+  }
+
   /* ── Merge y sort: vencidos al frente, luego por fecha ─────── */
-  const items = [...overdueItems, ...mentionItems, ...reviewMentionItems, ...calendarItems, ...convItems].sort((a, b) => {
+  const items = [...overdueItems, ...mentionItems, ...reviewMentionItems, ...invoiceAutoItems, ...calendarItems, ...convItems].sort((a, b) => {
     if (a.kind === 'overdue' && b.kind !== 'overdue') return -1
     if (a.kind !== 'overdue' && b.kind === 'overdue') return 1
     return a.created_at < b.created_at ? 1 : -1

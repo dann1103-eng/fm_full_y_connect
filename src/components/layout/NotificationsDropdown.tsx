@@ -50,6 +50,10 @@ export function NotificationsDropdown() {
       router.push('/calendario')
       return
     }
+    if (item.kind === 'invoice_auto' && item.invoice_id) {
+      router.push(`/billing/invoices/${item.invoice_id}`)
+      return
+    }
     if (item.kind === 'mention') {
       startTransition(async () => {
         if (item.mention_source === 'review') {
@@ -74,6 +78,9 @@ export function NotificationsDropdown() {
       return
     }
     if (item.kind === 'calendar') {
+      return
+    }
+    if (item.kind === 'invoice_auto') {
       return
     }
     if (item.kind === 'mention') {
@@ -199,6 +206,7 @@ function NotificationRow({
 
   const isOverdue = item.kind === 'overdue'
   const isCalendar = item.kind === 'calendar'
+  const isInvoiceAuto = item.kind === 'invoice_auto'
   const isMention = item.kind === 'mention'
   const isReviewMention = isMention && item.mention_source === 'review'
 
@@ -246,6 +254,44 @@ function NotificationRow({
               {scheduledLabel && (
                 <div className="text-fm-on-surface-variant/70 text-[11px]">{scheduledLabel}</div>
               )}
+            </div>
+          </div>
+        </button>
+        {dismissButton}
+      </div>
+    )
+  }
+
+  if (isInvoiceAuto) {
+    const totalLabel =
+      item.invoice_total != null
+        ? new Intl.NumberFormat('es-SV', {
+            style: 'currency',
+            currency: item.invoice_currency ?? 'USD',
+            minimumFractionDigits: 2,
+          }).format(item.invoice_total)
+        : ''
+    return (
+      <div className="relative group">
+        <button
+          type="button"
+          onClick={onClick}
+          className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-fm-primary/10 transition-colors border-b border-fm-surface-container-high/60 last:border-b-0"
+        >
+          <span className="w-8 h-8 rounded-full bg-fm-primary/10 flex items-center justify-center flex-shrink-0">
+            <span className="material-symbols-outlined text-[18px] text-fm-primary">receipt_long</span>
+          </span>
+          <div className="flex-1 min-w-0 pr-5">
+            <div className="text-xs leading-tight">
+              <span className="font-bold text-fm-primary uppercase tracking-wide text-[10px]">
+                Factura automática
+              </span>
+              <div className="font-semibold text-fm-on-surface mt-0.5 truncate">
+                #{item.invoice_number} · {item.invoice_client_name}
+              </div>
+              <div className="text-fm-on-surface-variant/70 text-[11px]">
+                Se emitió {totalLabel ? `por ${totalLabel}` : ''} · revísala si necesitas ajustarla
+              </div>
             </div>
           </div>
         </button>

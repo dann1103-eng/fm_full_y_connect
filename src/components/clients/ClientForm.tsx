@@ -15,7 +15,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { createClient } from '@/lib/supabase/client'
 import { currentCycleDates, firstCycleDates } from '@/lib/domain/cycles'
 import { addDaysString, formatDateEs } from '@/lib/domain/dates'
-import type { BillingPeriod, Client } from '@/types/db'
+import { ConfirmCycleRecalcDialog } from './ConfirmCycleRecalcDialog'
+import type { BillingCycle, BillingPeriod, Client, PersonType } from '@/types/db'
 
 interface Plan {
   id: string
@@ -42,6 +43,13 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
 
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>(existing?.billing_period ?? 'monthly')
   const [billingDay2, setBillingDay2] = useState(existing?.billing_day_2?.toString() ?? '')
+  const [autoBilling, setAutoBilling] = useState(existing?.auto_billing ?? false)
+  const [isForeign, setIsForeign] = useState(existing?.is_foreign ?? false)
+  const [fiscalOpen, setFiscalOpen] = useState(false)
+  const [recalcDialog, setRecalcDialog] = useState<
+    | { open: true; periodStart: string; periodEnd: string; pending: () => Promise<void> }
+    | { open: false }
+  >({ open: false })
   const [form, setForm] = useState({
     name: existing?.name ?? '',
     contact_email: existing?.contact_email ?? '',
@@ -57,6 +65,13 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
     current_plan_id: existing?.current_plan_id ?? (plans[0]?.id ?? ''),
     billing_day: existing?.billing_day?.toString() ?? '1',
     start_date: defaultCycleStart,
+    legal_name: existing?.legal_name ?? '',
+    person_type: (existing?.person_type ?? '') as PersonType | '',
+    nit: existing?.nit ?? '',
+    nrc: existing?.nrc ?? '',
+    dui: existing?.dui ?? '',
+    fiscal_address: existing?.fiscal_address ?? '',
+    giro: existing?.giro ?? '',
   })
 
   const selectedPlan = plans.find(p => p.id === form.current_plan_id)
@@ -69,13 +84,40 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+
+    // Validación: auto_billing requiere datos fiscales (salvo is_foreign).
+    if (autoBilling && !isForeign) {
+      if (!form.legal_name.trim() || !form.nit.trim()) {
+        setError('Facturación automática requiere razón social y NIT (o marca "cliente extranjero").')
+        return
+      }
+    }
+
     setLoading(true)
 
     const supabase = createClient()
     const billingDay = parseInt(form.billing_day, 10)
 
+    const fiscalPayload = {
+      legal_name: form.legal_name || null,
+      person_type: form.person_type || null,
+      nit: form.nit || null,
+      nrc: form.nrc || null,
+      dui: form.dui || null,
+      fiscal_address: form.fiscal_address || null,
+      giro: form.giro || null,
+      auto_billing: autoBilling,
+      is_foreign: isForeign,
+    }
+
     if (existing) {
-      // Update client row
+      const billingDayChanged =
+        existing.billing_day !== billingDay ||
+        (existing.billing_day_2 ?? null) !== (billingPeriod === 'biweekly' && billingDay2 ? parseInt(billingDay2, 10) : null) ||
+        existing.start_date !== form.start_date ||
+        existing.billing_period !== billingPeriod
+
+      // Update client row (siempre se aplica)
       const { error: updateError } = await supabase
         .from('clients')
         .update({
@@ -95,6 +137,7 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
           billing_day_2: billingPeriod === 'biweekly' && billingDay2 ? parseInt(billingDay2, 10) : null,
           billing_period: billingPeriod,
           start_date: form.start_date,
+          ...fiscalPayload,
         })
         .eq('id', existing.id)
 
@@ -104,29 +147,47 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
         return
       }
 
-      // Recalcular y actualizar el ciclo de facturación actual
-      if (!isContentPlan) {
-        const { data: plan } = await supabase
-          .from('plans')
-          .select('*')
-          .eq('id', form.current_plan_id)
-          .single()
+      // Recalcular ciclo: opt-in solo si las fechas/periodo cambiaron.
+      if (!isContentPlan && billingDayChanged) {
+        const { data: currentCycle } = await supabase
+          .from('billing_cycles')
+          .select('id, period_start, period_end')
+          .eq('client_id', existing.id)
+          .eq('status', 'current')
+          .maybeSingle()
 
-        if (plan) {
-          const { periodStart, periodEnd } = firstCycleDates(form.start_date, {
-            billingPeriod,
+        if (currentCycle) {
+          const cyc = currentCycle as Pick<BillingCycle, 'id' | 'period_start' | 'period_end'>
+          // Mostrar dialog pidiendo confirmación
+          const doRecalc = async () => {
+            const { data: plan } = await supabase
+              .from('plans')
+              .select('*')
+              .eq('id', form.current_plan_id)
+              .single()
+            if (plan) {
+              const { periodStart, periodEnd } = firstCycleDates(form.start_date, {
+                billingPeriod,
+              })
+              await supabase
+                .from('billing_cycles')
+                .update({
+                  period_start: periodStart,
+                  period_end: periodEnd,
+                  plan_id_snapshot: plan.id,
+                  limits_snapshot_json: plan.limits_json,
+                })
+                .eq('id', cyc.id)
+            }
+          }
+          setLoading(false)
+          setRecalcDialog({
+            open: true,
+            periodStart: cyc.period_start,
+            periodEnd: cyc.period_end,
+            pending: doRecalc,
           })
-
-          await supabase
-            .from('billing_cycles')
-            .update({
-              period_start: periodStart,
-              period_end: periodEnd,
-              plan_id_snapshot: plan.id,
-              limits_snapshot_json: plan.limits_json,
-            })
-            .eq('client_id', existing.id)
-            .eq('status', 'current')
+          return
         }
       }
     } else {
@@ -151,6 +212,7 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
           billing_period: billingPeriod,
           start_date: form.start_date,
           status: 'active',
+          ...fiscalPayload,
         })
         .select()
         .single()
@@ -197,6 +259,19 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
     }
 
     setLoading(false)
+    setOpen(false)
+    router.refresh()
+  }
+
+  async function handleRecalcDecision(recalc: boolean) {
+    if (!recalcDialog.open) return
+    const pending = recalcDialog.pending
+    setRecalcDialog({ open: false })
+    if (recalc) {
+      setLoading(true)
+      await pending()
+      setLoading(false)
+    }
     setOpen(false)
     router.refresh()
   }
@@ -426,6 +501,116 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
               </div>
             </div>
 
+            {/* ── Datos fiscales & facturación ── */}
+            <div className="col-span-2 pt-1 border-t border-fm-outline-variant/10 mt-2">
+              <button
+                type="button"
+                onClick={() => setFiscalOpen((v) => !v)}
+                className="w-full flex items-center justify-between py-1 text-xs font-semibold text-fm-outline-variant uppercase tracking-widest"
+              >
+                <span>Datos fiscales</span>
+                <span className="material-symbols-outlined text-[18px]">
+                  {fiscalOpen ? 'expand_less' : 'expand_more'}
+                </span>
+              </button>
+
+              {fiscalOpen && (
+                <div className="grid grid-cols-2 gap-3 pt-3">
+                  <div className="col-span-2 flex flex-col gap-2 rounded-xl bg-fm-background border border-fm-surface-container-high p-3">
+                    <label className="flex items-center gap-3 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={autoBilling}
+                        onChange={(e) => setAutoBilling(e.target.checked)}
+                        className="w-4 h-4 accent-fm-primary"
+                      />
+                      <span className="flex flex-col">
+                        <span className="font-semibold text-fm-on-surface">Facturación automática</span>
+                        <span className="text-xs text-fm-on-surface-variant">
+                          Genera la factura 10 días antes del cierre del ciclo.
+                        </span>
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-3 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={isForeign}
+                        onChange={(e) => setIsForeign(e.target.checked)}
+                        className="w-4 h-4 accent-fm-primary"
+                      />
+                      <span className="flex flex-col">
+                        <span className="font-semibold text-fm-on-surface">Cliente extranjero</span>
+                        <span className="text-xs text-fm-on-surface-variant">
+                          Cliente fuera de El Salvador — no requiere NIT/NRC.
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+
+                  <div className="col-span-2 space-y-1.5">
+                    <Label>Razón social</Label>
+                    <Input
+                      value={form.legal_name}
+                      onChange={(e) => set('legal_name', e.target.value)}
+                      className="rounded-xl bg-fm-background border-fm-surface-container-high"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Tipo de persona</Label>
+                    <select
+                      value={form.person_type}
+                      onChange={(e) => set('person_type', e.target.value)}
+                      className="w-full py-2 px-3 text-sm bg-fm-background border border-fm-surface-container-high rounded-xl text-fm-on-surface focus:outline-none focus:border-fm-primary"
+                    >
+                      <option value="">—</option>
+                      <option value="natural">Natural</option>
+                      <option value="juridical">Jurídica</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>NIT</Label>
+                    <Input
+                      value={form.nit}
+                      onChange={(e) => set('nit', e.target.value)}
+                      className="rounded-xl bg-fm-background border-fm-surface-container-high"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>NRC</Label>
+                    <Input
+                      value={form.nrc}
+                      onChange={(e) => set('nrc', e.target.value)}
+                      className="rounded-xl bg-fm-background border-fm-surface-container-high"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>DUI</Label>
+                    <Input
+                      value={form.dui}
+                      onChange={(e) => set('dui', e.target.value)}
+                      className="rounded-xl bg-fm-background border-fm-surface-container-high"
+                    />
+                  </div>
+                  <div className="col-span-2 space-y-1.5">
+                    <Label>Dirección fiscal</Label>
+                    <Input
+                      value={form.fiscal_address}
+                      onChange={(e) => set('fiscal_address', e.target.value)}
+                      className="rounded-xl bg-fm-background border-fm-surface-container-high"
+                    />
+                  </div>
+                  <div className="col-span-2 space-y-1.5">
+                    <Label>Giro</Label>
+                    <Input
+                      value={form.giro}
+                      onChange={(e) => set('giro', e.target.value)}
+                      className="rounded-xl bg-fm-background border-fm-surface-container-high"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="col-span-2 space-y-1.5">
               <Label>Notas internas</Label>
               <Textarea
@@ -466,6 +651,20 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
         </div>
       </DialogContent>
       </Dialog>
+
+      {recalcDialog.open && (
+        <ConfirmCycleRecalcDialog
+          open
+          periodStart={recalcDialog.periodStart}
+          periodEnd={recalcDialog.periodEnd}
+          onDecision={handleRecalcDecision}
+          onCancel={() => {
+            setRecalcDialog({ open: false })
+            setOpen(false)
+            router.refresh()
+          }}
+        />
+      )}
     </>
   )
 }

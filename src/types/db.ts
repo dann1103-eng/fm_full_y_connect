@@ -47,7 +47,7 @@ export const PRIORITY_COLORS: Record<Priority, string> = {
 }
 
 export type ClientStatus = 'active' | 'paused' | 'overdue'
-export type CycleStatus = 'current' | 'archived' | 'pending_renewal'
+export type CycleStatus = 'current' | 'archived' | 'pending_renewal' | 'scheduled'
 export type PaymentStatus = 'paid' | 'unpaid'
 export type UserRole = 'admin' | 'supervisor' | 'operator' | 'client'
 export type ConversationType = 'dm' | 'channel'
@@ -262,6 +262,8 @@ export interface Database {
           giro: string | null
           country_code: string | null
           default_tax_rate: number | null
+          auto_billing: boolean
+          is_foreign: boolean
         }
         Insert: {
           id?: string
@@ -294,6 +296,8 @@ export interface Database {
           giro?: string | null
           country_code?: string | null
           default_tax_rate?: number | null
+          auto_billing?: boolean
+          is_foreign?: boolean
         }
         Update: {
           name?: string
@@ -325,6 +329,8 @@ export interface Database {
           giro?: string | null
           country_code?: string | null
           default_tax_rate?: number | null
+          auto_billing?: boolean
+          is_foreign?: boolean
         }
         Relationships: [
           {
@@ -1068,6 +1074,7 @@ export interface Database {
           created_by: string | null
           created_at: string
           updated_at: string
+          biweekly_half: 'first' | 'second' | null
         }
         Insert: {
           id?: string
@@ -1094,6 +1101,7 @@ export interface Database {
           void_by?: string | null
           void_at?: string | null
           created_by?: string | null
+          biweekly_half?: 'first' | 'second' | null
         }
         Update: {
           invoice_number?: string
@@ -1117,6 +1125,7 @@ export interface Database {
           void_reason?: string | null
           void_by?: string | null
           void_at?: string | null
+          biweekly_half?: 'first' | 'second' | null
         }
         Relationships: []
       }
@@ -1356,7 +1365,7 @@ export const PAYMENT_METHOD_LABELS: Record<InvoicePaymentMethod, string> = {
 
 /** Item unificado para el dropdown de notificaciones (TopNav). */
 export interface NotificationItem {
-  kind: 'mention' | 'dm' | 'channel' | 'overdue' | 'calendar'
+  kind: 'mention' | 'dm' | 'channel' | 'overdue' | 'calendar' | 'invoice_auto'
   /** mention.id | conversation.id | requirement.id */
   id: string
   created_at: string
@@ -1390,6 +1399,12 @@ export interface NotificationItem {
   calendar_title?: string
   calendar_scheduled_at?: string
   calendar_reason?: 'assigned' | 'upcoming'
+  /* Para 'invoice_auto' */
+  invoice_id?: string
+  invoice_number?: string
+  invoice_client_name?: string
+  invoice_total?: number
+  invoice_currency?: string
 }
 
 /** Mensaje enriquecido con autor y adjuntos para UI */
