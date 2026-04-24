@@ -7,22 +7,11 @@ import { PhaseSheet } from './PhaseSheet'
 import { QuickTimerDialog } from './QuickTimerDialog'
 import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import type { PipelineItem } from '@/lib/domain/pipeline'
-import type { RequirementPhaseLog, ContentType, Phase, Priority } from '@/types/db'
+import type { RequirementPhaseLog, Phase, Priority } from '@/types/db'
 import { PRIORITY_COLORS } from '@/types/db'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { getDeadlineStatus, deadlineIconClasses, formatDeadlineLabel, formatDeadlineDate, formatDeadlineBadge } from '@/lib/domain/deadline'
 import { getPhaseTimerColor, phaseTimerBgClass } from '@/lib/domain/phaseTimer'
-
-const CONTENT_TYPE_COLORS: Record<ContentType, string> = {
-  historia:         'bg-purple-100 text-purple-700 dark:bg-purple-500/25 dark:text-purple-200',
-  estatico:         'bg-blue-100 text-blue-700 dark:bg-blue-500/25 dark:text-blue-200',
-  video_corto:      'bg-orange-100 text-orange-700 dark:bg-orange-500/25 dark:text-orange-200',
-  reel:             'bg-pink-100 text-pink-700 dark:bg-pink-500/25 dark:text-pink-200',
-  short:            'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/25 dark:text-yellow-200',
-  produccion:       'bg-teal-100 text-teal-700 dark:bg-teal-500/25 dark:text-teal-200',
-  reunion:          'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/25 dark:text-indigo-200',
-  matriz_contenido: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/25 dark:text-emerald-200',
-}
 
 interface PipelineCardProps {
   item: PipelineItem
@@ -115,7 +104,7 @@ export function CardBody({
         />
       </div>
 
-      <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full mb-2 ${CONTENT_TYPE_COLORS[item.content_type]}`}>
+      <span className="content-chip inline-block text-xs font-semibold px-2 py-0.5 rounded-full mb-2">
         {CONTENT_TYPE_LABELS[item.content_type]}
       </span>
       {item.includes_story && (

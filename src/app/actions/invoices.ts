@@ -11,6 +11,7 @@ import {
   type LineItemInput,
 } from '@/lib/domain/invoices'
 import { invoicePeriodLabel } from '@/lib/domain/billing'
+import { nextCycleDates } from '@/lib/domain/cycles'
 import { today as todayString } from '@/lib/domain/dates'
 import type { Client, CompanySettings, InvoicePaymentMethod, Plan, BillingCycle } from '@/types/db'
 
@@ -302,6 +303,77 @@ export async function voidInvoice(id: string, reason: string): Promise<{ error: 
   revalidatePath('/billing/invoices')
   revalidatePath(`/billing/invoices/${id}`)
   return { ok: true as const }
+}
+
+/**
+ * Devuelve el id de un billing_cycle con status='scheduled' para el cliente,
+ * creándolo si no existe. Usado cuando el admin factura el "siguiente ciclo"
+ * desde el InvoiceForm y aún no hay un scheduled pre-creado por el cron.
+ */
+export async function ensureScheduledCycle(
+  clientId: string,
+): Promise<{ error: string } | { ok: true; cycleId: string }> {
+  const auth = await requireAdmin()
+  if ('error' in auth) return { error: auth.error as string }
+  const admin = createAdminClient()
+
+  // Reusar si ya hay uno scheduled
+  const { data: existing } = await admin
+    .from('billing_cycles')
+    .select('id')
+    .eq('client_id', clientId)
+    .eq('status', 'scheduled')
+    .maybeSingle()
+  if (existing?.id) return { ok: true as const, cycleId: existing.id as string }
+
+  // Cargar cliente + ciclo actual + plan
+  const [{ data: clientRow }, { data: currentRow }] = await Promise.all([
+    admin.from('clients').select('*').eq('id', clientId).single(),
+    admin
+      .from('billing_cycles')
+      .select('id, period_start, period_end')
+      .eq('client_id', clientId)
+      .eq('status', 'current')
+      .maybeSingle(),
+  ])
+  const client = clientRow as Client | null
+  const current = currentRow as Pick<BillingCycle, 'id' | 'period_start' | 'period_end'> | null
+  if (!client) return { error: 'Cliente no encontrado' as const }
+  if (!current) return { error: 'El cliente no tiene un ciclo activo' as const }
+
+  const { data: planRow } = await admin
+    .from('plans')
+    .select('*')
+    .eq('id', client.current_plan_id ?? '')
+    .maybeSingle()
+  const plan = planRow as Plan | null
+  if (!plan) return { error: 'El cliente no tiene un plan asignado' as const }
+
+  const { periodStart, periodEnd } = nextCycleDates(current.period_end, {
+    billingPeriod: client.billing_period,
+  })
+
+  const snapshot = plan.unified_content_limit != null
+    ? { ...(plan.limits_json ?? {}), unified_content_limit: plan.unified_content_limit }
+    : plan.limits_json
+
+  const { data: inserted, error } = await admin
+    .from('billing_cycles')
+    .insert({
+      client_id: client.id,
+      plan_id_snapshot: plan.id,
+      limits_snapshot_json: snapshot,
+      rollover_from_previous_json: null,
+      period_start: periodStart,
+      period_end: periodEnd,
+      status: 'scheduled',
+      payment_status: 'unpaid',
+    })
+    .select('id')
+    .single()
+
+  if (error || !inserted?.id) return { error: 'Error al crear el ciclo programado' as const }
+  return { ok: true as const, cycleId: inserted.id as string }
 }
 
 export async function deleteInvoiceDraft(id: string): Promise<{ error: string } | { ok: true }> {

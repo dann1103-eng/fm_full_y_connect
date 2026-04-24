@@ -66,6 +66,7 @@ export default function ClientEditPage() {
     country_code: 'SV',
     default_tax_rate: '0.13',
   })
+  const [autoBilling, setAutoBilling] = useState(false)
 
   const [cambiosPackages, setCambiosPackages] = useState<CambiosPackage[]>([])
   const [extraContent, setExtraContent] = useState<ExtraContentItem[]>([])
@@ -142,6 +143,7 @@ export default function ClientEditPage() {
         country_code:     clientData.country_code ?? 'SV',
         default_tax_rate: (clientData.default_tax_rate ?? 0.13).toString(),
       })
+      setAutoBilling((clientData as Client & { auto_billing?: boolean }).auto_billing ?? false)
       setWeeklyTargets(clientData.weekly_targets_json ?? {})
       setWeeklyDist((clientData as Client & { weekly_distribution_json?: WeeklyDistribution | null }).weekly_distribution_json ?? {})
       setBillingPeriod(clientData.billing_period)
@@ -231,6 +233,7 @@ export default function ClientEditPage() {
         country_code:     fiscal.country_code.trim() || 'SV',
         default_tax_rate: Number.isFinite(parseFloat(fiscal.default_tax_rate))
                             ? parseFloat(fiscal.default_tax_rate) : 0.13,
+        auto_billing:     autoBilling,
       })
       .eq('id', id)
     setFiscalSaving(false)
@@ -855,6 +858,16 @@ export default function ClientEditPage() {
                         </label>
                         <p className="text-xs text-fm-outline-variant mt-1">
                           IVA actual: <strong>{(parseFloat(fiscal.default_tax_rate) * 100).toFixed(0)}%</strong>
+                        </p>
+                      </div>
+                      <div className="col-span-2 pt-2 border-t border-fm-surface-container-high">
+                        <label className="flex items-center gap-2 text-sm text-fm-on-surface cursor-pointer">
+                          <input type="checkbox" checked={autoBilling}
+                            onChange={(e) => setAutoBilling(e.target.checked)} />
+                          Facturación automática
+                        </label>
+                        <p className="text-xs text-fm-outline-variant mt-1">
+                          Genera la factura del siguiente ciclo automáticamente 10 días antes del cierre del ciclo actual.
                         </p>
                       </div>
                     </div>

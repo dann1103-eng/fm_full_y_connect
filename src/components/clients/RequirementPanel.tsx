@@ -20,9 +20,6 @@ import { RequirementModal } from './RequirementModal'
 import { RequirementHistory } from './RequirementHistory'
 import { renewContentPackage } from '@/app/actions/contentPackage'
 
-// Amber-toned types (estatico, video_corto) get amber icon styling
-const AMBER_TYPES = new Set<ContentType>(['estatico', 'video_corto'])
-
 // Simple (non-pipeline) content types — counters only, sin distribución semanal
 const SIMPLE_TYPES: ContentType[] = ['produccion', 'reunion']
 // Counter-only: se excluyen del desglose semanal (solo aparecen como contadores)
@@ -576,10 +573,7 @@ export function RequirementPanel({
             const pct = effectiveTotal > 0 ? Math.min(100, Math.round((consumed / effectiveTotal) * 100)) : 0
             const available = Math.max(0, effectiveTotal - consumed)
 
-            const isAmber = AMBER_TYPES.has(type)
-            const iconBg = isAmber ? 'bg-amber-100/60' : 'bg-fm-primary-container/30'
-            const iconColor = isAmber ? 'text-amber-600' : 'text-fm-primary'
-            const availableColor = isAmber ? '#d97706' : '#595c5e'
+            const availableColor = '#595c5e'
             const color = barColor(pct)
 
             return (
@@ -588,8 +582,8 @@ export function RequirementPanel({
                 className="glass-panel p-5 rounded-[1.5rem] hover:translate-y-[-3px] transition-transform duration-300 flex flex-col gap-3"
               >
                 {/* Icon */}
-                <div className={`p-2 ${iconBg} rounded-xl w-fit`}>
-                  <span className={`material-symbols-outlined ${iconColor} text-xl`}>
+                <div className="content-chip p-2 rounded-xl w-fit">
+                  <span className="content-icon material-symbols-outlined text-xl">
                     {CONTENT_ICONS[type]}
                   </span>
                 </div>

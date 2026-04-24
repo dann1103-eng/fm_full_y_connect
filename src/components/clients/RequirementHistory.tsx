@@ -7,8 +7,6 @@ import type { Requirement, RequirementCambioLog, ContentType } from '@/types/db'
 import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import { CONTENT_ICONS } from '@/lib/domain/content-icons'
 
-const AMBER_TYPES = new Set<ContentType>(['estatico', 'video_corto'])
-
 const TYPE_ACTION: Record<ContentType, string> = {
   historia: 'Historia registrada',
   estatico: 'Estático registrado',
@@ -131,9 +129,6 @@ export function RequirementHistory({
       <div className="divide-y divide-fm-surface-container-high/60">
         {requirements.map((r) => {
           const type = r.content_type as ContentType
-          const isAmber = AMBER_TYPES.has(type)
-          const iconBg = isAmber ? 'bg-amber-100/60' : 'bg-fm-primary-container/30'
-          const iconColor = isAmber ? 'text-amber-600' : 'text-fm-primary'
           const userName = userMap[r.registered_by_user_id] ?? 'Operador'
           const logs = cambioLogsMap[r.id] ?? []
           const isExpanded = expandedId === r.id
@@ -147,8 +142,8 @@ export function RequirementHistory({
               <div className="flex items-center justify-between hover:bg-transparent transition-colors">
                 <div className="flex items-center gap-4">
                   {/* Icon box */}
-                  <div className={`p-2 ${iconBg} rounded-xl flex-shrink-0`}>
-                    <span className={`material-symbols-outlined ${iconColor} text-base`}>
+                  <div className="content-chip p-2 rounded-xl flex-shrink-0">
+                    <span className="content-icon material-symbols-outlined text-base">
                       {CONTENT_ICONS[type]}
                     </span>
                   </div>

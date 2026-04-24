@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { InboxSidebar } from '@/components/inbox/InboxSidebar'
 import { InboxResponsiveShell } from '@/components/inbox/InboxResponsiveShell'
+import { TopNav } from '@/components/layout/TopNav'
 import type { AppUser, ConversationListItem } from '@/types/db'
 
 function formatSharePreview(body: string): string {
@@ -113,10 +114,15 @@ export default async function InboxLayout({ children }: { children: React.ReactN
   const [initialList, allUsers] = await Promise.all([loadInitialList(), loadAllUsers()])
 
   return (
-    <InboxResponsiveShell
-      sidebar={<InboxSidebar initialList={initialList} allUsers={allUsers} />}
-    >
-      {children}
-    </InboxResponsiveShell>
+    <div className="flex flex-col h-full">
+      <TopNav title="Inbox" />
+      <div className="flex-1 min-h-0">
+        <InboxResponsiveShell
+          sidebar={<InboxSidebar initialList={initialList} allUsers={allUsers} />}
+        >
+          {children}
+        </InboxResponsiveShell>
+      </div>
+    </div>
   )
 }

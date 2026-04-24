@@ -173,6 +173,10 @@
   --fm-inverse-surface:          #0b0f10;
   --fm-inverse-on-surface:       #9a9d9f;
   --fm-inverse-primary:          #65fde6;
+
+  /* Iconos de tipo de contenido — paleta unificada */
+  --fm-content-icon:             #534FBB;
+  --fm-content-accent:           #DAE54E;
 }
 
 .dark {
@@ -241,6 +245,10 @@
   --fm-inverse-surface:          #e4e8eb;
   --fm-inverse-on-surface:       #1a1d1f;
   --fm-inverse-primary:          #00675c;
+
+  /* Invierte la paleta de iconos de contenido en modo oscuro */
+  --fm-content-icon:             #DAE54E;
+  --fm-content-accent:           #534FBB;
 }
 
 @layer base {
@@ -268,6 +276,14 @@
   }
   .avatar-amber {
     background: linear-gradient(135deg, #7a4f00 0%, #ffcc5c 100%);
+  }
+  .content-chip {
+    color: var(--fm-content-icon);
+    background: color-mix(in srgb, var(--fm-content-accent) 18%, transparent);
+    border: 1px solid color-mix(in srgb, var(--fm-content-accent) 35%, transparent);
+  }
+  .content-icon {
+    color: var(--fm-content-icon);
   }
   .glass-panel {
     background: rgba(255, 255, 255, 0.7);

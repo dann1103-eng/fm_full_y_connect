@@ -20,9 +20,6 @@ const STATUS_COLORS: Record<string, string> = {
 // del flujo de contenido ni se muestran como íconos en la card del dashboard.
 const EXCLUDED_FROM_CARD = new Set<ContentType>(['produccion', 'reunion'])
 
-// Amber-toned types share a different accent color from the rest
-const AMBER_TYPES = new Set(['estatico', 'video_corto'])
-
 function progressColor(consumed: number, limit: number): string {
   if (limit === 0) return 'bg-fm-outline-variant'
   const pct = (consumed / limit) * 100
@@ -151,14 +148,9 @@ export function ClientCard({ item }: { item: ClientDashboardItem }) {
             const consumed = totals[type] ?? 0
             const limit = limits[type] ?? 0
             const col = progressColor(consumed, limit)
-            const isAmber = AMBER_TYPES.has(type)
-            const iconColor = isAmber ? '#d97706' : '#00675c'
             return (
               <div key={type} className="flex flex-col items-center gap-1">
-                <span
-                  className="material-symbols-outlined text-[18px]"
-                  style={{ color: iconColor }}
-                >
+                <span className="content-icon material-symbols-outlined text-[18px]">
                   {CONTENT_ICONS[type]}
                 </span>
                 <span className="text-xs font-medium text-fm-on-surface">
