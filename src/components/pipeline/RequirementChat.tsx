@@ -17,6 +17,7 @@ interface ChatMessage {
   attachment_path: string | null
   attachment_type: string | null
   attachment_name: string | null
+  visible_to_client: boolean
   user: { full_name: string; role: string; avatar_url: string | null } | null
 }
 
@@ -45,6 +46,7 @@ export function RequirementChat({ requirementId, currentUserId, isAdmin = false,
   const [users, setUsers] = useState<MentionableUser[]>([])
   const [mentionIds, setMentionIds] = useState<string[]>([])
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [visibleToClient, setVisibleToClient] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -96,7 +98,7 @@ export function RequirementChat({ requirementId, currentUserId, isAdmin = false,
     const supabase = createClient()
     const { data } = await supabase
       .from('requirement_messages')
-      .select('id, body, created_at, user_id, attachment_path, attachment_type, attachment_name, user:users(full_name, role, avatar_url)')
+      .select('id, body, created_at, user_id, attachment_path, attachment_type, attachment_name, visible_to_client, user:users(full_name, role, avatar_url)')
       .eq('requirement_id', requirementId)
       .order('created_at', { ascending: true })
     setMessages((data ?? []) as ChatMessage[])
@@ -162,7 +164,7 @@ export function RequirementChat({ requirementId, currentUserId, isAdmin = false,
       attachmentType,
       attachmentName,
       mentionedUserIds: clientMode ? [] : mentionIds,
-      visibleToClient: clientMode,
+      visibleToClient: clientMode || visibleToClient,
     })
     if ('error' in res && res.error) {
       setUploadError(res.error)
@@ -174,6 +176,7 @@ export function RequirementChat({ requirementId, currentUserId, isAdmin = false,
     }
     setBody('')
     setMentionIds([])
+    setVisibleToClient(false)
     clearPendingFile()
     setSending(false)
     inputRef.current?.focus()
@@ -374,7 +377,15 @@ export function RequirementChat({ requirementId, currentUserId, isAdmin = false,
                           {renderWithLinks(msg.body, isMine)}
                         </div>
                       )}
-                      <span className="text-[10px] text-fm-outline-variant mt-1">{formatTime(msg.created_at)}</span>
+                      <span className="text-[10px] text-fm-outline-variant mt-1 flex items-center gap-1.5">
+                        {formatTime(msg.created_at)}
+                        {!clientMode && msg.visible_to_client && (
+                          <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-fm-primary bg-fm-primary/10 px-1.5 py-0.5 rounded-full">
+                            <span className="material-symbols-outlined text-[10px] leading-none">visibility</span>
+                            Cliente
+                          </span>
+                        )}
+                      </span>
                     </div>
 
                     {canDelete && (
@@ -463,6 +474,22 @@ export function RequirementChat({ requirementId, currentUserId, isAdmin = false,
           className="flex-1 resize-none bg-fm-background border border-fm-surface-container-high rounded-xl px-3 py-2 text-sm text-fm-on-surface outline-none focus:border-fm-primary min-h-[38px] max-h-[96px]"
           style={{ fieldSizing: 'content' } as React.CSSProperties}
         />
+        {!clientMode && (
+          <button
+            type="button"
+            onClick={() => setVisibleToClient((v) => !v)}
+            title={visibleToClient ? 'Visible para el cliente (click para desactivar)' : 'Solo interno (click para hacer visible al cliente)'}
+            className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 border transition-colors ${
+              visibleToClient
+                ? 'bg-fm-primary/15 border-fm-primary text-fm-primary'
+                : 'bg-fm-background border-fm-surface-container-high text-fm-on-surface-variant hover:bg-fm-surface-container-low'
+            }`}
+          >
+            <span className="material-symbols-outlined text-base">
+              {visibleToClient ? 'visibility' : 'visibility_off'}
+            </span>
+          </button>
+        )}
         <button
           onClick={handleSend}
           disabled={(!body.trim() && !pendingFile) || sending}
