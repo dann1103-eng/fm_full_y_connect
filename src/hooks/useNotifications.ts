@@ -4,16 +4,17 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { NotificationItem } from '@/types/db'
 import { createClient } from '@/lib/supabase/client'
 
-const SAFETY_POLL_MS = 60_000
+const SAFETY_POLL_MS = 15_000
 const DEBOUNCE_MS = 400
 const DISMISSAL_KEY = 'overdue-seen'
+const LOCAL_DISMISSAL_KEY = 'notif-dismissed'
 
 type DismissalMap = Record<string, string>
 
-function readDismissal(): DismissalMap {
+function readMap(key: string): DismissalMap {
   if (typeof window === 'undefined') return {}
   try {
-    const raw = window.localStorage.getItem(DISMISSAL_KEY)
+    const raw = window.localStorage.getItem(key)
     if (!raw) return {}
     const parsed = JSON.parse(raw) as DismissalMap
     return parsed && typeof parsed === 'object' ? parsed : {}
@@ -22,13 +23,29 @@ function readDismissal(): DismissalMap {
   }
 }
 
-function writeDismissal(map: DismissalMap) {
+function writeMap(key: string, map: DismissalMap) {
   if (typeof window === 'undefined') return
   try {
-    window.localStorage.setItem(DISMISSAL_KEY, JSON.stringify(map))
+    window.localStorage.setItem(key, JSON.stringify(map))
   } catch {
     /* quota or disabled storage — no-op */
   }
+}
+
+function readDismissal(): DismissalMap {
+  return readMap(DISMISSAL_KEY)
+}
+
+function writeDismissal(map: DismissalMap) {
+  writeMap(DISMISSAL_KEY, map)
+}
+
+function readLocalDismissal(): DismissalMap {
+  return readMap(LOCAL_DISMISSAL_KEY)
+}
+
+function writeLocalDismissal(map: DismissalMap) {
+  writeMap(LOCAL_DISMISSAL_KEY, map)
 }
 
 export function useNotifications() {
@@ -41,6 +58,7 @@ export function useNotifications() {
 
   useEffect(() => {
     setDismissal(readDismissal())
+    setLocalDismissed(new Set(Object.keys(readLocalDismissal())))
   }, [])
 
   const fetchItems = useCallback(async () => {
@@ -51,6 +69,16 @@ export function useNotifications() {
       const res = await fetch('/api/notifications', { cache: 'no-store', signal: ctrl.signal })
       if (!res.ok) return
       const data = (await res.json()) as NotificationItem[]
+      const stored = readLocalDismissal()
+      const byId = new Map(data.map((d) => [d.id, d.created_at]))
+      const cleaned: DismissalMap = {}
+      for (const [id, at] of Object.entries(stored)) {
+        if (byId.get(id) === at) cleaned[id] = at
+      }
+      if (Object.keys(cleaned).length !== Object.keys(stored).length) {
+        writeLocalDismissal(cleaned)
+      }
+      setLocalDismissed(new Set(Object.keys(cleaned)))
       setItems(data)
     } catch {
       /* ignore aborted / offline */
@@ -75,6 +103,7 @@ export function useNotifications() {
     const channel = supabase
       .channel(`notifications-feed-${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'requirement_mentions' }, fetchItems)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'review_comment_mentions' }, fetchItems)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, fetchItems)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_members' }, fetchItems)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'requirements' }, scheduleFetch)
@@ -142,12 +171,16 @@ export function useNotifications() {
     [dismissal],
   )
 
-  const localDismiss = useCallback((id: string) => {
-    setLocalDismissed((prev) => new Set(prev).add(id))
+  const localDismiss = useCallback((it: NotificationItem) => {
+    setLocalDismissed((prev) => new Set(prev).add(it.id))
+    writeLocalDismissal({ ...readLocalDismissal(), [it.id]: it.created_at })
   }, [])
 
   const localDismissAll = useCallback(() => {
     setLocalDismissed(new Set(items.map((it) => it.id)))
+    const next: DismissalMap = { ...readLocalDismissal() }
+    for (const it of items) next[it.id] = it.created_at
+    writeLocalDismissal(next)
   }, [items])
 
   const visibleItems = items.filter((it) => {
@@ -158,10 +191,9 @@ export function useNotifications() {
   })
 
   const unreadCount = items.reduce((sum, it) => {
-    if (it.kind === 'overdue') {
-      if (isOverdueDismissed(it)) return sum
-      return sum + 1
-    }
+    if (isOverdueDismissed(it)) return sum
+    if (localDismissed.has(it.id)) return sum
+    if (it.kind === 'overdue') return sum + 1
     if (it.kind === 'mention') return sum + (it.read ? 0 : 1)
     if (it.kind === 'calendar') return sum + 1
     if (it.kind === 'invoice_auto') return sum + 1

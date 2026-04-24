@@ -72,7 +72,7 @@ export function NotificationsDropdown() {
   }
 
   function handleDismiss(item: NotificationItem) {
-    localDismiss(item.id)
+    localDismiss(item)
     if (item.kind === 'overdue' && item.overdue_requirement_id) {
       dismissOverdue(item.overdue_requirement_id, item.created_at)
       return
