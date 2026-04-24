@@ -35,6 +35,7 @@ export function useNotifications() {
   const [items, setItems] = useState<NotificationItem[]>([])
   const [loading, setLoading] = useState(true)
   const [dismissal, setDismissal] = useState<DismissalMap>({})
+  const [localDismissed, setLocalDismissed] = useState<Set<string>>(new Set())
   const abortRef = useRef<AbortController | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -140,7 +141,20 @@ export function useNotifications() {
     [dismissal],
   )
 
-  const visibleItems = items.filter((it) => !isOverdueDismissed(it))
+  const localDismiss = useCallback((id: string) => {
+    setLocalDismissed((prev) => new Set(prev).add(id))
+  }, [])
+
+  const localDismissAll = useCallback(() => {
+    setLocalDismissed(new Set(items.map((it) => it.id)))
+  }, [items])
+
+  const visibleItems = items.filter((it) => {
+    if (isOverdueDismissed(it)) return false
+    if (localDismissed.has(it.id)) return false
+    if (it.kind === 'mention' && it.read) return false
+    return true
+  })
 
   const unreadCount = items.reduce((sum, it) => {
     if (it.kind === 'overdue') {
@@ -161,5 +175,7 @@ export function useNotifications() {
     markOverdueSeen,
     dismissOverdue,
     dismissAllOverdue,
+    localDismiss,
+    localDismissAll,
   }
 }

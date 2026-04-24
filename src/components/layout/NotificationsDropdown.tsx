@@ -18,7 +18,7 @@ import type { NotificationItem } from '@/types/db'
 
 export function NotificationsDropdown() {
   const router = useRouter()
-  const { items, allItems, unreadCount, refresh, dismissOverdue, dismissAllOverdue } = useNotifications()
+  const { items, allItems, unreadCount, refresh, dismissOverdue, dismissAllOverdue, localDismiss, localDismissAll } = useNotifications()
   const [open, setOpen] = useState(false)
   const [, startTransition] = useTransition()
 
@@ -68,8 +68,12 @@ export function NotificationsDropdown() {
   }
 
   function handleDismiss(item: NotificationItem) {
+    localDismiss(item.id)
     if (item.kind === 'overdue' && item.overdue_requirement_id) {
       dismissOverdue(item.overdue_requirement_id, item.created_at)
+      return
+    }
+    if (item.kind === 'calendar') {
       return
     }
     if (item.kind === 'mention') {
@@ -92,6 +96,7 @@ export function NotificationsDropdown() {
   }
 
   function handleMarkAll() {
+    localDismissAll()
     dismissAllOverdue()
     startTransition(async () => {
       await Promise.all([markAllMentionsRead(), markAllConversationsRead()])

@@ -98,6 +98,7 @@ export default async function ClientDetailPage({
 
   // Pipeline items del ciclo actual
   const pipelineItems: PipelineItem[] = []
+  const scheduledPipelineItems: PipelineItem[] = []
   const pipelineLogsMap: Record<string, RequirementPhaseLog[]> = {}
 
   if (currentCycle) {
@@ -139,11 +140,50 @@ export default async function ClientDetailPage({
       })
     }
 
-    if (pipelineItems.length > 0) {
+    // Fetch reunion/produccion items separately (not in PIPELINE_CONTENT_TYPES)
+    const { data: scheduledCons } = await supabase
+      .from('requirements')
+      .select('id, content_type, phase, carried_over, billing_cycle_id, registered_at, notes, title, cambios_count, review_started_at, priority, estimated_time_minutes, assigned_to, includes_story, deadline, starts_at')
+      .eq('billing_cycle_id', currentCycle.id)
+      .eq('voided', false)
+      .in('content_type', ['reunion', 'produccion'])
+      .order('starts_at', { ascending: true })
+
+    scheduledPipelineItems.push(...(scheduledCons ?? []).map((c) => ({
+      id: c.id,
+      content_type: c.content_type,
+      phase: c.phase,
+      billing_cycle_id: c.billing_cycle_id,
+      client_id: id,
+      client_name: client.name,
+      client_logo_url: client.logo_url,
+      last_moved_at: c.registered_at,
+      registered_at: c.registered_at,
+      notes: c.notes,
+      carried_over: c.carried_over,
+      title: c.title ?? '',
+      cambios_count: c.cambios_count ?? 0,
+      review_started_at: c.review_started_at ?? null,
+      priority: (c.priority ?? 'media') as import('@/types/db').Priority,
+      estimated_time_minutes: c.estimated_time_minutes ?? null,
+      assigned_to: (c.assigned_to as string[] | null) ?? null,
+      assignees: ((c.assigned_to as string[] | null) ?? []).map(uid => ({
+        id: uid,
+        name: userMap[uid] ?? uid,
+        avatar_url: userAvatarMap[uid] ?? null,
+      })),
+      includes_story: c.includes_story ?? false,
+      deadline: c.deadline ?? null,
+      starts_at: c.starts_at ?? null,
+    })))
+
+    const allPipelineIds = [...pipelineItems.map((i) => i.id), ...scheduledPipelineItems.map((i) => i.id)]
+
+    if (allPipelineIds.length > 0) {
       const { data: logsRaw } = await supabase
         .from('requirement_phase_logs')
         .select('*')
-        .in('requirement_id', pipelineItems.map((i) => i.id))
+        .in('requirement_id', allPipelineIds)
         .order('created_at', { ascending: true })
 
       for (const log of logsRaw ?? []) {
@@ -156,6 +196,7 @@ export default async function ClientDetailPage({
         if (logs.length > 0) item.last_moved_at = logs[logs.length - 1].created_at
       }
     }
+
   }
 
   const cycle = currentCycle as BillingCycle | null
@@ -234,6 +275,7 @@ export default async function ClientDetailPage({
             <h3 className="text-base font-semibold text-fm-on-surface">Pipeline</h3>
             <ClientPipelineTab
               items={pipelineItems}
+              scheduledItems={scheduledPipelineItems}
               logsMap={pipelineLogsMap}
               currentUserId={authUser?.id ?? ''}
               canAssign={canCreate}
