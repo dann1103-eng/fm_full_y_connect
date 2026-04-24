@@ -15,13 +15,24 @@ export async function GET(
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-  const { data: appUser } = await supabase.from('users').select('role').eq('id', user.id).single()
-  if (appUser?.role !== 'admin' && appUser?.role !== 'supervisor') {
-    return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
-  }
 
   const { data: invoice } = await supabase.from('invoices').select('*').eq('id', id).maybeSingle()
   if (!invoice) return NextResponse.json({ error: 'Factura no encontrada' }, { status: 404 })
+
+  // Staff (admin/supervisor) siempre puede ver cualquier factura.
+  // Clientes pueden ver solo facturas de los clients a los que están vinculados.
+  const { data: appUser } = await supabase.from('users').select('role').eq('id', user.id).single()
+  const isStaff = appUser?.role === 'admin' || appUser?.role === 'supervisor'
+
+  if (!isStaff) {
+    const { data: link } = await supabase
+      .from('client_users')
+      .select('client_id')
+      .eq('user_id', user.id)
+      .eq('client_id', (invoice as Invoice).client_id)
+      .maybeSingle()
+    if (!link) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+  }
 
   const { data: items } = await supabase
     .from('invoice_items')

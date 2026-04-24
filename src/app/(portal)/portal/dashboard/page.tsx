@@ -1,12 +1,34 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getActiveClientId } from '@/lib/supabase/active-client'
+import { RequirementPanel } from '@/components/clients/RequirementPanel'
+import { ClientPipelineBoard } from '@/components/portal/ClientPipelineBoard'
 import { computeTotals } from '@/lib/domain/requirement'
-import { effectiveLimits, applyContentLimitsWithOverride, CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
+import { effectiveLimits, applyContentLimitsWithOverride } from '@/lib/domain/plans'
 import { daysUntilEnd } from '@/lib/domain/cycles'
-import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
-import type { BillingCycle, Requirement } from '@/types/db'
+import { clientPhaseOf, PHASES } from '@/lib/domain/pipeline'
+import type { ClientPhase } from '@/lib/domain/pipeline'
+import type {
+  BillingCycle,
+  ClientWithPlan,
+  Phase,
+  Requirement,
+  RequirementCambioLog,
+} from '@/types/db'
+
+export const dynamic = 'force-dynamic'
+
+type PipelineCardItem = { id: string; title: string; notes: string | null; deadline: string | null }
+
+function emptyGroups(): Record<ClientPhase, PipelineCardItem[]> {
+  return {
+    diseno: [],
+    revision_cliente: [],
+    aprobado: [],
+    pendiente_publicar: [],
+    publicado: [],
+  }
+}
 
 export default async function PortalDashboardPage() {
   const activeId = await getActiveClientId()
@@ -14,124 +36,130 @@ export default async function PortalDashboardPage() {
 
   const supabase = await createClient()
 
-  // Datos del cliente
-  const { data: client } = await supabase
+  const { data: clientRaw } = await supabase
     .from('clients')
-    .select('id, name, status')
+    .select('*, plan:plans(*)')
     .eq('id', activeId)
     .single()
 
-  // Ciclo actual
-  const { data: cycle } = await supabase
+  if (!clientRaw) {
+    return (
+      <div className="p-6">
+        <p className="text-sm text-fm-on-surface-variant">No se encontró el cliente.</p>
+      </div>
+    )
+  }
+  const client = clientRaw as ClientWithPlan
+
+  const { data: currentCycle } = await supabase
     .from('billing_cycles')
     .select('*')
     .eq('client_id', activeId)
     .eq('status', 'current')
     .maybeSingle()
 
-  const currentCycle = cycle as BillingCycle | null
+  const cycle = currentCycle as BillingCycle | null
 
-  // Requerimientos del ciclo actual
-  const { data: reqs } = currentCycle
+  const { data: requirementsRaw } = cycle
     ? await supabase
         .from('requirements')
-        .select('id, content_type, phase, voided, deadline, title')
-        .eq('billing_cycle_id', currentCycle.id)
-        .eq('voided', false)
-        .order('deadline', { ascending: true, nullsFirst: false })
+        .select('*')
+        .eq('billing_cycle_id', cycle.id)
+        .order('registered_at', { ascending: false })
     : { data: [] }
+  const requirements = (requirementsRaw ?? []) as Requirement[]
 
-  const requirements = (reqs ?? []) as Pick<Requirement, 'id' | 'content_type' | 'phase' | 'voided' | 'deadline' | 'title'>[]
-  const totals = computeTotals(requirements as unknown as Requirement[])
+  // Staff users para userMap (assignee display en RequirementPanel)
+  const { data: users } = await supabase
+    .from('users')
+    .select('id, full_name, role, avatar_url')
+    .not('role', 'eq', 'client')
 
-  const baseLimits = currentCycle
-    ? effectiveLimits(currentCycle.limits_snapshot_json, currentCycle.rollover_from_previous_json)
+  const userMap: Record<string, string> = {}
+  ;(users ?? []).forEach((u) => {
+    userMap[u.id] =
+      u.full_name ||
+      (u.role === 'admin' ? 'Admin' : u.role === 'supervisor' ? 'Supervisor' : 'Operador')
+  })
+
+  // Cambio logs del ciclo actual
+  const cambioLogsMap: Record<string, RequirementCambioLog[]> = {}
+  if (requirements.length > 0) {
+    const { data: cambioLogsRaw } = await supabase
+      .from('requirement_cambio_logs')
+      .select('*')
+      .in(
+        'requirement_id',
+        requirements.map((r) => r.id),
+      )
+      .order('created_at', { ascending: false })
+    for (const log of cambioLogsRaw ?? []) {
+      if (!cambioLogsMap[log.requirement_id]) cambioLogsMap[log.requirement_id] = []
+      cambioLogsMap[log.requirement_id].push(log as RequirementCambioLog)
+    }
+  }
+
+  // Pipeline: agrupar por fase-cliente
+  const groups = emptyGroups()
+  if (cycle) {
+    for (const r of requirements) {
+      if (r.voided) continue
+      if (r.content_type === 'produccion') continue
+      if (!PHASES.includes(r.phase as Phase)) continue
+      const cp = clientPhaseOf(r.phase as Phase)
+      if (!cp) continue
+      groups[cp].push({
+        id: r.id,
+        title: r.title ?? '',
+        notes: r.notes ?? null,
+        deadline: r.deadline ?? null,
+      })
+    }
+  }
+
+  const totals = computeTotals(requirements)
+  const baseLimits = cycle
+    ? effectiveLimits(cycle.limits_snapshot_json, cycle.rollover_from_previous_json)
     : null
-  const limits = baseLimits && currentCycle
-    ? applyContentLimitsWithOverride(baseLimits, currentCycle.content_limits_override_json)
-    : baseLimits
-
-  const daysLeft = currentCycle ? daysUntilEnd(currentCycle.period_end) : null
-
-  // Próximos deadlines (los 5 más cercanos con deadline futuro)
-  const today = new Date().toISOString().split('T')[0]
-  const upcoming = requirements
-    .filter((r) => r.deadline && r.deadline >= today)
-    .slice(0, 5)
+  const limits = baseLimits
+    ? applyContentLimitsWithOverride(
+        baseLimits,
+        (cycle?.content_limits_override_json ?? null) as Record<string, number> | null,
+      )
+    : null
+  const daysLeft = cycle ? daysUntilEnd(cycle.period_end) : null
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-fm-on-surface mb-1">
-          {client?.name ?? 'Mi empresa'}
-        </h1>
-        <p className="text-sm text-fm-on-surface-variant">
-          {currentCycle
-            ? `Ciclo ${format(new Date(currentCycle.period_start), 'dd MMM', { locale: es })} – ${format(new Date(currentCycle.period_end), 'dd MMM yyyy', { locale: es })}`
-            : 'Sin ciclo activo'}
-          {daysLeft !== null && (
-            <span className={`ml-2 font-medium ${daysLeft <= 7 ? 'text-fm-error' : 'text-fm-primary'}`}>
-              · {daysLeft} día{daysLeft !== 1 ? 's' : ''} restante{daysLeft !== 1 ? 's' : ''}
-            </span>
-          )}
-        </p>
-      </div>
-
-      {/* Progreso por tipo de contenido */}
-      {limits && Object.keys(limits).length > 0 && (
-        <section className="glass-panel p-5">
-          <h2 className="text-base font-semibold text-fm-on-surface mb-4">Progreso del ciclo</h2>
-          <div className="space-y-3">
-            {Object.entries(limits)
-              .filter(([, max]) => (max as number) > 0)
-              .map(([type, max]) => {
-                const used = (totals as Record<string, number>)[type] ?? 0
-                const pct = Math.min(100, Math.round((used / (max as number)) * 100))
-                return (
-                  <div key={type}>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-fm-on-surface-variant">
-                        {CONTENT_TYPE_LABELS[type as keyof typeof CONTENT_TYPE_LABELS] ?? type}
-                      </span>
-                      <span className="text-fm-on-surface font-medium">
-                        {used} / {max as number}
-                      </span>
-                    </div>
-                    <div className="h-2 rounded-full bg-fm-outline-variant/20">
-                      <div
-                        className="h-2 rounded-full bg-fm-primary transition-all"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-                )
-              })}
-          </div>
-        </section>
+    <div className="p-3 sm:p-6 space-y-4 sm:space-y-8">
+      {cycle && limits ? (
+        <RequirementPanel
+          client={client}
+          cycle={cycle}
+          requirements={requirements}
+          totals={totals}
+          limits={limits}
+          daysLeft={daysLeft}
+          isAdmin={false}
+          canCreate={false}
+          canAssign={false}
+          userMap={userMap}
+          assignableUsers={[]}
+          cambioLogsMap={cambioLogsMap}
+          hideHistorySection
+          portalMode
+        />
+      ) : (
+        <div className="glass-panel rounded-[2rem] p-8 text-center">
+          <p className="text-fm-on-surface-variant text-sm">
+            No hay ciclo activo en este momento.
+          </p>
+        </div>
       )}
 
-      {/* Próximos deadlines */}
-      {upcoming.length > 0 && (
-        <section className="glass-panel p-5">
-          <h2 className="text-base font-semibold text-fm-on-surface mb-4">Próximos deadlines</h2>
-          <div className="space-y-2">
-            {upcoming.map((r) => (
-              <div key={r.id} className="flex items-center justify-between text-sm">
-                <span className="text-fm-on-surface truncate max-w-[70%]">
-                  {r.title || CONTENT_TYPE_LABELS[r.content_type as keyof typeof CONTENT_TYPE_LABELS] || r.content_type}
-                </span>
-                <span className="text-fm-on-surface-variant flex-shrink-0">
-                  {r.deadline ? format(new Date(r.deadline), 'dd MMM', { locale: es }) : '—'}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {!currentCycle && (
-        <div className="glass-panel p-8 text-center text-fm-on-surface-variant">
-          <p className="text-sm">No hay ciclo activo en este momento.</p>
+      {cycle && (
+        <div className="glass-panel rounded-[2rem] p-4 sm:p-6 space-y-4">
+          <h3 className="text-base font-semibold text-fm-on-surface">Pipeline</h3>
+          <ClientPipelineBoard groups={groups} />
         </div>
       )}
     </div>

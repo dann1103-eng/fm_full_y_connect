@@ -25,12 +25,18 @@ export async function updateClientProfile(
 
   if (!link) throw new Error('Sin acceso a este cliente')
 
-  // Solo campos permitidos — whitelist explícita
+  // Solo campos permitidos — whitelist explícita.
+  // NO incluir billing_day / billing_period / billing_day_2 — ciclo de facturación
+  // lo cambia solo staff desde /clients/[id]/edit.
+  // NO incluir current_plan_id, max_cambios, default_tax_rate ni otros campos
+  // fiscales/contables que solo staff debe configurar.
   const ALLOWED = [
-    'name', 'contact_email', 'contact_phone',
+    'name', 'logo_url',
+    'contact_email', 'contact_phone',
     'ig_handle', 'fb_handle', 'tiktok_handle', 'yt_handle', 'linkedin_handle',
     'website_url', 'other_contact',
-    'legal_name', 'nit', 'nrc', 'dui', 'fiscal_address', 'giro',
+    'legal_name', 'person_type', 'nit', 'nrc', 'dui', 'fiscal_address', 'giro',
+    'country_code',
   ] as const
 
   const safe: ClientUpdate = {}

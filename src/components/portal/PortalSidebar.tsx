@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { ActiveClientSwitcher } from './ActiveClientSwitcher'
+import { ThemeToggle } from './ThemeToggle'
 
 interface NavItem {
   href: string
@@ -155,8 +156,9 @@ export function PortalSidebar({
           })}
         </nav>
 
-        {/* Cerrar sesión */}
-        <div className="px-3 pb-4 border-t border-fm-outline-variant/20 pt-3">
+        {/* Footer: tema + cerrar sesión */}
+        <div className="px-3 pb-4 border-t border-fm-outline-variant/20 pt-3 space-y-1">
+          <ThemeToggle />
           <form action="/auth/signout" method="post">
             <button
               type="submit"
