@@ -24,6 +24,8 @@ interface RequirementChatProps {
   requirementId: string
   currentUserId: string
   isAdmin?: boolean
+  /** Renderizado desde el portal del cliente: mensajes visibles al cliente, sin @-menciones. */
+  clientMode?: boolean
 }
 
 function publicUrlFor(path: string): string {
@@ -31,7 +33,7 @@ function publicUrlFor(path: string): string {
   return supabase.storage.from('requirement-attachments').getPublicUrl(path).data.publicUrl
 }
 
-export function RequirementChat({ requirementId, currentUserId, isAdmin = false }: RequirementChatProps) {
+export function RequirementChat({ requirementId, currentUserId, isAdmin = false, clientMode = false }: RequirementChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(true)
   const [body, setBody] = useState('')
@@ -77,6 +79,7 @@ export function RequirementChat({ requirementId, currentUserId, isAdmin = false 
   }, [requirementId])
 
   useEffect(() => {
+    if (clientMode) return
     const supabase = createClient()
     supabase
       .from('users')
@@ -86,7 +89,7 @@ export function RequirementChat({ requirementId, currentUserId, isAdmin = false 
       .then(({ data }) => {
         setUsers((data ?? []) as MentionableUser[])
       })
-  }, [currentUserId])
+  }, [currentUserId, clientMode])
 
   async function loadMessages() {
     setLoading(true)
@@ -158,7 +161,8 @@ export function RequirementChat({ requirementId, currentUserId, isAdmin = false 
       attachmentPath,
       attachmentType,
       attachmentName,
-      mentionedUserIds: mentionIds,
+      mentionedUserIds: clientMode ? [] : mentionIds,
+      visibleToClient: clientMode,
     })
     if ('error' in res && res.error) {
       setUploadError(res.error)
@@ -424,14 +428,16 @@ export function RequirementChat({ requirementId, currentUserId, isAdmin = false 
 
       {/* Input bar */}
       <div className="relative flex gap-2 items-end px-5 py-3 border-t border-fm-surface-container-low flex-shrink-0">
-        <MentionAutocomplete
-          textareaRef={inputRef}
-          value={body}
-          onChange={setBody}
-          users={users}
-          currentMentionIds={mentionIds}
-          onMentionsChange={setMentionIds}
-        />
+        {!clientMode && (
+          <MentionAutocomplete
+            textareaRef={inputRef}
+            value={body}
+            onChange={setBody}
+            users={users}
+            currentMentionIds={mentionIds}
+            onMentionsChange={setMentionIds}
+          />
+        )}
         <input
           ref={fileInputRef}
           type="file"
@@ -452,7 +458,7 @@ export function RequirementChat({ requirementId, currentUserId, isAdmin = false 
           value={body}
           onChange={(e) => setBody(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Escribe un mensaje interno… (Enter para enviar)"
+          placeholder={clientMode ? 'Escribe un mensaje… (Enter para enviar)' : 'Escribe un mensaje interno… (Enter para enviar)'}
           rows={1}
           className="flex-1 resize-none bg-fm-background border border-fm-surface-container-high rounded-xl px-3 py-2 text-sm text-fm-on-surface outline-none focus:border-fm-primary min-h-[38px] max-h-[96px]"
           style={{ fieldSizing: 'content' } as React.CSSProperties}

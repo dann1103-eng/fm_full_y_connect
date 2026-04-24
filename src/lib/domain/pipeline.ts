@@ -232,7 +232,7 @@ export const CLIENT_PHASE_MAP: Record<Phase, ClientPhase | null> = {
 }
 
 export const CLIENT_PHASE_LABELS: Record<ClientPhase, string> = {
-  diseno:             'En diseño',
+  diseno:             'En proceso',
   revision_cliente:   'Revisión de cliente',
   aprobado:           'Aprobado',
   pendiente_publicar: 'Pendiente de publicar',

@@ -25,6 +25,7 @@ interface ReviewRightColumnProps {
   onPinRemoved: (pinId: string) => void
   onCommentUpserted: (comment: ReviewComment) => void
   onCommentRemoved: (commentId: string, pinId: string) => void
+  clientMode?: boolean
 }
 
 export function ReviewRightColumn({
@@ -39,6 +40,7 @@ export function ReviewRightColumn({
   onPinRemoved,
   onCommentUpserted,
   onCommentRemoved,
+  clientMode = false,
 }: ReviewRightColumnProps) {
   const [tab, setTab] = useState<Tab>('active')
 
@@ -101,6 +103,7 @@ export function ReviewRightColumn({
               onPinRemoved={onPinRemoved}
               onCommentUpserted={onCommentUpserted}
               onCommentRemoved={onCommentRemoved}
+              clientMode={clientMode}
             />
           ))
         )}

@@ -36,6 +36,7 @@ interface ReviewCenterViewerProps {
   commentsByPin: Record<string, ReviewComment[]>
   onPinCreated: (pin: ReviewPin, comment: ReviewComment) => void
   onEmptyAddFiles: () => void
+  clientMode?: boolean
 }
 
 export function ReviewCenterViewer({
@@ -54,6 +55,7 @@ export function ReviewCenterViewer({
   commentsByPin,
   onPinCreated,
   onEmptyAddFiles,
+  clientMode = false,
 }: ReviewCenterViewerProps) {
   if (loading) {
     return (
@@ -82,14 +84,18 @@ export function ReviewCenterViewer({
             Sin archivos para revisar
           </h3>
           <p className="text-xs text-fm-on-surface-variant mb-4">
-            Sube imágenes o videos para empezar a recibir feedback con pines.
+            {clientMode
+              ? 'Aún no se ha cargado contenido para esta revisión.'
+              : 'Sube imágenes o videos para empezar a recibir feedback con pines.'}
           </p>
-          <button
-            onClick={onEmptyAddFiles}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-fm-primary text-white text-xs font-semibold hover:bg-fm-primary-dim transition-colors"
-          >
-            Agregar archivos
-          </button>
+          {!clientMode && (
+            <button
+              onClick={onEmptyAddFiles}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-fm-primary text-white text-xs font-semibold hover:bg-fm-primary-dim transition-colors"
+            >
+              Agregar archivos
+            </button>
+          )}
         </div>
       </div>
     )

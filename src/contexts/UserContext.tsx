@@ -20,3 +20,8 @@ export function useUser(): AppUser {
   if (!ctx) throw new Error('useUser must be used inside UserProvider')
   return ctx
 }
+
+/** Variante no-throw: retorna null si no hay UserProvider en el árbol (ej. portal cliente). */
+export function useUserOrNull(): AppUser | null {
+  return useContext(UserContext)
+}

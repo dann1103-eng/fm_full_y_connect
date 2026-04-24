@@ -18,7 +18,14 @@ import type {
 
 export const dynamic = 'force-dynamic'
 
-type PipelineCardItem = { id: string; title: string; notes: string | null; deadline: string | null }
+type PipelineCardItem = {
+  id: string
+  title: string
+  notes: string | null
+  deadline: string | null
+  phase: Phase
+  review_started_at: string | null
+}
 
 function emptyGroups(): Record<ClientPhase, PipelineCardItem[]> {
   return {
@@ -35,6 +42,8 @@ export default async function PortalDashboardPage() {
   if (!activeId) redirect('/portal/seleccionar-marca')
 
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
   const { data: clientRaw } = await supabase
     .from('clients')
@@ -113,6 +122,8 @@ export default async function PortalDashboardPage() {
         title: r.title ?? '',
         notes: r.notes ?? null,
         deadline: r.deadline ?? null,
+        phase: r.phase as Phase,
+        review_started_at: r.review_started_at ?? null,
       })
     }
   }
@@ -159,7 +170,11 @@ export default async function PortalDashboardPage() {
       {cycle && (
         <div className="glass-panel rounded-[2rem] p-4 sm:p-6 space-y-4">
           <h3 className="text-base font-semibold text-fm-on-surface">Pipeline</h3>
-          <ClientPipelineBoard groups={groups} />
+          <ClientPipelineBoard
+            groups={groups}
+            clientId={activeId}
+            currentUserId={user.id}
+          />
         </div>
       )}
     </div>

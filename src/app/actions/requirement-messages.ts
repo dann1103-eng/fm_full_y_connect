@@ -18,6 +18,8 @@ interface SendRequirementMessagePayload {
   attachmentName?: string | null
   /** IDs de usuarios mencionados con @ en el body (resueltos en el cliente vía MentionAutocomplete). */
   mentionedUserIds?: string[]
+  /** Marca el mensaje como visible para el cliente en el portal. Requerido cuando el autor es cliente. */
+  visibleToClient?: boolean
 }
 
 /**
@@ -43,6 +45,7 @@ export async function sendRequirementMessage(payload: SendRequirementMessagePayl
         attachment_path: payload.attachmentPath ?? null,
         attachment_type: payload.attachmentType ?? null,
         attachment_name: payload.attachmentName ?? null,
+        visible_to_client: payload.visibleToClient ?? false,
       })
       .select('id, body, created_at, user_id, attachment_path, attachment_type, attachment_name, user:users(full_name, role, avatar_url)')
       .single()

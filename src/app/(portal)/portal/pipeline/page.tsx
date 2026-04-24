@@ -13,6 +13,8 @@ export default async function PortalPipelinePage() {
   if (!clientId) redirect('/portal/seleccionar-marca')
 
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
   // Get current billing cycle
   const { data: cycle } = await supabase
@@ -40,11 +42,12 @@ export default async function PortalPipelinePage() {
     deadline: string | null
     phase: string
     content_type: string
+    review_started_at: string | null
   }
 
   const { data } = await supabase
     .from('requirements')
-    .select('id, title, notes, deadline, phase, content_type')
+    .select('id, title, notes, deadline, phase, content_type, review_started_at')
     .eq('billing_cycle_id', cycle.id)
     .eq('voided', false)
     .neq('content_type', 'produccion') // produccion doesn't have phases
@@ -52,7 +55,14 @@ export default async function PortalPipelinePage() {
   const items: ReqRow[] = (data ?? []) as ReqRow[]
 
   // Group by client phase
-  type GroupedItem = { id: string; title: string; notes: string | null; deadline: string | null }
+  type GroupedItem = {
+    id: string
+    title: string
+    notes: string | null
+    deadline: string | null
+    phase: Phase
+    review_started_at: string | null
+  }
   const groups: Record<ClientPhase, GroupedItem[]> = {
     diseno: [],
     revision_cliente: [],
@@ -64,13 +74,26 @@ export default async function PortalPipelinePage() {
   for (const item of items) {
     if (!PHASES.includes(item.phase as Phase)) continue
     const cp = clientPhaseOf(item.phase as Phase)
-    if (cp) groups[cp].push({ id: item.id, title: item.title, notes: item.notes, deadline: item.deadline })
+    if (cp) {
+      groups[cp].push({
+        id: item.id,
+        title: item.title,
+        notes: item.notes,
+        deadline: item.deadline,
+        phase: item.phase as Phase,
+        review_started_at: item.review_started_at,
+      })
+    }
   }
 
   return (
     <div className="p-6">
       <h1 className="text-xl font-semibold text-fm-on-surface mb-6">Pipeline</h1>
-      <ClientPipelineBoard groups={groups} />
+      <ClientPipelineBoard
+        groups={groups}
+        clientId={clientId}
+        currentUserId={user.id}
+      />
     </div>
   )
 }

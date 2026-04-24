@@ -41,6 +41,8 @@ interface CommentCardProps {
   onPinRemoved: (pinId: string) => void
   onCommentUpserted: (comment: ReviewComment) => void
   onCommentRemoved: (commentId: string, pinId: string) => void
+  /** Modo cliente: oculta resolver/reabrir/eliminar-pin; esconde menciones al staff. */
+  clientMode?: boolean
 }
 
 function initialsOf(name: string): string {
@@ -225,6 +227,7 @@ export function CommentCard({
   onPinRemoved,
   onCommentUpserted,
   onCommentRemoved,
+  clientMode = false,
 }: CommentCardProps) {
   const userMap = new Map(users.map((u) => [u.id, u]))
   const root = comments.find((c) => c.parent_id == null) ?? comments[0]
@@ -330,30 +333,32 @@ export function CommentCard({
       )}
 
       <div className="flex items-center gap-1 mt-2 pl-7">
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            toggleResolved()
-          }}
-          disabled={busy}
-          className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold transition-colors disabled:opacity-40 ${
-            pin.status === 'active'
-              ? 'text-fm-primary hover:bg-fm-primary/10'
-              : 'text-fm-on-surface-variant hover:bg-fm-surface-container'
-          }`}
-        >
-          {pin.status === 'active' ? (
-            <>
-              <CheckIcon className="w-3 h-3" />
-              Resolver
-            </>
-          ) : (
-            <>
-              <RotateCcwIcon className="w-3 h-3" />
-              Reabrir
-            </>
-          )}
-        </button>
+        {!clientMode && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              toggleResolved()
+            }}
+            disabled={busy}
+            className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold transition-colors disabled:opacity-40 ${
+              pin.status === 'active'
+                ? 'text-fm-primary hover:bg-fm-primary/10'
+                : 'text-fm-on-surface-variant hover:bg-fm-surface-container'
+            }`}
+          >
+            {pin.status === 'active' ? (
+              <>
+                <CheckIcon className="w-3 h-3" />
+                Resolver
+              </>
+            ) : (
+              <>
+                <RotateCcwIcon className="w-3 h-3" />
+                Reabrir
+              </>
+            )}
+          </button>
+        )}
         {!replyOpen && pin.status === 'active' && (
           <button
             onClick={(e) => {
@@ -365,7 +370,7 @@ export function CommentCard({
             Responder
           </button>
         )}
-        {mine && (
+        {mine && !clientMode && (
           <button
             onClick={(e) => {
               e.stopPropagation()

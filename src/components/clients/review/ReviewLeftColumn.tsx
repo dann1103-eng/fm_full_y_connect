@@ -5,7 +5,7 @@ import { PlusIcon, DownloadIcon, ChevronLeftIcon, Trash2Icon } from 'lucide-reac
 import type { ReviewAsset, ReviewVersion, ReviewPin } from '@/types/db'
 import { AssetThumbnail } from './AssetThumbnail'
 import { getSignedDownloadUrl, deleteReviewVersion } from '@/app/actions/content-review'
-import { useUser } from '@/contexts/UserContext'
+import { useUserOrNull } from '@/contexts/UserContext'
 
 interface ReviewLeftColumnProps {
   assets: ReviewAsset[]
@@ -19,6 +19,8 @@ interface ReviewLeftColumnProps {
   onAddAsset: () => void
   onAddVersion: (assetId: string) => void
   onVersionDeleted: (versionId: string, assetId: string) => void
+  /** Modo cliente: oculta "Agregar", "Nueva versión" y "Eliminar versión". */
+  clientMode?: boolean
 }
 
 export function ReviewLeftColumn({
@@ -33,8 +35,9 @@ export function ReviewLeftColumn({
   onAddAsset,
   onAddVersion,
   onVersionDeleted,
+  clientMode = false,
 }: ReviewLeftColumnProps) {
-  const user = useUser()
+  const user = useUserOrNull()
   const [collapsed, setCollapsed] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
@@ -70,6 +73,7 @@ export function ReviewLeftColumn({
   }
 
   function canDeleteVersion(version: ReviewVersion): boolean {
+    if (clientMode || !user) return false
     return user.role === 'admin' || version.uploaded_by === user.id
   }
 
@@ -168,7 +172,7 @@ export function ReviewLeftColumn({
                     </div>
                   )
                 })}
-                {isSelectedAsset && (() => {
+                {isSelectedAsset && !clientMode && (() => {
                   const latestV = versions[versions.length - 1]
                   const latestHasActivePins = latestV
                     ? (pinsByVersion[latestV.id] ?? []).some((p) => p.status === 'active')
@@ -196,15 +200,17 @@ export function ReviewLeftColumn({
       </div>
 
       {/* Botón agregar archivo global */}
-      <div className="p-3 border-t border-fm-surface-container-high/60">
-        <button
-          onClick={onAddAsset}
-          className="w-full flex items-center justify-center gap-1.5 py-2 rounded-full bg-fm-primary text-white text-xs font-semibold hover:bg-fm-primary-dim transition-colors"
-        >
-          <PlusIcon className="w-4 h-4" />
-          Agregar
-        </button>
-      </div>
+      {!clientMode && (
+        <div className="p-3 border-t border-fm-surface-container-high/60">
+          <button
+            onClick={onAddAsset}
+            className="w-full flex items-center justify-center gap-1.5 py-2 rounded-full bg-fm-primary text-white text-xs font-semibold hover:bg-fm-primary-dim transition-colors"
+          >
+            <PlusIcon className="w-4 h-4" />
+            Agregar
+          </button>
+        </div>
+      )}
     </div>
   )
 }

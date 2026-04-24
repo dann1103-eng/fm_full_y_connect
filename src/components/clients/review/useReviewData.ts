@@ -35,7 +35,18 @@ export interface ReviewDataActions {
   removeComment: (commentId: string, pinId: string) => void
 }
 
-export function useReviewData(requirementId: string): ReviewDataState & ReviewDataActions {
+export interface UseReviewDataOptions {
+  /** Si true, trunca `versionsByAsset` a la versión más reciente por asset
+   *  y limita `filesByVersion` / `pinsByVersion` / `commentsByPin` a esas versiones.
+   *  Pensado para el modo cliente que no debe ver el historial. */
+  lastVersionOnly?: boolean
+}
+
+export function useReviewData(
+  requirementId: string,
+  options: UseReviewDataOptions = {},
+): ReviewDataState & ReviewDataActions {
+  const { lastVersionOnly = false } = options
   const [assets, setAssets] = useState<ReviewAsset[]>([])
   const [versionsByAsset, setVersionsByAsset] = useState<Record<string, ReviewVersion[]>>({})
   const [filesByVersion, setFilesByVersion] = useState<Record<string, ReviewVersionFile[]>>({})
@@ -76,7 +87,18 @@ export function useReviewData(requirementId: string): ReviewDataState & ReviewDa
         .order('version_number', { ascending: true })
       if (versionsErr) throw versionsErr
 
-      const versionList = (versionRows ?? []) as ReviewVersion[]
+      const allVersions = (versionRows ?? []) as ReviewVersion[]
+      let versionList = allVersions
+      if (lastVersionOnly) {
+        const latestByAsset = new Map<string, ReviewVersion>()
+        for (const v of allVersions) {
+          const current = latestByAsset.get(v.asset_id)
+          if (!current || v.version_number > current.version_number) {
+            latestByAsset.set(v.asset_id, v)
+          }
+        }
+        versionList = Array.from(latestByAsset.values())
+      }
       const versionsByAssetNext: Record<string, ReviewVersion[]> = {}
       for (const v of versionList) {
         if (!versionsByAssetNext[v.asset_id]) versionsByAssetNext[v.asset_id] = []
@@ -146,7 +168,7 @@ export function useReviewData(requirementId: string): ReviewDataState & ReviewDa
     } finally {
       setLoading(false)
     }
-  }, [requirementId])
+  }, [requirementId, lastVersionOnly])
 
   useEffect(() => {
     refresh()
