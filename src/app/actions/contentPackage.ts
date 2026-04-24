@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { cleanupCycleStorage } from '@/lib/supabase/cleanup-cycle-storage'
 
 /**
  * Archiva el ciclo Contenido actual y crea uno nuevo con los mismos límites.
@@ -53,6 +54,16 @@ export async function renewContentPackage(
     payment_status: 'unpaid',
   })
   if (createError) return { error: createError.message }
+
+  // Limpiar archivos del ciclo archivado (todos los reqs quedan en el ciclo cerrado)
+  const { data: closedReqs } = await supabase
+    .from('requirements')
+    .select('id')
+    .eq('billing_cycle_id', currentCycleId)
+  const closedIds = (closedReqs ?? []).map((r) => r.id)
+  if (closedIds.length > 0) {
+    await cleanupCycleStorage(supabase, closedIds)
+  }
 
   revalidatePath(`/clients/${clientId}`)
   revalidatePath('/clients')

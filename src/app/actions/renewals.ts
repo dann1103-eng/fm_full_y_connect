@@ -7,6 +7,7 @@ import { today as todayString } from '@/lib/domain/dates'
 import { CONTENT_TYPES, CONTENT_TO_PLAN_KEY, effectiveLimits } from '@/lib/domain/plans'
 import { computeTotals } from '@/lib/domain/requirement'
 import { migrateOpenPipelineItems } from '@/lib/domain/pipeline'
+import { cleanupCycleStorage } from '@/lib/supabase/cleanup-cycle-storage'
 import type {
   BillingPeriod, CambiosPackage, ContentType, ExtraContentItem, PlanLimits,
 } from '@/types/db'
@@ -99,6 +100,18 @@ export async function renewCycle(args: RenewArgs) {
     })
   }
 
+  // Limpiar storage de los reqs que NO migraron (se quedaron en el ciclo archivado).
+  // Los que sí migraron cambiaron su billing_cycle_id al nuevo ciclo y aún están
+  // en trabajo activo — sus archivos deben conservarse.
+  const { data: remainingReqs } = await supabase
+    .from('requirements')
+    .select('id')
+    .eq('billing_cycle_id', args.cycleId)
+  const remainingIds = (remainingReqs ?? []).map((r) => r.id)
+  if (remainingIds.length > 0) {
+    await cleanupCycleStorage(supabase, remainingIds)
+  }
+
   revalidatePath('/renewals')
   revalidatePath(`/clients/${args.clientId}`)
   revalidatePath('/dashboard')
@@ -129,6 +142,16 @@ export async function pauseClient(clientId: string, cycleId: string) {
   ])
 
   if (e1 || e2) return { error: 'Error al pausar al cliente.' }
+
+  // Limpiar todos los archivos del ciclo pausado (no hay migración, todo queda archivado)
+  const { data: pausedReqs } = await supabase
+    .from('requirements')
+    .select('id')
+    .eq('billing_cycle_id', cycleId)
+  const pausedIds = (pausedReqs ?? []).map((r) => r.id)
+  if (pausedIds.length > 0) {
+    await cleanupCycleStorage(supabase, pausedIds)
+  }
 
   revalidatePath('/renewals')
   revalidatePath(`/clients/${clientId}`)
