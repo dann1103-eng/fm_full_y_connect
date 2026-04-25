@@ -35,7 +35,7 @@ function barColor(pct: number): string {
 // Avatar gradients (consistent with dashboard)
 const avatarGradients = [
   'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)',
-  'linear-gradient(135deg, #4a6319 0%, #ceee93 100%)',
+  'linear-gradient(135deg, #3f3a9b 0%, #b8b3ff 100%)',
   'linear-gradient(135deg, #006385 0%, #1dc0fe 100%)',
   'linear-gradient(135deg, #5c4a8a 0%, #b89cff 100%)',
   'linear-gradient(135deg, #7a4f00 0%, #ffcc5c 100%)',

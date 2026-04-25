@@ -104,8 +104,8 @@
   --popover-foreground: #2c2f31;
   --primary: #00675c;
   --primary-foreground: #c1fff2;
-  --secondary: #ceee93;
-  --secondary-foreground: #41590f;
+  --secondary: #e2e0f7;
+  --secondary-foreground: #1f1c5e;
   --muted: #eef1f3;
   --muted-foreground: #595c5e;
   --accent: #5bf4de;
@@ -127,15 +127,15 @@
   --fm-on-primary-fixed:         #00443c;
   --fm-on-primary-fixed-variant: #006358;
 
-  --fm-secondary:                #4a6319;
-  --fm-secondary-dim:            #3f570c;
-  --fm-secondary-container:      #ceee93;
-  --fm-secondary-fixed:          #ceee93;
-  --fm-secondary-fixed-dim:      #c0df86;
-  --fm-on-secondary:             #defea2;
-  --fm-on-secondary-container:   #41590f;
-  --fm-on-secondary-fixed:       #304600;
-  --fm-on-secondary-fixed-variant: #4a6319;
+  --fm-secondary:                #534FBB;
+  --fm-secondary-dim:            #3f3a9b;
+  --fm-secondary-container:      #e2e0f7;
+  --fm-secondary-fixed:          #e2e0f7;
+  --fm-secondary-fixed-dim:      #c8c5ed;
+  --fm-on-secondary:             #f0eeff;
+  --fm-on-secondary-container:   #1f1c5e;
+  --fm-on-secondary-fixed:       #100c4f;
+  --fm-on-secondary-fixed-variant: #3f3a9b;
 
   --fm-tertiary:                 #006385;
   --fm-tertiary-dim:             #005675;
@@ -189,8 +189,8 @@
   --popover-foreground: #e4e8eb;
   --primary: #48e5d0;
   --primary-foreground: #003731;
-  --secondary: #b2cf7a;
-  --secondary-foreground: #1a2800;
+  --secondary: #b8b3ff;
+  --secondary-foreground: #100c4f;
   --muted: #232729;
   --muted-foreground: #a8adb0;
   --accent: #5bf4de;
@@ -207,11 +207,11 @@
   --fm-on-primary:               #00332c;
   --fm-on-primary-container:     #c1fff2;
 
-  --fm-secondary:                #b2cf7a;
-  --fm-secondary-dim:            #c0df86;
-  --fm-secondary-container:      #334700;
-  --fm-on-secondary:             #1a2800;
-  --fm-on-secondary-container:   #ceee93;
+  --fm-secondary:                #b8b3ff;
+  --fm-secondary-dim:            #c8c5ed;
+  --fm-secondary-container:      #2a2680;
+  --fm-on-secondary:             #100c4f;
+  --fm-on-secondary-container:   #e2e0f7;
 
   --fm-tertiary:                 #79d1ff;
   --fm-tertiary-dim:             #1dc0fe;
@@ -266,7 +266,7 @@
     background: linear-gradient(135deg, #00675c 0%, #5bf4de 100%);
   }
   .secondary-gradient {
-    background: linear-gradient(135deg, #4a6319 0%, #ceee93 100%);
+    background: linear-gradient(135deg, #3f3a9b 0%, #b8b3ff 100%);
   }
   .tertiary-gradient {
     background: linear-gradient(135deg, #006385 0%, #1dc0fe 100%);
