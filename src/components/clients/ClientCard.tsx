@@ -23,8 +23,8 @@ const EXCLUDED_FROM_CARD = new Set<ContentType>(['produccion', 'reunion'])
 function progressColor(consumed: number, limit: number): string {
   if (limit === 0) return 'bg-fm-outline-variant'
   const pct = (consumed / limit) * 100
-  if (pct >= 90) return 'bg-fm-error'
-  if (pct >= 70) return 'bg-amber-400'
+  if (pct >= 90) return 'bg-fm-error dark:bg-[#ff6b6b]'
+  if (pct >= 70) return 'bg-amber-500 dark:bg-[#DAE54E]'
   return 'bg-fm-primary'
 }
 
@@ -75,7 +75,7 @@ export function ClientCard({ item }: { item: ClientDashboardItem }) {
       : 0
     : overallProgress(totals, limits)
   const barColor =
-    pct >= 90 ? 'bg-fm-error' : pct >= 70 ? 'bg-amber-400' : 'bg-fm-primary'
+    pct >= 90 ? 'bg-fm-error dark:bg-[#ff6b6b]' : pct >= 70 ? 'bg-amber-500 dark:bg-[#DAE54E]' : 'bg-fm-primary'
 
   // Mini-counters per type only for non-unified plans.
   const visibleTypes = isContentPackage
