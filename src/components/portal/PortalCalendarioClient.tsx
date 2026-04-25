@@ -1,11 +1,11 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar'
 import { format, parse, startOfWeek, getDay, parseISO, isValid } from 'date-fns'
 import { es } from 'date-fns/locale'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
-import { KIND_COLORS } from '@/lib/domain/calendar'
+import { KIND_COLORS, KIND_COLORS_DARK } from '@/lib/domain/calendar'
 import type { CalendarEventKind } from '@/lib/domain/calendar'
 
 const locales = { es }
@@ -48,6 +48,17 @@ export function PortalCalendarioClient({ events, defaultDate }: Props) {
     const parsed = parseISO(defaultDate)
     return isValid(parsed) ? parsed : new Date()
   })
+  const [isDark, setIsDark] = useState<boolean>(() =>
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+  )
+
+  useEffect(() => {
+    const obs = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'))
+    })
+    obs.observe(document.documentElement, { attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
 
   const calEvents = useMemo<CalEvent[]>(() => {
     const result: CalEvent[] = []
@@ -68,7 +79,7 @@ export function PortalCalendarioClient({ events, defaultDate }: Props) {
   }, [events])
 
   const eventStyleGetter = (event: CalEvent) => {
-    const color = KIND_COLORS[event.kind] ?? '#595c5e'
+    const color = (isDark ? KIND_COLORS_DARK : KIND_COLORS)[event.kind] ?? '#595c5e'
     return {
       style: {
         backgroundColor: event.allDay ? 'transparent' : color,
@@ -81,7 +92,7 @@ export function PortalCalendarioClient({ events, defaultDate }: Props) {
   }
 
   return (
-    <div className="h-full [&_.rbc-calendar]:h-full [&_.rbc-toolbar-label]:font-semibold">
+    <div className="h-full calendar-wrapper">
       <Calendar
         localizer={localizer}
         events={calEvents}
