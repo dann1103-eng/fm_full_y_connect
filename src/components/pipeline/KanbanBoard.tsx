@@ -19,7 +19,7 @@ import { PhaseSheet } from './PhaseSheet'
 import { QuickTimerDialog } from './QuickTimerDialog'
 import { createClient } from '@/lib/supabase/client'
 import { PHASES } from '@/lib/domain/pipeline'
-import { useIsMobile } from '@/lib/hooks/useMediaQuery'
+import { useIsMobile, useIsTablet } from '@/lib/hooks/useMediaQuery'
 import type { PipelineItem } from '@/lib/domain/pipeline'
 import type { Phase, RequirementPhaseLog } from '@/types/db'
 
@@ -62,6 +62,7 @@ export function KanbanBoard({
   }
   const [nowMs, setNowMs] = useState<number>(() => new Date().getTime())
   const isMobile = useIsMobile()
+  const isTablet = useIsTablet()
 
   useEffect(() => {
     if (!initialOpenRequirementId) return
@@ -95,12 +96,15 @@ export function KanbanBoard({
       })
   }, [activeDetailItem])
 
-  const sensors = useSensors(
+  // En tablet (640–1023 px) el DnD se deshabilita: el movimiento de fase
+  // solo ocurre desde el PhaseSheet que se abre al hacer clic en la tarjeta.
+  const activeSensors = useSensors(
     useSensor(PointerSensor, {
-      // Require 5px of movement before activating drag (prevents accidental drags on click)
       activationConstraint: { distance: 5 },
     })
   )
+  const noSensors = useSensors()
+  const sensors = isTablet ? noSensors : activeSensors
 
   function onDragStart({ active }: DragStartEvent) {
     const item = active.data.current?.item as PipelineItem | undefined

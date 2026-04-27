@@ -105,10 +105,10 @@ function EntryRow({
     <Tag
       type={clickable ? 'button' : undefined}
       onClick={clickable ? () => onRequirementClick(entry.requirement_id!) : undefined}
-      className={`w-full grid grid-cols-[1fr_auto_72px] sm:grid-cols-[1fr_auto_180px] items-center gap-4 px-4 py-2 border-b border-fm-surface-container-low text-left ${
+      className={`w-full grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_auto_180px] items-center gap-3 px-4 py-2 border-b border-fm-surface-container-low text-left ${
         clickable ? 'hover:bg-fm-background cursor-pointer' : ''
       }`}
-      style={{ paddingLeft: `${depth * 24 + 16}px` }}
+      style={{ paddingLeft: `${Math.min(depth * 16 + 16, 56)}px` }}
     >
       <div className="flex items-center gap-2 min-w-0">
         <UserAvatar
@@ -119,7 +119,7 @@ function EntryRow({
         <div className="min-w-0">
           <p className="text-sm text-fm-on-surface truncate">{label}</p>
           {entry.notes && entry.notes.trim().length > 0 && (
-            <p className="text-xs text-fm-on-surface-variant mt-0.5 line-clamp-2 whitespace-pre-wrap">
+            <p className="text-xs text-fm-on-surface-variant mt-0.5 line-clamp-1 sm:line-clamp-2 truncate">
               {entry.notes}
             </p>
           )}
@@ -134,10 +134,10 @@ function EntryRow({
           </p>
         </div>
       </div>
-      <span className="text-xs font-bold tabular-nums text-fm-on-surface">
+      <span className="text-xs font-bold tabular-nums text-fm-on-surface whitespace-nowrap">
         {formatDurationHMS(entry.duration_seconds)}
       </span>
-      <span />
+      <span className="hidden sm:block" />
     </Tag>
   )
 }
@@ -176,10 +176,10 @@ function GroupNode({
         type="button"
         onClick={handleGroupClick}
         aria-expanded={isExpanded}
-        className={`w-full grid grid-cols-[1fr_auto_72px] sm:grid-cols-[1fr_auto_180px] items-center gap-4 px-4 py-3 border-b border-fm-surface-container-low hover:bg-fm-background text-left transition-colors ${
+        className={`w-full grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_auto_180px] items-center gap-3 px-4 py-3 border-b border-fm-surface-container-low hover:bg-fm-background text-left transition-colors ${
           depth === 0 ? 'bg-fm-surface-container-lowest' : 'bg-fm-surface-container-low'
         }`}
-        style={{ paddingLeft: `${depth * 24 + 16}px` }}
+        style={{ paddingLeft: `${Math.min(depth * 16 + 16, 56)}px` }}
       >
         <div className="flex items-center gap-3 min-w-0">
           {hasChildren && !isRequirementLeaf ? (
@@ -202,10 +202,10 @@ function GroupNode({
             </span>
           )}
         </div>
-        <span className="text-sm font-bold tabular-nums text-fm-on-surface">
+        <span className="text-sm font-bold tabular-nums text-fm-on-surface whitespace-nowrap">
           {formatDurationHMS(group.durationSeconds)}
         </span>
-        <Progress pct={group.percentage} />
+        <span className="hidden sm:block"><Progress pct={group.percentage} /></span>
       </button>
 
       {isExpanded && hasChildren && (
@@ -252,12 +252,12 @@ export function TimesheetTree({ groups, totalSeconds, expandedKeys, onToggle, on
       {/* ── Árbol de clientes reales ── */}
       {groups.length > 0 && (
         <div className="border border-fm-surface-container-high rounded-2xl overflow-hidden bg-fm-surface-container-lowest">
-          <div className="grid grid-cols-[1fr_auto_72px] sm:grid-cols-[1fr_auto_180px] gap-4 px-4 py-2 border-b border-fm-surface-container-high bg-fm-background">
+          <div className="grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_auto_180px] gap-3 px-4 py-2 border-b border-fm-surface-container-high bg-fm-background">
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-fm-on-surface-variant">
               {internalGroup ? 'Clientes' : 'Título'}
             </span>
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-fm-on-surface-variant">Duración</span>
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-fm-on-surface-variant">
+            <span className="hidden sm:inline text-[10px] font-extrabold uppercase tracking-wider text-fm-on-surface-variant">
               {internalGroup ? '% sobre clientes' : '%'}
             </span>
           </div>
@@ -271,14 +271,14 @@ export function TimesheetTree({ groups, totalSeconds, expandedKeys, onToggle, on
               onRequirementClick={onRequirementClick}
             />
           ))}
-          <div className="grid grid-cols-[1fr_auto_72px] sm:grid-cols-[1fr_auto_180px] gap-4 px-4 py-3 bg-fm-background border-t border-fm-surface-container-high">
+          <div className="grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_auto_180px] gap-3 px-4 py-3 bg-fm-background border-t border-fm-surface-container-high">
             <span className="text-sm font-extrabold text-fm-on-surface">
               {internalGroup ? 'Subtotal clientes' : 'Total'}
             </span>
-            <span className="text-sm font-extrabold tabular-nums text-fm-on-surface">
+            <span className="text-sm font-extrabold tabular-nums text-fm-on-surface whitespace-nowrap">
               {formatDurationHMS(internalTotalSeconds ?? totalSeconds)}
             </span>
-            <span className="text-sm font-extrabold text-fm-on-surface">100.0%</span>
+            <span className="hidden sm:inline text-sm font-extrabold text-fm-on-surface">100.0%</span>
           </div>
         </div>
       )}
@@ -286,7 +286,7 @@ export function TimesheetTree({ groups, totalSeconds, expandedKeys, onToggle, on
       {/* ── Sección Interno FM separada ── */}
       {internalGroup && (
         <div className="border border-fm-surface-container-high rounded-2xl overflow-hidden bg-fm-surface-container-lowest opacity-80">
-          <div className="grid grid-cols-[1fr_auto_72px] sm:grid-cols-[1fr_auto_180px] gap-4 px-4 py-2 border-b border-fm-surface-container-high bg-fm-background">
+          <div className="grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_auto_180px] gap-3 px-4 py-2 border-b border-fm-surface-container-high bg-fm-background">
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-fm-outline-variant text-sm">home_work</span>
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-fm-outline-variant">
@@ -303,7 +303,7 @@ export function TimesheetTree({ groups, totalSeconds, expandedKeys, onToggle, on
             onToggle={onToggle}
             onRequirementClick={onRequirementClick}
           />
-          <div className="grid grid-cols-[1fr_auto_72px] sm:grid-cols-[1fr_auto_180px] gap-4 px-4 py-3 bg-fm-background border-t border-fm-surface-container-high">
+          <div className="grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_auto_180px] gap-3 px-4 py-3 bg-fm-background border-t border-fm-surface-container-high">
             <span className="text-sm font-extrabold text-fm-outline-variant">Interno FM</span>
             <span className="text-sm font-extrabold tabular-nums text-fm-outline-variant">
               {formatDurationHMS(internalGroup.durationSeconds)}

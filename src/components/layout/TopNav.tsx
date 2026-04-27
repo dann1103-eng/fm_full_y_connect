@@ -44,7 +44,7 @@ export function TopNav({ title }: TopNavProps) {
   const displayName = user.full_name || user.email
 
   return (
-    <header className="h-16 flex items-center justify-between gap-3 px-4 sm:px-6 bg-fm-surface-container-lowest border-b border-fm-outline-variant/30 flex-shrink-0">
+    <header className="sticky top-0 z-30 h-16 flex items-center justify-between gap-3 px-4 sm:px-6 bg-fm-surface-container-lowest border-b border-fm-outline-variant/30 flex-shrink-0">
       <div className="flex items-center gap-2 min-w-0">
         <button
           type="button"

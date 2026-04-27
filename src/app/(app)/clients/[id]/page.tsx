@@ -226,7 +226,7 @@ export default async function ClientDetailPage({
     <div className="flex flex-col h-full">
       <TopNav title={client.name} />
 
-      <div className="flex-1 p-3 sm:p-6 space-y-4 sm:space-y-8">
+      <div className="flex-1 p-3 sm:p-6 space-y-4 sm:space-y-8 overflow-x-hidden">
         {/* Breadcrumb */}
         <nav className="flex flex-wrap items-center gap-2 text-sm pt-2 min-w-0">
           <Link
