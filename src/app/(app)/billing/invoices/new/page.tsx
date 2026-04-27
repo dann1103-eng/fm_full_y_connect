@@ -19,7 +19,7 @@ export default async function NewInvoicePage({
   if (appUser?.role !== 'admin') redirect('/billing')
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-full">
       <TopNav title="Nueva factura" />
       <div className="flex-1 p-6">
         <InvoiceForm mode="invoice" initialClientId={params.client_id} initialCycleId={params.cycle_id} />

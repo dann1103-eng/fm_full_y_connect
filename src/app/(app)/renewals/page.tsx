@@ -48,7 +48,7 @@ export default async function RenewalsPage({
 
   if (!cycles || cycles.length === 0) {
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col min-h-full">
         <TopNav title="Renovaciones" />
         <div className="flex-1 p-6">
           <div className="bg-fm-surface-container-lowest rounded-2xl border border-fm-outline-variant/20 p-12 text-center">
@@ -113,7 +113,7 @@ export default async function RenewalsPage({
   const dueSoonCount = items.filter((i) => i.daysLeft >= 0 && i.daysLeft <= 3).length
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-full">
       <TopNav title="Renovaciones" />
 
       <div className="flex-1 p-6 space-y-5">

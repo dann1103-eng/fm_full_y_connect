@@ -47,7 +47,7 @@ export default async function QuoteDetailPage({
   const isAdmin = role === 'admin'
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-full">
       <TopNav title={`Cotización ${quote.quote_number}`} />
 
       <div className="flex-1 p-6">

@@ -244,7 +244,7 @@ export default async function ReportsPage() {
   const cycleMonth = `${MONTHS_FULL[now.getMonth()]} ${now.getFullYear()}`
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-full">
       <TopNav title="Reportes" />
 
       <div className="flex-1 p-6 space-y-8 max-w-6xl mx-auto w-full">

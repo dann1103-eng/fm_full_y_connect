@@ -500,7 +500,7 @@ export function CalendarPageClient({ currentUser, isPrivileged, allUsers, client
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-full">
       {/* ── Toolbar ── */}
       <div className="flex flex-wrap items-center gap-2 px-5 py-2.5 border-b border-fm-surface-container-low bg-fm-surface-container-lowest flex-shrink-0">
 

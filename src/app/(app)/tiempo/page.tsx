@@ -57,7 +57,7 @@ export default async function TiempoPage() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-full">
       <TopNav title="Tiempo" />
 
       <div className="flex-1 p-6 max-w-4xl mx-auto w-full space-y-6">

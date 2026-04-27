@@ -123,7 +123,7 @@ export default async function ClientReportPage({
   const STATUS_LABELS: Record<string, string> = { active: 'Activo', paused: 'Pausado', overdue: 'Moroso' }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-full">
       {/* Print CSS */}
       <style>{`
         @media print {

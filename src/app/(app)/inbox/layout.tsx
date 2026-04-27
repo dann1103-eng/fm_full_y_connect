@@ -114,7 +114,7 @@ export default async function InboxLayout({ children }: { children: React.ReactN
   const [initialList, allUsers] = await Promise.all([loadInitialList(), loadAllUsers()])
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-full">
       <TopNav title="Inbox" />
       <div className="flex-1 min-h-0">
         <InboxResponsiveShell

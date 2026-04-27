@@ -19,7 +19,7 @@ export default async function NewQuotePage({
   if (appUser?.role !== 'admin') redirect('/billing')
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-full">
       <TopNav title="Nueva cotización" />
       <div className="flex-1 p-6">
         <InvoiceForm mode="quote" initialClientId={params.client_id} />

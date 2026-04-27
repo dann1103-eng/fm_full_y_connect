@@ -102,7 +102,7 @@ export default async function DashboardPage({
   const { data: plans } = await supabase.from('plans').select('id, name').eq('active', true)
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-full">
       <TopNav title="Dashboard" />
 
       <div className="flex-1 p-4 sm:p-6 space-y-4 sm:space-y-6">

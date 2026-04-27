@@ -26,7 +26,7 @@ export default async function UsersPage() {
     .order('created_at')
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-full">
       <TopNav title="Usuarios" />
       <div className="p-6 max-w-4xl mx-auto w-full">
         <UsersTable users={(users ?? []) as AppUser[]} currentUserId={authUser.id} />

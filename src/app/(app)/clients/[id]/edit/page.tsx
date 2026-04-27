@@ -326,7 +326,7 @@ export default function ClientEditPage() {
 
   if (fetching) {
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col min-h-full">
         <TopNav title="Editar cliente" />
         <div className="flex-1 flex items-center justify-center text-fm-on-surface-variant text-sm">Cargando...</div>
       </div>
@@ -334,7 +334,7 @@ export default function ClientEditPage() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-full">
       <TopNav title="Editar cliente" />
       <div className="flex-1 overflow-y-auto p-6">
         <div className="flex gap-6 items-start max-w-6xl">

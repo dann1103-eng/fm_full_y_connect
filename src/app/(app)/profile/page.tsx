@@ -118,7 +118,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-full">
       <TopNav title="Mi perfil" />
 
       <div className="flex-1 p-6 space-y-6 max-w-lg">

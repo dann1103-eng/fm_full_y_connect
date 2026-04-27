@@ -26,7 +26,7 @@ export default async function ClientsPage() {
     .eq('active', true)
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-full">
       <TopNav title="Clientes" />
 
       <div className="flex-1 p-6 space-y-5">

@@ -24,7 +24,7 @@ export default async function BillingSettingsPage() {
   const methods: PaymentMethodConfig[] = (settings?.payment_methods_json ?? []) as PaymentMethodConfig[]
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-full">
       <TopNav title="Configuración de facturación" />
 
       <div className="flex-1 p-6 space-y-6 max-w-4xl">

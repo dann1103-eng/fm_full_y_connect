@@ -223,7 +223,7 @@ export default async function ClientDetailPage({
   const canCreate = appUser?.role === 'admin' || appUser?.role === 'supervisor'
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-full">
       <TopNav title={client.name} />
 
       <div className="flex-1 p-3 sm:p-6 space-y-4 sm:space-y-8 overflow-x-hidden">

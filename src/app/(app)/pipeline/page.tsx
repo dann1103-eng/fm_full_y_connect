@@ -132,7 +132,7 @@ export default async function PipelinePage({ searchParams }: PipelinePageProps) 
     : { data: [] }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-full">
       <TopNav title="Pipeline" />
       <div className="flex-1 p-6 flex flex-col overflow-hidden">
         <PipelineContainer

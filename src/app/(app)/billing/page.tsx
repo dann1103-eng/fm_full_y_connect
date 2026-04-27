@@ -34,7 +34,7 @@ export default async function BillingDashboardPage() {
   const outstandingTotal = (outstanding ?? []).reduce((sum, inv) => sum + Number(inv.total || 0), 0)
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-full">
       <TopNav title="Facturación" />
 
       <div className="flex-1 p-6 space-y-6">
