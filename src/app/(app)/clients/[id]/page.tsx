@@ -42,37 +42,44 @@ export default async function ClientDetailPage({
   const isApprover = isAdmin || role === 'supervisor'
   const canCreate = isAdmin || role === 'supervisor'
 
-  const { data: clientRaw } = await supabase
-    .from('clients')
-    .select('*, plan:plans(*)')
-    .eq('id', id)
-    .single()
+  // Queries independientes en paralelo — corta el tiempo total a la latencia
+  // de la query más lenta en lugar de sumarlas secuencialmente.
+  const [
+    { data: clientRaw },
+    { data: currentCycle },
+    { data: pastCycles },
+    { data: plans },
+    { data: users },
+  ] = await Promise.all([
+    supabase
+      .from('clients')
+      .select('*, plan:plans(*)')
+      .eq('id', id)
+      .single(),
+    supabase
+      .from('billing_cycles')
+      .select('*')
+      .eq('client_id', id)
+      .eq('status', 'current')
+      .maybeSingle(),
+    supabase
+      .from('billing_cycles')
+      .select('*')
+      .eq('client_id', id)
+      .in('status', ['archived', 'pending_renewal'])
+      .order('period_start', { ascending: false }),
+    supabase
+      .from('plans')
+      .select('*')
+      .eq('active', true)
+      .order('price_usd'),
+    supabase
+      .from('users')
+      .select('id, full_name, role, avatar_url, default_assignee'),
+  ])
 
   if (!clientRaw) notFound()
   const client = clientRaw as ClientWithPlan
-
-  // Current cycle
-  const { data: currentCycle } = await supabase
-    .from('billing_cycles')
-    .select('*')
-    .eq('client_id', id)
-    .eq('status', 'current')
-    .maybeSingle()
-
-  // All past cycles
-  const { data: pastCycles } = await supabase
-    .from('billing_cycles')
-    .select('*')
-    .eq('client_id', id)
-    .in('status', ['archived', 'pending_renewal'])
-    .order('period_start', { ascending: false })
-
-  // Plans (for reactivation panel)
-  const { data: plans } = await supabase
-    .from('plans')
-    .select('*')
-    .eq('active', true)
-    .order('price_usd')
 
   // Requirements for current cycle (operator: only assigned to him)
   let reqsQuery = currentCycle
@@ -88,11 +95,6 @@ export default async function ClientDetailPage({
   const { data: requirements } = reqsQuery
     ? await reqsQuery.order('registered_at', { ascending: false })
     : { data: [] }
-
-  // Internal users (for "registered by" display in history)
-  const { data: users } = await supabase
-    .from('users')
-    .select('id, full_name, role, avatar_url, default_assignee')
 
   const userMap: Record<string, string> = {}
   const userAvatarMap: Record<string, string | null> = {}

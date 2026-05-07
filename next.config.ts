@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  compress: true,
+  poweredByHeader: false,
   serverExternalPackages: ['@react-pdf/renderer'],
   async headers() {
     return [

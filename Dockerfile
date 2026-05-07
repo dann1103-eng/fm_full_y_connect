@@ -60,4 +60,8 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
+# Subir el heap de Node a 4GB (default ~1.5GB). Ajustar si la VPS tiene
+# menos RAM disponible — en KVM2 (8GB) deja amplio margen.
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
 CMD ["node", "server.js"]
