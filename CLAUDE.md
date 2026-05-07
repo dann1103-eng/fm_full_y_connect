@@ -224,7 +224,17 @@ end $$;
 - Commits en español: `feat:`, `fix:`, `docs:`, `chore:`
 - Material Symbols (iconos): `<span className="material-symbols-outlined">icon_name</span>`
 
-## Migraciones aplicadas (0001–0058)
+## Despliegue (actualizado 2026-05-07)
+
+- **Producción:** Vercel (Pro plan), repo `dann1103-eng/fm_full_y_connect`, rama `master` con auto-deploy.
+- **Dominio canónico:** `fullefm.site` (Namecheap, BasicDNS) + `www.fullefm.site`.
+  - DNS: A `@ → 216.150.1.1`, CNAME `www → 905f6f409665fc27.vercel-dns-017.com.`
+  - URL anterior `fm-full-y-connect.vercel.app` sigue activa.
+- **LiveKit:** migrado a **LiveKit Cloud** (era self-hosted en EasyPanel). Webhook → `/api/livekit/webhook` apunta al dominio canónico.
+- **EasyPanel:** descartado — el contenedor app está detenido. La VPS de Hostinger se mantiene apagada / o eventualmente para borrar.
+- **Vercel Observability Plus:** desactivado (excluido el proyecto) para evitar el cargo grande por Observability Events. Logs siguen en `vercel logs` y panel Functions.
+
+## Migraciones aplicadas (0001–0084)
 | # | Contenido |
 |---|-----------|
 | 0001–0006 | Schema inicial, pipeline base, reuniones, campos de clientes |
@@ -251,4 +261,14 @@ end $$;
 | 0056 | `requirement_messages` a publicación realtime |
 | 0057 | Automatización billing (auto_billing flag, ciclos scheduled) |
 | 0058 | Realtime para notificaciones |
-| 0059 | Multi-consumo (`requirements.consumption_overrides_json`) + anulación de cambios (`requirement_cambio_logs.voided/voided_by_user_id/voided_at`) |
+| 0059 | Multi-consumo + anulación de cambios |
+| 0060 | Integración n1co (pagos) |
+| 0061–0068 | Fixes inbox realtime |
+| 0069–0071 | call_sessions + call_participants + RLS llamadas + room_name unique parcial + backfill team channels |
+| 0072 | `user_presence` (status manual + updated_at + realtime) |
+| 0073 | client_user permissions |
+| 0074 | Approval flow de requerimientos: `approval_status` (approved/pending/rejected), policies para solicitudes desde portal |
+| 0075–0081 | Quotes optional client, relax request types, missed call messages, billing cycle marker, can_quote, message reply_to, invoice terms snapshot |
+| 0082 | Infra de jobs de IA: `ai_jobs`, `ai_job_events`, RPC `claim_ai_job`, rol `'agent'`, usuario FM Bot (UUID `…0b07`). Worker en `ai-worker/`. Ver `docs/AI_AGENT_CONTEXT.md` §9.1. |
+| 0083 | Fix usuario FM Bot |
+| 0084 | **Indices de performance (mayo 2026)** — partial indexes: `requirements_open_deadline_idx`, `call_participants_active_idx`, `messages_conv_active_created_idx`. Aplicado tras detectar slow queries en panel Query Performance de Supabase. |
