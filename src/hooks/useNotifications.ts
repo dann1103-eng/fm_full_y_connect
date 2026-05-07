@@ -4,8 +4,18 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { NotificationItem } from '@/types/db'
 import { createClient } from '@/lib/supabase/client'
 
-const SAFETY_POLL_MS = 15_000
-const DEBOUNCE_MS = 400
+// Safety poll: cada minuto. Antes 15s era demasiado agresivo — 4 fetches/min/user
+// solo de polling, multiplicado por usuarios concurrentes saturaba la query de
+// requirement_mentions (que tiene LATERAL JOINs nested y aparece como #3 mas
+// lenta del sistema).
+const SAFETY_POLL_MS = 60_000
+// Debounce alto para absorber rafagas de eventos postgres_changes: cuando alguien
+// envia 5 mensajes, time_entries cambia varias veces, etc., no queremos un
+// fetch por cada evento.
+const DEBOUNCE_MS = 2_000
+// Cuanto tiempo debe pasar desde el ultimo fetch para que un visibilitychange
+// dispare un refetch (en vez de hacerlo en cada vuelta a la pestaña).
+const VISIBILITY_REFETCH_MIN_AGE_MS = 30_000
 const DISMISSAL_KEY = 'overdue-seen'
 const LOCAL_DISMISSAL_KEY = 'notif-dismissed'
 
@@ -55,6 +65,7 @@ export function useNotifications() {
   const [localDismissed, setLocalDismissed] = useState<Set<string>>(new Set())
   const abortRef = useRef<AbortController | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastFetchAtRef = useRef<number>(0)
 
   useEffect(() => {
     setDismissal(readDismissal())
@@ -65,6 +76,7 @@ export function useNotifications() {
     abortRef.current?.abort()
     const ctrl = new AbortController()
     abortRef.current = ctrl
+    lastFetchAtRef.current = Date.now()
     try {
       const res = await fetch('/api/notifications', { cache: 'no-store', signal: ctrl.signal })
       if (!res.ok) return
@@ -100,12 +112,16 @@ export function useNotifications() {
 
     fetchItems()
 
+    // Todos los listeners usan scheduleFetch (con debounce de 2s) para
+    // absorber rafagas. Antes la mayoria llamaba fetchItems directo, lo cual
+    // generaba un fetch por evento — con 10 usuarios chateando + cambiando
+    // time_entries era la causa principal del slow query #3.
     const channel = supabase
       .channel(`notifications-feed-${Math.random().toString(36).slice(2)}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'requirement_mentions' }, fetchItems)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'review_comment_mentions' }, fetchItems)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, fetchItems)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_members' }, fetchItems)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'requirement_mentions' }, scheduleFetch)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'review_comment_mentions' }, scheduleFetch)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, scheduleFetch)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_members' }, scheduleFetch)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'requirements' }, scheduleFetch)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'time_entries' }, scheduleFetch)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'time_entries' }, scheduleFetch)
@@ -117,7 +133,11 @@ export function useNotifications() {
     safetyTimer = setInterval(fetchItems, SAFETY_POLL_MS)
 
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') fetchItems()
+      if (document.visibilityState !== 'visible') return
+      // Solo refetch al volver la pestaña si paso suficiente tiempo desde el
+      // ultimo fetch — sino, cada cambio de tab generaba una request.
+      const age = Date.now() - lastFetchAtRef.current
+      if (age >= VISIBILITY_REFETCH_MIN_AGE_MS) fetchItems()
     }
     document.addEventListener('visibilitychange', onVisibility)
 
