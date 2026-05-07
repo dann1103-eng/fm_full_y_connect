@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { createClient } from '@/lib/supabase/client'
 import { movePhase, PHASE_LABELS } from '@/lib/domain/pipeline'
+import { revalidatePipelineAfterMove } from '@/app/actions/pipelineRevalidate'
 import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import type { PipelineItem } from '@/lib/domain/pipeline'
 import type { Phase } from '@/types/db'
@@ -44,6 +45,15 @@ export function MovePhaseModal({
     setError(null)
 
     const supabase = createClient()
+
+    // Instrumentación temporal: capturar estado del row antes/después del move
+    const { data: before } = await supabase
+      .from('requirements')
+      .select('id, phase, approval_status, voided, billing_cycle_id, content_type')
+      .eq('id', item.id)
+      .single()
+    console.info('[move-phase] before', before, '→', toPhase)
+
     const { error: moveError } = await movePhase(supabase, {
       requirementId: item.id,
       currentPhase: fromPhase,
@@ -54,13 +64,22 @@ export function MovePhaseModal({
     })
 
     if (moveError) {
+      console.error('[move-phase] move failed', moveError)
       setError(moveError)
       setLoading(false)
       return
     }
 
+    const { data: after } = await supabase
+      .from('requirements')
+      .select('id, phase, approval_status, voided, billing_cycle_id, content_type')
+      .eq('id', item.id)
+      .single()
+    console.info('[move-phase] after', after)
+
     setNotes('')
     setLoading(false)
+    await revalidatePipelineAfterMove(item.client_id)
     router.refresh()
     onClose()
   }

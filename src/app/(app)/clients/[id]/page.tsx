@@ -126,6 +126,7 @@ export default async function ClientDetailPage({
       .select('id, content_type, phase, carried_over, billing_cycle_id, registered_at, notes, title, cambios_count, review_started_at, priority, estimated_time_minutes, assigned_to, includes_story, deadline, starts_at')
       .eq('billing_cycle_id', currentCycle.id)
       .eq('voided', false)
+      .neq('approval_status', 'rejected')
       .in('content_type', PIPELINE_CONTENT_TYPES)
     if (isOperator) pipelineQ = pipelineQ.contains('assigned_to', [effectiveId])
     const { data: pipelineCons } = await pipelineQ.order('registered_at', { ascending: false })

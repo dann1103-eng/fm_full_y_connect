@@ -41,6 +41,10 @@ export default async function PipelinePage({ searchParams }: PipelinePageProps) 
   const logsMap: Record<string, RequirementPhaseLog[]> = {}
 
   if (currentCycleIds.length > 0) {
+    // No aplicamos `.limit()` aquí: la query ya está restringida a ciclos
+    // status='current'. Si pusiéramos un límite, los requerimientos carried_over
+    // (que conservan su `registered_at` original, más antiguo) caerían fuera del
+    // corte y desaparecerían del pipeline aunque sigan abiertos.
     let reqQuery = supabase
       .from('requirements')
       .select('id, content_type, phase, carried_over, billing_cycle_id, registered_at, notes, title, cambios_count, review_started_at, priority, estimated_time_minutes, assigned_to, includes_story, deadline, starts_at')
@@ -49,7 +53,6 @@ export default async function PipelinePage({ searchParams }: PipelinePageProps) 
       .in('content_type', PIPELINE_CONTENT_TYPES)
       .in('billing_cycle_id', currentCycleIds)
       .order('registered_at', { ascending: false })
-      .limit(200)
 
     if (isOperator) {
       reqQuery = reqQuery.contains('assigned_to', [effectiveId])

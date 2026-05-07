@@ -147,14 +147,37 @@ export async function notifyIncomingCall(payload: {
     await Promise.all(
       targetIds.map(async (targetId: string) => {
         const channel = supabase.channel(`user:${targetId}`)
-        await channel.subscribe()
-        await channel.send({
-          type: 'broadcast',
-          event: 'incoming_call',
-          payload: payloadOut,
-        })
-        await supabase.removeChannel(channel)
-      })
+        try {
+          await new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(
+              () => reject(new Error(`subscribe timeout user:${targetId}`)),
+              5000,
+            )
+            channel.subscribe((status) => {
+              if (status === 'SUBSCRIBED') {
+                clearTimeout(timeout)
+                resolve()
+              } else if (
+                status === 'CHANNEL_ERROR' ||
+                status === 'TIMED_OUT' ||
+                status === 'CLOSED'
+              ) {
+                clearTimeout(timeout)
+                reject(new Error(`subscribe ${status} user:${targetId}`))
+              }
+            })
+          })
+          await channel.send({
+            type: 'broadcast',
+            event: 'incoming_call',
+            payload: payloadOut,
+          })
+        } catch (err) {
+          console.error('[notifyIncomingCall] target failed:', targetId, err)
+        } finally {
+          await supabase.removeChannel(channel)
+        }
+      }),
     )
 
     return { ok: true }

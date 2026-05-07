@@ -24,7 +24,9 @@ export function useIncomingCall(userId: string | null) {
         const sessionId = (msg.payload as { sessionId?: string }).sessionId
         setIncoming((prev) => (prev && prev.sessionId === sessionId ? null : prev))
       })
-      .subscribe()
+      .subscribe((status, err) => {
+        console.info(`[useIncomingCall ${userId}] status:`, status, err ?? '')
+      })
 
     return () => {
       supabase.removeChannel(channel)
