@@ -11,18 +11,38 @@ import { endCall } from '@/app/actions/calls'
 /** Tiempo máximo de timbrado antes de auto-rechazar. */
 const MAX_RING_MS = 25_000
 
+/**
+ * Solicita permiso de notificaciones del navegador la primera vez. Necesario
+ * para alertar al usuario cuando la pestaña del CRM está en background — los
+ * browsers throttlean audio y JS en tabs inactivas, pero las Notifications
+ * API se muestran a nivel de sistema operativo.
+ */
+function ensureNotificationPermission() {
+  if (typeof window === 'undefined') return
+  if (!('Notification' in window)) return
+  if (Notification.permission === 'default') {
+    Notification.requestPermission().catch(() => {})
+  }
+}
+
 export function IncomingCallToast() {
   const user = useUserOrNull()
   const { incoming, dismiss } = useIncomingCall(user?.id ?? null)
   const callCtx = useActiveCallOrNull()
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const timeoutRef = useRef<number | null>(null)
+  const notificationRef = useRef<Notification | null>(null)
+
+  // Pedir permiso de notificaciones al iniciar sesión.
+  useEffect(() => {
+    if (user?.id) ensureNotificationPermission()
+  }, [user?.id])
 
   const activeCall = callCtx?.activeCall ?? null
   const inAnotherCall = !!(activeCall && incoming && activeCall.sessionId !== incoming.sessionId)
   const isChannelCall = !!incoming?.channelName
 
-  /** Detiene el ringtone y limpia el timer. */
+  /** Detiene el ringtone, el timer y cierra la notificación OS si existe. */
   const stopRing = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause()
@@ -31,6 +51,10 @@ export function IncomingCallToast() {
     if (timeoutRef.current !== null) {
       window.clearTimeout(timeoutRef.current)
       timeoutRef.current = null
+    }
+    if (notificationRef.current) {
+      notificationRef.current.close()
+      notificationRef.current = null
     }
   }, [])
 
@@ -68,6 +92,43 @@ export function IncomingCallToast() {
       console.warn('[ringtone] autoplay bloqueado:', err)
     })
     timeoutRef.current = window.setTimeout(autoReject, MAX_RING_MS)
+
+    // Si la pestaña está en background, los browsers pausan audio y throttlean
+    // timers — el toast es invisible para el usuario. Disparamos una
+    // notificación OS-level que sí se muestra fuera del browser.
+    if (
+      typeof window !== 'undefined' &&
+      'Notification' in window &&
+      Notification.permission === 'granted' &&
+      document.visibilityState === 'hidden'
+    ) {
+      try {
+        const title = incoming.channelName
+          ? `Llamada en #${incoming.channelName}`
+          : `Llamada entrante de ${incoming.fromUser.full_name}`
+        const body = incoming.channelName
+          ? `${incoming.fromUser.full_name} inició una llamada`
+          : incoming.modality === 'video'
+            ? 'Videollamada'
+            : incoming.modality === 'screen'
+              ? 'Compartir pantalla'
+              : 'Llamada de voz'
+        const notif = new Notification(title, {
+          body,
+          icon: incoming.fromUser.avatar_url ?? '/icon-192.png',
+          tag: `incoming-call-${incoming.sessionId}`,
+          requireInteraction: true,
+        })
+        notif.onclick = () => {
+          window.focus()
+          notif.close()
+        }
+        notificationRef.current = notif
+      } catch (err) {
+        console.warn('[notification] no se pudo crear:', err)
+      }
+    }
+
     return () => {
       stopRing()
     }
