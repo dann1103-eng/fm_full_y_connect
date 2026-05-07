@@ -8,6 +8,7 @@ import { UserAvatar } from '@/components/ui/UserAvatar'
 import { AttachmentPreview } from './AttachmentPreview'
 import { editMessage, deleteMessage, deleteAttachment } from '@/app/actions/inbox'
 import { RequirementShareCard, parseReqShareBody } from './RequirementShareCard'
+import { linkify } from '@/lib/linkify'
 import type { MessageWithMeta } from '@/types/db'
 
 interface MessageItemProps {
@@ -155,7 +156,7 @@ export function MessageItem({ message, currentUserId, isAdmin = false, onUpdated
                     : 'bg-fm-surface-container-lowest border border-fm-surface-container-high text-fm-on-surface rounded-tl-none'
                 )}
               >
-                {message.body}
+                {linkify(message.body)}
               </div>
             )
           )
