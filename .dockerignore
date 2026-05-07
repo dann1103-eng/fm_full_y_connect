@@ -1,0 +1,39 @@
+# Dependencias — se instalan dentro del contenedor
+node_modules
+npm-debug.log*
+
+# Build output — se genera dentro del contenedor
+.next
+out
+
+# Variables de entorno locales (nunca van en la imagen)
+.env*.local
+.env.local
+.env
+
+# Control de versiones
+.git
+.gitignore
+
+# Supabase local (no es código de la app)
+supabase/.branches
+supabase/.temp
+
+# Docs y archivos de desarrollo
+docs
+*.md
+!README.md
+
+# Editor / sistema operativo
+.DS_Store
+Thumbs.db
+.vscode
+.idea
+
+# Tests
+coverage
+.vitest
+
+# Misc
+.claude
+.superpowers
