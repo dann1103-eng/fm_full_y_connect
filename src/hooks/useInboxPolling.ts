@@ -4,8 +4,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ConversationListItem, MessageWithMeta } from '@/types/db'
 import { createClient } from '@/lib/supabase/client'
 
-const SAFETY_POLL_MS = 10_000
-const DEBOUNCE_MS = 300
+// Safety poll: backup en caso que falle realtime. 30s es suficiente para
+// que un usuario sienta el chat "vivo" sin hammerear Supabase con 6 requests/min.
+const SAFETY_POLL_MS = 30_000
+// Debounce para absorber bursts de eventos postgres_changes — sin esto, una
+// rafaga de mensajes simultaneos generaba un fetch por evento.
+const DEBOUNCE_MS = 1500
 
 function useVisible(): boolean {
   const [visible, setVisible] = useState<boolean>(
@@ -51,11 +55,13 @@ export function useInboxList(initial?: ConversationListItem[]) {
 
     refresh()
 
+    // Usamos scheduleRefresh (con debounce) en vez de refresh directo: si llegan
+    // 5 eventos en 1 segundo, hacemos 1 fetch en lugar de 5.
     const channel = supabase
       .channel(`inbox-list-${Math.random().toString(36).slice(2)}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, refresh)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_members' }, refresh)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversations' }, refresh)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, scheduleRefresh)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_members' }, scheduleRefresh)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversations' }, scheduleRefresh)
       .subscribe()
 
     const safetyTimer = window.setInterval(refresh, SAFETY_POLL_MS)

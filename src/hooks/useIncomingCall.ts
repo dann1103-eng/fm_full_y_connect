@@ -21,9 +21,16 @@ const CATCH_UP_WINDOW_SECONDS = 60
  *    conversación y aún no se ha unido. Esto recupera llamadas perdidas
  *    si el broadcast no llegó por race condition o WS dormido.
  */
+// Throttle del catch-up: SUBSCRIBED puede dispararse varias veces seguidas
+// (reconexiones, visibility changes). Sin throttle saturariamos Supabase con
+// queries innecesarias durante reconnects. 10s es suficiente — un caller que
+// recien empieza a llamar todavia esta dentro de la ventana de 60s del query.
+const CATCH_UP_THROTTLE_MS = 10_000
+
 export function useIncomingCall(userId: string | null) {
   const [incoming, setIncoming] = useState<IncomingCallPayload | null>(null)
   const dismissedRef = useRef<Set<string>>(new Set())
+  const lastCatchUpRef = useRef<number>(0)
 
   useEffect(() => {
     if (!userId) return
@@ -70,8 +77,13 @@ export function useIncomingCall(userId: string | null) {
               retryTimeout = null
             }
             // Catch-up: si me perdí un broadcast por race condition o WS
-            // dormido, recupero la llamada vía DB.
-            void runCatchUp(supabase, userId!, dismissedRef.current, setIncoming)
+            // dormido, recupero la llamada vía DB. Throttled para no
+            // hammerear Supabase durante rafagas de reconexiones.
+            const now = Date.now()
+            if (now - lastCatchUpRef.current >= CATCH_UP_THROTTLE_MS) {
+              lastCatchUpRef.current = now
+              void runCatchUp(supabase, userId!, dismissedRef.current, setIncoming)
+            }
           } else if (
             status === 'CHANNEL_ERROR' ||
             status === 'TIMED_OUT' ||
