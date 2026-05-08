@@ -10,6 +10,7 @@ const ROLE_LABEL: Record<UserRole, string> = {
   supervisor: 'Supervisor',
   operator: 'Operador',
   client: 'Cliente',
+  agent: 'Bot',
 }
 
 /**
