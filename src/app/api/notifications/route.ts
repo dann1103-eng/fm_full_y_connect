@@ -432,7 +432,7 @@ export async function GET() {
       .order('created_at', { ascending: false })
       .limit(30)
 
-    for (const inv of (autoInvoices ?? []) as Array<{
+    for (const inv of (autoInvoices ?? []) as unknown as Array<{
       id: string
       invoice_number: string
       total: number

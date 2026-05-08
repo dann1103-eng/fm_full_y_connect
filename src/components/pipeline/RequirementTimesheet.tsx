@@ -162,7 +162,7 @@ export function RequirementTimesheet({
       .eq('requirement_id', requirementId)
       .not('ended_at', 'is', null)  // only completed entries in list
       .order('created_at', { ascending: false })
-    setEntries((data ?? []) as TimeEntryRow[])
+    setEntries((data ?? []) as unknown as TimeEntryRow[])
     setLoading(false)
   }
 

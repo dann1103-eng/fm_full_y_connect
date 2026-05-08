@@ -158,7 +158,12 @@ export async function revokeClientUser(params: {
   }
 }
 
-export async function listClientUsers(clientId: string) {
+export async function listClientUsers(clientId: string): Promise<Array<{
+  id: string
+  user_id: string
+  role: string
+  users: { id: string; full_name: string | null; email: string | null; role: string } | null
+}>> {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('client_users')
@@ -166,7 +171,12 @@ export async function listClientUsers(clientId: string) {
     .eq('client_id', clientId)
     .order('created_at', { ascending: true })
   if (error) throw new Error(error.message)
-  return data ?? []
+  return (data ?? []) as unknown as Array<{
+    id: string
+    user_id: string
+    role: string
+    users: { id: string; full_name: string | null; email: string | null; role: string } | null
+  }>
 }
 
 // ── Panel central /users/portal ──────────────────────────────────
@@ -209,7 +219,7 @@ export async function listAllClientUsers(): Promise<PortalUserListed[]> {
     string,
     { id: string; name: string; role: 'owner' | 'viewer'; can_billing: boolean; can_work: boolean }[]
   > = {}
-  for (const link of (links ?? []) as Array<{
+  for (const link of (links ?? []) as unknown as Array<{
     user_id: string
     role: 'owner' | 'viewer'
     can_billing: boolean

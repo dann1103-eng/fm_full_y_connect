@@ -101,7 +101,7 @@ export function RequirementChat({ requirementId, currentUserId, isAdmin = false,
       .select('id, body, created_at, user_id, attachment_path, attachment_type, attachment_name, visible_to_client, user:users(full_name, role, avatar_url)')
       .eq('requirement_id', requirementId)
       .order('created_at', { ascending: true })
-    setMessages((data ?? []) as ChatMessage[])
+    setMessages((data ?? []) as unknown as ChatMessage[])
     if (!silent) setLoading(false)
   }
 

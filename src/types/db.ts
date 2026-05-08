@@ -1837,15 +1837,21 @@ export interface Database {
           user_id: string
           status: PresenceStatus
           updated_at: string
+          status_emoji: string | null
+          status_message: string | null
         }
         Insert: {
           user_id: string
           status?: PresenceStatus
           updated_at?: string
+          status_emoji?: string | null
+          status_message?: string | null
         }
         Update: {
           status?: PresenceStatus
           updated_at?: string
+          status_emoji?: string | null
+          status_message?: string | null
         }
         Relationships: []
       }
@@ -1939,7 +1945,20 @@ export interface Database {
       }
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      close_orphan_time_entries: {
+        Args: { p_user_id: string; p_older_than_hours?: number }
+        Returns: number
+      }
+      next_invoice_number: {
+        Args: Record<string, never>
+        Returns: string
+      }
+      next_quote_number: {
+        Args: Record<string, never>
+        Returns: string
+      }
+    }
     Enums: Record<string, never>
   }
 }
