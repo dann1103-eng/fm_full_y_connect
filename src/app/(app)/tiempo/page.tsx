@@ -5,7 +5,6 @@ import { redirect } from 'next/navigation'
 import { TopNav } from '@/components/layout/TopNav'
 import { ClockInPanel } from '@/components/tiempo/ClockInPanel'
 import { MyTimeHistory } from '@/components/tiempo/MyTimeHistory'
-import { AdminTimePanel } from '@/components/tiempo/AdminTimePanel'
 import { ShiftPanel } from '@/components/tiempo/ShiftPanel'
 import type { TimeEntry, AppUser } from '@/types/db'
 
@@ -32,18 +31,21 @@ export default async function TiempoPage() {
     .maybeSingle()
   const activeEntry = activeEntryRaw as TimeEntry | null
 
-  // This month's entries
+  // Initial paint: cargamos las entradas del DÍA ACTUAL (default mode='day' en
+  // MyTimeHistory). El componente refetcheará si el usuario cambia a Mes o
+  // navega a otra fecha. Esto reduce la carga del SSR vs. fetchear el mes
+  // completo cuando lo más común es revisar el día.
   const now = new Date()
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString()
+  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+  const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString()
 
   const { data: entriesRaw } = await supabase
     .from('time_entries')
     .select('*, requirement:requirements!requirement_id(id, title, billing_cycles!inner(clients!inner(id, name)))')
     .eq('user_id', effectiveId)
     .not('ended_at', 'is', null)
-    .gte('started_at', monthStart)
-    .lt('started_at', monthEnd)
+    .gte('started_at', dayStart)
+    .lt('started_at', dayEnd)
     .lte('started_at', new Date().toISOString())
     .order('started_at', { ascending: false })
   const entries = (entriesRaw ?? []) as unknown as TimeEntry[]

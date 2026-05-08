@@ -1,10 +1,28 @@
 'use client'
 
-import { useState, useEffect, useTransition, useCallback } from 'react'
+import { useState, useEffect, useTransition, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { ADMIN_CATEGORY_LABELS, formatDuration, formatTime, formatDayLabel, isoDateStr } from '@/lib/domain/time'
-import type { TimeEntry, AdminCategory, ContentType, Phase, Priority, RequirementPhaseLog } from '@/types/db'
+import {
+  ADMIN_CATEGORY_LABELS,
+  formatDuration,
+  formatTime,
+  formatDayLabel,
+  formatDayHeader,
+  isoDateStr,
+  computeTimeSummary,
+} from '@/lib/domain/time'
+import { PHASE_LABELS } from '@/lib/domain/pipeline'
+import type {
+  TimeEntry,
+  AdminCategory,
+  ContentType,
+  Phase,
+  Priority,
+  RequirementPhaseLog,
+  WorkSession,
+} from '@/types/db'
 import { PhaseSheet } from '@/components/pipeline/PhaseSheet'
+import { TimeSummaryCards } from './TimeSummaryCards'
 
 type TimeEntryWithContext = TimeEntry & {
   requirement?: {
@@ -48,11 +66,35 @@ interface Props {
   isAdmin?: boolean
 }
 
+type ViewMode = 'day' | 'month'
+
+function startOfDay(d: Date): Date {
+  const x = new Date(d)
+  x.setHours(0, 0, 0, 0)
+  return x
+}
+
+function computeRange(mode: ViewMode, day: Date, year: number, month: number): { start: string; end: string } {
+  if (mode === 'day') {
+    const startD = startOfDay(day)
+    const endD = new Date(startD)
+    endD.setDate(endD.getDate() + 1)
+    return { start: startD.toISOString(), end: endD.toISOString() }
+  }
+  return {
+    start: new Date(year, month, 1).toISOString(),
+    end: new Date(year, month + 1, 1).toISOString(),
+  }
+}
+
 export function MyTimeHistory({ userId, initialEntries, initialYear, initialMonth, isAdmin = false }: Props) {
+  const [mode, setMode] = useState<ViewMode>('day')
+  const [day, setDay] = useState<Date>(() => startOfDay(new Date()))
   const [year, setYear] = useState(initialYear)
   const [month, setMonth] = useState(initialMonth)
   const [entries, setEntries] = useState<TimeEntryWithContext[]>(initialEntries as TimeEntryWithContext[])
-  const [loading, setLoading] = useState(false)
+  const [workSessions, setWorkSessions] = useState<WorkSession[]>([])
+  const [loading, setLoading] = useState(true)
   const [, startTransition] = useTransition()
   const [sheetData, setSheetData] = useState<SheetData | null>(null)
 
@@ -105,26 +147,34 @@ export function MyTimeHistory({ userId, initialEntries, initialYear, initialMont
     })
   }, [])
 
+  // Refetch al cambiar mode/day/year/month — paraleliza time_entries + work_sessions
+  // para que las tarjetas resumen tengan datos consistentes.
   useEffect(() => {
-    if (year === initialYear && month === initialMonth) return
-    setLoading(true)
+    const { start, end } = computeRange(mode, day, year, month)
     startTransition(async () => {
       const supabase = createClient()
-      const start = new Date(year, month, 1).toISOString()
-      const end = new Date(year, month + 1, 1).toISOString()
-      const { data } = await supabase
-        .from('time_entries')
-        .select('*, requirement:requirements!requirement_id(id, title, billing_cycles!inner(clients!inner(id, name)))')
-        .eq('user_id', userId)
-        .not('ended_at', 'is', null)
-        .gte('started_at', start)
-        .lt('started_at', end)
-        .lte('started_at', new Date().toISOString())
-        .order('started_at', { ascending: false })
-      setEntries((data ?? []) as unknown as TimeEntryWithContext[])
+      const [entriesRes, sessionsRes] = await Promise.all([
+        supabase
+          .from('time_entries')
+          .select('*, requirement:requirements!requirement_id(id, title, billing_cycles!inner(clients!inner(id, name)))')
+          .eq('user_id', userId)
+          .not('ended_at', 'is', null)
+          .gte('started_at', start)
+          .lt('started_at', end)
+          .lte('started_at', new Date().toISOString())
+          .order('started_at', { ascending: false }),
+        supabase
+          .from('work_sessions')
+          .select('id, user_id, started_at, ended_at, status, notes, breaks_json, total_seconds, productive_seconds, created_at')
+          .eq('user_id', userId)
+          .lt('started_at', end)
+          .or(`ended_at.gte.${start},ended_at.is.null`),
+      ])
+      setEntries((entriesRes.data ?? []) as unknown as TimeEntryWithContext[])
+      setWorkSessions((sessionsRes.data ?? []) as WorkSession[])
       setLoading(false)
     })
-  }, [year, month, userId, initialYear, initialMonth])
+  }, [mode, day, year, month, userId])
 
   function prevMonth() {
     if (month === 0) { setYear(y => y - 1); setMonth(11) } else setMonth(m => m - 1)
@@ -134,91 +184,115 @@ export function MyTimeHistory({ userId, initialEntries, initialYear, initialMont
     if (year > now.getFullYear() || (year === now.getFullYear() && month >= now.getMonth())) return
     if (month === 11) { setYear(y => y + 1); setMonth(0) } else setMonth(m => m + 1)
   }
+  function prevDay() {
+    const d = new Date(day); d.setDate(d.getDate() - 1); setDay(startOfDay(d))
+  }
+  function nextDay() {
+    const today = startOfDay(new Date())
+    if (day.getTime() >= today.getTime()) return
+    const d = new Date(day); d.setDate(d.getDate() + 1); setDay(startOfDay(d))
+  }
 
   // Group by day
-  const dayMap = new Map<string, DayGroup>()
-  for (const e of entries) {
-    const day = isoDateStr(new Date(e.started_at))
-    if (!dayMap.has(day)) dayMap.set(day, { date: day, entries: [], totalSeconds: 0 })
-    const g = dayMap.get(day)!
-    g.entries.push(e)
-    g.totalSeconds += e.duration_seconds ?? 0
-  }
-  const days = [...dayMap.values()].sort((a, b) => b.date.localeCompare(a.date))
+  const days = useMemo(() => {
+    const dayMap = new Map<string, DayGroup>()
+    for (const e of entries) {
+      const dKey = isoDateStr(new Date(e.started_at))
+      if (!dayMap.has(dKey)) dayMap.set(dKey, { date: dKey, entries: [], totalSeconds: 0 })
+      const g = dayMap.get(dKey)!
+      g.entries.push(e)
+      g.totalSeconds += e.duration_seconds ?? 0
+    }
+    return [...dayMap.values()].sort((a, b) => b.date.localeCompare(a.date))
+  }, [entries])
 
-  const monthTotal = entries.reduce((s, e) => s + (e.duration_seconds ?? 0), 0)
-  const reqTotal = entries.filter(e => e.entry_type === 'requirement').reduce((s, e) => s + (e.duration_seconds ?? 0), 0)
-  const adminTotal = entries.filter(e => e.entry_type === 'administrative').reduce((s, e) => s + (e.duration_seconds ?? 0), 0)
+  const summary = useMemo(
+    () => computeTimeSummary(entries, workSessions),
+    [entries, workSessions],
+  )
 
-  // Today summary
-  const todayStr = isoDateStr(new Date())
-  const todayEntries = entries.filter(e => isoDateStr(new Date(e.started_at)) === todayStr)
-  const todayTotal = todayEntries.reduce((s, e) => s + (e.duration_seconds ?? 0), 0)
+  const totalSeconds = summary.productiveSeconds
+  const reqTotal = useMemo(
+    () => entries.filter(e => e.entry_type === 'requirement').reduce((s, e) => s + (e.duration_seconds ?? 0), 0),
+    [entries],
+  )
+  const adminTotal = totalSeconds - reqTotal
+  const isToday = mode === 'day' && isoDateStr(day) === isoDateStr(new Date())
+  const atMaxDay = day.getTime() >= startOfDay(new Date()).getTime()
 
   return (
     <>
     <div className="space-y-5">
-      {/* Today summary */}
-      {todayTotal > 0 && (
-        <div className="glass-panel rounded-[2rem] p-6">
-          <p className="text-[11px] font-extrabold text-fm-outline-variant uppercase tracking-widest mb-3">Hoy</p>
-          <div className="flex gap-6 flex-wrap">
-            <div>
-              <p className="text-3xl font-black text-fm-on-surface">{formatDuration(todayTotal)}</p>
-              <p className="text-xs text-fm-on-surface-variant mt-0.5">Total del día</p>
-            </div>
-            {reqTotal > 0 && (
-              <div className="border-l border-fm-surface-container-high pl-6">
-                <p className="text-xl font-bold text-fm-primary">{formatDuration(todayEntries.filter(e => e.entry_type === 'requirement').reduce((s, e) => s + (e.duration_seconds ?? 0), 0))}</p>
-                <p className="text-xs text-fm-on-surface-variant mt-0.5">Requerimientos</p>
-              </div>
-            )}
-            {adminTotal > 0 && (
-              <div className="border-l border-fm-surface-container-high pl-6">
-                <p className="text-xl font-bold text-fm-on-surface-variant">{formatDuration(todayEntries.filter(e => e.entry_type === 'administrative').reduce((s, e) => s + (e.duration_seconds ?? 0), 0))}</p>
-                <p className="text-xs text-fm-on-surface-variant mt-0.5">Administrativo</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Tarjetas resumen */}
+      <TimeSummaryCards summary={summary} />
 
-      {/* Month selector + totals */}
+      {/* Selector + totals */}
       <div className="glass-panel rounded-[2rem] p-6 space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            <button onClick={prevMonth} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant transition-colors">
-              <span className="material-symbols-outlined text-lg">chevron_left</span>
-            </button>
-            <p className="text-base font-bold text-fm-on-surface w-36 text-center">{MONTHS[month]} {year}</p>
-            <button onClick={nextMonth} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant transition-colors">
-              <span className="material-symbols-outlined text-lg">chevron_right</span>
-            </button>
+            {mode === 'day' ? (
+              <>
+                <button onClick={prevDay} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant transition-colors">
+                  <span className="material-symbols-outlined text-lg">chevron_left</span>
+                </button>
+                <p className="text-base font-bold text-fm-on-surface w-44 text-center capitalize">{formatDayHeader(day)}</p>
+                <button onClick={nextDay} disabled={atMaxDay} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                  <span className="material-symbols-outlined text-lg">chevron_right</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button onClick={prevMonth} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant transition-colors">
+                  <span className="material-symbols-outlined text-lg">chevron_left</span>
+                </button>
+                <p className="text-base font-bold text-fm-on-surface w-36 text-center">{MONTHS[month]} {year}</p>
+                <button onClick={nextMonth} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant transition-colors">
+                  <span className="material-symbols-outlined text-lg">chevron_right</span>
+                </button>
+              </>
+            )}
           </div>
-          <div className="flex items-center gap-5 text-sm">
-            <span className="text-fm-on-surface-variant">Total: <strong className="text-fm-on-surface">{formatDuration(monthTotal)}</strong></span>
-            <span className="text-fm-on-surface-variant">Req: <strong className="text-fm-primary">{formatDuration(reqTotal)}</strong></span>
-            <span className="text-fm-on-surface-variant">Admin: <strong className="text-fm-outline">{formatDuration(adminTotal)}</strong></span>
+
+          <div className="flex items-center gap-3">
+            {/* Toggle Día / Mes */}
+            <div className="flex rounded-full border border-fm-surface-container-high overflow-hidden text-xs font-bold">
+              {(['day', 'month'] as const).map(m => (
+                <button
+                  key={m}
+                  onClick={() => setMode(m)}
+                  className={`px-3 py-1.5 transition-colors ${mode === m ? 'bg-fm-primary text-white' : 'text-fm-on-surface-variant hover:bg-fm-background'}`}
+                >
+                  {m === 'day' ? 'Día' : 'Mes'}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-3 text-sm">
+              <span className="text-fm-on-surface-variant hidden sm:inline">Req: <strong className="text-fm-primary">{formatDuration(reqTotal)}</strong></span>
+              <span className="text-fm-on-surface-variant hidden sm:inline">Admin: <strong className="text-fm-outline">{formatDuration(adminTotal)}</strong></span>
+            </div>
           </div>
         </div>
 
         {loading && <p className="text-sm text-fm-outline-variant py-4 text-center">Cargando…</p>}
 
         {!loading && days.length === 0 && (
-          <p className="text-sm text-fm-outline-variant py-6 text-center">Sin registros este mes.</p>
+          <p className="text-sm text-fm-outline-variant py-6 text-center">
+            Sin registros {mode === 'day' ? (isToday ? 'hoy' : 'este día') : 'este mes'}.
+          </p>
         )}
 
-        {!loading && days.map(day => (
-          <div key={day.date}>
+        {!loading && days.map(d => (
+          <div key={d.date}>
             <div className="flex items-center gap-3 mb-2">
               <p className="text-xs font-extrabold text-fm-on-surface-variant uppercase tracking-wider capitalize">
-                {formatDayLabel(day.date + 'T12:00:00')}
+                {formatDayLabel(d.date + 'T12:00:00')}
               </p>
               <div className="flex-1 h-px bg-fm-surface-container-low" />
-              <p className="text-xs font-bold text-fm-on-surface">{formatDuration(day.totalSeconds)}</p>
+              <p className="text-xs font-bold text-fm-on-surface">{formatDuration(d.totalSeconds)}</p>
             </div>
             <div className="space-y-1.5">
-              {day.entries.map(e => (
+              {d.entries.map(e => (
                 <EntryRow key={e.id} entry={e} onOpenReq={handleOpenReq} />
               ))}
             </div>
@@ -257,11 +331,17 @@ export function MyTimeHistory({ userId, initialEntries, initialYear, initialMont
 function EntryRow({ entry, onOpenReq }: { entry: TimeEntryWithContext; onOpenReq: (id: string) => void }) {
   const isReq = entry.entry_type === 'requirement'
   const label = isReq
-    ? entry.title
+    ? (entry.requirement?.title ?? entry.title)
     : ADMIN_CATEGORY_LABELS[entry.category as AdminCategory] ?? entry.title
 
   const clientName = entry.requirement?.billing_cycles?.clients?.name
-  const reqTitle = entry.requirement?.title
+  const phaseLabel = isReq && entry.phase ? PHASE_LABELS[entry.phase as Phase] ?? entry.phase : null
+
+  // Línea secundaria: para REQ "[fase] · [cliente]"; para ADM omitida si el
+  // título ya es la categoría (evita duplicación con el label de arriba).
+  const secondary = isReq
+    ? [phaseLabel, clientName].filter(Boolean).join(' · ')
+    : (entry.title && entry.title !== label ? `Interno FM · ${ADMIN_CATEGORY_LABELS[entry.category as AdminCategory] ?? ''}` : null)
 
   const body = (
     <>
@@ -283,9 +363,9 @@ function EntryRow({ entry, onOpenReq }: { entry: TimeEntryWithContext; onOpenReq
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-fm-surface-container-low text-fm-on-surface-variant">ADM</span>
         )}
       </div>
-      {isReq && clientName && (
+      {secondary && (
         <p className="text-[11px] text-fm-on-surface-variant mt-1 ml-5 pl-0.5 truncate">
-          {clientName}{reqTitle ? ` · ${reqTitle}` : ''}
+          {secondary}
         </p>
       )}
       {entry.notes && (

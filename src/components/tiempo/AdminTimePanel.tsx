@@ -1,12 +1,44 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
+import { useState, useEffect, useTransition, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { adminAddEntry, adminEditEntry, adminDeleteEntry } from '@/app/actions/time'
-import { ADMIN_CATEGORIES, ADMIN_CATEGORY_LABELS, formatDuration, formatTime, formatDayLabel, isoDateStr } from '@/lib/domain/time'
-import type { TimeEntry, AppUser, AdminCategory } from '@/types/db'
+import {
+  ADMIN_CATEGORIES,
+  ADMIN_CATEGORY_LABELS,
+  formatDuration,
+  formatTime,
+  formatDayLabel,
+  formatDayHeader,
+  isoDateStr,
+  computeTimeSummary,
+} from '@/lib/domain/time'
+import { PHASE_LABELS } from '@/lib/domain/pipeline'
+import type { TimeEntry, AppUser, AdminCategory, Phase, WorkSession } from '@/types/db'
+import { TimeSummaryCards } from './TimeSummaryCards'
 
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+
+type ViewMode = 'day' | 'month'
+
+function startOfDay(d: Date): Date {
+  const x = new Date(d)
+  x.setHours(0, 0, 0, 0)
+  return x
+}
+
+function computeRange(mode: ViewMode, day: Date, year: number, month: number): { start: string; end: string } {
+  if (mode === 'day') {
+    const startD = startOfDay(day)
+    const endD = new Date(startD)
+    endD.setDate(endD.getDate() + 1)
+    return { start: startD.toISOString(), end: endD.toISOString() }
+  }
+  return {
+    start: new Date(year, month, 1).toISOString(),
+    end: new Date(year, month + 1, 1).toISOString(),
+  }
+}
 
 interface Props {
   users: AppUser[]
@@ -14,33 +46,49 @@ interface Props {
 
 export function AdminTimePanel({ users }: Props) {
   const [selectedUserId, setSelectedUserId] = useState(users[0]?.id ?? '')
+  const [mode, setMode] = useState<ViewMode>('day')
+  const [day, setDay] = useState<Date>(() => startOfDay(new Date()))
   const [year, setYear] = useState(new Date().getFullYear())
   const [month, setMonth] = useState(new Date().getMonth())
   const [entries, setEntries] = useState<TimeEntry[]>([])
-  const [loading, setLoading] = useState(false)
+  const [workSessions, setWorkSessions] = useState<WorkSession[]>([])
+  const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
   const [editEntry, setEditEntry] = useState<TimeEntry | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  async function loadEntries(uid: string, y: number, m: number) {
-    setLoading(true)
-    const supabase = createClient()
-    const start = new Date(y, m, 1).toISOString()
-    const end = new Date(y, m + 1, 1).toISOString()
-    const { data } = await supabase
-      .from('time_entries')
-      .select('*')
-      .eq('user_id', uid)
-      .gte('started_at', start)
-      .lt('started_at', end)
-      .lte('started_at', new Date().toISOString())
-      .order('started_at', { ascending: false })
-    setEntries((data ?? []) as TimeEntry[])
-    setLoading(false)
-  }
+  // Trigger a refetch desde callbacks (modales add/edit/delete) — usa el
+  // mismo state actual del panel.
+  const [refetchTick, setRefetchTick] = useState(0)
+  function refetch() { setRefetchTick(t => t + 1) }
 
-  useEffect(() => { if (selectedUserId) loadEntries(selectedUserId, year, month) }, [selectedUserId, year, month])
+  useEffect(() => {
+    if (!selectedUserId) return
+    const { start, end } = computeRange(mode, day, year, month)
+    startTransition(async () => {
+      const supabase = createClient()
+      const [entriesRes, sessionsRes] = await Promise.all([
+        supabase
+          .from('time_entries')
+          .select('*')
+          .eq('user_id', selectedUserId)
+          .gte('started_at', start)
+          .lt('started_at', end)
+          .lte('started_at', new Date().toISOString())
+          .order('started_at', { ascending: false }),
+        supabase
+          .from('work_sessions')
+          .select('id, user_id, started_at, ended_at, status, notes, breaks_json, total_seconds, productive_seconds, created_at')
+          .eq('user_id', selectedUserId)
+          .lt('started_at', end)
+          .or(`ended_at.gte.${start},ended_at.is.null`),
+      ])
+      setEntries((entriesRes.data ?? []) as TimeEntry[])
+      setWorkSessions((sessionsRes.data ?? []) as WorkSession[])
+      setLoading(false)
+    })
+  }, [selectedUserId, mode, day, year, month, refetchTick])
 
   function prevMonth() {
     if (month === 0) { setYear(y => y - 1); setMonth(11) } else setMonth(m => m - 1)
@@ -49,6 +97,14 @@ export function AdminTimePanel({ users }: Props) {
     const now = new Date()
     if (year > now.getFullYear() || (year === now.getFullYear() && month >= now.getMonth())) return
     if (month === 11) { setYear(y => y + 1); setMonth(0) } else setMonth(m => m + 1)
+  }
+  function prevDay() {
+    const d = new Date(day); d.setDate(d.getDate() - 1); setDay(startOfDay(d))
+  }
+  function nextDay() {
+    const today = startOfDay(new Date())
+    if (day.getTime() >= today.getTime()) return
+    const d = new Date(day); d.setDate(d.getDate() + 1); setDay(startOfDay(d))
   }
 
   function handleDelete(id: string) {
@@ -60,15 +116,22 @@ export function AdminTimePanel({ users }: Props) {
     })
   }
 
-  const monthTotal = entries.filter(e => e.ended_at).reduce((s, e) => s + (e.duration_seconds ?? 0), 0)
+  const summary = useMemo(
+    () => computeTimeSummary(entries, workSessions),
+    [entries, workSessions],
+  )
 
-  const dayMap = new Map<string, TimeEntry[]>()
-  for (const e of entries) {
-    const day = isoDateStr(new Date(e.started_at))
-    if (!dayMap.has(day)) dayMap.set(day, [])
-    dayMap.get(day)!.push(e)
-  }
-  const days = [...dayMap.entries()].sort((a, b) => b[0].localeCompare(a[0]))
+  const days = useMemo(() => {
+    const dayMap = new Map<string, TimeEntry[]>()
+    for (const e of entries) {
+      const key = isoDateStr(new Date(e.started_at))
+      if (!dayMap.has(key)) dayMap.set(key, [])
+      dayMap.get(key)!.push(e)
+    }
+    return [...dayMap.entries()].sort((a, b) => b[0].localeCompare(a[0]))
+  }, [entries])
+
+  const atMaxDay = day.getTime() >= startOfDay(new Date()).getTime()
 
   return (
     <div className="space-y-5">
@@ -91,16 +154,43 @@ export function AdminTimePanel({ users }: Props) {
         </select>
 
         <div className="flex items-center gap-2">
-          <button onClick={prevMonth} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant">
-            <span className="material-symbols-outlined text-lg">chevron_left</span>
-          </button>
-          <span className="text-sm font-bold text-fm-on-surface w-32 text-center">{MONTHS[month]} {year}</span>
-          <button onClick={nextMonth} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant">
-            <span className="material-symbols-outlined text-lg">chevron_right</span>
-          </button>
+          {mode === 'day' ? (
+            <>
+              <button onClick={prevDay} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant">
+                <span className="material-symbols-outlined text-lg">chevron_left</span>
+              </button>
+              <span className="text-sm font-bold text-fm-on-surface w-44 text-center capitalize">{formatDayHeader(day)}</span>
+              <button onClick={nextDay} disabled={atMaxDay} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant disabled:opacity-30 disabled:cursor-not-allowed">
+                <span className="material-symbols-outlined text-lg">chevron_right</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={prevMonth} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant">
+                <span className="material-symbols-outlined text-lg">chevron_left</span>
+              </button>
+              <span className="text-sm font-bold text-fm-on-surface w-32 text-center">{MONTHS[month]} {year}</span>
+              <button onClick={nextMonth} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant">
+                <span className="material-symbols-outlined text-lg">chevron_right</span>
+              </button>
+            </>
+          )}
         </div>
 
-        <span className="text-sm text-fm-on-surface-variant">Total: <strong className="text-fm-on-surface">{formatDuration(monthTotal)}</strong></span>
+        {/* Toggle Día / Mes */}
+        <div className="flex rounded-full border border-fm-surface-container-high overflow-hidden text-xs font-bold">
+          {(['day', 'month'] as const).map(m => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={`px-3 py-1.5 transition-colors ${mode === m ? 'bg-fm-primary text-white' : 'text-fm-on-surface-variant hover:bg-fm-background'}`}
+            >
+              {m === 'day' ? 'Día' : 'Mes'}
+            </button>
+          ))}
+        </div>
+
+        <span className="text-sm text-fm-on-surface-variant">Total: <strong className="text-fm-on-surface">{formatDuration(summary.productiveSeconds)}</strong></span>
 
         <button
           onClick={() => setShowAdd(true)}
@@ -111,11 +201,16 @@ export function AdminTimePanel({ users }: Props) {
         </button>
       </div>
 
+      {/* Tarjetas resumen */}
+      {selectedUserId && <TimeSummaryCards summary={summary} />}
+
       {/* Entries */}
       <div className="glass-panel rounded-[2rem] p-6 space-y-5">
         {loading && <p className="text-sm text-fm-outline-variant py-4 text-center">Cargando…</p>}
         {!loading && days.length === 0 && (
-          <p className="text-sm text-fm-outline-variant py-6 text-center">Sin registros este mes.</p>
+          <p className="text-sm text-fm-outline-variant py-6 text-center">
+            Sin registros {mode === 'day' ? 'este día' : 'este mes'}.
+          </p>
         )}
         {!loading && days.map(([date, dayEntries]) => (
           <div key={date}>
@@ -147,7 +242,7 @@ export function AdminTimePanel({ users }: Props) {
         <AddEntryModal
           targetUserId={selectedUserId}
           onClose={() => setShowAdd(false)}
-          onSaved={() => { setShowAdd(false); loadEntries(selectedUserId, year, month) }}
+          onSaved={() => { setShowAdd(false); refetch() }}
         />
       )}
 
@@ -155,7 +250,7 @@ export function AdminTimePanel({ users }: Props) {
         <EditEntryModal
           entry={editEntry}
           onClose={() => setEditEntry(null)}
-          onSaved={() => { setEditEntry(null); loadEntries(selectedUserId, year, month) }}
+          onSaved={() => { setEditEntry(null); refetch() }}
         />
       )}
     </div>
@@ -170,26 +265,40 @@ function AdminEntryRow({ entry, onEdit, onDelete, disabled }: {
     ? entry.title
     : ADMIN_CATEGORY_LABELS[entry.category as AdminCategory] ?? entry.title
   const isActive = !entry.ended_at
+  const phaseLabel = isReq && entry.phase ? PHASE_LABELS[entry.phase as Phase] ?? entry.phase : null
+  const secondary = isReq
+    ? phaseLabel
+    : (entry.title && entry.title !== label ? `Interno FM · ${ADMIN_CATEGORY_LABELS[entry.category as AdminCategory] ?? ''}` : null)
 
   return (
-    <div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors ${isActive ? 'bg-fm-primary-container/30' : 'bg-fm-surface-container-low hover:bg-fm-surface-container-low'}`}>
-      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: isReq ? '#00675c' : '#abadaf' }} />
-      <p className="text-sm text-fm-on-surface flex-1 truncate">{label}</p>
-      <p className="text-xs text-fm-on-surface-variant tabular-nums">
-        {formatTime(entry.started_at)} – {entry.ended_at ? formatTime(entry.ended_at) : <span className="text-fm-primary font-bold">activo</span>}
-      </p>
-      <p className="text-xs font-bold text-fm-on-surface tabular-nums w-14 text-right">
-        {entry.duration_seconds ? formatDuration(entry.duration_seconds) : '—'}
-      </p>
-      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isReq ? 'bg-fm-primary-container/30 text-fm-primary' : 'bg-fm-surface-container-low text-fm-on-surface-variant'}`}>
-        {isReq ? 'REQ' : 'ADM'}
-      </span>
-      <button onClick={onEdit} disabled={disabled} className="p-1 rounded-lg hover:bg-fm-surface-container-high text-fm-on-surface-variant transition-colors">
-        <span className="material-symbols-outlined text-base">edit</span>
-      </button>
-      <button onClick={onDelete} disabled={disabled} className="p-1 rounded-lg hover:bg-red-100 text-fm-error transition-colors">
-        <span className="material-symbols-outlined text-base">delete</span>
-      </button>
+    <div className={`px-4 py-2.5 rounded-xl transition-colors ${isActive ? 'bg-fm-primary-container/30' : 'bg-fm-surface-container-low'}`}>
+      <div className="flex items-center gap-3">
+        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: isReq ? '#00675c' : '#abadaf' }} />
+        <p className="text-sm text-fm-on-surface flex-1 truncate">{label}</p>
+        <p className="text-xs text-fm-on-surface-variant tabular-nums">
+          {formatTime(entry.started_at)} – {entry.ended_at ? formatTime(entry.ended_at) : <span className="text-fm-primary font-bold">activo</span>}
+        </p>
+        <p className="text-xs font-bold text-fm-on-surface tabular-nums w-14 text-right">
+          {entry.duration_seconds ? formatDuration(entry.duration_seconds) : '—'}
+        </p>
+        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isReq ? 'bg-fm-primary-container/30 text-fm-primary' : 'bg-fm-surface-container-low text-fm-on-surface-variant'}`}>
+          {isReq ? 'REQ' : 'ADM'}
+        </span>
+        <button onClick={onEdit} disabled={disabled} className="p-1 rounded-lg hover:bg-fm-surface-container-high text-fm-on-surface-variant transition-colors">
+          <span className="material-symbols-outlined text-base">edit</span>
+        </button>
+        <button onClick={onDelete} disabled={disabled} className="p-1 rounded-lg hover:bg-red-100 text-fm-error transition-colors">
+          <span className="material-symbols-outlined text-base">delete</span>
+        </button>
+      </div>
+      {secondary && (
+        <p className="text-[11px] text-fm-on-surface-variant mt-1 ml-5 pl-0.5 truncate">
+          {secondary}
+        </p>
+      )}
+      {entry.notes && (
+        <p className="text-xs text-fm-outline mt-1 ml-5 pl-0.5 whitespace-pre-wrap break-words">{entry.notes}</p>
+      )}
     </div>
   )
 }
