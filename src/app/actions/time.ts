@@ -43,6 +43,14 @@ export async function startAdminEntry(category: AdminCategory, notes?: string) {
   await assertNotImpersonating()
   const { supabase, user } = await getAuthUser()
 
+  // Defensa contra entradas huérfanas: cierra automáticamente cualquier
+  // time_entry abierta hace > 12 horas. Cubre cierres fallidos por crashes,
+  // red caída a mitad de stop, o filas insertadas sin ended_at.
+  await supabase.rpc('close_orphan_time_entries', {
+    p_user_id: user.id,
+    p_older_than_hours: 12,
+  })
+
   const active = await getActiveEntry(supabase, user.id)
   if (active) return { error: 'Ya tienes una entrada activa. Marca salida primero.' }
 
@@ -92,6 +100,13 @@ export async function updateMyActiveNotes(notes: string) {
 export async function startRequirementTimer(requirementId: string, requirementTitle: string, phase: string) {
   await assertNotImpersonating()
   const { supabase, user } = await getAuthUser()
+
+  // Defensa contra entradas huérfanas: cierra automáticamente cualquier
+  // time_entry abierta hace > 12 horas (cierres fallidos / crashes / etc.).
+  await supabase.rpc('close_orphan_time_entries', {
+    p_user_id: user.id,
+    p_older_than_hours: 12,
+  })
 
   const active = await getActiveEntry(supabase, user.id)
   if (active) return { error: 'Ya tienes una entrada activa. Detén el timer actual primero.' }

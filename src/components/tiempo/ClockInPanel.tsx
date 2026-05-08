@@ -1,17 +1,23 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { startAdminEntry, stopActiveEntry, updateMyActiveNotes } from '@/app/actions/time'
 import { getMyActiveShift } from '@/app/actions/work-sessions'
 import { ADMIN_CATEGORIES, ADMIN_CATEGORY_LABELS, formatDuration } from '@/lib/domain/time'
+import { useMyActiveTimeEntry } from '@/hooks/useMyActiveTimeEntry'
 import type { AdminCategory, TimeEntry } from '@/types/db'
 
 interface Props {
   initialActive: TimeEntry | null
+  userId?: string | null
 }
 
-export function ClockInPanel({ initialActive }: Props) {
-  const [active, setActive] = useState<TimeEntry | null>(initialActive)
+export function ClockInPanel({ initialActive, userId = null }: Props) {
+  const router = useRouter()
+  // Hook con realtime: sincroniza la entrada activa cuando otro tab/dispositivo
+  // cierra el timer, y elimina los "fantasmas" de stale state.
+  const [active, setActive] = useMyActiveTimeEntry(userId, initialActive)
   const [selectedCategory, setSelectedCategory] = useState<AdminCategory>('administrativa')
   const [notes, setNotes] = useState('')
   const [editingNotes, setEditingNotes] = useState(false)
@@ -34,7 +40,7 @@ export function ClockInPanel({ initialActive }: Props) {
   useEffect(() => {
     if (!active) { setElapsed(0); return }
     const calc = () => {
-      const diff = Math.round((Date.now() - new Date(active.started_at).getTime()) / 1000)
+      const diff = Math.round((new Date().getTime() - new Date(active.started_at).getTime()) / 1000)
       setElapsed(diff)
     }
     calc()
@@ -66,6 +72,9 @@ export function ClockInPanel({ initialActive }: Props) {
       })
       setActiveNotesDraft(notes.trim())
       setNotes('')
+      // Forzar re-render del server component para que las props del SSR
+      // queden frescas (incluyendo la fila real con su id, no 'pending').
+      router.refresh()
     })
   }
 
@@ -73,6 +82,7 @@ export function ClockInPanel({ initialActive }: Props) {
     startTransition(async () => {
       await updateMyActiveNotes(activeNotesDraft)
       setEditingNotes(false)
+      router.refresh()
     })
   }
 
@@ -82,6 +92,9 @@ export function ClockInPanel({ initialActive }: Props) {
       const res = await stopActiveEntry()
       if (res.error) { setError(res.error); return }
       setActive(null)
+      // Refrescar SSR para sincronizar otros componentes (MyTimeHistory,
+      // AdminTimePanel) que muestran la lista de entradas del día.
+      router.refresh()
     })
   }
 

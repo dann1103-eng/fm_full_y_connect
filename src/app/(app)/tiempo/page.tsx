@@ -102,7 +102,7 @@ function PersonalView({ userId, activeEntry, entries, year, month }: {
   return (
     <div className="space-y-5">
       <ShiftPanel />
-      <ClockInPanel initialActive={activeEntry} />
+      <ClockInPanel initialActive={activeEntry} userId={userId} />
       <MyTimeHistory userId={userId} initialEntries={entries} initialYear={year} initialMonth={month} />
     </div>
   )
