@@ -73,6 +73,7 @@ export function TimesheetReport({ users, clients, currentUserId, isAdmin = false
   const [primary, setPrimary] = useState<PrimaryGroup>('member')
   const [secondary, setSecondary] = useState<SecondaryGroup>('client')
   const [entryTypeFilter, setEntryTypeFilter] = useState<EntryTypeFilter>('all')
+  const [onlyStandby, setOnlyStandby] = useState(false)
   const [userFilter, setUserFilter] = useState<string[]>([])
   const [clientFilter, setClientFilter] = useState<string[]>([])
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set())
@@ -115,6 +116,7 @@ export function TimesheetReport({ users, clients, currentUserId, isAdmin = false
   // Entries filtradas client-side para display (tree + totals + counts del resumen)
   const displayEntries = useMemo(() => {
     return entries.filter((e) => {
+      if (onlyStandby && !(e.entry_type === 'administrative' && e.category === 'standby')) return false
       if (userFilter.length > 0 && !userFilter.includes(e.user_id)) return false
       if (clientFilter.length > 0) {
         if (!e.client_id) return false
@@ -122,7 +124,7 @@ export function TimesheetReport({ users, clients, currentUserId, isAdmin = false
       }
       return true
     })
-  }, [entries, userFilter, clientFilter])
+  }, [entries, onlyStandby, userFilter, clientFilter])
 
   // Counts contextuales para los chips (se basan en el universo completo de
   // entries del rango/tipo, no en el filtro actual — así cada opción muestra
@@ -184,6 +186,7 @@ export function TimesheetReport({ users, clients, currentUserId, isAdmin = false
     setUserFilter([])
     setClientFilter([])
     setEntryTypeFilter('all')
+    setOnlyStandby(false)
     setExpandedKeys(new Set())
   }
 
@@ -317,6 +320,20 @@ export function TimesheetReport({ users, clients, currentUserId, isAdmin = false
           ]}
         />
 
+        <button
+          type="button"
+          onClick={() => setOnlyStandby((v) => !v)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-full border transition-colors ${
+            onlyStandby
+              ? 'bg-amber-500 text-white border-amber-500'
+              : 'bg-fm-surface-container-lowest text-fm-on-surface-variant border-fm-surface-container-high hover:bg-fm-background'
+          }`}
+          title="Mostrar solo entradas administrativas con categoría Standby"
+        >
+          <span className="material-symbols-outlined text-sm">pause_circle</span>
+          Solo standby
+        </button>
+
         {showUserMulti && (
           <MultiFilterChip
             label="Miembros"
@@ -347,7 +364,7 @@ export function TimesheetReport({ users, clients, currentUserId, isAdmin = false
           />
         )}
 
-        {(userFilter.length > 0 || clientFilter.length > 0 || entryTypeFilter !== 'all') && (
+        {(userFilter.length > 0 || clientFilter.length > 0 || entryTypeFilter !== 'all' || onlyStandby) && (
           <button
             type="button"
             onClick={clearFilters}

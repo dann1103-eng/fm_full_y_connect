@@ -97,10 +97,14 @@ export function MessageItem({ message, currentUserId, isAdmin = false, onUpdated
         {message.reply_preview && (
           <div
             className={cn(
-              'max-w-[80%] px-2.5 py-1.5 rounded-md border-l-2 text-xs text-fm-on-surface-variant mb-0.5',
+              'max-w-[80%] px-2.5 py-1.5 rounded-md border-l-2 text-xs mb-0.5',
+              // En burbujas propias (verde teal en light, semi-transparente en
+              // dark), el reply preview necesita un fondo diferenciado en
+              // ambos modos. Antes usaba bg-white/15 que en light era
+              // invisible (15% blanco sobre fondo blanco/teal).
               isMine
-                ? 'bg-white/15 border-white/50 text-white/80'
-                : 'bg-fm-surface-container-high border-fm-primary/50'
+                ? 'bg-black/15 border-white/60 text-white/90 dark:bg-white/15 dark:border-white/50 dark:text-white/80'
+                : 'bg-fm-surface-container-high border-fm-primary/50 text-fm-on-surface-variant'
             )}
           >
             <span className="font-semibold block truncate">{message.reply_preview.author_name}</span>

@@ -196,7 +196,7 @@ export function FloatingChatBubble({ conversation, onClose, onMinimize, minimize
                     <div
                       className={`max-w-[90%] px-2 py-1 rounded-md border-l-2 text-[9px] mb-0.5 ${
                         isMe
-                          ? 'bg-white/15 border-white/50 text-white/70'
+                          ? 'bg-black/15 border-white/60 text-white/85 dark:bg-white/15 dark:border-white/50 dark:text-white/70'
                           : 'bg-fm-surface-container-high border-[#00675c]/50 text-fm-on-surface-variant'
                       }`}
                     >

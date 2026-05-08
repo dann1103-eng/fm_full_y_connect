@@ -72,25 +72,28 @@ export async function fetchShiftsReportForDate(dateStr: string): Promise<ShiftDa
 
   const now = new Date()
 
-  // Calcular productive_seconds para sesiones aún abiertas. Cota superior:
-  // fin del día consultado (evita arrastrar tiempo más allá del día reportado).
-  const openSessions = list.filter((s) => !s.ended_at)
+  // Calcular productive_seconds SIEMPRE en vivo (no usar el snapshot de
+  // work_sessions.productive_seconds, que queda stale si las entradas se
+  // editan/agregan/borran después de cerrar la sesión).
+  const userIds = [...new Set(list.map((s) => s.user_id))]
+  const { data: entries } = await supabase
+    .from('time_entries')
+    .select('user_id, started_at, duration_seconds')
+    .in('user_id', userIds)
+    .not('ended_at', 'is', null)
+    .gte('started_at', dayStartUTC.toISOString())
+    .lte('started_at', dayEndUTC.toISOString())
+
+  // Para cada sesión, suma duration_seconds de las entradas dentro de
+  // [started_at, effectiveSessionEnd]. Esto refleja edits/inserts/deletes
+  // posteriores al cierre.
   const liveProductive = new Map<string, number>()
-  if (openSessions.length > 0) {
-    const userIds = [...new Set(openSessions.map((s) => s.user_id))]
-    const { data: entries } = await supabase
-      .from('time_entries')
-      .select('user_id, started_at, duration_seconds')
-      .in('user_id', userIds)
-      .not('ended_at', 'is', null)
-      .gte('started_at', dayStartUTC.toISOString())
-      .lte('started_at', dayEndUTC.toISOString())
-    for (const s of openSessions) {
-      const total = (entries ?? [])
-        .filter((e) => e.user_id === s.user_id && e.started_at >= s.started_at)
-        .reduce((sum, e) => sum + ((e.duration_seconds as number | null) ?? 0), 0)
-      liveProductive.set(s.id, total)
-    }
+  for (const s of list) {
+    const sessionEnd = effectiveSessionEnd(s, now, dayEndUTC).toISOString()
+    const total = (entries ?? [])
+      .filter((e) => e.user_id === s.user_id && e.started_at >= s.started_at && e.started_at <= sessionEnd)
+      .reduce((sum, e) => sum + ((e.duration_seconds as number | null) ?? 0), 0)
+    liveProductive.set(s.id, total)
   }
 
   // Acumular por usuario (múltiples clock-in del mismo día = una sola fila)
@@ -105,7 +108,7 @@ export async function fetchShiftsReportForDate(dateStr: string): Promise<ShiftDa
     }
     row.onlineSeconds += calcOnlineSeconds(s, now, dayEndUTC)
     row.breakSeconds += calcBreakSeconds(s, now, dayEndUTC)
-    row.productiveSeconds += s.productive_seconds ?? liveProductive.get(s.id) ?? 0
+    row.productiveSeconds += liveProductive.get(s.id) ?? 0
     row.isActive = row.isActive || !s.ended_at
     agg.set(s.user_id, row)
   }

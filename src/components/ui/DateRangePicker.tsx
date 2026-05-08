@@ -77,10 +77,13 @@ export function DateRangePicker({ value, onChange }: Props) {
 
   function applyCustom() {
     if (!customStart || !customEnd) return
-    const start = new Date(customStart)
-    start.setHours(0, 0, 0, 0)
-    const end = addDays(new Date(customEnd), 1)
-    end.setHours(0, 0, 0, 0)
+    // Bug fix timezone: `new Date("2026-05-06")` interpreta el string como UTC
+    // (00:00 UTC), que en GMT-6 es el 5 de mayo 18:00 — corre el rango un día.
+    // Usar el constructor (year, month-1, day) que respeta TZ local.
+    const [sy, sm, sd] = customStart.split('-').map(Number)
+    const [ey, em, ed] = customEnd.split('-').map(Number)
+    const start = new Date(sy, sm - 1, sd, 0, 0, 0, 0)
+    const end = addDays(new Date(ey, em - 1, ed, 0, 0, 0, 0), 1)
     onChange({ start: start.toISOString(), end: end.toISOString(), preset: 'custom' })
     setCustomOpen(false)
   }

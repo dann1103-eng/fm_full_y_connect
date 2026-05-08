@@ -50,6 +50,7 @@ export function AdminTimePanel({ users }: Props) {
   const [day, setDay] = useState<Date>(() => startOfDay(new Date()))
   const [year, setYear] = useState(new Date().getFullYear())
   const [month, setMonth] = useState(new Date().getMonth())
+  const [onlyStandby, setOnlyStandby] = useState(false)
   const [entries, setEntries] = useState<TimeEntry[]>([])
   const [workSessions, setWorkSessions] = useState<WorkSession[]>([])
   const [loading, setLoading] = useState(true)
@@ -122,14 +123,17 @@ export function AdminTimePanel({ users }: Props) {
   )
 
   const days = useMemo(() => {
+    const visible = onlyStandby
+      ? entries.filter((e) => e.entry_type === 'administrative' && e.category === 'standby')
+      : entries
     const dayMap = new Map<string, TimeEntry[]>()
-    for (const e of entries) {
+    for (const e of visible) {
       const key = isoDateStr(new Date(e.started_at))
       if (!dayMap.has(key)) dayMap.set(key, [])
       dayMap.get(key)!.push(e)
     }
     return [...dayMap.entries()].sort((a, b) => b[0].localeCompare(a[0]))
-  }, [entries])
+  }, [entries, onlyStandby])
 
   const atMaxDay = day.getTime() >= startOfDay(new Date()).getTime()
 
@@ -189,6 +193,21 @@ export function AdminTimePanel({ users }: Props) {
             </button>
           ))}
         </div>
+
+        {/* Toggle solo standby */}
+        <button
+          type="button"
+          onClick={() => setOnlyStandby(v => !v)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-full border transition-colors ${
+            onlyStandby
+              ? 'bg-amber-500 text-white border-amber-500'
+              : 'bg-fm-surface-container-lowest text-fm-on-surface-variant border-fm-surface-container-high hover:bg-fm-background'
+          }`}
+          title="Mostrar solo entradas administrativas con categoría Standby"
+        >
+          <span className="material-symbols-outlined text-sm">pause_circle</span>
+          Solo standby
+        </button>
 
         <span className="text-sm text-fm-on-surface-variant">Total: <strong className="text-fm-on-surface">{formatDuration(summary.productiveSeconds)}</strong></span>
 

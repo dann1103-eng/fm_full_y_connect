@@ -92,6 +92,7 @@ export function MyTimeHistory({ userId, initialEntries, initialYear, initialMont
   const [day, setDay] = useState<Date>(() => startOfDay(new Date()))
   const [year, setYear] = useState(initialYear)
   const [month, setMonth] = useState(initialMonth)
+  const [onlyStandby, setOnlyStandby] = useState(false)
   const [entries, setEntries] = useState<TimeEntryWithContext[]>(initialEntries as TimeEntryWithContext[])
   const [workSessions, setWorkSessions] = useState<WorkSession[]>([])
   const [loading, setLoading] = useState(true)
@@ -193,10 +194,13 @@ export function MyTimeHistory({ userId, initialEntries, initialYear, initialMont
     const d = new Date(day); d.setDate(d.getDate() + 1); setDay(startOfDay(d))
   }
 
-  // Group by day
+  // Group by day — aplica filtro de standby si está activo
   const days = useMemo(() => {
+    const visible = onlyStandby
+      ? entries.filter((e) => e.entry_type === 'administrative' && e.category === 'standby')
+      : entries
     const dayMap = new Map<string, DayGroup>()
-    for (const e of entries) {
+    for (const e of visible) {
       const dKey = isoDateStr(new Date(e.started_at))
       if (!dayMap.has(dKey)) dayMap.set(dKey, { date: dKey, entries: [], totalSeconds: 0 })
       const g = dayMap.get(dKey)!
@@ -204,7 +208,7 @@ export function MyTimeHistory({ userId, initialEntries, initialYear, initialMont
       g.totalSeconds += e.duration_seconds ?? 0
     }
     return [...dayMap.values()].sort((a, b) => b.date.localeCompare(a.date))
-  }, [entries])
+  }, [entries, onlyStandby])
 
   const summary = useMemo(
     () => computeTimeSummary(entries, workSessions),
@@ -253,7 +257,7 @@ export function MyTimeHistory({ userId, initialEntries, initialYear, initialMont
             )}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             {/* Toggle Día / Mes */}
             <div className="flex rounded-full border border-fm-surface-container-high overflow-hidden text-xs font-bold">
               {(['day', 'month'] as const).map(m => (
@@ -266,6 +270,21 @@ export function MyTimeHistory({ userId, initialEntries, initialYear, initialMont
                 </button>
               ))}
             </div>
+
+            {/* Toggle solo standby */}
+            <button
+              type="button"
+              onClick={() => setOnlyStandby(v => !v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-full border transition-colors ${
+                onlyStandby
+                  ? 'bg-amber-500 text-white border-amber-500'
+                  : 'bg-fm-surface-container-lowest text-fm-on-surface-variant border-fm-surface-container-high hover:bg-fm-background'
+              }`}
+              title="Mostrar solo entradas administrativas con categoría Standby"
+            >
+              <span className="material-symbols-outlined text-sm">pause_circle</span>
+              Solo standby
+            </button>
 
             <div className="flex items-center gap-3 text-sm">
               <span className="text-fm-on-surface-variant hidden sm:inline">Req: <strong className="text-fm-primary">{formatDuration(reqTotal)}</strong></span>
