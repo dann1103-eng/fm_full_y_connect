@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { ChevronDownIcon, CheckIcon } from 'lucide-react'
-import { setPresenceStatus, touchPresence } from '@/app/actions/presence'
+import { setPresenceStatus, setStatusMessage, touchPresence } from '@/app/actions/presence'
 import { useUserOrNull } from '@/contexts/UserContext'
 import { useUsersPresence } from '@/hooks/useUsersPresence'
 import { PresenceIndicator } from './PresenceIndicator'
@@ -22,9 +22,12 @@ const OPTIONS: Array<{ value: PresenceStatus; label: string; description: string
  */
 export function PresenceSelector() {
   const user = useUserOrNull()
-  const { getEffective, presence } = useUsersPresence()
+  const { getEffective, getStatusMessage, presence } = useUsersPresence()
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
+  const [emojiDraft, setEmojiDraft] = useState('')
+  const [messageDraft, setMessageDraft] = useState('')
+  const [savingMsg, setSavingMsg] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
   const effective: EffectivePresenceStatus = user ? getEffective(user.id) : 'online'
@@ -32,6 +35,15 @@ export function PresenceSelector() {
     ? presence.get(user.id) ?? 'online'
     : 'online'
   const inCallOverride = effective === 'en_llamada'
+  const myStatusMessage = user ? getStatusMessage(user.id) : null
+
+  // Sincronizar drafts cuando cambia el status del propio usuario o se abre el dropdown
+  useEffect(() => {
+    if (open) {
+      setEmojiDraft(myStatusMessage?.emoji ?? '')
+      setMessageDraft(myStatusMessage?.message ?? '')
+    }
+  }, [open, myStatusMessage?.emoji, myStatusMessage?.message])
 
   // Mantiene updated_at fresco para que otros usuarios no vean este usuario como offline.
   // También crea la fila de presencia la primera vez que el usuario abre la app.
@@ -63,6 +75,28 @@ export function PresenceSelector() {
     })
   }
 
+  async function handleSaveMessage() {
+    if (savingMsg) return
+    setSavingMsg(true)
+    try {
+      await setStatusMessage({ emoji: emojiDraft, message: messageDraft })
+    } finally {
+      setSavingMsg(false)
+    }
+  }
+
+  async function handleClearMessage() {
+    if (savingMsg) return
+    setSavingMsg(true)
+    try {
+      setEmojiDraft('')
+      setMessageDraft('')
+      await setStatusMessage({ emoji: '', message: '' })
+    } finally {
+      setSavingMsg(false)
+    }
+  }
+
   return (
     <div className="relative" ref={ref}>
       <button
@@ -85,7 +119,7 @@ export function PresenceSelector() {
       </button>
 
       {open && (
-        <div className="absolute top-full mt-1 right-0 w-60 bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-lg shadow-xl overflow-hidden z-[100]">
+        <div className="absolute top-full mt-1 right-0 w-72 bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-lg shadow-xl overflow-hidden z-[100]">
           {inCallOverride && (
             <div className="px-3 py-2 bg-red-500/10 border-b border-fm-surface-container-high text-[11px] text-fm-on-surface-variant">
               Estás en llamada. El estado se ajusta automáticamente al terminar.
@@ -115,6 +149,51 @@ export function PresenceSelector() {
               </button>
             )
           })}
+
+          {/* Status descriptivo libre — independiente del status formal */}
+          <div className="border-t border-fm-surface-container-high px-3 py-3 space-y-2 bg-fm-background/40">
+            <p className="text-[10px] font-extrabold uppercase tracking-wider text-fm-outline-variant">
+              ¿Cómo te sentís hoy?
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={emojiDraft}
+                onChange={(e) => setEmojiDraft(e.target.value)}
+                placeholder="😀"
+                maxLength={8}
+                className="w-12 text-center text-base bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-fm-primary/30"
+              />
+              <input
+                type="text"
+                value={messageDraft}
+                onChange={(e) => setMessageDraft(e.target.value)}
+                placeholder="ej. ocupado, en café, feliz…"
+                maxLength={60}
+                className="flex-1 text-sm bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-lg px-3 py-1.5 text-fm-on-surface focus:outline-none focus:ring-2 focus:ring-fm-primary/30"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleSaveMessage}
+                disabled={savingMsg}
+                className="flex-1 px-3 py-1.5 bg-fm-primary text-white text-xs font-bold rounded-lg hover:bg-fm-primary-dim disabled:opacity-60 transition-colors"
+              >
+                {savingMsg ? 'Guardando…' : 'Guardar'}
+              </button>
+              {(myStatusMessage?.emoji || myStatusMessage?.message) && (
+                <button
+                  type="button"
+                  onClick={handleClearMessage}
+                  disabled={savingMsg}
+                  className="px-3 py-1.5 text-xs font-bold text-fm-on-surface-variant border border-fm-surface-container-high rounded-lg hover:bg-fm-background disabled:opacity-60 transition-colors"
+                >
+                  Limpiar
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -15,7 +15,7 @@ import { PIPELINE_CONTENT_TYPES } from '@/lib/domain/pipeline'
 import type { PipelineItem } from '@/lib/domain/pipeline'
 import type { RequirementPhaseLog, RequirementCambioLog } from '@/types/db'
 import { DeleteClientButton } from '@/components/clients/DeleteClientButton'
-import { RequirementHistory } from '@/components/clients/RequirementHistory'
+import { CycleHistorySwitcher } from '@/components/clients/CycleHistorySwitcher'
 import { ClientNotesPanel } from '@/components/clients/ClientNotesPanel'
 import { ClientPortalInvite } from '@/components/clients/ClientPortalInvite'
 import { RescueOrphansButton } from '@/components/clients/RescueOrphansButton'
@@ -114,6 +114,33 @@ export default async function ClientDetailPage({
     for (const log of cambioLogsRaw ?? []) {
       if (!cambioLogsMap[log.requirement_id]) cambioLogsMap[log.requirement_id] = []
       cambioLogsMap[log.requirement_id].push(log as RequirementCambioLog)
+    }
+  }
+
+  // Previous cycle (más reciente archived) — para el toggle "Ciclo anterior"
+  // del componente CycleHistorySwitcher en el historial del cliente.
+  const previousCycle = (pastCycles ?? [])[0] ?? null
+  let previousReqs: Requirement[] = []
+  const cambioLogsMapPrevious: Record<string, RequirementCambioLog[]> = {}
+  if (previousCycle) {
+    let prevQ = supabase
+      .from('requirements')
+      .select('*')
+      .eq('billing_cycle_id', previousCycle.id)
+      .eq('approval_status', 'approved')
+    if (isOperator) prevQ = prevQ.contains('assigned_to', [effectiveId])
+    const { data: prevReqsRaw } = await prevQ.order('registered_at', { ascending: false })
+    previousReqs = (prevReqsRaw ?? []) as Requirement[]
+    if (previousReqs.length > 0) {
+      const { data: prevCambioLogsRaw } = await supabase
+        .from('requirement_cambio_logs')
+        .select('*')
+        .in('requirement_id', previousReqs.map(r => r.id))
+        .order('created_at', { ascending: false })
+      for (const log of prevCambioLogsRaw ?? []) {
+        if (!cambioLogsMapPrevious[log.requirement_id]) cambioLogsMapPrevious[log.requirement_id] = []
+        cambioLogsMapPrevious[log.requirement_id].push(log as RequirementCambioLog)
+      }
     }
   }
 
@@ -325,15 +352,17 @@ export default async function ClientDetailPage({
         {cycle && (
           <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-8">
             <div className="lg:col-span-7 space-y-4">
-              <h3 className="text-xl font-extrabold tracking-tight text-fm-on-surface">
-                Historial del ciclo
-              </h3>
-              <RequirementHistory
-                requirements={reqs}
+              <CycleHistorySwitcher
+                currentReqs={reqs}
+                currentCycleId={cycle.id}
+                previousReqs={previousCycle ? previousReqs : null}
+                previousCycleId={previousCycle?.id ?? null}
+                previousPeriodStart={previousCycle?.period_start ?? null}
                 isAdmin={isAdmin}
-                cycleId={cycle.id}
+                isApprover={isApprover}
                 userMap={userMap}
-                cambioLogsMap={cambioLogsMap}
+                cambioLogsMapCurrent={cambioLogsMap}
+                cambioLogsMapPrevious={cambioLogsMapPrevious}
               />
             </div>
             <div className="lg:col-span-5 space-y-4">

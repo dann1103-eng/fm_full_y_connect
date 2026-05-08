@@ -24,7 +24,7 @@ export function InboxSidebar({ initialList, allUsers }: InboxSidebarProps) {
   const pathname = usePathname()
   const user = useUser()
   const { data } = useInboxList(initialList)
-  const { getEffective, isConvInCall } = useUsersPresence()
+  const { getEffective, getStatusMessage, isConvInCall } = useUsersPresence()
   const [dialogOpen, setDialogOpen] = useState(false)
 
   const canCreateChannels = user.role === 'admin' || user.role === 'supervisor'
@@ -142,6 +142,7 @@ export function InboxSidebar({ initialList, allUsers }: InboxSidebarProps) {
                   dm={dm}
                   active={dmActive}
                   status={getEffective(u.id)}
+                  statusMessage={getStatusMessage(u.id)}
                 />
               )
             })}
@@ -164,11 +165,13 @@ function TeamMemberRow({
   dm,
   active,
   status,
+  statusMessage,
 }: {
   member: Pick<AppUser, 'id' | 'full_name' | 'avatar_url'>
   dm: ConversationListItem | undefined
   active: boolean
   status: EffectivePresenceStatus
+  statusMessage: { emoji: string | null; message: string | null } | null
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -185,6 +188,11 @@ function TeamMemberRow({
       }
     })
   }
+
+  const hasStatusMsg = !!(statusMessage && (statusMessage.emoji || statusMessage.message))
+  const statusLine = hasStatusMsg
+    ? `${statusMessage!.emoji ?? ''}${statusMessage!.emoji && statusMessage!.message ? ' ' : ''}${statusMessage!.message ?? ''}`
+    : ''
 
   return (
     <button
@@ -208,7 +216,17 @@ function TeamMemberRow({
           />
           <PresenceIndicator status={status} overlay size="xs" />
         </span>
-        <span className="truncate">{member.full_name}</span>
+        <span className="flex flex-col min-w-0 flex-1">
+          <span className="truncate leading-tight">{member.full_name}</span>
+          {hasStatusMsg && (
+            <span
+              className="truncate text-[10px] font-normal text-fm-outline-variant leading-tight"
+              title={statusLine}
+            >
+              {statusLine}
+            </span>
+          )}
+        </span>
       </span>
       {dm && dm.unread_count > 0 && (
         <span className="ml-2 flex-shrink-0 bg-fm-error text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center">

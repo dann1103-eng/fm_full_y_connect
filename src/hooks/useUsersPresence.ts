@@ -19,6 +19,13 @@ interface PresenceRow {
   user_id: string
   status: PresenceStatus
   updated_at: string
+  status_emoji: string | null
+  status_message: string | null
+}
+
+export interface UserStatusMessage {
+  emoji: string | null
+  message: string | null
 }
 
 // Si el usuario no ha refrescado su presencia en más de 35 minutos, se considera offline.
@@ -37,6 +44,7 @@ const STALE_MS = 35 * 60 * 1000
 export function useUsersPresence() {
   const [presence, setPresence] = useState<Map<string, PresenceStatus>>(new Map())
   const [presenceUpdatedAt, setPresenceUpdatedAt] = useState<Map<string, string>>(new Map())
+  const [statusMessages, setStatusMessages] = useState<Map<string, UserStatusMessage>>(new Map())
   const [inCall, setInCall] = useState<Set<string>>(new Set())
   const [activeConvCalls, setActiveConvCalls] = useState<Set<string>>(new Set())
 
@@ -54,18 +62,23 @@ export function useUsersPresence() {
     try {
       const supabase = createClient()
 
-      // Manual presence
+      // Manual presence + status descriptivo libre
       const { data: presRows } = await supabase
         .from('user_presence')
-        .select('user_id, status, updated_at')
+        .select('user_id, status, updated_at, status_emoji, status_message')
       const presMap = new Map<string, PresenceStatus>()
       const updMap = new Map<string, string>()
+      const msgMap = new Map<string, UserStatusMessage>()
       for (const r of (presRows ?? []) as PresenceRow[]) {
         presMap.set(r.user_id, r.status)
         updMap.set(r.user_id, r.updated_at)
+        if (r.status_emoji || r.status_message) {
+          msgMap.set(r.user_id, { emoji: r.status_emoji, message: r.status_message })
+        }
       }
       setPresence(presMap)
       setPresenceUpdatedAt(updMap)
+      setStatusMessages(msgMap)
 
       // En llamada: usuarios con un call_participants row sin left_at sobre
       // una sesión sin ended_at.
@@ -146,5 +159,11 @@ export function useUsersPresence() {
     [activeConvCalls]
   )
 
-  return { presence, inCall, activeConvCalls, getEffective, isConvInCall, refresh }
+  /** Status descriptivo libre del usuario (emoji + texto), o null si no tiene. */
+  const getStatusMessage = useCallback(
+    (userId: string): UserStatusMessage | null => statusMessages.get(userId) ?? null,
+    [statusMessages]
+  )
+
+  return { presence, inCall, activeConvCalls, getEffective, getStatusMessage, isConvInCall, refresh }
 }

@@ -115,7 +115,43 @@ export const PRIORITY_COLORS: Record<Priority, string> = {
 export type ClientStatus = 'active' | 'paused' | 'overdue'
 export type CycleStatus = 'current' | 'archived' | 'pending_renewal' | 'scheduled'
 export type PaymentStatus = 'paid' | 'unpaid'
-export type UserRole = 'admin' | 'supervisor' | 'operator' | 'client'
+export type UserRole = 'admin' | 'supervisor' | 'operator' | 'client' | 'agent'
+
+export type AiJobStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
+
+/** Tipos de job conocidos. Cualquier handler nuevo debe añadirse aquí y registrarse en ai-worker/src/handlers/index.ts. */
+export type AiJobType = 'echo' | 'intake_analyze' | (string & {})
+
+export interface AiJob {
+  id: string
+  job_type: string
+  status: AiJobStatus
+  priority: number
+  requirement_id: string | null
+  client_id: string | null
+  triggered_by: string | null
+  parent_job_id: string | null
+  input_json: Record<string, unknown>
+  result_json: Record<string, unknown> | null
+  error_text: string | null
+  attempts: number
+  max_attempts: number
+  cost_usd_cents: number | null
+  locked_at: string | null
+  locked_by: string | null
+  scheduled_for: string
+  started_at: string | null
+  finished_at: string | null
+  created_at: string
+}
+
+export interface AiJobEvent {
+  id: string
+  job_id: string
+  event_type: string
+  payload: Record<string, unknown> | null
+  created_at: string
+}
 export type ConversationType = 'dm' | 'channel' | 'voice_channel'
 
 export type CallModality = 'voice' | 'video' | 'screen'
@@ -130,6 +166,10 @@ export interface PresenceInfo {
   user_id: string
   status: PresenceStatus
   updated_at: string
+  /** Emoji opcional del status descriptivo libre ("for fun"). Migración 0086. */
+  status_emoji?: string | null
+  /** Texto corto descriptivo del status ("feliz", "ocupado"). Migración 0086. */
+  status_message?: string | null
 }
 
 export type ClientUserRole = 'owner' | 'viewer'
@@ -1809,6 +1849,94 @@ export interface Database {
         }
         Relationships: []
       }
+      ai_jobs: {
+        Row: {
+          id: string
+          job_type: string
+          status: AiJobStatus
+          priority: number
+          requirement_id: string | null
+          client_id: string | null
+          triggered_by: string | null
+          parent_job_id: string | null
+          input_json: Record<string, unknown>
+          result_json: Record<string, unknown> | null
+          error_text: string | null
+          attempts: number
+          max_attempts: number
+          cost_usd_cents: number | null
+          locked_at: string | null
+          locked_by: string | null
+          scheduled_for: string
+          started_at: string | null
+          finished_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          job_type: string
+          status?: AiJobStatus
+          priority?: number
+          requirement_id?: string | null
+          client_id?: string | null
+          triggered_by?: string | null
+          parent_job_id?: string | null
+          input_json?: Record<string, unknown>
+          result_json?: Record<string, unknown> | null
+          error_text?: string | null
+          attempts?: number
+          max_attempts?: number
+          cost_usd_cents?: number | null
+          locked_at?: string | null
+          locked_by?: string | null
+          scheduled_for?: string
+          started_at?: string | null
+          finished_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          job_type?: string
+          status?: AiJobStatus
+          priority?: number
+          requirement_id?: string | null
+          client_id?: string | null
+          triggered_by?: string | null
+          parent_job_id?: string | null
+          input_json?: Record<string, unknown>
+          result_json?: Record<string, unknown> | null
+          error_text?: string | null
+          attempts?: number
+          max_attempts?: number
+          cost_usd_cents?: number | null
+          locked_at?: string | null
+          locked_by?: string | null
+          scheduled_for?: string
+          started_at?: string | null
+          finished_at?: string | null
+        }
+        Relationships: []
+      }
+      ai_job_events: {
+        Row: {
+          id: string
+          job_id: string
+          event_type: string
+          payload: Record<string, unknown> | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          job_id: string
+          event_type: string
+          payload?: Record<string, unknown> | null
+          created_at?: string
+        }
+        Update: {
+          event_type?: string
+          payload?: Record<string, unknown> | null
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -1838,6 +1966,8 @@ export type InvoiceItem = Database['public']['Tables']['invoice_items']['Row']
 export type Quote = Database['public']['Tables']['quotes']['Row']
 export type QuoteItem = Database['public']['Tables']['quote_items']['Row']
 export type N1coPaymentEvent = Database['public']['Tables']['n1co_payment_events']['Row']
+export type AiJobRow = Database['public']['Tables']['ai_jobs']['Row']
+export type AiJobEventRow = Database['public']['Tables']['ai_job_events']['Row']
 
 export type N1coMatchingStrategy = 'order_reference' | 'subscription_id' | 'email' | 'name' | 'manual' | 'orphan'
 
