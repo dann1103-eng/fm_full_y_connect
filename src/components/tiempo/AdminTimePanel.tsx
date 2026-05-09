@@ -51,6 +51,7 @@ export function AdminTimePanel({ users }: Props) {
   const [year, setYear] = useState(new Date().getFullYear())
   const [month, setMonth] = useState(new Date().getMonth())
   const [onlyStandby, setOnlyStandby] = useState(false)
+  const [onlyOverlapping, setOnlyOverlapping] = useState(false)
   const [entries, setEntries] = useState<TimeEntry[]>([])
   const [workSessions, setWorkSessions] = useState<WorkSession[]>([])
   const [loading, setLoading] = useState(true)
@@ -122,10 +123,35 @@ export function AdminTimePanel({ users }: Props) {
     [entries, workSessions],
   )
 
+  // Detecta entradas que se solapan con otra del mismo usuario en el rango.
+  // O(n²) sobre las entries cargadas (típicamente <= 50 por día) — fine.
+  // Considera entradas activas (ended_at NULL) como extendiéndose hasta now().
+  const overlappingIds = useMemo(() => {
+    const ids = new Set<string>()
+    const nowIso = new Date().toISOString()
+    for (let i = 0; i < entries.length; i++) {
+      const a = entries[i]
+      const aEnd = a.ended_at ?? nowIso
+      for (let j = i + 1; j < entries.length; j++) {
+        const b = entries[j]
+        const bEnd = b.ended_at ?? nowIso
+        if (a.started_at < bEnd && b.started_at < aEnd) {
+          ids.add(a.id)
+          ids.add(b.id)
+        }
+      }
+    }
+    return ids
+  }, [entries])
+
   const days = useMemo(() => {
-    const visible = onlyStandby
-      ? entries.filter((e) => e.entry_type === 'administrative' && e.category === 'standby')
-      : entries
+    let visible = entries
+    if (onlyStandby) {
+      visible = visible.filter((e) => e.entry_type === 'administrative' && e.category === 'standby')
+    }
+    if (onlyOverlapping) {
+      visible = visible.filter((e) => overlappingIds.has(e.id))
+    }
     const dayMap = new Map<string, TimeEntry[]>()
     for (const e of visible) {
       const key = isoDateStr(new Date(e.started_at))
@@ -133,7 +159,7 @@ export function AdminTimePanel({ users }: Props) {
       dayMap.get(key)!.push(e)
     }
     return [...dayMap.entries()].sort((a, b) => b[0].localeCompare(a[0]))
-  }, [entries, onlyStandby])
+  }, [entries, onlyStandby, onlyOverlapping, overlappingIds])
 
   const atMaxDay = day.getTime() >= startOfDay(new Date()).getTime()
 
@@ -194,6 +220,23 @@ export function AdminTimePanel({ users }: Props) {
           ))}
         </div>
 
+        {/* Toggle solo solapadas — solo aparece si hay overlaps detectados */}
+        {overlappingIds.size > 0 && (
+          <button
+            type="button"
+            onClick={() => setOnlyOverlapping(v => !v)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-full border transition-colors ${
+              onlyOverlapping
+                ? 'bg-fm-error text-white border-fm-error'
+                : 'bg-fm-error/10 text-fm-error border-fm-error/30 hover:bg-fm-error/20'
+            }`}
+            title={`${overlappingIds.size} entradas con solapamiento detectadas`}
+          >
+            <span className="material-symbols-outlined text-sm">warning</span>
+            Solo solapadas ({overlappingIds.size})
+          </button>
+        )}
+
         {/* Toggle solo standby */}
         <button
           type="button"
@@ -250,6 +293,7 @@ export function AdminTimePanel({ users }: Props) {
                   onEdit={() => setEditEntry(e)}
                   onDelete={() => handleDelete(e.id)}
                   disabled={isPending}
+                  isOverlapping={overlappingIds.has(e.id)}
                 />
               ))}
             </div>
@@ -276,8 +320,8 @@ export function AdminTimePanel({ users }: Props) {
   )
 }
 
-function AdminEntryRow({ entry, onEdit, onDelete, disabled }: {
-  entry: TimeEntry; onEdit: () => void; onDelete: () => void; disabled: boolean
+function AdminEntryRow({ entry, onEdit, onDelete, disabled, isOverlapping = false }: {
+  entry: TimeEntry; onEdit: () => void; onDelete: () => void; disabled: boolean; isOverlapping?: boolean
 }) {
   const isReq = entry.entry_type === 'requirement'
   const label = isReq
@@ -289,9 +333,23 @@ function AdminEntryRow({ entry, onEdit, onDelete, disabled }: {
     ? phaseLabel
     : (entry.title && entry.title !== label ? `Interno FM · ${ADMIN_CATEGORY_LABELS[entry.category as AdminCategory] ?? ''}` : null)
 
+  // Highlight rojo cuando esta entrada se solapa con otra del mismo usuario.
+  const baseBg = isActive ? 'bg-fm-primary-container/30' : 'bg-fm-surface-container-low'
+  const wrapperClass = isOverlapping
+    ? 'border border-fm-error/50 bg-fm-error/5'
+    : baseBg
+
   return (
-    <div className={`px-4 py-2.5 rounded-xl transition-colors ${isActive ? 'bg-fm-primary-container/30' : 'bg-fm-surface-container-low'}`}>
+    <div className={`px-4 py-2.5 rounded-xl transition-colors ${wrapperClass}`}>
       <div className="flex items-center gap-3">
+        {isOverlapping && (
+          <span
+            className="material-symbols-outlined text-fm-error text-base flex-shrink-0"
+            title="Esta entrada se solapa con otra del mismo usuario. Editá u eliminá una de las dos."
+          >
+            warning
+          </span>
+        )}
         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: isReq ? '#00675c' : '#abadaf' }} />
         <p className="text-sm text-fm-on-surface flex-1 truncate">{label}</p>
         <p className="text-xs text-fm-on-surface-variant tabular-nums">
