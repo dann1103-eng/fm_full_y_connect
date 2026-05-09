@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { ChevronDownIcon, CheckIcon } from 'lucide-react'
-import { setPresenceStatus, setStatusMessage, touchPresence } from '@/app/actions/presence'
+import { setPresenceStatus, setStatusMessage, touchPresence, leaveStuckCall } from '@/app/actions/presence'
 import { useUserOrNull } from '@/contexts/UserContext'
 import { useUsersPresence } from '@/hooks/useUsersPresence'
 import { PresenceIndicator } from './PresenceIndicator'
@@ -97,6 +97,14 @@ export function PresenceSelector() {
     }
   }
 
+  function handleForceLeaveCall() {
+    if (pending) return
+    startTransition(async () => {
+      await leaveStuckCall()
+      setOpen(false)
+    })
+  }
+
   return (
     <div className="relative" ref={ref}>
       <button
@@ -121,8 +129,19 @@ export function PresenceSelector() {
       {open && (
         <div className="absolute top-full mt-1 right-0 w-72 bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-lg shadow-xl overflow-hidden z-[100]">
           {inCallOverride && (
-            <div className="px-3 py-2 bg-red-500/10 border-b border-fm-surface-container-high text-[11px] text-fm-on-surface-variant">
-              Estás en llamada. El estado se ajusta automáticamente al terminar.
+            <div className="px-3 py-2 bg-red-500/10 border-b border-fm-surface-container-high space-y-2">
+              <p className="text-[11px] text-fm-on-surface-variant">
+                Estás en llamada. El estado se ajusta automáticamente al terminar.
+              </p>
+              <button
+                type="button"
+                onClick={handleForceLeaveCall}
+                disabled={pending}
+                className="w-full px-2 py-1.5 text-[11px] font-bold text-fm-error border border-fm-error/30 hover:bg-fm-error/10 rounded-md transition-colors disabled:opacity-50"
+                title="Si no estás en llamada pero el sistema te muestra como tal, fuerza el cierre de la sesión fantasma"
+              >
+                {pending ? 'Cerrando…' : 'No estoy en llamada — forzar cierre'}
+              </button>
             </div>
           )}
           {OPTIONS.map((opt) => {

@@ -1950,6 +1950,10 @@ export interface Database {
         Args: { p_user_id: string; p_older_than_hours?: number }
         Returns: number
       }
+      close_orphan_call_participants: {
+        Args: { p_user_id?: string | null; p_older_than_minutes?: number }
+        Returns: number
+      }
       next_invoice_number: {
         Args: Record<string, never>
         Returns: string

@@ -33,8 +33,43 @@ export async function touchPresence() {
         .from('user_presence')
         .insert({ user_id: user.id, status: 'online' })
     }
+
+    // Auto-cleanup de call_participants huérfanas (>4h) del usuario.
+    // Cubre el caso: colgaste desde móvil con red débil y el webhook de
+    // LiveKit no llegó; quedaste como "en llamada" indefinidamente.
+    void supabase.rpc('close_orphan_call_participants', {
+      p_user_id: user.id,
+      p_older_than_minutes: 240,
+    })
   } catch {
     // No es crítico — fallo silencioso
+  }
+}
+
+/**
+ * Cierra forzosamente la entrada de call_participants activa del usuario.
+ * Usado desde el botón "Salir de llamada" cuando el sistema lo muestra como
+ * en_llamada pero el usuario sabe que no está. Threshold de 0 min para que
+ * cierre también las recientes.
+ */
+export async function leaveStuckCall() {
+  try {
+    await assertNotImpersonating()
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return { error: 'No autenticado' }
+
+    const { error } = await supabase.rpc('close_orphan_call_participants', {
+      p_user_id: user.id,
+      p_older_than_minutes: 0,
+    })
+    if (error) return { error: error.message }
+    return { ok: true }
+  } catch (e) {
+    console.error('leaveStuckCall failed:', e)
+    return { error: e instanceof Error ? e.message : 'Error desconocido' }
   }
 }
 
