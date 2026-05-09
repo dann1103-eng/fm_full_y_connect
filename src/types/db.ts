@@ -1954,6 +1954,18 @@ export interface Database {
         Args: { p_user_id?: string | null; p_older_than_minutes?: number }
         Returns: number
       }
+      close_orphan_work_sessions: {
+        Args: { p_user_id?: string | null; p_older_than_hours?: number }
+        Returns: number
+      }
+      close_anomalous_work_sessions: {
+        Args: { p_user_id?: string | null; p_threshold_hours?: number }
+        Returns: number
+      }
+      truncate_anomalous_time_entries: {
+        Args: { p_user_id?: string | null; p_threshold_hours?: number }
+        Returns: number
+      }
       next_invoice_number: {
         Args: Record<string, never>
         Returns: string

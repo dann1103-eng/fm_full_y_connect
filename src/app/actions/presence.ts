@@ -41,6 +41,20 @@ export async function touchPresence() {
       p_user_id: user.id,
       p_older_than_minutes: 240,
     })
+
+    // Auto-cleanup de jornadas (work_sessions) abiertas hace >14h. Si el
+    // usuario olvidó cerrar y volvió al día siguiente, se cierra inferiendo
+    // el ended_at desde la última actividad (último time_entries.ended_at).
+    void supabase.rpc('close_orphan_work_sessions', {
+      p_user_id: user.id,
+      p_older_than_hours: 14,
+    })
+
+    // Auto-cleanup de time_entries con duración absurda (>14h). Cap a 1h.
+    void supabase.rpc('truncate_anomalous_time_entries', {
+      p_user_id: user.id,
+      p_threshold_hours: 14,
+    })
   } catch {
     // No es crítico — fallo silencioso
   }
