@@ -55,6 +55,13 @@ export async function touchPresence() {
       p_user_id: user.id,
       p_threshold_hours: 14,
     })
+
+    // Auto-cleanup de time_entries con ended_at en el futuro. Cubre el caso
+    // del admin que registra una reunión "08:00-13:00" a las 11am — el
+    // duration_seconds queda inflado hasta que el sistema lo corrige.
+    void supabase.rpc('truncate_future_time_entries', {
+      p_user_id: user.id,
+    })
   } catch {
     // No es crítico — fallo silencioso
   }

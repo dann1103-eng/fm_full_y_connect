@@ -215,6 +215,12 @@ export async function adminAddEntry(payload: {
   const durationSeconds = Math.round((endedAt.getTime() - startedAt.getTime()) / 1000)
 
   if (durationSeconds <= 0) return { error: 'La hora de fin debe ser posterior a la de inicio.' }
+  // Bloquear endedAt en el futuro (con 1 min de buffer por desfase de reloj
+  // entre cliente y servidor). Sin esta validación, una entrada con
+  // ended_at futuro infla productive_seconds con tiempo aún no transcurrido.
+  if (endedAt.getTime() > new Date().getTime() + 60_000) {
+    return { error: 'La hora de fin no puede ser en el futuro.' }
+  }
 
   const { error } = await supabase.from('time_entries').insert({
     user_id: payload.targetUserId,
@@ -256,6 +262,9 @@ export async function adminEditEntry(entryId: string, payload: {
     const end = new Date(payload.endedAt)
     const dur = Math.round((end.getTime() - start.getTime()) / 1000)
     if (dur <= 0) return { error: 'La hora de fin debe ser posterior a la de inicio.' }
+    if (end.getTime() > new Date().getTime() + 60_000) {
+      return { error: 'La hora de fin no puede ser en el futuro.' }
+    }
     update.started_at = start.toISOString()
     update.ended_at = end.toISOString()
     update.duration_seconds = dur

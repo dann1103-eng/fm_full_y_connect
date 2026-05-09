@@ -1966,6 +1966,10 @@ export interface Database {
         Args: { p_user_id?: string | null; p_threshold_hours?: number }
         Returns: number
       }
+      truncate_future_time_entries: {
+        Args: { p_user_id?: string | null }
+        Returns: number
+      }
       next_invoice_number: {
         Args: Record<string, never>
         Returns: string
