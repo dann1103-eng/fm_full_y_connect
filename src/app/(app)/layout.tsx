@@ -9,6 +9,7 @@ import { NotificationToastHost } from '@/components/notifications/NotificationTo
 import { FloatingChatDock } from '@/components/inbox/floating/FloatingChatDock'
 import { CallDock } from '@/components/calls/CallDock'
 import { IncomingCallToast } from '@/components/calls/IncomingCallToast'
+import { TeamShiftNotificationHost } from '@/components/layout/TeamShiftNotificationHost'
 import { ActiveCallProvider } from '@/contexts/ActiveCallContext'
 import { LoginWelcomeDialog } from '@/components/layout/LoginWelcomeDialog'
 import { IdleSchedulerWrapper } from '@/components/layout/IdleSchedulerWrapper'
@@ -78,6 +79,7 @@ export default async function AppLayout({ children }: AppLayoutProps) {
           <FloatingChatDock />
           <CallDock />
           <IncomingCallToast />
+          <TeamShiftNotificationHost />
           <LoginWelcomeDialog />
           <IdleSchedulerWrapper />
           <SessionSentinel />

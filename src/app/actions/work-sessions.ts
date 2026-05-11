@@ -51,6 +51,47 @@ export async function startShift(notes?: string): Promise<{ ok: true; sessionId:
     .single()
   if (error || !data) return { error: error?.message ?? 'No se pudo iniciar la jornada.' }
   await syncPresenceFromShift('online')
+
+  // Broadcast a todo el equipo interno: sonido + toast "X está online".
+  // Tiene que ir después del insert para que el user esté efectivamente online.
+  try {
+    const { data: appUser } = await supabase
+      .from('users')
+      .select('id, full_name, avatar_url, role')
+      .eq('id', user.id)
+      .single()
+    if (appUser && appUser.role !== 'client' && appUser.role !== 'agent') {
+      const channel = supabase.channel('team-presence')
+      await new Promise<void>((resolve) => {
+        const t = setTimeout(() => resolve(), 3000)
+        channel.subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            clearTimeout(t)
+            resolve()
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            clearTimeout(t)
+            resolve()
+          }
+        })
+      })
+      await channel.send({
+        type: 'broadcast',
+        event: 'shift_started',
+        payload: {
+          userId: appUser.id,
+          fullName: appUser.full_name,
+          avatarUrl: appUser.avatar_url,
+          role: appUser.role,
+          at: new Date().toISOString(),
+        },
+      })
+      await supabase.removeChannel(channel)
+    }
+  } catch (err) {
+    // No bloquear la creación de la jornada si la notificación falla
+    console.error('[startShift] broadcast falló:', err)
+  }
+
   revalidatePath('/tiempo')
   return { ok: true, sessionId: data.id }
 }
