@@ -176,16 +176,25 @@ export function PresenceSelector() {
               ¿Cómo te sentís hoy?
             </p>
             <div className="flex gap-2 items-center">
-              <div className="flex items-center gap-1 w-14 h-9 bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-lg overflow-hidden">
-                <span className="flex-1 text-center text-lg leading-none" aria-label="Emoji actual">
-                  {emojiDraft || <span className="text-fm-outline-variant text-xs">···</span>}
-                </span>
-                <EmojiPicker
-                  onSelect={(e) => setEmojiDraft(e)}
-                  align="top-left"
-                  triggerClassName="px-1.5 h-full hover:bg-fm-background text-fm-on-surface-variant"
-                />
-              </div>
+              {/* Trigger del emoji picker. Si hay emoji seleccionado lo
+                  mostramos a la izquierda como botón clickeable que también
+                  abre el picker; sino solo el smile icon del picker. */}
+              {emojiDraft ? (
+                <button
+                  type="button"
+                  onClick={() => setEmojiDraft('')}
+                  className="w-9 h-9 flex items-center justify-center bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-lg text-lg hover:bg-fm-error/10 hover:border-fm-error/30 transition-colors"
+                  title="Click para quitar el emoji"
+                  aria-label="Emoji actual (click para quitar)"
+                >
+                  {emojiDraft}
+                </button>
+              ) : null}
+              <EmojiPicker
+                onSelect={(e) => setEmojiDraft(e)}
+                align="top-left"
+                triggerClassName="w-9 h-9 flex items-center justify-center bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-lg text-fm-on-surface-variant hover:bg-fm-background hover:text-fm-primary transition-colors"
+              />
               <input
                 type="text"
                 value={messageDraft}
