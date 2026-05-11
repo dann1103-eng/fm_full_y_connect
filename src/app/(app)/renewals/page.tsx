@@ -60,10 +60,17 @@ export default async function RenewalsPage({
       .neq('status', 'scheduled'),
   ])
 
-  // Merge y dedupe por id
+  // Merge y dedupe:
+  //  1. Los ciclos "próximos" (query A) entran todos.
+  //  2. Los ciclos "vencidos sin pago" (query B) solo entran si el cliente
+  //     NO tiene ya un ciclo en query A — evita mostrar el ciclo viejo
+  //     impago junto al nuevo ciclo actual del mismo cliente.
+  const upcomingClientIds = new Set((upcomingRes.data ?? []).map((c) => c.client_id))
   const cyclesById = new Map<string, NonNullable<typeof upcomingRes.data>[number]>()
   for (const c of upcomingRes.data ?? []) cyclesById.set(c.id, c)
-  for (const c of overdueUnpaidRes.data ?? []) cyclesById.set(c.id, c)
+  for (const c of overdueUnpaidRes.data ?? []) {
+    if (!upcomingClientIds.has(c.client_id)) cyclesById.set(c.id, c)
+  }
   const cycles = [...cyclesById.values()].sort((a, b) =>
     (a.period_end as string).localeCompare(b.period_end as string),
   )
