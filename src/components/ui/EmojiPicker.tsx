@@ -91,6 +91,20 @@ export function EmojiPicker({ onSelect, align = 'top-right', triggerClassName }:
     }
   }, [open])
 
+  // Stop native mousedown desde el panel para que NO llegue al document.
+  // Crítico cuando el picker se renderiza dentro de otro popover que tiene
+  // un outside-click handler en document (ej. PresenceSelector). Si no
+  // detenemos, el padre piensa que cliqueamos fuera de sí mismo y se cierra,
+  // desmontando el picker antes de poder elegir un emoji.
+  useEffect(() => {
+    if (!open) return
+    const panel = panelRef.current
+    if (!panel) return
+    const handler = (e: MouseEvent) => e.stopPropagation()
+    panel.addEventListener('mousedown', handler)
+    return () => panel.removeEventListener('mousedown', handler)
+  }, [open, coords])
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (q) return EMOJIS.filter(e => e.name.includes(q))
@@ -164,6 +178,7 @@ export function EmojiPicker({ onSelect, align = 'top-right', triggerClassName }:
         ref={triggerRef}
         type="button"
         aria-label="Insertar emoji"
+        onMouseDown={(e) => e.stopPropagation()}
         onClick={() => setOpen(v => !v)}
         className={triggerClassName ?? 'p-1.5 rounded-lg text-fm-outline hover:text-fm-primary hover:bg-fm-surface-container transition-colors'}
       >
