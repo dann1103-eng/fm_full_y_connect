@@ -38,14 +38,35 @@ export default async function RenewalsPage({
   const inWindow = new Date(new Date().getTime() + RENEWAL_WINDOW_DAYS * 24 * 60 * 60 * 1000)
     .toISOString()
     .split('T')[0]
+  const today = new Date().toISOString().split('T')[0]
 
-  // Cycles due in ≤RENEWAL_WINDOW_DAYS or overdue
-  const { data: cycles } = await supabase
-    .from('billing_cycles')
-    .select('*')
-    .in('status', ['current', 'pending_renewal'])
-    .lte('period_end', inWindow)
-    .order('period_end')
+  // Dos queries en paralelo:
+  //  A) Ciclos en la ventana de renovación (próximos a vencer o vencidos
+  //     pero todavía con status current/pending_renewal)
+  //  B) Ciclos NO pagados, ya vencidos, sin importar status — cubre el caso
+  //     donde el ciclo pasó a 'archived' pero el pago nunca llegó. No deben
+  //     desaparecer hasta que se marquen como pagados o renovados.
+  const [upcomingRes, overdueUnpaidRes] = await Promise.all([
+    supabase
+      .from('billing_cycles')
+      .select('*')
+      .in('status', ['current', 'pending_renewal'])
+      .lte('period_end', inWindow),
+    supabase
+      .from('billing_cycles')
+      .select('*')
+      .eq('payment_status', 'unpaid')
+      .lt('period_end', today)
+      .neq('status', 'scheduled'),
+  ])
+
+  // Merge y dedupe por id
+  const cyclesById = new Map<string, NonNullable<typeof upcomingRes.data>[number]>()
+  for (const c of upcomingRes.data ?? []) cyclesById.set(c.id, c)
+  for (const c of overdueUnpaidRes.data ?? []) cyclesById.set(c.id, c)
+  const cycles = [...cyclesById.values()].sort((a, b) =>
+    (a.period_end as string).localeCompare(b.period_end as string),
+  )
 
   if (!cycles || cycles.length === 0) {
     return (

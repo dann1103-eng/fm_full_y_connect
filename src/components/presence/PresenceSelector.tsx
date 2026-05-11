@@ -6,6 +6,7 @@ import { setPresenceStatus, setStatusMessage, touchPresence, leaveStuckCall } fr
 import { useUserOrNull } from '@/contexts/UserContext'
 import { useUsersPresence } from '@/hooks/useUsersPresence'
 import { PresenceIndicator } from './PresenceIndicator'
+import { EmojiPicker } from '@/components/ui/EmojiPicker'
 import { cn } from '@/lib/utils'
 import type { PresenceStatus, EffectivePresenceStatus } from '@/types/db'
 
@@ -174,15 +175,17 @@ export function PresenceSelector() {
             <p className="text-[10px] font-extrabold uppercase tracking-wider text-fm-outline-variant">
               ¿Cómo te sentís hoy?
             </p>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={emojiDraft}
-                onChange={(e) => setEmojiDraft(e.target.value)}
-                placeholder="😀"
-                maxLength={8}
-                className="w-12 text-center text-base bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-fm-primary/30"
-              />
+            <div className="flex gap-2 items-center">
+              <div className="flex items-center gap-1 w-14 h-9 bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-lg overflow-hidden">
+                <span className="flex-1 text-center text-lg leading-none" aria-label="Emoji actual">
+                  {emojiDraft || <span className="text-fm-outline-variant text-xs">···</span>}
+                </span>
+                <EmojiPicker
+                  onSelect={(e) => setEmojiDraft(e)}
+                  align="top-left"
+                  triggerClassName="px-1.5 h-full hover:bg-fm-background text-fm-on-surface-variant"
+                />
+              </div>
               <input
                 type="text"
                 value={messageDraft}

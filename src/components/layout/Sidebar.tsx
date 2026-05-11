@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { useUser } from '@/contexts/UserContext'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { useInboxList } from '@/hooks/useInboxPolling'
+import { useUsersPresence } from '@/hooks/useUsersPresence'
 import type { UserRole } from '@/types/db'
 
 interface NavItem {
@@ -161,7 +162,12 @@ export function SidebarContent({
   const user = useUser()
   const [logoError, setLogoError] = useState(false)
   const { data: inboxList } = useInboxList()
+  const { getStatusMessage } = useUsersPresence()
   const inboxUnread = inboxList.reduce((sum, c) => sum + c.unread_count, 0)
+  const statusMessage = getStatusMessage(user.id)
+  const statusLine = statusMessage && (statusMessage.emoji || statusMessage.message)
+    ? `${statusMessage.emoji ?? ''}${statusMessage.emoji && statusMessage.message ? ' ' : ''}${statusMessage.message ?? ''}`
+    : null
 
   const visibleItems = navItems.filter(
     (item) => {
@@ -255,8 +261,13 @@ export function SidebarContent({
         >
           <UserAvatar name={user.full_name} avatarUrl={user.avatar_url} size="sm" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-fm-on-surface truncate">{user.full_name}</p>
-            <p className="text-xs text-fm-outline-variant capitalize">{user.role}</p>
+            <p className="text-sm font-medium text-fm-on-surface truncate leading-tight">{user.full_name}</p>
+            <p className="text-xs text-fm-outline-variant capitalize leading-tight">{user.role}</p>
+            {statusLine && (
+              <p className="text-[10px] text-fm-outline-variant leading-tight truncate mt-0.5" title={statusLine}>
+                {statusLine}
+              </p>
+            )}
           </div>
         </Link>
 

@@ -9,6 +9,7 @@ import { useMobileSidebar } from '@/components/layout/MobileSidebarProvider'
 import { NotificationsDropdown } from '@/components/layout/NotificationsDropdown'
 import { ShiftStatusWidget } from '@/components/layout/ShiftStatusWidget'
 import { PresenceSelector } from '@/components/presence/PresenceSelector'
+import { useUsersPresence } from '@/hooks/useUsersPresence'
 
 interface TopNavProps {
   title: string
@@ -44,7 +45,12 @@ function ThemeToggle() {
 export function TopNav({ title, backHref }: TopNavProps) {
   const user = useUser()
   const { setOpen } = useMobileSidebar()
+  const { getStatusMessage } = useUsersPresence()
   const displayName = user.full_name || user.email
+  const statusMessage = getStatusMessage(user.id)
+  const statusLine = statusMessage && (statusMessage.emoji || statusMessage.message)
+    ? `${statusMessage.emoji ?? ''}${statusMessage.emoji && statusMessage.message ? ' ' : ''}${statusMessage.message ?? ''}`
+    : null
 
   return (
     <header className="sticky top-0 z-30 h-16 flex items-center justify-between gap-3 px-4 sm:px-6 bg-fm-surface-container-lowest border-b border-fm-outline-variant/30 flex-shrink-0">
@@ -78,9 +84,14 @@ export function TopNav({ title, backHref }: TopNavProps) {
           href="/profile"
           className="flex items-center gap-3 hover:opacity-80 transition-opacity"
         >
-          <div className="text-right hidden sm:block">
-            <p className="text-sm font-medium text-fm-on-surface leading-tight">{displayName}</p>
-            <p className="text-xs text-fm-on-surface-variant capitalize">{user.role}</p>
+          <div className="text-right hidden sm:block max-w-[180px]">
+            <p className="text-sm font-medium text-fm-on-surface leading-tight truncate">{displayName}</p>
+            <p className="text-xs text-fm-on-surface-variant capitalize leading-tight">{user.role}</p>
+            {statusLine && (
+              <p className="text-[10px] text-fm-outline-variant leading-tight truncate" title={statusLine}>
+                {statusLine}
+              </p>
+            )}
           </div>
           <UserAvatar name={displayName} avatarUrl={user.avatar_url} size="sm" />
         </Link>
