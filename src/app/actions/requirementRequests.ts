@@ -296,6 +296,25 @@ export async function updateRequirementRequest(
   if (!input.title.trim()) return { error: 'El título no puede estar vacío' }
   if (!input.desiredAt) return { error: 'Selecciona la fecha deseada' }
 
+  // Borrar del bucket los archivos que el usuario eliminó en la edición
+  const { data: current } = await admin
+    .from('requirements')
+    .select('client_request_attachments_json')
+    .eq('id', input.requirementId)
+    .single()
+
+  const oldPaths: string[] = (current?.client_request_attachments_json ?? []).map(
+    (a: { path: string }) => a.path
+  )
+  const newPaths = new Set(input.attachments.map((a) => a.path))
+  const removedPaths = oldPaths.filter((p) => !newPaths.has(p))
+
+  if (removedPaths.length > 0) {
+    await admin.storage
+      .from('requirement-attachments')
+      .remove(removedPaths)
+  }
+
   const { error } = await admin
     .from('requirements')
     .update({

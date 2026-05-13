@@ -31,11 +31,11 @@ const MAX_LINKS = 5
 
 export interface ExistingRequest {
   id: string
-  content_type: ContentType
+  contentType: ContentType
   title: string
-  notes: string | null
-  desiredAt: string   // client_requested_deadline ISO string
-  includes_story: boolean
+  notes: string
+  clientRequestedDeadline: string | null
+  includesStory: boolean
   attachments: ClientRequestAttachment[]
   links: ClientRequestLink[]
 }
@@ -52,19 +52,19 @@ export function ClientRequestRequirementModal({ open, onClose, existingRequest }
   const isEditing = !!existingRequest
 
   const [contentType, setContentType] = useState<ContentType>(
-    existingRequest?.content_type ?? 'reunion'
+    existingRequest?.contentType ?? 'reunion'
   )
   const [title, setTitle] = useState(existingRequest?.title ?? '')
   const [description, setDescription] = useState(existingRequest?.notes ?? '')
   const [desiredAt, setDesiredAt] = useState(() => {
-    if (!existingRequest?.desiredAt) return ''
-    const raw = existingRequest.desiredAt
-    if (SCHEDULED_TYPES.includes(existingRequest.content_type)) {
+    if (!existingRequest?.clientRequestedDeadline) return ''
+    const raw = existingRequest.clientRequestedDeadline
+    if (SCHEDULED_TYPES.includes(existingRequest.contentType)) {
       return raw.slice(0, 16)
     }
     return raw.slice(0, 10)
   })
-  const [includesStory, setIncludesStory] = useState(existingRequest?.includes_story ?? false)
+  const [includesStory, setIncludesStory] = useState(existingRequest?.includesStory ?? false)
 
   // Archivos: existentes (ya subidos) + nuevos staged
   const [existingAttachments, setExistingAttachments] = useState<ClientRequestAttachment[]>(
@@ -183,11 +183,15 @@ export function ClientRequestRequirementModal({ open, onClose, existingRequest }
       try {
         if (isEditing && existingRequest) {
           // Modo edición: subir archivos nuevos, luego actualizar
-          let newUploaded: ClientRequestAttachment[] = []
+          let newlyUploaded: ClientRequestAttachment[] = []
           if (stagedFiles.length > 0) {
-            newUploaded = await uploadStagedFiles(existingRequest.id)
+            try {
+              newlyUploaded = await uploadStagedFiles(existingRequest.id)
+            } catch (uploadErr) {
+              console.warn('Upload parcial en edición — se guardan solo archivos existentes', uploadErr)
+            }
           }
-          const finalAttachments = [...existingAttachments, ...newUploaded]
+          const finalAttachments = [...existingAttachments, ...newlyUploaded]
           const finalLinks: ClientRequestLink[] = links.map((url) => ({ url }))
 
           const r = await updateRequirementRequest({
