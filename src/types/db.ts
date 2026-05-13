@@ -649,6 +649,8 @@ export interface Database {
           rejected_reason: string | null
           rejected_at: string | null
           rejected_by_user_id: string | null
+          client_request_attachments_json: ClientRequestAttachment[] | null
+          client_request_links_json: ClientRequestLink[] | null
         }
         Insert: {
           id?: string
@@ -683,6 +685,8 @@ export interface Database {
           rejected_reason?: string | null
           rejected_at?: string | null
           rejected_by_user_id?: string | null
+          client_request_attachments_json?: ClientRequestAttachment[] | null
+          client_request_links_json?: ClientRequestLink[] | null
         }
         Update: {
           billing_cycle_id?: string
@@ -715,6 +719,8 @@ export interface Database {
           rejected_reason?: string | null
           rejected_at?: string | null
           rejected_by_user_id?: string | null
+          client_request_attachments_json?: ClientRequestAttachment[] | null
+          client_request_links_json?: ClientRequestLink[] | null
         }
         Relationships: [
           {
@@ -2223,6 +2229,18 @@ export interface ReviewPinWithComments extends ReviewPin {
 
 export type CallSession = Database['public']['Tables']['call_sessions']['Row']
 export type CallParticipant = Database['public']['Tables']['call_participants']['Row']
+
+export interface ClientRequestAttachment {
+  path: string       // path en bucket: {requirementId}/{uuid}.{ext}
+  publicUrl: string  // URL pública del bucket requirement-attachments
+  name: string       // nombre original del archivo
+  mime: string       // mime type, ej: 'image/jpeg', 'application/pdf'
+  sizeBytes: number
+}
+
+export interface ClientRequestLink {
+  url: string
+}
 
 /** Sesión de llamada activa con metadata para la UI del dock. */
 export interface ActiveCallInfo {
