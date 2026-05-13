@@ -120,7 +120,7 @@ export type UserRole = 'admin' | 'supervisor' | 'operator' | 'client' | 'agent'
 export type AiJobStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
 
 /** Tipos de job conocidos. Cualquier handler nuevo debe añadirse aquí y registrarse en ai-worker/src/handlers/index.ts. */
-export type AiJobType = 'echo' | 'intake_analyze' | (string & {})
+export type AiJobType = 'echo' | 'intake_analyze' | 'whatsapp_reply' | (string & {})
 
 export interface AiJob {
   id: string
@@ -151,6 +151,80 @@ export interface AiJobEvent {
   event_type: string
   payload: Record<string, unknown> | null
   created_at: string
+}
+
+// ── WhatsApp integration (migración 0091) ────────────────────
+export interface ClientWhatsappContact {
+  id: string
+  client_id: string
+  phone_e164: string
+  display_name: string | null
+  is_primary: boolean
+  created_at: string
+}
+
+export type WaMessageDirection = 'inbound' | 'outbound'
+export type WaMessageType =
+  | 'text' | 'image' | 'audio' | 'video' | 'document'
+  | 'sticker' | 'location' | 'interactive' | 'template' | 'system'
+export type WaMessageSentBy = 'bot' | 'staff' | 'system'
+export type WaDeliveryStatus = 'sent' | 'delivered' | 'read' | 'failed'
+
+export interface WaConversation {
+  id: string
+  phone_e164: string
+  client_id: string | null
+  contact_id: string | null
+  display_name: string | null
+  bot_paused: boolean
+  paused_by: string | null
+  paused_at: string | null
+  last_inbound_at: string | null
+  last_message_at: string | null
+  last_message_preview: string | null
+  unread_count: number
+  created_at: string
+}
+
+export interface WaMessage {
+  id: string
+  conversation_id: string
+  direction: WaMessageDirection
+  wamid: string | null
+  msg_type: WaMessageType
+  body: string | null
+  media_path: string | null
+  media_mime: string | null
+  sent_by: WaMessageSentBy | null
+  staff_user_id: string | null
+  ai_job_id: string | null
+  wa_status: WaDeliveryStatus | null
+  wa_error_json: Record<string, unknown> | null
+  processed_at: string | null
+  raw_json: Record<string, unknown> | null
+  created_at: string
+}
+
+/** Tools que el handler `whatsapp_reply` puede exponer al modelo. */
+export type WaBotTool =
+  | 'get_client_context'
+  | 'get_active_requirements'
+  | 'get_requirement_status'
+  | 'get_unpaid_invoices'
+  | 'get_next_publications'
+  | 'handoff_to_human'
+
+export interface WaBotConfig {
+  id: 1
+  system_prompt: string
+  model: string
+  temperature: number
+  max_tokens: number
+  enabled_tools: WaBotTool[]
+  debounce_seconds: number
+  history_window: number
+  updated_by: string | null
+  updated_at: string
 }
 export type ConversationType = 'dm' | 'channel' | 'voice_channel'
 
@@ -449,6 +523,7 @@ export interface Database {
           n1co_subscription_status: N1coSubscriptionStatus | null
           n1co_subscription_started_at: string | null
           n1co_subscription_cancelled_at: string | null
+          wa_bot_enabled: boolean
         }
         Insert: {
           id?: string
@@ -491,6 +566,7 @@ export interface Database {
           n1co_subscription_status?: N1coSubscriptionStatus | null
           n1co_subscription_started_at?: string | null
           n1co_subscription_cancelled_at?: string | null
+          wa_bot_enabled?: boolean
         }
         Update: {
           name?: string
@@ -532,6 +608,7 @@ export interface Database {
           n1co_subscription_status?: N1coSubscriptionStatus | null
           n1co_subscription_started_at?: string | null
           n1co_subscription_cancelled_at?: string | null
+          wa_bot_enabled?: boolean
         }
         Relationships: [
           {
@@ -1949,6 +2026,9 @@ export interface Database {
         }
         Relationships: []
       }
+      // Las tablas wa_* (migración 0091) se acceden vía createAdminClient()
+      // con casts explícitos a WaConversation/WaMessage/etc., evitando inflar
+      // la profundidad del tipo Database (que rompe inference en otros queries).
     }
     Views: Record<string, never>
     Functions: {
