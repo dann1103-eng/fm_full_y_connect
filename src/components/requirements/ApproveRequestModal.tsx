@@ -10,7 +10,7 @@ import {
   approveRequirementRequest,
   rejectRequirementRequest,
 } from '@/app/actions/requirementRequests'
-import type { ContentType, Priority } from '@/types/db'
+import type { ContentType, Priority, ClientRequestAttachment, ClientRequestLink } from '@/types/db'
 import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 
 export interface PendingRequest {
@@ -23,6 +23,8 @@ export interface PendingRequest {
   deadline: string | null
   client_name: string
   requested_by_name: string
+  client_request_attachments_json: ClientRequestAttachment[] | null
+  client_request_links_json: ClientRequestLink[] | null
 }
 
 const SCHEDULED = ['reunion', 'produccion']
@@ -165,6 +167,60 @@ export function ApproveRequestModal({ request, assignableUsers, isAdmin, open, o
               Descripción del cliente
             </p>
             <p className="text-sm text-fm-on-surface whitespace-pre-wrap">{request.notes}</p>
+          </div>
+        )}
+
+        {/* Referencias del cliente */}
+        {((request.client_request_links_json?.length ?? 0) > 0 ||
+          (request.client_request_attachments_json?.length ?? 0) > 0) && (
+          <div className="space-y-2 p-3 bg-fm-surface-container-low rounded-xl border border-fm-surface-container-high">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-fm-outline-variant">
+              Referencias del cliente
+            </p>
+
+            {/* Links */}
+            {(request.client_request_links_json ?? []).map((link, i) => (
+              <a
+                key={i}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-xs text-fm-primary hover:underline truncate"
+              >
+                <span className="material-symbols-outlined text-[14px] flex-shrink-0">link</span>
+                <span className="truncate">{link.url}</span>
+              </a>
+            ))}
+
+            {/* Archivos */}
+            {(request.client_request_attachments_json ?? []).map((att, i) => {
+              const isImage = att.mime.startsWith('image/')
+              return (
+                <div key={i} className="flex items-center gap-2 text-xs">
+                  <span className="material-symbols-outlined text-[14px] text-fm-outline flex-shrink-0">
+                    {isImage ? 'image' : 'attach_file'}
+                  </span>
+                  <span className="flex-1 truncate text-fm-on-surface-variant">{att.name}</span>
+                  {isImage && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={att.publicUrl}
+                      alt={att.name}
+                      className="h-8 w-8 rounded object-cover flex-shrink-0 border border-fm-surface-container"
+                    />
+                  )}
+                  <a
+                    href={att.publicUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download={!isImage}
+                    className="font-semibold text-fm-primary hover:underline flex-shrink-0"
+                  >
+                    {isImage ? 'Ver' : 'Descargar'}
+                  </a>
+                </div>
+              )
+            })}
           </div>
         )}
 

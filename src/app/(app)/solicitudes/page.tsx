@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { TopNav } from '@/components/layout/TopNav'
 import { SolicitudesList } from './SolicitudesList'
+import type { ClientRequestAttachment, ClientRequestLink } from '@/types/db'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,6 +17,8 @@ interface PendingRow {
   registered_at: string
   requested_by_user_id: string | null
   billing_cycle_id: string
+  client_request_attachments_json: ClientRequestAttachment[] | null
+  client_request_links_json: ClientRequestLink[] | null
 }
 
 export default async function SolicitudesPage() {
@@ -29,7 +32,7 @@ export default async function SolicitudesPage() {
 
   const { data: rows } = await supabase
     .from('requirements')
-    .select('id, title, notes, content_type, client_requested_deadline, starts_at, deadline, requested_by_user_id, billing_cycle_id, registered_at')
+    .select('id, title, notes, content_type, client_requested_deadline, starts_at, deadline, requested_by_user_id, billing_cycle_id, registered_at, client_request_attachments_json, client_request_links_json')
     .eq('approval_status', 'pending')
     .order('registered_at', { ascending: false })
 
@@ -91,6 +94,8 @@ export default async function SolicitudesPage() {
       requested_by_name: p.requested_by_user_id
         ? requesterById.get(p.requested_by_user_id) ?? 'Usuario'
         : 'Usuario',
+      client_request_attachments_json: p.client_request_attachments_json,
+      client_request_links_json: p.client_request_links_json,
     }
   })
 
