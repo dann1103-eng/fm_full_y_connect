@@ -60,17 +60,36 @@ export default async function RenewalsPage({
       .neq('status', 'scheduled'),
   ])
 
-  // Merge y dedupe:
-  //  1. Los ciclos "próximos" (query A) entran todos.
-  //  2. Los ciclos "vencidos sin pago" (query B) solo entran si el cliente
-  //     NO tiene ya un ciclo en query A — evita mostrar el ciclo viejo
-  //     impago junto al nuevo ciclo actual del mismo cliente.
-  const upcomingClientIds = new Set((upcomingRes.data ?? []).map((c) => c.client_id))
-  const cyclesById = new Map<string, NonNullable<typeof upcomingRes.data>[number]>()
-  for (const c of upcomingRes.data ?? []) cyclesById.set(c.id, c)
+  // Merge y dedupe por client_id (una fila por cliente):
+  //  1. Las deudas vencidas e impagas (query B) tienen prioridad — siempre
+  //     se muestran para que el admin no pierda clientes morosos.
+  //  2. Los ciclos "próximos a vencer" (query A) se añaden solo para clientes
+  //     que NO tienen ya una deuda activa en query B.
+  //
+  // Esto evita dos problemas:
+  //  - Duplicados: un cliente con ciclo vencido impago Y nuevo ciclo próximo
+  //    aparecía dos veces con la lógica anterior.
+  //  - Ocultos: un cliente con deuda archivada (query B) quedaba suprimido si
+  //    su nuevo ciclo entraba en la ventana de query A.
+  const clientBestCycle = new Map<string, NonNullable<typeof upcomingRes.data>[number]>()
+
+  // Paso 1: añadir todos los ciclos vencidos e impagos (máxima prioridad)
   for (const c of overdueUnpaidRes.data ?? []) {
-    if (!upcomingClientIds.has(c.client_id)) cyclesById.set(c.id, c)
+    const existing = clientBestCycle.get(c.client_id)
+    // Si hay varios ciclos impagos para el mismo cliente, quedarse con el más antiguo
+    if (!existing || (c.period_end as string) < (existing.period_end as string)) {
+      clientBestCycle.set(c.client_id, c)
+    }
   }
+
+  // Paso 2: añadir ciclos próximos a vencer solo para clientes sin deuda activa
+  for (const c of upcomingRes.data ?? []) {
+    if (!clientBestCycle.has(c.client_id)) {
+      clientBestCycle.set(c.client_id, c)
+    }
+  }
+
+  const cyclesById = clientBestCycle
   const cycles = [...cyclesById.values()].sort((a, b) =>
     (a.period_end as string).localeCompare(b.period_end as string),
   )
