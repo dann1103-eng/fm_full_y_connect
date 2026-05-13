@@ -76,9 +76,11 @@ export interface ClientRequestLink {
 El bucket `requirement-attachments` (público, ya existe) se reutiliza.
 
 - **Imágenes** (PNG/JPG/WebP): pasar por el helper existente `uploadRequirementAttachment` con compresión a <800 KB.
-- **Otros tipos** (PDF, video, etc.): upload directo sin compresión, límite 10 MB por archivo en cliente.
+- **Otros tipos** (PDF, video, etc.): upload directo sin compresión, límite 10 MB por archivo en cliente. Extender `upload-req-attachment.ts` con una función `uploadRequirementAttachmentRaw(file, requirementId)` que sube sin compresión.
 - **Path:** `{requirementId}/{uuid}.{ext}` — igual que hoy.
-- **Cleanup:** al anular/cancelar un requirement, borrar los paths del bucket (ya hay lógica en `deleteClient.ts` y `cleanup-cycle-storage.ts`; extender para incluir `client_request_attachments_json`).
+- **Cleanup al cancelar (server action):** `cancelRequirementRequest` borra los paths llamando al admin client de Supabase directamente desde la server action (`createAdminClient().storage.from('requirement-attachments').remove(paths)`). **No** usar `deleteRequirementAttachments` del helper porque ese usa el browser client (`createClient` de `./client`) y no es válido en un server action.
+- **Cleanup al borrar cliente/ciclo:** `deleteClient.ts` ya borra todo el prefijo `{requirementId}/` del bucket, lo que incluye los archivos de `client_request_attachments_json` sin cambio de código. `cleanup-cycle-storage.ts` ya hace sweep del prefijo completo — no requiere modificación.
+- **Archivos huérfanos (race condition creación):** Si el usuario cierra la pestaña entre el upload y el PATCH que actualiza `client_request_attachments_json`, los archivos quedan en el bucket sin referencia DB. Como mitigación, el cleanup al archivar/borrar el ciclo ya barre todo el prefijo. Se acepta este riesgo residual dado el límite de 50 MB y el bajo volumen de solicitudes; no se implementa cleanup proactivo adicional.
 
 ---
 
@@ -123,7 +125,7 @@ El bucket `requirement-attachments` (público, ya existe) se reutiliza.
 interface UpdateRequirementRequestInput {
   requirementId: string
   title: string
-  description: string
+  description: string   // se guarda en requirements.notes y client_requested_notes
   desiredAt: string
   includesStory?: boolean
   attachments: ClientRequestAttachment[]   // estado final (incluye existentes)
@@ -156,10 +158,10 @@ cancelRequirementRequest(requirementId: string): Promise<{ok:true}|{error:string
 - El modal sirve tanto para crear como para editar (recibe `existingRequest?` prop).
 
 ### `ClientRequestLinksField` (nuevo — inline en modal o archivo separado)
-Estado local: `links: string[]`. Validación URL básica al agregar.
+Estado local: `links: string[]`. Validación al agregar: intentar `new URL(input)` — si lanza, mostrar error "URL inválida". No se requiere protocolo específico pero se acepta `http://`, `https://`, y cualquier URL válida según el constructor de URL. No se valida que el link sea accesible.
 
 ### `ClientRequestFilesField` (nuevo — inline en modal o archivo separado)
-Estado local: `stagedFiles: File[]` (nuevos) + `existingAttachments: ClientRequestAttachment[]` (al editar).
+Estado local: `stagedFiles: File[]` (nuevos) + `existingAttachments: ClientRequestAttachment[]` (al editar). Al guardar, el array final enviado a `updateRequirementRequest.attachments` es `existingAttachments` (los que no se eliminaron) + los recién subidos. Los archivos existentes no se re-suben. Los archivos eliminados se borran del bucket dentro de la server action antes del PATCH.
 
 ### `PendingRequestsSection` (nuevo — `src/components/portal/PendingRequestsSection.tsx`)
 - Renderiza lista de tarjetas para requests `pending` y `rejected` del ciclo actual.
@@ -169,7 +171,7 @@ Estado local: `stagedFiles: File[]` (nuevos) + `existingAttachments: ClientReque
 - Si `requests.length === 0`: no renderiza nada.
 
 ### Dashboard (`portal/dashboard/page.tsx`) (modificar)
-- Query adicional: `requirements` donde `approval_status IN ('pending', 'rejected')` y `voided = false` del ciclo actual.
+- Query adicional: `requirements` donde `billing_cycle_id = cycle.id` AND `approval_status IN ('pending', 'rejected')` AND `voided = false`. Se usa el `cycle.id` del ciclo actual ya cargado en la misma página. Solo se muestra solicitudes del ciclo activo; las de ciclos anteriores no aparecen.
 - Pasa los datos a `<PendingRequestsSection>`.
 
 ### Vista de solicitudes del staff (modificar — `src/app/(app)/requirements/solicitudes/`)
@@ -198,10 +200,13 @@ create policy "Work users can update own pending requests" on public.requirement
   )
   with check (
     approval_status = 'pending'
+    and requested_by_user_id = auth.uid()
   );
 ```
 
-La policy limita los campos actualizables implícitamente — la server action usa `adminClient` para el UPDATE, así que la RLS es una capa de defensa adicional pero el control real está en la server action (verifica `requested_by_user_id = auth.uid()` explícitamente).
+La server action usa `adminClient` (bypass RLS) así que la RLS es defensa en profundidad. El control primario de auth está en el código de la server action (verifica `requested_by_user_id = auth.uid()` y `approval_status = 'pending'` antes de hacer el UPDATE). La cláusula `with check` incluye `requested_by_user_id = auth.uid()` para que si alguien llama directamente a Supabase no pueda actualizar solicitudes ajenas ni cambiar `approval_status` a otro valor.
+
+**Supuesto sobre transiciones de estado:** `approval_status` solo transiciona hacia adelante (`pending → approved` o `pending → rejected`). El staff nunca revierte un requerimiento a `pending`. Si en el futuro eso cambiara, se revisará esta policy.
 
 ---
 
