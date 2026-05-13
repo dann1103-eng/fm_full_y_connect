@@ -206,7 +206,6 @@ export function ClientRequestRequirementModal({ open, onClose, existingRequest }
             links: finalLinks,
           })
           if ('error' in r) { setError(r.error); return }
-          router.refresh()
           onClose()
         } else {
           // Modo creación

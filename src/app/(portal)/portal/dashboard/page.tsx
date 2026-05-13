@@ -16,6 +16,8 @@ import type { ClientPhase } from '@/lib/domain/pipeline'
 import type {
   BillingCycle,
   CambiosPackage,
+  ClientRequestAttachment,
+  ClientRequestLink,
   ClientWithPlan,
   Phase,
   Requirement,
@@ -87,7 +89,18 @@ export default async function PortalDashboardPage() {
       .eq('voided', false)
       .order('registered_at', { ascending: false })
     for (const r of pendingRows ?? []) {
-      pendingAndRejectedRequests.push(r as unknown as PendingRequestItem)
+      pendingAndRejectedRequests.push({
+        id: r.id,
+        title: r.title ?? '',
+        content_type: r.content_type,
+        notes: r.notes,
+        client_requested_deadline: r.client_requested_deadline,
+        includes_story: r.includes_story ?? false,
+        approval_status: r.approval_status as 'pending' | 'rejected',
+        rejected_reason: (r as { rejected_reason?: string | null }).rejected_reason ?? null,
+        client_request_attachments_json: r.client_request_attachments_json as ClientRequestAttachment[] | null,
+        client_request_links_json: r.client_request_links_json as ClientRequestLink[] | null,
+      })
     }
   }
 
