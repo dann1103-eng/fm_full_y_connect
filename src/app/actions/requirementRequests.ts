@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getActiveClientId } from '@/lib/supabase/active-client'
 import { assertNotImpersonating } from './impersonation'
-import type { ContentType, Priority } from '@/types/db'
+import type { ContentType, Priority, ClientRequestAttachment, ClientRequestLink } from '@/types/db'
 
 export interface RequestRequirementInput {
   contentType: ContentType
@@ -248,6 +248,115 @@ export async function rejectRequirementRequest(
   }
 
   revalidatePath('/requirements/solicitudes')
+  revalidatePath('/portal/dashboard')
+  return { ok: true }
+}
+
+export interface UpdateRequirementRequestInput {
+  requirementId: string
+  title: string
+  /** Se guarda en requirements.notes y client_requested_notes */
+  description: string
+  desiredAt: string
+  includesStory?: boolean
+  /** Array final: existentes (no removidos) + nuevos ya subidos al bucket */
+  attachments: ClientRequestAttachment[]
+  links: ClientRequestLink[]
+}
+
+export async function updateRequirementRequest(
+  input: UpdateRequirementRequestInput,
+): Promise<{ ok: true } | { error: string }> {
+  await assertNotImpersonating()
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado' }
+
+  const admin = createAdminClient()
+
+  // Verificar que la solicitud exista, sea pending y pertenezca a este usuario
+  const { data: existing } = await admin
+    .from('requirements')
+    .select('id, approval_status, requested_by_user_id, content_type')
+    .eq('id', input.requirementId)
+    .maybeSingle()
+
+  if (!existing) return { error: 'Solicitud no encontrada' }
+  if (existing.approval_status !== 'pending') return { error: 'Esta solicitud ya fue procesada y no puede editarse' }
+  if (existing.requested_by_user_id !== user.id) return { error: 'Sin permiso para editar esta solicitud' }
+
+  const ct = existing.content_type as ContentType
+  const isScheduled = SCHEDULED_TYPES.includes(ct)
+  const startsAt = isScheduled ? input.desiredAt : null
+  const deadline = isScheduled ? null : input.desiredAt
+  const clientRequestedDeadline = isScheduled
+    ? input.desiredAt
+    : `${input.desiredAt}T00:00:00`
+
+  if (!input.title.trim()) return { error: 'El título no puede estar vacío' }
+  if (!input.desiredAt) return { error: 'Selecciona la fecha deseada' }
+
+  const { error } = await admin
+    .from('requirements')
+    .update({
+      title: input.title.trim(),
+      notes: input.description.trim() || null,
+      client_requested_notes: input.description.trim() || null,
+      client_requested_deadline: clientRequestedDeadline,
+      starts_at: startsAt,
+      deadline,
+      includes_story: STORY_ELIGIBLE.includes(ct) ? !!input.includesStory : false,
+      client_request_attachments_json: input.attachments.length > 0 ? input.attachments : null,
+      client_request_links_json: input.links.length > 0 ? input.links : null,
+    })
+    .eq('id', input.requirementId)
+
+  if (error) {
+    console.error('[updateRequirementRequest]', error)
+    return { error: 'No se pudo actualizar la solicitud' }
+  }
+
+  revalidatePath('/portal/dashboard')
+  return { ok: true }
+}
+
+export async function cancelRequirementRequest(
+  requirementId: string,
+): Promise<{ ok: true } | { error: string }> {
+  await assertNotImpersonating()
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado' }
+
+  const admin = createAdminClient()
+
+  const { data: existing } = await admin
+    .from('requirements')
+    .select('id, approval_status, requested_by_user_id, client_request_attachments_json')
+    .eq('id', requirementId)
+    .maybeSingle()
+
+  if (!existing) return { error: 'Solicitud no encontrada' }
+  if (existing.approval_status !== 'pending') return { error: 'Esta solicitud ya fue procesada' }
+  if (existing.requested_by_user_id !== user.id) return { error: 'Sin permiso para cancelar esta solicitud' }
+
+  // Borrar archivos del bucket (usar admin client — no el browser client)
+  const attachments = (existing.client_request_attachments_json ?? []) as ClientRequestAttachment[]
+  if (attachments.length > 0) {
+    const paths = attachments.map((a) => a.path)
+    await admin.storage.from('requirement-attachments').remove(paths)
+  }
+
+  const { error } = await admin
+    .from('requirements')
+    .update({ voided: true })
+    .eq('id', requirementId)
+
+  if (error) {
+    console.error('[cancelRequirementRequest]', error)
+    return { error: 'No se pudo cancelar la solicitud' }
+  }
+
   revalidatePath('/portal/dashboard')
   return { ok: true }
 }
