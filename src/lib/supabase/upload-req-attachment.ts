@@ -2,6 +2,7 @@ import { createClient } from './client'
 
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp']
 const MAX_OUTPUT_BYTES = 800 * 1024 // 800 KB — presupuesto Supabase: 50MB TOTAL
+const MAX_RAW_BYTES = 10 * 1024 * 1024 // 10 MB
 const MAX_DIMENSION = 1280
 
 export interface UploadedAttachment {
@@ -121,4 +122,45 @@ export async function deleteRequirementAttachments(paths: string[]): Promise<voi
   if (paths.length === 0) return
   const supabase = createClient()
   await supabase.storage.from('requirement-attachments').remove(paths)
+}
+
+/**
+ * Sube un archivo de cualquier tipo (no-imagen) al bucket `requirement-attachments`
+ * sin compresión. Límite: 10 MB.
+ * Usar para PDF, video, archivos de diseño, etc.
+ * Para PNG/JPG/WebP usar `uploadRequirementAttachment` (con compresión).
+ *
+ * ⚠️ Helper cliente — no importar desde server actions.
+ */
+export async function uploadRequirementAttachmentRaw(
+  file: File,
+  requirementId: string
+): Promise<UploadedAttachment> {
+  if (file.size > MAX_RAW_BYTES) {
+    throw new Error(`El archivo supera el límite de 10 MB.`)
+  }
+
+  const supabase = createClient()
+  const ext = file.name.split('.').pop() ?? 'bin'
+  const filename = `${crypto.randomUUID()}.${ext}`
+  const path = `${requirementId}/${filename}`
+
+  const { error } = await supabase.storage
+    .from('requirement-attachments')
+    .upload(path, file, {
+      upsert: false,
+      contentType: file.type || 'application/octet-stream',
+    })
+
+  if (error) throw new Error(`Error al subir el archivo: ${error.message}`)
+
+  const { data } = supabase.storage.from('requirement-attachments').getPublicUrl(path)
+
+  return {
+    path,
+    publicUrl: data.publicUrl,
+    mime: file.type || 'application/octet-stream',
+    name: file.name,
+    sizeBytes: file.size,
+  }
 }
