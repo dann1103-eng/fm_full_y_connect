@@ -15,6 +15,7 @@ create policy "Work users can update own pending requests" on public.requirement
   for update
   using (
     approval_status = 'pending'
+    and voided = false
     and requested_by_user_id = auth.uid()
     and exists (
       select 1 from public.billing_cycles bc
