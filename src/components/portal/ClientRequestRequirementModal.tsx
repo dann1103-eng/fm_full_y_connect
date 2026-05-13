@@ -107,6 +107,7 @@ export function ClientRequestRequirementModal({ open, onClose, existingRequest }
 
   function handleClose() {
     if (isPending) return
+    setError(null)
     if (!isEditing) reset()
     onClose()
   }
@@ -117,11 +118,12 @@ export function ClientRequestRequirementModal({ open, onClose, existingRequest }
     if (!files) return
     setFileError(null)
     const newFiles = Array.from(files)
-    if (totalFiles + newFiles.length > MAX_FILES) {
+    const remaining = MAX_FILES - existingAttachments.length - stagedFiles.length
+    if (newFiles.length > remaining) {
       setFileError(`Máximo ${MAX_FILES} archivos por solicitud`)
       return
     }
-    setStagedFiles((prev) => [...prev, ...newFiles].slice(0, MAX_FILES - existingAttachments.length))
+    setStagedFiles((prev) => [...prev, ...newFiles])
   }
 
   function removeStagedFile(idx: number) {

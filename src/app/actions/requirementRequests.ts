@@ -285,6 +285,10 @@ export async function updateRequirementRequest(
   if (existing.approval_status !== 'pending') return { error: 'Esta solicitud ya fue procesada y no puede editarse' }
   if (existing.requested_by_user_id !== user.id) return { error: 'Sin permiso para editar esta solicitud' }
 
+  // Validar inputs ANTES de cualquier operación de storage
+  if (!input.title.trim()) return { error: 'El título no puede estar vacío' }
+  if (!input.desiredAt) return { error: 'Selecciona la fecha deseada' }
+
   const ct = existing.content_type as ContentType
   const isScheduled = SCHEDULED_TYPES.includes(ct)
   const startsAt = isScheduled ? input.desiredAt : null
@@ -292,9 +296,6 @@ export async function updateRequirementRequest(
   const clientRequestedDeadline = isScheduled
     ? input.desiredAt
     : `${input.desiredAt}T00:00:00`
-
-  if (!input.title.trim()) return { error: 'El título no puede estar vacío' }
-  if (!input.desiredAt) return { error: 'Selecciona la fecha deseada' }
 
   // Borrar del bucket los archivos que el usuario eliminó en la edición
   const { data: current } = await admin
@@ -359,21 +360,22 @@ export async function cancelRequirementRequest(
   if (existing.approval_status !== 'pending') return { error: 'Esta solicitud ya fue procesada' }
   if (existing.requested_by_user_id !== user.id) return { error: 'Sin permiso para cancelar esta solicitud' }
 
-  // Borrar archivos del bucket (usar admin client — no el browser client)
-  const attachments = (existing.client_request_attachments_json ?? []) as ClientRequestAttachment[]
-  if (attachments.length > 0) {
-    const paths = attachments.map((a) => a.path)
-    await admin.storage.from('requirement-attachments').remove(paths)
-  }
-
-  const { error } = await admin
+  // 1. Marcar como voided primero — si falla, los archivos permanecen intactos
+  const { error: voidErr } = await admin
     .from('requirements')
     .update({ voided: true })
     .eq('id', requirementId)
 
-  if (error) {
-    console.error('[cancelRequirementRequest]', error)
+  if (voidErr) {
+    console.error('[cancelRequirementRequest]', voidErr)
     return { error: 'No se pudo cancelar la solicitud' }
+  }
+
+  // 2. Borrar archivos del bucket (best-effort — si falla se puede limpiar después)
+  const attachments = (existing.client_request_attachments_json ?? []) as ClientRequestAttachment[]
+  if (attachments.length > 0) {
+    const paths = attachments.map((a) => a.path)
+    await admin.storage.from('requirement-attachments').remove(paths)
   }
 
   revalidatePath('/portal/dashboard')
