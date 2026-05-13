@@ -7,6 +7,7 @@ import { ClientPipelineBoard } from '@/components/portal/ClientPipelineBoard'
 import { RenewalBanner } from '@/components/portal/RenewalBanner'
 import { ExtrasSection } from '@/components/portal/ExtrasSection'
 import { SolicitarRequerimientoButton } from '@/components/portal/SolicitarRequerimientoButton'
+import { PendingRequestsSection, type PendingRequestItem } from '@/components/portal/PendingRequestsSection'
 import { computeTotals } from '@/lib/domain/requirement'
 import { effectiveLimits, applyContentLimitsWithOverride } from '@/lib/domain/plans'
 import { daysUntilEnd } from '@/lib/domain/cycles'
@@ -74,6 +75,21 @@ export default async function PortalDashboardPage() {
     .maybeSingle()
 
   const cycle = currentCycle as BillingCycle | null
+
+  // Solicitudes pending y rejected del ciclo actual
+  const pendingAndRejectedRequests: PendingRequestItem[] = []
+  if (cycle) {
+    const { data: pendingRows } = await supabase
+      .from('requirements')
+      .select('id, title, content_type, notes, client_requested_deadline, includes_story, approval_status, rejected_reason, client_request_attachments_json, client_request_links_json')
+      .eq('billing_cycle_id', cycle.id)
+      .in('approval_status', ['pending', 'rejected'])
+      .eq('voided', false)
+      .order('registered_at', { ascending: false })
+    for (const r of pendingRows ?? []) {
+      pendingAndRejectedRequests.push(r as unknown as PendingRequestItem)
+    }
+  }
 
   const { data: requirementsRaw } = cycle
     ? await supabase
@@ -204,6 +220,10 @@ export default async function PortalDashboardPage() {
         <h1 className="text-xl font-bold text-fm-on-surface">Dashboard</h1>
         <SolicitarRequerimientoButton />
       </div>
+
+      {pendingAndRejectedRequests.length > 0 && (
+        <PendingRequestsSection requests={pendingAndRejectedRequests} />
+      )}
 
       {cycle && (
         <RenewalBanner
