@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
-import { createClient } from "@/lib/supabase/server";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -17,38 +16,22 @@ export const viewport: Viewport = {
   themeColor: "#00675c",
 };
 
-export async function generateMetadata(): Promise<Metadata> {
-  let agencyLogoUrl: string | null = null
-  try {
-    const supabase = await createClient()
-    const { data } = await supabase
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'agency_logo_url')
-      .maybeSingle()
-    agencyLogoUrl = data?.value ?? null
-  } catch {
-    /* si falla el fetch (build sin env), usar fallback */
-  }
-
-  const iconUrl = agencyLogoUrl ?? '/icons/icon-192.png'
-  const appleIconUrl = agencyLogoUrl ?? '/icons/apple-touch-icon.png'
-
-  return {
-    title: 'FM Communication Solutions — CRM',
-    description: 'Plataforma de gestión de clientes y requerimientos de contenido',
-    manifest: '/manifest.json',
-    appleWebApp: {
-      capable: true,
-      statusBarStyle: 'default',
-      title: 'FM CRM',
-    },
-    icons: {
-      icon: iconUrl,
-      shortcut: iconUrl,
-      apple: appleIconUrl,
-    },
-  }
+export const metadata: Metadata = {
+  title: 'FM Communication Solutions — CRM',
+  description: 'Plataforma de gestión de clientes y requerimientos de contenido',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'FM CRM',
+  },
+  icons: {
+    // La ruta /api/agency-logo sirve el logo desde el bucket privado de Supabase
+    // usando el service role key, con fallback a /icons/icon-192.png
+    icon: '/api/agency-logo',
+    shortcut: '/api/agency-logo',
+    apple: '/api/agency-logo',
+  },
 }
 
 export default function RootLayout({
