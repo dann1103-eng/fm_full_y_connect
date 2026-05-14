@@ -26,11 +26,11 @@ export const metadata: Metadata = {
     title: 'FM CRM',
   },
   icons: {
-    // La ruta /api/agency-logo sirve el logo desde el bucket privado de Supabase
-    // usando el service role key, con fallback a /icons/icon-192.png
-    icon: '/api/agency-logo',
-    shortcut: '/api/agency-logo',
-    apple: '/api/agency-logo',
+    // /api/agency-logo descarga el logo del bucket privado de Supabase usando
+    // el service role key y lo sirve directamente al browser.
+    icon: [{ url: '/api/agency-logo', type: 'image/png' }],
+    shortcut: [{ url: '/api/agency-logo', type: 'image/png' }],
+    apple: [{ url: '/api/agency-logo', type: 'image/png' }],
   },
 }
 
