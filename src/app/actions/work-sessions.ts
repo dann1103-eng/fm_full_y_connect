@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { assertNotImpersonating } from './impersonation'
 import { setPresenceStatus } from './presence'
 import type { PresenceStatus, WorkSession, WorkSessionBreak, ShiftBreakType } from '@/types/db'
@@ -297,7 +298,10 @@ export async function adminEditWorkSession(
     Math.round((newEnd.getTime() - newStart.getTime()) / 1000) - breaksSeconds
   )
 
-  const { error } = await supabase
+  // Usar service role para bypasear la RLS (admins solo tienen SELECT policy,
+  // no UPDATE). La verificación de rol ya se hizo arriba con el cliente normal.
+  const adminSupabase = createAdminClient()
+  const { error } = await adminSupabase
     .from('work_sessions')
     .update({
       started_at: newStart.toISOString(),
