@@ -97,6 +97,7 @@ export interface WorkSession {
   breaks_json: WorkSessionBreak[]
   total_seconds: number | null
   productive_seconds: number | null
+  last_alive_at?: string | null
   created_at: string
 }
 
@@ -1791,6 +1792,7 @@ export interface Database {
           breaks_json: WorkSessionBreak[]
           total_seconds: number | null
           productive_seconds: number | null
+          last_alive_at: string | null
           created_at: string
         }
         Insert: {
@@ -1803,14 +1805,17 @@ export interface Database {
           breaks_json?: WorkSessionBreak[]
           total_seconds?: number | null
           productive_seconds?: number | null
+          last_alive_at?: string | null
         }
         Update: {
+          started_at?: string
           ended_at?: string | null
           status?: WorkSessionStatus
           notes?: string | null
           breaks_json?: WorkSessionBreak[]
           total_seconds?: number | null
           productive_seconds?: number | null
+          last_alive_at?: string | null
         }
         Relationships: []
       }

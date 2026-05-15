@@ -27,6 +27,17 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 )
 
+// ── Cleanup global de jornadas y timers huérfanos ──────────────────────────
+// Corre antes del billing. Cierra work_sessions y time_entries de TODOS los
+// usuarios que quedaron abiertos overnight (browser cerrado sin finalizar).
+try {
+  await supabase.rpc('close_orphan_work_sessions', { p_user_id: null, p_older_than_hours: 14 })
+  await supabase.rpc('truncate_anomalous_time_entries', { p_user_id: null, p_threshold_hours: 14 })
+  console.log('[daily-cycle-runner] cleanup de jornadas huérfanas completado')
+} catch (err) {
+  console.error('[daily-cycle-runner] cleanup de jornadas falló (no crítico):', err)
+}
+
 const AUTO_INVOICE_LEAD_DAYS = 10
 
 function todayStr(): string {

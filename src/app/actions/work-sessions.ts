@@ -121,6 +121,22 @@ export async function endShift(): Promise<{ ok: true } | { error: string }> {
   }, 0)
   const totalSeconds = Math.max(0, elapsed - breaksSeconds)
 
+  // Cerrar time_entries abiertas del usuario en la ventana de la jornada.
+  // Defensive: cubre el caso donde stopActiveEntry() falló antes de endShift().
+  const { data: openEntries } = await supabase
+    .from('time_entries')
+    .select('id, started_at')
+    .eq('user_id', user.id)
+    .is('ended_at', null)
+    .gte('started_at', active.started_at)
+  for (const entry of openEntries ?? []) {
+    const entryStart = new Date(entry.started_at as string)
+    const dur = Math.max(0, Math.round((now.getTime() - entryStart.getTime()) / 1000))
+    await supabase.from('time_entries')
+      .update({ ended_at: now.toISOString(), duration_seconds: dur })
+      .eq('id', entry.id as string)
+  }
+
   // Sumar tiempo productivo (time_entries del usuario en la ventana de la jornada).
   // Cotamos `started_at <= now` para no arrastrar entradas futuras.
   const { data: prodRows } = await supabase
@@ -226,5 +242,74 @@ export async function endBreak(): Promise<{ ok: true } | { error: string }> {
   if (error) return { error: error.message }
   await syncPresenceFromShift('online')
   revalidatePath('/tiempo')
+  return { ok: true }
+}
+
+/**
+ * Admin o Supervisor edita una jornada (work_session) de otro usuario.
+ * Recalcula total_seconds a partir de los nuevos horarios menos las pausas.
+ * productive_seconds no cambia — refleja el trabajo real registrado.
+ */
+export async function adminEditWorkSession(
+  sessionId: string,
+  payload: { started_at: string; ended_at: string; notes?: string | null }
+): Promise<{ ok: true } | { error: string }> {
+  await assertNotImpersonating()
+  const { supabase, user } = await getAuthUser()
+
+  // Solo admin o supervisor
+  const { data: appUser } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+  if (appUser?.role !== 'admin' && appUser?.role !== 'supervisor') {
+    return { error: 'Solo admins y supervisores pueden editar jornadas.' }
+  }
+
+  // Validación de fechas
+  const newStart = new Date(payload.started_at)
+  const newEnd = new Date(payload.ended_at)
+  if (isNaN(newStart.getTime()) || isNaN(newEnd.getTime())) {
+    return { error: 'Fechas inválidas.' }
+  }
+  if (newStart >= newEnd) return { error: 'La hora de inicio debe ser anterior al fin.' }
+  if (newEnd > new Date()) return { error: 'La hora de fin no puede estar en el futuro.' }
+
+  // Obtener sesión actual (para breaks_json y notes)
+  const { data: session } = await supabase
+    .from('work_sessions')
+    .select('*')
+    .eq('id', sessionId)
+    .single()
+  if (!session) return { error: 'Jornada no encontrada.' }
+
+  // Recalcular total_seconds = (newEnd - newStart) - Σ pausas cerradas
+  const breaks = ((session.breaks_json ?? []) as WorkSessionBreak[])
+  const breaksSeconds = breaks.reduce((sum, b) => {
+    if (!b.ended_at) return sum
+    const bs = new Date(b.started_at).getTime()
+    const be = new Date(b.ended_at).getTime()
+    return sum + Math.round((be - bs) / 1000)
+  }, 0)
+  const totalSeconds = Math.max(
+    0,
+    Math.round((newEnd.getTime() - newStart.getTime()) / 1000) - breaksSeconds
+  )
+
+  const { error } = await supabase
+    .from('work_sessions')
+    .update({
+      started_at: newStart.toISOString(),
+      ended_at: newEnd.toISOString(),
+      status: 'ended',
+      total_seconds: totalSeconds,
+      notes: payload.notes !== undefined ? payload.notes : (session.notes as string | null),
+    })
+    .eq('id', sessionId)
+
+  if (error) return { error: error.message }
+  revalidatePath('/tiempo')
+  revalidatePath('/reports')
   return { ok: true }
 }

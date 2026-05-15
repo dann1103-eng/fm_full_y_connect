@@ -103,8 +103,8 @@ export function ShiftPanel() {
     setEndConfirm({ open: false, label: null })
     const stopRes = await stopActiveEntry()
     if ('error' in stopRes) {
-      setError(stopRes.error ?? 'No se pudo detener el timer activo')
-      return
+      // No bloqueamos el flujo: endShift() cerrará defensivamente las entries abiertas
+      console.warn('[confirmEndShift] stopActiveEntry falló, endShift cerrará entries:', stopRes.error)
     }
     // Limpiar localStorage para evitar timers "fantasma"
     const supabase = createClient()

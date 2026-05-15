@@ -16,6 +16,7 @@ import {
 import { PHASE_LABELS } from '@/lib/domain/pipeline'
 import type { TimeEntry, AppUser, AdminCategory, Phase, WorkSession } from '@/types/db'
 import { TimeSummaryCards } from './TimeSummaryCards'
+import { EditWorkSessionModal } from './EditWorkSessionModal'
 
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
@@ -57,6 +58,7 @@ export function AdminTimePanel({ users }: Props) {
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
   const [editEntry, setEditEntry] = useState<TimeEntry | null>(null)
+  const [editWorkSession, setEditWorkSession] = useState<WorkSession | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
@@ -266,6 +268,61 @@ export function AdminTimePanel({ users }: Props) {
       {/* Tarjetas resumen */}
       {selectedUserId && <TimeSummaryCards summary={summary} />}
 
+      {/* Jornadas del período */}
+      {!loading && workSessions.length > 0 && (
+        <div className="glass-panel rounded-[2rem] p-6 space-y-3">
+          <p className="text-[10px] font-extrabold uppercase tracking-wider text-fm-on-surface-variant">
+            Jornadas
+          </p>
+          {workSessions.map((ws) => {
+            const totalSec = ws.total_seconds ?? 0
+            const hh = Math.floor(totalSec / 3600)
+            const mm = Math.floor((totalSec % 3600) / 60)
+            const isActive = ws.status !== 'ended'
+            return (
+              <div
+                key={ws.id}
+                className="flex items-center gap-3 rounded-xl bg-fm-surface-container-low border border-fm-outline-variant/20 px-4 py-2.5"
+              >
+                <span
+                  className={`w-2 h-2 rounded-full flex-shrink-0 ${isActive ? 'bg-fm-primary animate-pulse' : 'bg-fm-outline-variant'}`}
+                />
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-semibold text-fm-on-surface tabular-nums">
+                    {new Date(ws.started_at).toLocaleTimeString('es-SV', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                    {' – '}
+                    {ws.ended_at
+                      ? new Date(ws.ended_at).toLocaleTimeString('es-SV', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      : 'activa'}
+                  </span>
+                  <span className="ml-2 text-xs text-fm-on-surface-variant tabular-nums">
+                    {hh}h {mm}m
+                  </span>
+                  {isActive && (
+                    <span className="ml-2 text-[10px] font-bold text-fm-primary bg-fm-primary/10 px-2 py-0.5 rounded-full">
+                      Activa
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => setEditWorkSession(ws)}
+                  className="p-1.5 rounded-lg text-fm-on-surface-variant hover:bg-fm-surface-container-high hover:text-fm-on-surface transition-colors"
+                  title="Editar jornada"
+                >
+                  <span className="material-symbols-outlined text-[18px]">edit</span>
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       {/* Entries */}
       <div className="glass-panel rounded-[2rem] p-6 space-y-5">
         {loading && <p className="text-sm text-fm-outline-variant py-4 text-center">Cargando…</p>}
@@ -314,6 +371,14 @@ export function AdminTimePanel({ users }: Props) {
           entry={editEntry}
           onClose={() => setEditEntry(null)}
           onSaved={() => { setEditEntry(null); refetch() }}
+        />
+      )}
+
+      {editWorkSession && (
+        <EditWorkSessionModal
+          session={editWorkSession}
+          onSaved={() => { setEditWorkSession(null); refetch() }}
+          onCancel={() => setEditWorkSession(null)}
         />
       )}
     </div>

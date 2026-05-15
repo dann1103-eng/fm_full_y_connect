@@ -34,6 +34,14 @@ export async function touchPresence() {
         .insert({ user_id: user.id, status: 'online' })
     }
 
+    // Heartbeat de jornada activa: actualizar last_alive_at para que el RPC
+    // use inactividad real (no started_at) al detectar jornadas huérfanas.
+    void supabase
+      .from('work_sessions')
+      .update({ last_alive_at: new Date().toISOString() })
+      .eq('user_id', user.id)
+      .is('ended_at', null)
+
     // Auto-cleanup de call_participants huérfanas (>4h) del usuario.
     // Cubre el caso: colgaste desde móvil con red débil y el webhook de
     // LiveKit no llegó; quedaste como "en llamada" indefinidamente.
