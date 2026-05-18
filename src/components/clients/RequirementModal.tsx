@@ -325,7 +325,11 @@ export function RequirementModal({
       .single()
 
     if (insertError) {
-      setError('Error al registrar el requerimiento. Intenta de nuevo.')
+      // Mostrar el mensaje del trigger SQL (ej. "Cliente suspendido por falta de pago",
+      // "No se puede registrar requerimientos en la semana X sin el pago correspondiente")
+      // en lugar de un genérico que oculta la causa real.
+      console.error('[RequirementModal] insertError:', insertError)
+      setError(insertError.message || 'Error al registrar el requerimiento. Intenta de nuevo.')
       setLoading(false)
       return
     }
