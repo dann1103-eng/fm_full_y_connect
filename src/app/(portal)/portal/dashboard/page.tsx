@@ -228,8 +228,21 @@ export default async function PortalDashboardPage() {
   const cambiosOptions = cycleCambiosPkgs.length > 0 ? cycleCambiosPkgs : undefined
 
   return (
-    <div className="p-3 sm:p-6 space-y-4 sm:space-y-8">
-      <div className="flex items-center justify-between flex-wrap gap-3">
+    <div className="relative p-3 sm:p-6 space-y-4 sm:space-y-8">
+      {/* Background pattern fijo — formas orgánicas suaves en colores FM.
+          pointer-events-none + z-0 + opacity baja para no interferir con UI. */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 z-0 opacity-[0.18] dark:opacity-[0.08]"
+        style={{
+          backgroundImage: 'url(/portal-bg-pattern.svg)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }}
+      />
+
+      <div className="relative z-10 flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-xl font-bold text-fm-on-surface">Dashboard</h1>
         <SolicitarRequerimientoButton />
       </div>
