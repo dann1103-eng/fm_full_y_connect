@@ -5,6 +5,7 @@ import { RenewalRow, type RenewalState } from '@/components/renewals/RenewalRow'
 import { RenewalsFilters } from '@/components/renewals/RenewalsFilters'
 import type { BillingCycle, ClientWithPlan } from '@/types/db'
 import { daysUntilEnd, RENEWAL_WINDOW_DAYS } from '@/lib/domain/cycles'
+import { today, addDaysString } from '@/lib/domain/dates'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,10 +36,12 @@ export default async function RenewalsPage({
   const isAdmin = appUser?.role === 'admin'
   if (!isAdmin) redirect('/')
 
-  const inWindow = new Date(new Date().getTime() + RENEWAL_WINDOW_DAYS * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .split('T')[0]
-  const today = new Date().toISOString().split('T')[0]
+  // Usar zona horaria de El Salvador (GMT-6) para consistencia con daysUntilEnd().
+  // Antes: new Date().toISOString() retornaba UTC, lo que en Vercel a partir de
+  // las 6 PM ES adelantaba el "today" un día completo y los filtros no cuadraban
+  // con el display de "días vencidos".
+  const todayDate = today()
+  const inWindow = addDaysString(todayDate, RENEWAL_WINDOW_DAYS)
 
   // Dos queries en paralelo:
   //  A) Ciclos en la ventana de renovación (próximos a vencer o vencidos
@@ -56,7 +59,7 @@ export default async function RenewalsPage({
       .from('billing_cycles')
       .select('*')
       .eq('payment_status', 'unpaid')
-      .lt('period_end', today)
+      .lt('period_end', todayDate)
       .neq('status', 'scheduled'),
   ])
 
@@ -223,8 +226,14 @@ export default async function RenewalsPage({
     items = items.filter((i) => i.cycle.payment_status === 'unpaid')
   }
 
-  const overdueCount = items.filter((i) => i.daysLeft < 0).length
-  const dueSoonCount = items.filter((i) => i.daysLeft >= 0 && i.daysLeft <= 3).length
+  // Particionar: clientes ya renovados y pagados van a la sección verde
+  // (esperando que termine el ciclo actual). El resto va a la lista pendiente.
+  const renewedItems = items.filter((i) => i.renewalState.kind === 'paid')
+  const pendingItems = items.filter((i) => i.renewalState.kind !== 'paid')
+
+  const overdueCount = pendingItems.filter((i) => i.daysLeft < 0).length
+  const dueSoonCount = pendingItems.filter((i) => i.daysLeft >= 0 && i.daysLeft <= 3).length
+  const renewedCount = renewedItems.length
 
   return (
     <div className="flex flex-col min-h-full">
@@ -245,29 +254,67 @@ export default async function RenewalsPage({
               {dueSoonCount} vence{dueSoonCount !== 1 ? 'n' : ''} en ≤3 días
             </span>
           )}
+          {renewedCount > 0 && (
+            <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              {renewedCount} ya renovado{renewedCount !== 1 ? 's' : ''}
+            </span>
+          )}
         </div>
 
         {/* Filters */}
         <RenewalsFilters plans={plans ?? []} />
 
-        {/* Renewal rows */}
+        {/* ── Sección pendiente: morosos + próximos a vencer ── */}
         <div className="space-y-3">
           {items.length === 0 ? (
             <div className="bg-fm-surface-container-lowest rounded-2xl border border-fm-outline-variant/20 p-8 text-center text-sm text-fm-on-surface-variant">
               Sin resultados con los filtros actuales.
             </div>
           ) : (
-            items.map((item) => (
-              <RenewalRow
-                key={item.cycle.id}
-                cycle={item.cycle}
-                client={item.client}
-                daysLeft={item.daysLeft}
-                isAdmin={isAdmin}
-                allPlans={plans ?? []}
-                renewalState={item.renewalState}
-              />
-            ))
+            <>
+              {pendingItems.length > 0 && (
+                <div className="space-y-3">
+                  {pendingItems.map((item) => (
+                    <RenewalRow
+                      key={item.cycle.id}
+                      cycle={item.cycle}
+                      client={item.client}
+                      daysLeft={item.daysLeft}
+                      isAdmin={isAdmin}
+                      allPlans={plans ?? []}
+                      renewalState={item.renewalState}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* ── Sección verde: ya renovados, esperando fin del ciclo actual ── */}
+              {renewedItems.length > 0 && (
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center gap-3">
+                    <p className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-700">
+                      Renovados — esperando fin de ciclo
+                    </p>
+                    <div className="flex-1 h-px bg-emerald-300/40" />
+                    <p className="text-[10px] text-emerald-700/80">
+                      {renewedItems.length} cliente{renewedItems.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                  {renewedItems.map((item) => (
+                    <RenewalRow
+                      key={item.cycle.id}
+                      cycle={item.cycle}
+                      client={item.client}
+                      daysLeft={item.daysLeft}
+                      isAdmin={isAdmin}
+                      allPlans={plans ?? []}
+                      renewalState={item.renewalState}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

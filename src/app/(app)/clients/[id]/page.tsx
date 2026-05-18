@@ -18,6 +18,7 @@ import { DeleteClientButton } from '@/components/clients/DeleteClientButton'
 import { CycleHistorySwitcher } from '@/components/clients/CycleHistorySwitcher'
 import { ClientNotesPanel } from '@/components/clients/ClientNotesPanel'
 import { ClientPortalInvite } from '@/components/clients/ClientPortalInvite'
+import { InactiveClientBanner } from '@/components/clients/InactiveClientBanner'
 import { RescueOrphansButton } from '@/components/clients/RescueOrphansButton'
 import { listClientUsers } from '@/app/actions/clientUsers'
 import { listClientCredits } from '@/app/actions/credits'
@@ -279,6 +280,17 @@ export default async function ClientDetailPage({
       <TopNav title={client.name} />
 
       <div className="flex-1 p-3 sm:p-6 space-y-4 sm:space-y-8 overflow-x-hidden">
+        {/* Banner de suspensión por impago (visible para todos los roles) */}
+        {(client.status === 'inactive_payment' || client.status === 'inactive_manual') && (
+          <InactiveClientBanner
+            clientId={client.id}
+            status={client.status}
+            reason={client.deactivation_reason ?? null}
+            deactivatedAt={client.deactivated_at ?? null}
+            canReactivate={isApprover}
+          />
+        )}
+
         {/* Breadcrumb */}
         <nav className="flex flex-wrap items-center gap-2 text-sm pt-2 min-w-0">
           <Link

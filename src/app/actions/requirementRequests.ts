@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getActiveClientId } from '@/lib/supabase/active-client'
 import { assertNotImpersonating } from './impersonation'
 import type { ContentType, Priority, ClientRequestAttachment, ClientRequestLink } from '@/types/db'
+import { isWeekUnlocked, weekIndexInCycle } from '@/lib/domain/requirement'
 
 export interface RequestRequirementInput {
   contentType: ContentType
@@ -65,16 +66,40 @@ export async function requestRequirement(
     return { error: 'No tienes permiso para solicitar requerimientos en esta marca' }
   }
 
+  // Verificar status del cliente: si está suspendido por impago, no permitir solicitar.
+  const { data: clientRow } = await admin
+    .from('clients')
+    .select('status, billing_period')
+    .eq('id', activeClientId)
+    .single()
+  if (!clientRow) return { error: 'Marca no encontrada' }
+  if (clientRow.status === 'inactive_payment') {
+    return { error: 'Tu cuenta está suspendida por falta de pago. Contacta a tu agencia.' }
+  }
+  if (clientRow.status === 'inactive_manual') {
+    return { error: 'Tu cuenta está desactivada. Contacta a tu agencia.' }
+  }
+
   // Resuelve ciclo abierto del cliente.
   const { data: cycle } = await admin
     .from('billing_cycles')
-    .select('id')
+    .select('id, period_start, payment_status, payment_status_2')
     .eq('client_id', activeClientId)
     .eq('status', 'current')
     .order('period_start', { ascending: false })
     .limit(1)
     .maybeSingle()
   if (!cycle) return { error: 'No hay ciclo de facturación activo para esta marca' }
+
+  // Validar que la semana actual esté pagada (defensa además del trigger SQL 0094).
+  const week = weekIndexInCycle(new Date(), cycle.period_start as string)
+  if (!isWeekUnlocked(
+    week,
+    cycle as unknown as Parameters<typeof isWeekUnlocked>[1],
+    clientRow as unknown as Parameters<typeof isWeekUnlocked>[2],
+  )) {
+    return { error: 'No se puede crear solicitudes en esta semana sin el pago correspondiente. Contacta a tu agencia.' }
+  }
 
   const isScheduled = SCHEDULED_TYPES.includes(input.contentType)
   // Para reunion/produccion el cliente da datetime → starts_at.

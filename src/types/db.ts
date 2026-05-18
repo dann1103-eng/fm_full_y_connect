@@ -113,7 +113,7 @@ export const PRIORITY_COLORS: Record<Priority, string> = {
   alta:  '#b31b25',
 }
 
-export type ClientStatus = 'active' | 'paused' | 'overdue'
+export type ClientStatus = 'active' | 'paused' | 'overdue' | 'inactive_payment' | 'inactive_manual'
 export type CycleStatus = 'current' | 'archived' | 'pending_renewal' | 'scheduled'
 export type PaymentStatus = 'paid' | 'unpaid'
 export type UserRole = 'admin' | 'supervisor' | 'operator' | 'client' | 'agent'
@@ -525,6 +525,8 @@ export interface Database {
           n1co_subscription_started_at: string | null
           n1co_subscription_cancelled_at: string | null
           wa_bot_enabled: boolean
+          deactivation_reason: string | null
+          deactivated_at: string | null
         }
         Insert: {
           id?: string
@@ -568,6 +570,8 @@ export interface Database {
           n1co_subscription_started_at?: string | null
           n1co_subscription_cancelled_at?: string | null
           wa_bot_enabled?: boolean
+          deactivation_reason?: string | null
+          deactivated_at?: string | null
         }
         Update: {
           name?: string
@@ -610,6 +614,8 @@ export interface Database {
           n1co_subscription_started_at?: string | null
           n1co_subscription_cancelled_at?: string | null
           wa_bot_enabled?: boolean
+          deactivation_reason?: string | null
+          deactivated_at?: string | null
         }
         Relationships: [
           {
@@ -2068,6 +2074,14 @@ export interface Database {
       next_quote_number: {
         Args: Record<string, never>
         Returns: string
+      }
+      deactivate_client_for_unpaid_cycle: {
+        Args: { p_client_id: string; p_cycle_id: string }
+        Returns: void
+      }
+      reactivate_client: {
+        Args: { p_client_id: string }
+        Returns: void
       }
     }
     Enums: Record<string, never>

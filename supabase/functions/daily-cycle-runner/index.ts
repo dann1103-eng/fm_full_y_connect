@@ -660,18 +660,21 @@ Deno.serve(async (_req) => {
           log.push(`⚠ Cleanup adjuntos falló: ${String(cleanupErr)}`)
         }
       } else {
-        // Unpaid (incluye biweekly con segunda quincena impaga) → pending_renewal + overdue
+        // Unpaid (incluye biweekly con segunda quincena impaga) → archivar ciclo
+        // y suspender al cliente. NO promover scheduled ni crear nuevo ciclo:
+        // el cliente queda 'inactive_payment' hasta que se marque el ciclo como
+        // pagado (lo que reactivará automáticamente) o se reactive manualmente.
         await supabase
           .from('billing_cycles')
           .update({ status: 'pending_renewal' })
           .eq('id', cycle.id)
 
-        await supabase
-          .from('clients')
-          .update({ status: 'overdue' })
-          .eq('id', client.id)
+        await supabase.rpc('deactivate_client_for_unpaid_cycle', {
+          p_client_id: client.id,
+          p_cycle_id: cycle.id,
+        })
 
-        log.push(`⚠ Client ${client.id} marked overdue (unpaid)`)
+        log.push(`⊘ Cliente ${client.name ?? client.id} suspendido por impago del ciclo ${cycle.id}`)
       }
     }
 

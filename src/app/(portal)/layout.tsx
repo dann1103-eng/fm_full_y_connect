@@ -65,6 +65,17 @@ export default async function PortalLayout({ children }: { children: React.React
   const active = clientOptions?.find((c) => c.id === activeId)
   const clientDisplayName = active?.name ?? 'Mi empresa'
 
+  // Verificar status del cliente activo. Si está suspendido por impago o
+  // desactivado, mostrar banner read-only en todo el portal.
+  const { data: activeStatusRow } = await supabase
+    .from('clients')
+    .select('status')
+    .eq('id', activeId!)
+    .maybeSingle()
+  const isSuspended =
+    activeStatusRow?.status === 'inactive_payment' ||
+    activeStatusRow?.status === 'inactive_manual'
+
   const permissions = await loadPortalPermissions(
     ctx.appUser.id,
     activeId!,
@@ -93,6 +104,17 @@ export default async function PortalLayout({ children }: { children: React.React
         />
         <div className="flex flex-col flex-1 md:ml-64 overflow-hidden">
           <PortalTopNav clientDisplayName={clientDisplayName} />
+          {isSuspended && (
+            <div className="bg-fm-error/10 border-b border-fm-error/30 px-6 py-3 flex items-center gap-3">
+              <span className="material-symbols-outlined text-fm-error text-xl">block</span>
+              <p className="text-sm font-bold text-fm-error">
+                Tu cuenta está suspendida por falta de pago.
+                <span className="font-medium text-fm-error/80 ml-1">
+                  No puedes crear nuevas solicitudes. Contacta a tu agencia.
+                </span>
+              </p>
+            </div>
+          )}
           <main className="flex-1 overflow-y-auto">{children}</main>
         </div>
       </div>

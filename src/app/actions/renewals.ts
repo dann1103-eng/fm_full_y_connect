@@ -180,6 +180,41 @@ export async function markCyclePaid(cycleId: string, clientId: string) {
 
   if (error) return { error: 'Error al marcar el ciclo como pagado.' }
 
+  // Si el cliente estaba suspendido por impago, reactivarlo automáticamente.
+  // Usa admin client + RPC para asegurar bypass de RLS y limpieza de campos auxiliares.
+  const admin = createAdminClient()
+  const { data: clientRow } = await admin
+    .from('clients').select('status').eq('id', clientId).maybeSingle()
+  if (clientRow?.status === 'inactive_payment') {
+    await admin.rpc('reactivate_client', { p_client_id: clientId })
+  }
+
+  revalidatePath('/renewals')
+  revalidatePath(`/clients/${clientId}`)
+  revalidatePath('/dashboard')
+  return { ok: true }
+}
+
+/**
+ * Reactiva manualmente a un cliente suspendido (admin o supervisor).
+ * Limpia `status`, `deactivation_reason` y `deactivated_at`.
+ */
+export async function reactivateClient(clientId: string) {
+  await assertNotImpersonating()
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado' }
+
+  const { data: appUser } = await supabase
+    .from('users').select('role').eq('id', user.id).single()
+  if (appUser?.role !== 'admin' && appUser?.role !== 'supervisor') {
+    return { error: 'Solo admin o supervisor puede reactivar clientes.' }
+  }
+
+  const admin = createAdminClient()
+  const { error } = await admin.rpc('reactivate_client', { p_client_id: clientId })
+  if (error) return { error: 'Error al reactivar el cliente.' }
+
   revalidatePath('/renewals')
   revalidatePath(`/clients/${clientId}`)
   revalidatePath('/dashboard')

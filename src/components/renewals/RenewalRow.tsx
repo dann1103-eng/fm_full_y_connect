@@ -67,6 +67,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
   const [extraPrice, setExtraPrice] = useState('')
 
   const isOverdue = daysLeft < 0
+  const isRenewedPaid = renewalState.kind === 'paid'
   const limits = effectiveLimits(cycle.limits_snapshot_json, cycle.rollover_from_previous_json)
   const selectedPlan = allPlans.find((p) => p.id === selectedPlanId)
 
@@ -153,8 +154,12 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
     + cambiosPackages.reduce((s, p) => s + p.qty, 0)
 
   return (
-    <div className={`bg-fm-surface-container-lowest rounded-2xl border overflow-hidden transition-all ${
-      isOverdue ? 'border-fm-error/40' : 'border-fm-outline-variant/20'
+    <div className={`rounded-2xl border overflow-hidden transition-all ${
+      isRenewedPaid
+        ? 'bg-emerald-50/40 dark:bg-emerald-500/10 border-emerald-400/50'
+        : isOverdue
+          ? 'bg-fm-surface-container-lowest border-fm-error/40'
+          : 'bg-fm-surface-container-lowest border-fm-outline-variant/20'
     }`}>
       {/* ── Main row ── */}
       <div className="flex items-center gap-4 p-4">
