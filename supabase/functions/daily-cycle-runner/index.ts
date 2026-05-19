@@ -660,21 +660,26 @@ Deno.serve(async (_req) => {
           log.push(`⚠ Cleanup adjuntos falló: ${String(cleanupErr)}`)
         }
       } else {
-        // Unpaid (incluye biweekly con segunda quincena impaga) → archivar ciclo
-        // y suspender al cliente. NO promover scheduled ni crear nuevo ciclo:
-        // el cliente queda 'inactive_payment' hasta que se marque el ciclo como
-        // pagado (lo que reactivará automáticamente) o se reactive manualmente.
+        // Unpaid: archivar ciclo y suspender al cliente. NO promover scheduled
+        // ni crear nuevo ciclo. EXCEPCIÓN: si tiene grace_period_until >= today,
+        // archivar pero NO suspender — el admin otorgó tiempo extra.
+        const graceUntil = (cycle as { grace_period_until?: string | null }).grace_period_until
+        const graceActive = !!graceUntil && graceUntil >= today
+
         await supabase
           .from('billing_cycles')
           .update({ status: 'pending_renewal' })
           .eq('id', cycle.id)
 
-        await supabase.rpc('deactivate_client_for_unpaid_cycle', {
-          p_client_id: client.id,
-          p_cycle_id: cycle.id,
-        })
-
-        log.push(`⊘ Cliente ${client.name ?? client.id} suspendido por impago del ciclo ${cycle.id}`)
+        if (graceActive) {
+          log.push(`◷ Cliente ${client.name ?? client.id} en período de gracia hasta ${graceUntil}, no suspendido`)
+        } else {
+          await supabase.rpc('deactivate_client_for_unpaid_cycle', {
+            p_client_id: client.id,
+            p_cycle_id: cycle.id,
+          })
+          log.push(`⊘ Cliente ${client.name ?? client.id} suspendido por impago del ciclo ${cycle.id}`)
+        }
       }
     }
 

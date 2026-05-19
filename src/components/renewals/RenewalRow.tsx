@@ -6,6 +6,7 @@ import type { BillingCycle, BillingPeriod, CambiosPackage, ClientWithPlan, Conte
 import { CONTENT_TYPES, CONTENT_TYPE_LABELS, EXTRA_CONTENT_PRICES, NON_CARRYOVER_TYPES, effectiveLimits } from '@/lib/domain/plans'
 import { formatDateEs } from '@/lib/domain/dates'
 import { renewCycle, markCyclePaid, pauseClient } from '@/app/actions/renewals'
+import { GracePeriodControl } from './GracePeriodControl'
 
 /**
  * Estado real de la renovación (factura del próximo ciclo). Distinto de
@@ -224,6 +225,17 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
             >
               Marcar pagado (manual)
             </button>
+          )}
+
+          {/* Período de gracia (admin) — solo aplica a ciclos impagos.
+              También se muestra si ya existe gracia, para poder extender/anular. */}
+          {isAdmin && (cycle.payment_status === 'unpaid' || cycle.grace_period_until) && (
+            <GracePeriodControl
+              cycleId={cycle.id}
+              clientId={client.id}
+              graceUntil={cycle.grace_period_until ?? null}
+              variant="compact"
+            />
           )}
 
           {isAdmin && (

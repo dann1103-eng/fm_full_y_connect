@@ -1,4 +1,5 @@
 import type { Requirement, ContentType, RequirementTotals, WeeklyDistribution, WeekKey, BillingCycle, Client } from '@/types/db'
+import { today } from './dates'
 
 // Re-export desde el nuevo módulo para mantener compatibilidad con los imports existentes.
 export {
@@ -10,9 +11,19 @@ export {
 } from './weekly-distribution'
 
 /**
+ * Período de gracia activo: si `grace_period_until >= today()` (zona local GMT-6),
+ * el ciclo se trata como pagado para efectos de registro de requerimientos.
+ */
+export function isGracePeriodActive(cycle: Pick<BillingCycle, 'grace_period_until'>): boolean {
+  if (!cycle.grace_period_until) return false
+  return cycle.grace_period_until >= today()
+}
+
+/**
  * Unlock por pago: retorna true si la semana dada está desbloqueada para registrar
  * requerimientos según el estado de pago del ciclo.
  *
+ * - Período de gracia vigente: TODAS las semanas desbloqueadas (override).
  * - Monthly: las 4 semanas requieren `payment_status = 'paid'`. Si el cliente
  *   no ha pagado el ciclo, NINGUNA semana está habilitada (ningún registro nuevo).
  * - Biweekly: S1-S2 requieren `payment_status = 'paid'`; S3-S4 requieren
@@ -23,6 +34,7 @@ export function isWeekUnlocked(
   cycle: BillingCycle,
   client: Pick<Client, 'billing_period'>
 ): boolean {
+  if (isGracePeriodActive(cycle)) return true
   if (client.billing_period === 'biweekly') {
     if (week === 1 || week === 2) return cycle.payment_status === 'paid'
     return cycle.payment_status_2 === 'paid'
@@ -34,12 +46,13 @@ export function isWeekUnlocked(
 /**
  * ¿Está TODO el ciclo bloqueado por falta de pago? Útil para deshabilitar
  * por completo el botón "Registrar requerimiento" cuando ninguna semana
- * está desbloqueada.
+ * está desbloqueada. La gracia vigente desbloquea.
  */
 export function isCycleFullyLocked(
   cycle: BillingCycle,
   client: Pick<Client, 'billing_period'>
 ): boolean {
+  if (isGracePeriodActive(cycle)) return false
   if (client.billing_period === 'biweekly') {
     return cycle.payment_status !== 'paid' && cycle.payment_status_2 !== 'paid'
   }

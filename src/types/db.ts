@@ -649,6 +649,10 @@ export interface Database {
           weekly_distribution_override_json: WeeklyDistribution | null
           /** Timestamp del momento en que se emitió factura para este ciclo (manual o cron). */
           auto_billed_at: string | null
+          /** Fecha límite del período de gracia. Mientras >= today, permite operar a pesar de impago. */
+          grace_period_until: string | null
+          grace_period_granted_by: string | null
+          grace_period_granted_at: string | null
         }
         Insert: {
           id?: string
@@ -669,6 +673,9 @@ export interface Database {
           content_limits_override_json?: Partial<Record<ContentType, number>> | null
           weekly_distribution_override_json?: WeeklyDistribution | null
           auto_billed_at?: string | null
+          grace_period_until?: string | null
+          grace_period_granted_by?: string | null
+          grace_period_granted_at?: string | null
         }
         Update: {
           client_id?: string
@@ -688,6 +695,9 @@ export interface Database {
           content_limits_override_json?: Partial<Record<ContentType, number>> | null
           weekly_distribution_override_json?: WeeklyDistribution | null
           auto_billed_at?: string | null
+          grace_period_until?: string | null
+          grace_period_granted_by?: string | null
+          grace_period_granted_at?: string | null
         }
         Relationships: [
           {

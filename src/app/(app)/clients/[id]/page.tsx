@@ -15,6 +15,8 @@ import { PIPELINE_CONTENT_TYPES } from '@/lib/domain/pipeline'
 import type { PipelineItem } from '@/lib/domain/pipeline'
 import type { RequirementPhaseLog, RequirementCambioLog } from '@/types/db'
 import { DeleteClientButton } from '@/components/clients/DeleteClientButton'
+import { PauseClientButton } from '@/components/clients/PauseClientButton'
+import { GracePeriodControl } from '@/components/renewals/GracePeriodControl'
 import { CycleHistorySwitcher } from '@/components/clients/CycleHistorySwitcher'
 import { ClientNotesPanel } from '@/components/clients/ClientNotesPanel'
 import { ClientPortalInvite } from '@/components/clients/ClientPortalInvite'
@@ -309,6 +311,17 @@ export default async function ClientDetailPage({
           <ClientCreditsCard cambios={credits.cambios} content={credits.content} />
         )}
 
+        {/* Período de gracia: visible para admin si el ciclo current está impago
+            o ya tiene gracia. Permite otorgar/extender/anular. */}
+        {isApprover && cycle && (cycle.payment_status === 'unpaid' || cycle.grace_period_until) && (
+          <GracePeriodControl
+            cycleId={cycle.id}
+            clientId={client.id}
+            graceUntil={cycle.grace_period_until ?? null}
+            variant="full"
+          />
+        )}
+
         {/* 1 — Requerimientos del ciclo (sin historial al final) */}
         {cycle && limits ? (
           <RequirementPanel
@@ -401,9 +414,16 @@ export default async function ClientDetailPage({
           <ClientPortalInvite clientId={id} users={portalUsers} />
         )}
 
-        {/* Delete client — admin only */}
+        {/* Acciones de admin: pausar + eliminar */}
         {isAdmin && (
-          <div className="pt-4">
+          <div className="pt-4 flex items-start gap-6 flex-wrap">
+            {cycle && client.status === 'active' && (
+              <PauseClientButton
+                clientId={client.id}
+                cycleId={cycle.id}
+                clientName={client.name}
+              />
+            )}
             <DeleteClientButton clientId={client.id} clientName={client.name} />
           </div>
         )}

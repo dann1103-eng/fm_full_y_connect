@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { nextCycleDates } from '@/lib/domain/cycles'
-import { today as todayString } from '@/lib/domain/dates'
+import { today as todayString, addDaysString } from '@/lib/domain/dates'
 import { CONTENT_TYPES, CONTENT_TO_PLAN_KEY, effectiveLimits } from '@/lib/domain/plans'
 import { computeTotals } from '@/lib/domain/requirement'
 import { migrateOpenPipelineItems, PIPELINE_CONTENT_TYPES } from '@/lib/domain/pipeline'
@@ -218,6 +218,93 @@ export async function reactivateClient(clientId: string) {
   revalidatePath('/renewals')
   revalidatePath(`/clients/${clientId}`)
   revalidatePath('/dashboard')
+  return { ok: true }
+}
+
+/**
+ * Otorga o extiende un período de gracia sobre el ciclo. Permite que el cliente
+ * registre requerimientos aunque el ciclo esté impago. Si el cliente ya estaba
+ * suspendido por impago, lo reactiva automáticamente.
+ */
+export async function deferPaymentGracePeriod(
+  cycleId: string,
+  clientId: string,
+  days: number,
+): Promise<{ ok: true; graceUntil: string } | { error: string }> {
+  await assertNotImpersonating()
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado' }
+
+  const { data: appUser } = await supabase
+    .from('users').select('role').eq('id', user.id).single()
+  if (appUser?.role !== 'admin' && appUser?.role !== 'supervisor') {
+    return { error: 'Solo admin o supervisor puede otorgar período de gracia.' }
+  }
+
+  if (!Number.isInteger(days) || days < 1 || days > 60) {
+    return { error: 'Los días deben estar entre 1 y 60.' }
+  }
+
+  const graceUntil = addDaysString(todayString(), days)
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('billing_cycles')
+    .update({
+      grace_period_until: graceUntil,
+      grace_period_granted_by: user.id,
+      grace_period_granted_at: new Date().toISOString(),
+    })
+    .eq('id', cycleId)
+  if (error) return { error: 'Error al otorgar período de gracia.' }
+
+  // Si el cliente estaba suspendido por impago, reactivar automáticamente.
+  const { data: clientRow } = await admin
+    .from('clients').select('status').eq('id', clientId).maybeSingle()
+  if (clientRow?.status === 'inactive_payment') {
+    await admin.rpc('reactivate_client', { p_client_id: clientId })
+  }
+
+  revalidatePath('/renewals')
+  revalidatePath(`/clients/${clientId}`)
+  revalidatePath('/dashboard')
+  return { ok: true, graceUntil }
+}
+
+/**
+ * Anula el período de gracia (admin se equivocó / cliente nunca pagó).
+ * No reactiva ni suspende — solo limpia el flag. El cron del día siguiente
+ * tratará al cliente como si nunca hubiera tenido gracia.
+ */
+export async function revokeGracePeriod(
+  cycleId: string,
+  clientId: string,
+): Promise<{ ok: true } | { error: string }> {
+  await assertNotImpersonating()
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado' }
+
+  const { data: appUser } = await supabase
+    .from('users').select('role').eq('id', user.id).single()
+  if (appUser?.role !== 'admin' && appUser?.role !== 'supervisor') {
+    return { error: 'Solo admin o supervisor puede anular período de gracia.' }
+  }
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('billing_cycles')
+    .update({
+      grace_period_until: null,
+      grace_period_granted_by: null,
+      grace_period_granted_at: null,
+    })
+    .eq('id', cycleId)
+  if (error) return { error: 'Error al anular período de gracia.' }
+
+  revalidatePath('/renewals')
+  revalidatePath(`/clients/${clientId}`)
   return { ok: true }
 }
 
