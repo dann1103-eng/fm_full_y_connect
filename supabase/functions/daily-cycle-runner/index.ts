@@ -661,25 +661,31 @@ Deno.serve(async (_req) => {
         }
       } else {
         // Unpaid: archivar ciclo y suspender al cliente. NO promover scheduled
-        // ni crear nuevo ciclo. EXCEPCIÓN: si tiene grace_period_until >= today,
-        // archivar pero NO suspender — el admin otorgó tiempo extra.
+        // ni crear nuevo ciclo.
+        //
+        // EXCEPCIÓN: si grace_period_until >= today, dejar el cycle como
+        // 'current' (NO archivar) para que el cliente pueda seguir operando
+        // con su mismo ciclo durante la gracia. El cron del día siguiente
+        // re-evaluará: si la gracia ya expiró, cae al flujo normal y suspende.
         const graceUntil = (cycle as { grace_period_until?: string | null }).grace_period_until
         const graceActive = !!graceUntil && graceUntil >= today
+
+        if (graceActive) {
+          log.push(`◷ Cliente ${client.name ?? client.id} en período de gracia hasta ${graceUntil}, ciclo conservado como current`)
+          continue   // no archivar, no suspender
+        }
 
         await supabase
           .from('billing_cycles')
           .update({ status: 'pending_renewal' })
           .eq('id', cycle.id)
 
-        if (graceActive) {
-          log.push(`◷ Cliente ${client.name ?? client.id} en período de gracia hasta ${graceUntil}, no suspendido`)
-        } else {
-          await supabase.rpc('deactivate_client_for_unpaid_cycle', {
-            p_client_id: client.id,
-            p_cycle_id: cycle.id,
-          })
-          log.push(`⊘ Cliente ${client.name ?? client.id} suspendido por impago del ciclo ${cycle.id}`)
-        }
+        await supabase.rpc('deactivate_client_for_unpaid_cycle', {
+          p_client_id: client.id,
+          p_cycle_id: cycle.id,
+        })
+
+        log.push(`⊘ Cliente ${client.name ?? client.id} suspendido por impago del ciclo ${cycle.id}`)
       }
     }
 
