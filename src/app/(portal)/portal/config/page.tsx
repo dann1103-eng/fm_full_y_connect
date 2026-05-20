@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { changeMyPassword } from '@/app/actions/profile'
 import { PortalAvatarSection } from '@/components/portal/PortalAvatarSection'
 
 export default function PortalConfigPage() {
@@ -25,36 +25,11 @@ export default function PortalConfigPage() {
     }
 
     startTransition(async () => {
-      const supabase = createClient()
-
-      // Si el usuario ingresó su contraseña actual, re-autenticar primero.
-      // Si la dejó vacía (p.ej. primera vez con link de invitación), saltar este paso.
-      if (currentPassword) {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user?.email) {
-          setMsg({ ok: false, text: 'No se pudo obtener tu sesión. Recarga la página.' })
-          return
-        }
-        const { error: reAuthErr } = await supabase.auth.signInWithPassword({
-          email: user.email,
-          password: currentPassword,
-        })
-        if (reAuthErr) {
-          setMsg({ ok: false, text: 'Contraseña actual incorrecta.' })
-          return
-        }
-      }
-
-      const { error: updateErr } = await supabase.auth.updateUser({ password: newPassword })
-      if (updateErr) {
-        if (updateErr.message.toLowerCase().includes('reauthentication')) {
-          setMsg({ ok: false, text: 'Tu sesión expiró. Por favor cierra sesión, ingresa nuevamente y vuelve a intentarlo.' })
-        } else {
-          setMsg({ ok: false, text: `Error al actualizar: ${updateErr.message}` })
-        }
+      const result = await changeMyPassword(newPassword)
+      if (!result.ok) {
+        setMsg({ ok: false, text: result.error ?? 'Error al actualizar la contraseña.' })
         return
       }
-
       setMsg({ ok: true, text: 'Contraseña establecida correctamente.' })
       setCurrentPassword('')
       setNewPassword('')

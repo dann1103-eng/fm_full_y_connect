@@ -8,10 +8,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { useUser } from '@/contexts/UserContext'
-import { createClient } from '@/lib/supabase/client'
 import { uploadUserAvatar } from '@/lib/supabase/upload-avatar'
 import { uploadAgencyLogo } from '@/lib/supabase/upload-agency-logo'
-import { updateMyProfile } from '@/app/actions/profile'
+import { updateMyProfile, changeMyPassword } from '@/app/actions/profile'
 import { updateAgencyLogoUrl } from '@/app/actions/agencySettings'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -105,10 +104,9 @@ export default function ProfilePage() {
     }
     setPwLoading(true)
     setPwMessage(null)
-    const supabase = createClient()
-    const { error } = await supabase.auth.updateUser({ password: newPassword })
-    if (error) {
-      setPwMessage({ type: 'error', text: 'Error al actualizar la contraseña.' })
+    const result = await changeMyPassword(newPassword)
+    if (!result.ok) {
+      setPwMessage({ type: 'error', text: result.error ?? 'Error al actualizar la contraseña.' })
     } else {
       setPwMessage({ type: 'success', text: 'Contraseña actualizada correctamente.' })
       setNewPassword('')
