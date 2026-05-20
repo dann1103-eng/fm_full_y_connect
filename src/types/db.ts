@@ -446,6 +446,7 @@ export interface Database {
           created_at: string
           default_weekly_distribution_json: WeeklyDistribution | null
           unified_content_limit: number | null
+          no_expira: boolean
           n1co_plan_id: string | null
           n1co_payment_link_static_sandbox: string | null
           n1co_payment_link_static_prod: string | null
@@ -460,6 +461,7 @@ export interface Database {
           active?: boolean
           default_weekly_distribution_json?: WeeklyDistribution | null
           unified_content_limit?: number | null
+          no_expira?: boolean
           n1co_plan_id?: string | null
           n1co_payment_link_static_sandbox?: string | null
           n1co_payment_link_static_prod?: string | null
@@ -473,6 +475,7 @@ export interface Database {
           active?: boolean
           default_weekly_distribution_json?: WeeklyDistribution | null
           unified_content_limit?: number | null
+          no_expira?: boolean
           n1co_plan_id?: string | null
           n1co_payment_link_static_sandbox?: string | null
           n1co_payment_link_static_prod?: string | null
@@ -653,6 +656,7 @@ export interface Database {
           grace_period_until: string | null
           grace_period_granted_by: string | null
           grace_period_granted_at: string | null
+          no_expira: boolean
         }
         Insert: {
           id?: string
@@ -676,6 +680,7 @@ export interface Database {
           grace_period_until?: string | null
           grace_period_granted_by?: string | null
           grace_period_granted_at?: string | null
+          no_expira?: boolean
         }
         Update: {
           client_id?: string
@@ -698,6 +703,7 @@ export interface Database {
           grace_period_until?: string | null
           grace_period_granted_by?: string | null
           grace_period_granted_at?: string | null
+          no_expira?: boolean
         }
         Relationships: [
           {

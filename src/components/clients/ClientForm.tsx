@@ -254,6 +254,7 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
           period_end: periodEnd,
           status: 'current',
           payment_status: 'unpaid',
+          no_expira: plan.no_expira ?? false,
         })
       }
     }

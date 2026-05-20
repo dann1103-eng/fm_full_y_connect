@@ -12,6 +12,7 @@ export interface PlanInput {
   limits_json: PlanLimits
   default_weekly_distribution_json: WeeklyDistribution | null
   unified_content_limit: number | null
+  no_expira: boolean
 }
 
 async function assertAdmin() {
@@ -63,6 +64,7 @@ export async function createPlan(data: PlanInput): Promise<{ error?: string; id?
       limits_json: limitsJsonToSave,
       default_weekly_distribution_json: data.default_weekly_distribution_json,
       unified_content_limit: data.unified_content_limit,
+      no_expira: data.no_expira,
     })
     .select('id')
     .single()
@@ -96,6 +98,7 @@ export async function updatePlan(
       limits_json: limitsJsonToSave,
       default_weekly_distribution_json: data.default_weekly_distribution_json,
       unified_content_limit: data.unified_content_limit,
+      no_expira: data.no_expira,
     })
     .eq('id', id)
 

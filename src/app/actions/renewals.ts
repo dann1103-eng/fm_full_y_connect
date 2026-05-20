@@ -88,6 +88,7 @@ export async function renewCycle(args: RenewArgs) {
       period_end: periodEnd,
       status: 'scheduled' as const,
       payment_status: 'unpaid' as const,
+      no_expira: planRow.no_expira ?? false,
       cambios_budget:
         planRow.cambios_included +
         (args.withChanges ? args.cambiosPackages.reduce((s, p) => s + p.qty, 0) : 0),
@@ -137,6 +138,7 @@ export async function renewCycle(args: RenewArgs) {
       period_end: periodEnd,
       status: 'current',
       payment_status: 'unpaid',
+      no_expira: planRow.no_expira ?? false,
       cambios_budget: planRow.cambios_included + (args.withChanges ? args.cambiosPackages.reduce((s, p) => s + p.qty, 0) : 0),
       cambios_packages_json: args.withChanges ? args.cambiosPackages : [],
       extra_content_json: args.withChanges ? args.extraContent : [],
@@ -443,6 +445,7 @@ export async function createCurrentCycle(args: CreateCurrentCycleArgs) {
       cambios_budget:         planRow.cambios_included,
       cambios_packages_json:  [],
       extra_content_json:     [],
+      no_expira:              planRow.no_expira ?? false,
     })
 
   if (insertErr) return { error: 'Error al crear el ciclo.' }

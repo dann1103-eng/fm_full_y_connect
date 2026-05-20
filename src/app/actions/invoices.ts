@@ -387,6 +387,7 @@ export async function ensureScheduledCycle(
       period_end: periodEnd,
       status: 'scheduled',
       payment_status: 'unpaid',
+      no_expira: plan.no_expira ?? false,
     })
     .select('id')
     .single()

@@ -8,6 +8,13 @@ import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 
 const WEEKS: WeekKey[] = ['S1', 'S2', 'S3', 'S4']
 const TIPPABLE: ContentType[] = ['historia', 'estatico', 'video_corto', 'reel', 'short']
+const TIPPABLE_LIMIT_KEYS = [
+  'historias',
+  'estaticos',
+  'videos_cortos',
+  'reels',
+  'shorts',
+] as const satisfies readonly (keyof PlanLimits)[]
 
 interface PlanFormProps {
   plan?: Plan          // undefined = crear; definido = editar
@@ -59,7 +66,17 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
   const [unifiedPoolSize, setUnifiedPoolSize] = useState<string>(
     plan?.unified_content_limit != null ? String(plan.unified_content_limit) : '10'
   )
+  const [noExpira, setNoExpira] = useState<boolean>(plan?.no_expira ?? false)
   const [saving, setSaving] = useState(false)
+
+  function handleTogglePool(next: boolean) {
+    setUseUnifiedPool(next)
+    if (next) {
+      const cleared: PlanLimits = { ...limits }
+      for (const k of TIPPABLE_LIMIT_KEYS) cleared[k] = 0
+      setLimits(cleared)
+    }
+  }
   const [error, setError] = useState<string | null>(null)
 
   function updateLimit(key: keyof PlanLimits, val: string) {
@@ -93,6 +110,7 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
       limits_json: limits,
       default_weekly_distribution_json: useDistribution ? distribution : null,
       unified_content_limit: unified,
+      no_expira: noExpira,
     }
 
     const res = isEditing
@@ -182,7 +200,7 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
             <input
               type="checkbox"
               checked={useUnifiedPool}
-              onChange={(e) => setUseUnifiedPool(e.target.checked)}
+              onChange={(e) => handleTogglePool(e.target.checked)}
               className="accent-fm-primary"
             />
             <span className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">
@@ -206,11 +224,50 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
           )}
         </div>
 
+        {/* Vencimiento del plan */}
+        <div className="bg-fm-background rounded-xl p-4 space-y-2">
+          <span className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide block">
+            Vencimiento
+          </span>
+          <div className="flex flex-col gap-2 pl-1">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="expiration"
+                checked={!noExpira}
+                onChange={() => setNoExpira(false)}
+                className="accent-fm-primary mt-1"
+              />
+              <span className="flex flex-col">
+                <span className="text-sm font-medium text-fm-on-surface">Mensual</span>
+                <span className="text-xs text-fm-outline">
+                  Los ciclos se archivan al cierre del período y requieren renovación / pago.
+                </span>
+              </span>
+            </label>
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="expiration"
+                checked={noExpira}
+                onChange={() => setNoExpira(true)}
+                className="accent-fm-primary mt-1"
+              />
+              <span className="flex flex-col">
+                <span className="text-sm font-medium text-fm-on-surface">No vence</span>
+                <span className="text-xs text-fm-outline">
+                  Los ciclos con este plan no se archivan automáticamente; los límites siguen activos hasta renovación manual.
+                </span>
+              </span>
+            </label>
+          </div>
+        </div>
+
         {/* Límites por tipo */}
         <div>
           <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide block mb-2">
             {useUnifiedPool
-              ? 'Límites extra (historias, producciones, reuniones, matriz) — tippables ignoran estos valores'
+              ? 'Tippables se consumen del pool unificado. Configura solo: producciones, reuniones, matriz.'
               : 'Límites por tipo de contenido (por ciclo)'}
           </label>
           <div className="grid grid-cols-2 gap-3 bg-fm-background rounded-xl p-4">
@@ -224,18 +281,27 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
               { key: 'reuniones' as const, label: 'Reuniones' },
               { key: 'reunion_duracion_horas' as const, label: 'Horas / reunión' },
               { key: 'matrices_contenido' as const, label: 'Matriz contenido' },
-            ].map(({ key, label }) => (
-              <div key={key} className="flex items-center justify-between gap-3">
-                <span className="text-sm text-fm-on-surface">{label}</span>
-                <input
-                  type="number"
-                  min="0"
-                  value={limits[key] ?? 0}
-                  onChange={(e) => updateLimit(key, e.target.value)}
-                  className="w-20 border border-fm-surface-container-high rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-fm-primary/30"
-                />
-              </div>
-            ))}
+            ].map(({ key, label }) => {
+              const isTippable = (TIPPABLE_LIMIT_KEYS as readonly string[]).includes(key)
+              const lockedByPool = useUnifiedPool && isTippable
+              return (
+                <div
+                  key={key}
+                  className={`flex items-center justify-between gap-3 ${lockedByPool ? 'opacity-50' : ''}`}
+                >
+                  <span className="text-sm text-fm-on-surface">{label}</span>
+                  <input
+                    type="number"
+                    min="0"
+                    disabled={lockedByPool}
+                    value={lockedByPool ? '' : (limits[key] ?? 0)}
+                    placeholder={lockedByPool ? 'Pool' : undefined}
+                    onChange={(e) => updateLimit(key, e.target.value)}
+                    className="w-20 border border-fm-surface-container-high rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-fm-primary/30 disabled:cursor-not-allowed disabled:bg-fm-surface-container-high/40"
+                  />
+                </div>
+              )
+            })}
           </div>
         </div>
 

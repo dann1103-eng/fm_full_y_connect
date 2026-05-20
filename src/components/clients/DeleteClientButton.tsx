@@ -6,10 +6,28 @@ import { deleteClient } from '@/app/actions/deleteClient'
 export function DeleteClientButton({ clientId, clientName }: { clientId: string; clientName: string }) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function handleDelete() {
     setLoading(true)
-    await deleteClient(clientId)
+    setError(null)
+    try {
+      const res = await deleteClient(clientId)
+      if (res?.error) {
+        setError(res.error)
+        setLoading(false)
+        return
+      }
+      // El server action hace redirect('/clients') al final si tuvo éxito;
+      // ese redirect lanza NEXT_REDIRECT y no llegamos a esta línea en caso normal.
+    } catch (err) {
+      // NEXT_REDIRECT no es un error real — solo capturamos errores no redirect.
+      const msg = err instanceof Error ? err.message : String(err)
+      if (!msg.includes('NEXT_REDIRECT')) {
+        setError(msg)
+        setLoading(false)
+      }
+    }
   }
 
   if (!open) {
@@ -29,9 +47,17 @@ export function DeleteClientButton({ clientId, clientName }: { clientId: string;
       <p className="text-xs text-fm-on-surface-variant">
         Esta acción es irreversible. Se eliminarán todos sus ciclos, requerimientos y logs asociados.
       </p>
+      {error && (
+        <p className="text-xs text-fm-error font-semibold bg-fm-error/5 rounded-lg px-3 py-2 border border-fm-error/20">
+          {error}
+        </p>
+      )}
       <div className="flex gap-3">
         <button
-          onClick={() => setOpen(false)}
+          onClick={() => {
+            setOpen(false)
+            setError(null)
+          }}
           disabled={loading}
           className="flex-1 py-2 text-sm border border-fm-surface-container-high rounded-xl text-fm-on-surface-variant hover:bg-fm-background transition-colors disabled:opacity-50"
         >

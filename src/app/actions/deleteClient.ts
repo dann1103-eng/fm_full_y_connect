@@ -4,26 +4,59 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 
-export async function deleteClient(clientId: string): Promise<void> {
+export async function deleteClient(
+  clientId: string,
+): Promise<{ error?: string }> {
   const supabase = await createClient()
 
   // Auth + admin check
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('No autenticado')
+  if (!user) return { error: 'No autenticado.' }
   const { data: appUser } = await supabase
     .from('users').select('role').eq('id', user.id).single()
-  if (appUser?.role !== 'admin') throw new Error('Solo admins pueden eliminar clientes')
+  if (appUser?.role !== 'admin') {
+    return { error: 'Solo admins pueden eliminar clientes.' }
+  }
 
   const admin = createAdminClient()
 
+  // ── Pre-check: bloqueantes que requieren limpieza manual ─────────────────
+  const { count: invoiceCount, error: invCountErr } = await admin
+    .from('invoices')
+    .select('id', { count: 'exact', head: true })
+    .eq('client_id', clientId)
+  if (invCountErr) {
+    return { error: `No se pudo verificar facturas: ${invCountErr.message}` }
+  }
+  if ((invoiceCount ?? 0) > 0) {
+    return {
+      error: `No se puede eliminar: el cliente tiene ${invoiceCount} factura(s). Elimínalas o anúlalas primero.`,
+    }
+  }
+
+  const { count: quoteCount, error: qCountErr } = await admin
+    .from('quotes')
+    .select('id', { count: 'exact', head: true })
+    .eq('client_id', clientId)
+  if (qCountErr) {
+    return { error: `No se pudo verificar cotizaciones: ${qCountErr.message}` }
+  }
+  if ((quoteCount ?? 0) > 0) {
+    return {
+      error: `No se puede eliminar: el cliente tiene ${quoteCount} cotización(es). Elimínalas primero.`,
+    }
+  }
+
   // ── 0. Limpiar usuarios de portal vinculados a este cliente ──────────────
-  const { data: clientUserRows } = await admin
+  const { data: clientUserRows, error: cuFetchErr } = await admin
     .from('client_users')
     .select('user_id')
     .eq('client_id', clientId)
+  if (cuFetchErr) {
+    return { error: `Error al leer usuarios del portal: ${cuFetchErr.message}` }
+  }
 
   for (const { user_id } of clientUserRows ?? []) {
-    // ¿Este usuario tiene acceso a otros clientes?
     const { data: otherLinks } = await admin
       .from('client_users')
       .select('id')
@@ -32,26 +65,40 @@ export async function deleteClient(clientId: string): Promise<void> {
       .limit(1)
 
     if (!otherLinks || otherLinks.length === 0) {
-      // Solo estaba vinculado a este cliente → eliminar completamente
-      await admin.from('users').delete().eq('id', user_id)
+      const { error: usrErr } = await admin.from('users').delete().eq('id', user_id)
+      if (usrErr) {
+        return { error: `Error al eliminar usuario del portal: ${usrErr.message}` }
+      }
       await admin.auth.admin.deleteUser(user_id).catch((err) =>
-        console.error(`No se pudo eliminar auth user ${user_id}:`, err)
+        console.error(`No se pudo eliminar auth user ${user_id}:`, err),
       )
     }
   }
 
-  await admin.from('client_users').delete().eq('client_id', clientId)
+  const { error: cuDelErr } = await admin
+    .from('client_users')
+    .delete()
+    .eq('client_id', clientId)
+  if (cuDelErr) {
+    return { error: `Error al eliminar accesos del portal: ${cuDelErr.message}` }
+  }
 
   // ── 1. Obtener IDs de ciclos ──────────────────────────────────────────────
-  const { data: cycles } = await admin
+  const { data: cycles, error: cyclesErr } = await admin
     .from('billing_cycles').select('id').eq('client_id', clientId)
+  if (cyclesErr) {
+    return { error: `Error al leer ciclos: ${cyclesErr.message}` }
+  }
   const cycleIds = (cycles ?? []).map((c) => c.id)
 
   // ── 2. Obtener IDs de requerimientos ─────────────────────────────────────
   let requirementIds: string[] = []
   if (cycleIds.length > 0) {
-    const { data: requirements } = await admin
+    const { data: requirements, error: reqsErr } = await admin
       .from('requirements').select('id').in('billing_cycle_id', cycleIds)
+    if (reqsErr) {
+      return { error: `Error al leer requerimientos: ${reqsErr.message}` }
+    }
     requirementIds = (requirements ?? []).map((r) => r.id)
   }
 
@@ -74,24 +121,45 @@ export async function deleteClient(clientId: string): Promise<void> {
 
   // ── 4. Borrar logs de fases ───────────────────────────────────────────────
   if (requirementIds.length > 0) {
-    await admin.from('requirement_phase_logs')
-      .delete().in('requirement_id', requirementIds)
+    const { error: logsErr } = await admin
+      .from('requirement_phase_logs')
+      .delete()
+      .in('requirement_id', requirementIds)
+    if (logsErr) {
+      return { error: `Error al eliminar logs: ${logsErr.message}` }
+    }
   }
 
   // ── 5. Borrar requerimientos ──────────────────────────────────────────────
   if (cycleIds.length > 0) {
-    await admin.from('requirements')
-      .delete().in('billing_cycle_id', cycleIds)
+    const { error: reqDelErr } = await admin
+      .from('requirements')
+      .delete()
+      .in('billing_cycle_id', cycleIds)
+    if (reqDelErr) {
+      return { error: `Error al eliminar requerimientos: ${reqDelErr.message}` }
+    }
   }
 
   // ── 6. Borrar ciclos de facturación ──────────────────────────────────────
   if (cycleIds.length > 0) {
-    await admin.from('billing_cycles')
-      .delete().eq('client_id', clientId)
+    const { error: bcDelErr } = await admin
+      .from('billing_cycles')
+      .delete()
+      .eq('client_id', clientId)
+    if (bcDelErr) {
+      return { error: `Error al eliminar ciclos: ${bcDelErr.message}` }
+    }
   }
 
   // ── 7. Borrar cliente ─────────────────────────────────────────────────────
-  await admin.from('clients').delete().eq('id', clientId)
+  const { error: clientDelErr } = await admin
+    .from('clients')
+    .delete()
+    .eq('id', clientId)
+  if (clientDelErr) {
+    return { error: `Error al eliminar cliente: ${clientDelErr.message}` }
+  }
 
   redirect('/clients')
 }

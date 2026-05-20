@@ -60,6 +60,7 @@ export function ReactivatePanel({ client, plans }: ReactivatePanelProps) {
         period_end: periodEnd,
         status: 'current',
         payment_status: 'unpaid',
+        no_expira: plan.no_expira ?? false,
       })
       .select('id')
       .single()

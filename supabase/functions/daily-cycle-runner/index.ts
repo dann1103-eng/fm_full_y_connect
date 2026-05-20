@@ -311,14 +311,17 @@ Deno.serve(async (_req) => {
     // ========== STEP 1: AUTO-BILLING ==========
     const { data: autoCycles } = await supabase
       .from('billing_cycles')
-      .select('id, period_start, period_end, client_id, plan_id_snapshot, payment_status, payment_status_2, clients(*)')
+      .select('id, period_start, period_end, client_id, plan_id_snapshot, payment_status, payment_status_2, no_expira, clients(*)')
       .eq('status', 'current')
+      .eq('no_expira', false)
 
     const emitter = await loadCompanySettings()
 
     for (const cycle of autoCycles ?? []) {
       const client = cycle.clients as ClientRow | null
       if (!client || !client.auto_billing) continue
+      // Defensa extra: aunque ya filtramos no_expira en el SELECT, lo verificamos por si el query devuelve algo inesperado.
+      if ((cycle as { no_expira?: boolean }).no_expira) continue
       if (daysUntil(cycle.period_end) > AUTO_INVOICE_LEAD_DAYS) continue
 
       // GATE: no pre-crear el siguiente ciclo si el cliente tiene impagos en
@@ -376,6 +379,7 @@ Deno.serve(async (_req) => {
             period_end: periodEnd,
             status: 'scheduled',
             payment_status: 'unpaid',
+            no_expira: plan?.no_expira ?? false,
           })
           .select('id')
           .single()
@@ -521,10 +525,12 @@ Deno.serve(async (_req) => {
     }
 
     // ========== STEP 2: EXPIRE / RENEW CYCLES ==========
+    // Ciclos no_expira=true se omiten: nunca se archivan ni se renuevan automáticamente.
     const { data: expiredCycles, error: fetchError } = await supabase
       .from('billing_cycles')
       .select('*, clients(*)')
       .eq('status', 'current')
+      .eq('no_expira', false)
       .lt('period_end', today)
 
     if (fetchError) throw fetchError
@@ -611,6 +617,7 @@ Deno.serve(async (_req) => {
               period_end: periodEnd,
               status: 'current',
               payment_status: 'unpaid',
+              no_expira: plan?.no_expira ?? false,
             })
             .select('id')
             .single()

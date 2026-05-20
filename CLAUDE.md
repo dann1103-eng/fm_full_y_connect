@@ -350,3 +350,4 @@ Patrón estándar para modales tall: `fixed inset-0 z-50 bg-black/40 flex items-
 | 0095 | Fix bug en 0094: `date - date` retorna `integer` (no `interval`); usa aritmética entera directa para calcular la semana |
 | 0096 | **Período de gracia**: columnas `billing_cycles.grace_period_until`, `grace_period_granted_by`, `grace_period_granted_at`. Trigger 0094 actualizado: si `grace_period_until >= today`, permite inserts a pesar de impago |
 | 0097 | **Fix race condition en llamadas**: el paso 2 de `close_orphan_call_participants` cerraba sesiones recién creadas (antes del primer INSERT de call_participant). Ahora exige gracia mínima 5min sobre `call_sessions.started_at` |
+| 0098 | **Planes sin vencimiento**: columnas `plans.no_expira` y `billing_cycles.no_expira` (snapshot). Ciclos con `no_expira=true` son ignorados por `daily-cycle-runner` en auto-billing y en el loop de expiración: no se archivan ni renuevan automáticamente |
