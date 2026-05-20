@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { createClientUser, revokeClientUser } from '@/app/actions/clientUsers'
+import { createClientUser, revokeClientUser, resetPortalUserPassword } from '@/app/actions/clientUsers'
 
 interface Props {
   clientId: string
@@ -19,6 +19,8 @@ export function ClientPortalInvite({ clientId, users }: Props) {
   const [password, setPassword] = useState('')
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [resetingUserId, setResetingUserId] = useState<string | null>(null)
+  const [resetPassword, setResetPassword] = useState('')
 
   async function create(e: React.FormEvent) {
     e.preventDefault()
@@ -51,6 +53,34 @@ export function ClientPortalInvite({ clientId, users }: Props) {
         return
       }
       setMsg({ ok: true, text: 'Acceso revocado. El usuario fue eliminado.' })
+    })
+  }
+
+  function openReset(userId: string) {
+    setResetingUserId(userId)
+    setResetPassword('')
+    setMsg(null)
+  }
+
+  function cancelReset() {
+    setResetingUserId(null)
+    setResetPassword('')
+  }
+
+  function submitReset(userId: string) {
+    if (resetPassword.length < 8) {
+      setMsg({ ok: false, text: 'La contraseña debe tener al menos 8 caracteres.' })
+      return
+    }
+    startTransition(async () => {
+      const result = await resetPortalUserPassword({ userId, clientId, newPassword: resetPassword })
+      if (!result.ok) {
+        setMsg({ ok: false, text: result.error })
+        return
+      }
+      setResetingUserId(null)
+      setResetPassword('')
+      setMsg({ ok: true, text: 'Contraseña actualizada correctamente.' })
     })
   }
 
@@ -110,21 +140,52 @@ export function ClientPortalInvite({ clientId, users }: Props) {
         {users.map((link) => (
           <div
             key={link.id}
-            className="flex items-center justify-between rounded-lg border border-fm-outline-variant/30 px-3 py-2"
+            className="rounded-lg border border-fm-outline-variant/30 px-3 py-2 space-y-2"
           >
-            <div className="text-sm">
-              <p className="font-medium text-fm-on-surface">
-                {link.users?.full_name ?? link.users?.email ?? '(sin nombre)'}
-              </p>
-              <p className="text-xs text-fm-on-surface-variant">{link.users?.email}</p>
+            <div className="flex items-center justify-between">
+              <div className="text-sm">
+                <p className="font-medium text-fm-on-surface">
+                  {link.users?.full_name ?? link.users?.email ?? '(sin nombre)'}
+                </p>
+                <p className="text-xs text-fm-on-surface-variant">{link.users?.email}</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => resetingUserId === link.user_id ? cancelReset() : openReset(link.user_id)}
+                  disabled={isPending}
+                  className="text-sm text-fm-on-surface-variant hover:text-fm-on-surface hover:underline disabled:opacity-50"
+                >
+                  {resetingUserId === link.user_id ? 'Cancelar' : 'Resetear contraseña'}
+                </button>
+                <button
+                  onClick={() => revoke(link.user_id)}
+                  disabled={isPending}
+                  className="text-sm text-fm-error hover:underline disabled:opacity-50"
+                >
+                  Revocar
+                </button>
+              </div>
             </div>
-            <button
-              onClick={() => revoke(link.user_id)}
-              disabled={isPending}
-              className="text-sm text-fm-error hover:underline disabled:opacity-50"
-            >
-              Revocar
-            </button>
+            {resetingUserId === link.user_id && (
+              <div className="flex gap-2 pt-1">
+                <input
+                  type="password"
+                  minLength={8}
+                  placeholder="Nueva contraseña (mín. 8 caracteres)"
+                  value={resetPassword}
+                  onChange={(e) => setResetPassword(e.target.value)}
+                  className="flex-1 rounded-lg border border-fm-outline-variant/40 px-3 py-1.5 text-sm"
+                  autoFocus
+                />
+                <button
+                  onClick={() => submitReset(link.user_id)}
+                  disabled={isPending}
+                  className="rounded-lg bg-fm-primary text-white px-3 py-1.5 text-sm font-medium disabled:opacity-50"
+                >
+                  {isPending ? 'Guardando…' : 'Guardar'}
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>

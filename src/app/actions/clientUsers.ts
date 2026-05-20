@@ -414,6 +414,35 @@ export async function setClientUserAssignments(params: {
   }
 }
 
+export async function resetPortalUserPassword(params: {
+  userId: string
+  clientId: string
+  newPassword: string
+}): Promise<ClientUserActionResult> {
+  try {
+    const { userId, newPassword } = params
+    if (!newPassword || newPassword.length < 8) {
+      return { ok: false, error: 'La contraseña debe tener al menos 8 caracteres' }
+    }
+    const auth = await requireAdmin()
+    if (auth.error) return { ok: false, error: auth.error }
+
+    const admin = createAdminClient()
+
+    const { data: target } = await admin.from('users').select('role').eq('id', userId).maybeSingle()
+    if (!target) return { ok: false, error: 'Usuario no encontrado' }
+    if (target.role !== 'client') return { ok: false, error: 'Solo se puede resetear contraseña de usuarios cliente' }
+
+    const { error: updErr } = await admin.auth.admin.updateUserById(userId, { password: newPassword })
+    if (updErr) return { ok: false, error: `No se pudo actualizar la contraseña: ${updErr.message}` }
+
+    return { ok: true }
+  } catch (e) {
+    console.error('[resetPortalUserPassword]', e)
+    return { ok: false, error: e instanceof Error ? e.message : 'Error inesperado al resetear contraseña' }
+  }
+}
+
 /**
  * Revoca todo el acceso de un usuario portal: borra todos los vínculos en
  * client_users y elimina su cuenta (auth + public).
