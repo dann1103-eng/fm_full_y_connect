@@ -394,9 +394,17 @@ export interface ExtraContentItem {
   created_at: string
 }
 
-export type BillingPeriod = 'monthly' | 'biweekly'
+export type BillingPeriod = 'monthly' | 'biweekly' | 'bimonthly'
 
-export type WeekKey = 'S1' | 'S2' | 'S3' | 'S4'
+export type WeekKey = 'S1' | 'S2' | 'S3' | 'S4' | 'S5' | 'S6' | 'S7' | 'S8'
+/** Semanas para periodos no-bimonthly (mensual / biweekly). */
+export const WEEKS_BASE: ReadonlyArray<WeekKey> = ['S1', 'S2', 'S3', 'S4']
+/** Semanas extendidas para bimonthly (60 días). */
+export const WEEKS_BIMONTHLY: ReadonlyArray<WeekKey> = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8']
+/** Devuelve el set de semanas según billing_period. */
+export function weeksForBillingPeriod(billingPeriod: BillingPeriod): ReadonlyArray<WeekKey> {
+  return billingPeriod === 'bimonthly' ? WEEKS_BIMONTHLY : WEEKS_BASE
+}
 export type WeeklyDistribution = Partial<Record<WeekKey, Partial<Record<ContentType, number>>>>
 
 export interface Database {
@@ -447,6 +455,7 @@ export interface Database {
           default_weekly_distribution_json: WeeklyDistribution | null
           unified_content_limit: number | null
           no_expira: boolean
+          billing_period: BillingPeriod
           n1co_plan_id: string | null
           n1co_payment_link_static_sandbox: string | null
           n1co_payment_link_static_prod: string | null
@@ -462,6 +471,7 @@ export interface Database {
           default_weekly_distribution_json?: WeeklyDistribution | null
           unified_content_limit?: number | null
           no_expira?: boolean
+          billing_period?: BillingPeriod
           n1co_plan_id?: string | null
           n1co_payment_link_static_sandbox?: string | null
           n1co_payment_link_static_prod?: string | null
@@ -476,6 +486,7 @@ export interface Database {
           default_weekly_distribution_json?: WeeklyDistribution | null
           unified_content_limit?: number | null
           no_expira?: boolean
+          billing_period?: BillingPeriod
           n1co_plan_id?: string | null
           n1co_payment_link_static_sandbox?: string | null
           n1co_payment_link_static_prod?: string | null
@@ -650,6 +661,8 @@ export interface Database {
           extra_content_json: ExtraContentItem[]
           content_limits_override_json: Partial<Record<ContentType, number>> | null
           weekly_distribution_override_json: WeeklyDistribution | null
+          /** Snapshot del billing_period del cliente al crear el ciclo. */
+          billing_period: BillingPeriod
           /** Timestamp del momento en que se emitió factura para este ciclo (manual o cron). */
           auto_billed_at: string | null
           /** Fecha límite del período de gracia. Mientras >= today, permite operar a pesar de impago. */
@@ -676,6 +689,7 @@ export interface Database {
           extra_content_json?: ExtraContentItem[]
           content_limits_override_json?: Partial<Record<ContentType, number>> | null
           weekly_distribution_override_json?: WeeklyDistribution | null
+          billing_period?: BillingPeriod
           auto_billed_at?: string | null
           grace_period_until?: string | null
           grace_period_granted_by?: string | null
@@ -699,6 +713,7 @@ export interface Database {
           extra_content_json?: ExtraContentItem[]
           content_limits_override_json?: Partial<Record<ContentType, number>> | null
           weekly_distribution_override_json?: WeeklyDistribution | null
+          billing_period?: BillingPeriod
           auto_billed_at?: string | null
           grace_period_until?: string | null
           grace_period_granted_by?: string | null

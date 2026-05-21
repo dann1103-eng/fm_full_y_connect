@@ -34,22 +34,34 @@ import {
   today as todayString,
 } from './dates'
 
-export type BillingPeriod = 'monthly' | 'biweekly'
+export type BillingPeriod = 'monthly' | 'biweekly' | 'bimonthly'
 
 interface CycleOptions {
   billingPeriod?: BillingPeriod
 }
 
+/**
+ * Calcula period_end según billing_period:
+ *   - biweekly:  +13 días (14 días inclusivos = 2 semanas)
+ *   - bimonthly: +59 días (60 días inclusivos = ~8.5 semanas; el sistema usa 8 semanas)
+ *   - monthly:   +1 mes - 1 día (clamp a fin de mes para fechas como 31-ene)
+ */
 export function firstCycleDates(
   startDate: DateString,
   options?: CycleOptions,
 ): { periodStart: DateString; periodEnd: DateString } {
   const periodStart = startDate
-  const periodEnd =
-    options?.billingPeriod === 'biweekly'
-      ? addDaysString(startDate, 13)
-      : subtractDay(addMonthsClamped(startDate, 1))
-
+  let periodEnd: DateString
+  switch (options?.billingPeriod) {
+    case 'biweekly':
+      periodEnd = addDaysString(startDate, 13)
+      break
+    case 'bimonthly':
+      periodEnd = addDaysString(startDate, 59)
+      break
+    default:
+      periodEnd = subtractDay(addMonthsClamped(startDate, 1))
+  }
   return { periodStart, periodEnd }
 }
 

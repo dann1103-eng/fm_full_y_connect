@@ -13,11 +13,14 @@ import {
   isWeekUnlocked,
   isCycleFullyLocked,
   historiaBreakdown,
+  maxWeeksForPeriod,
+  type WeekIndex,
 } from '@/lib/domain/requirement'
 import { augmentDistribution, applyOverride, addRollover } from '@/lib/domain/weekly-distribution'
 import { CONTENT_ICONS } from '@/lib/domain/content-icons'
 import { socialUrl, type SocialNetwork } from '@/lib/domain/social'
 import { RequirementModal } from './RequirementModal'
+import { WeekRangeNavigator } from './WeekRangeNavigator'
 import { RequirementHistory } from './RequirementHistory'
 import { MatrixContentCard } from './MatrixContentCard'
 import { renewContentPackage } from '@/app/actions/contentPackage'
@@ -258,7 +261,8 @@ export function RequirementPanel({
     (cycle as { weekly_distribution_override_json?: import('@/types/db').WeeklyDistribution | null }).weekly_distribution_override_json,
   )
   const effectiveDist = addRollover(overriddenDist, rolloverToContentType(cycle.rollover_from_previous_json))
-  const weekBreakdown = computeWeeklyBreakdownWithCascade(requirements, effectiveDist, currentWeek)
+  const maxWeek = maxWeeksForPeriod(client.billing_period)
+  const weekBreakdown = computeWeeklyBreakdownWithCascade(requirements, effectiveDist, currentWeek, maxWeek)
 
   return (
     <>
@@ -750,84 +754,99 @@ export function RequirementPanel({
         <h3 className="text-xl font-extrabold tracking-tight text-fm-on-surface">
           Desglose semanal
         </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {weekBreakdown.map((week) => {
-                const weekLabel = `Semana ${week.label.slice(1)}`
-                const isFuture = !week.isCurrent && ['S1','S2','S3','S4'].indexOf(week.label) > currentWeek
-                const budgetTypes = pipelineTypes.filter(t => (week.budget[t] ?? 0) > 0)
-                const hasActivity = pipelineTypes.some(t => (week.counts[t] ?? 0) > 0 || (week.overflow[t] ?? 0) > 0)
-                const weekIdx = (['S1','S2','S3','S4'].indexOf(week.label) + 1) as 1 | 2 | 3 | 4
-                const unlocked = isWeekUnlocked(weekIdx, cycle, client)
+        <WeekRangeNavigator
+          billingPeriod={client.billing_period}
+          currentWeekIndex={currentWeek + 1}
+          paymentStatusLabel={client.billing_period === 'bimonthly' ? {
+            page0: cycle.payment_status === 'paid' ? 'Pago 1 OK' : 'Pago 1 pendiente',
+            page1: cycle.payment_status_2 === 'paid' ? 'Pago 2 OK' : 'Pago 2 pendiente',
+          } : undefined}
+          renderWeek={(weekKey, weekNum) => {
+            const week = weekBreakdown.find(w => w.label === weekKey)
+            if (!week) return null
+            const weekLabel = `Semana ${weekNum}`
+            const isFuture = !week.isCurrent && (weekNum - 1) > currentWeek
+            const budgetTypes = pipelineTypes.filter(t => (week.budget[t] ?? 0) > 0)
+            const hasActivity = pipelineTypes.some(t => (week.counts[t] ?? 0) > 0 || (week.overflow[t] ?? 0) > 0)
+            const weekIdx = weekNum as WeekIndex
+            const unlocked = isWeekUnlocked(weekIdx, cycle, client)
 
-                return (
-                  <div
-                    key={week.label}
-                    className="glass-panel p-5 rounded-[1.5rem] relative"
-                    style={week.isCurrent ? { background: 'rgba(0,103,92,0.05)', border: '2px solid rgba(0,103,92,0.3)' } : {}}
-                  >
-                    <div className="flex justify-between items-start mb-4">
-                      <p className="text-[11px] font-extrabold uppercase tracking-widest" style={{ color: week.isCurrent ? '#00675c' : '#595c5e' }}>
-                        {weekLabel}{week.isCurrent && ' · Actual'}
-                      </p>
-                      {week.isCurrent && <span className="flex h-2 w-2 rounded-full bg-fm-primary animate-pulse flex-shrink-0" />}
-                    </div>
+            // Mensaje de bloqueo según billing_period
+            let lockedLabel = ''
+            if (client.billing_period === 'biweekly') {
+              lockedLabel = weekIdx <= 2 ? '1ra quincena' : '2da quincena'
+            } else if (client.billing_period === 'bimonthly') {
+              lockedLabel = weekIdx <= 4 ? '1er pago' : '2do pago'
+            } else {
+              lockedLabel = 'Ciclo'
+            }
 
-                    {!unlocked && (
-                      <div className="absolute inset-0 bg-fm-surface-container-lowest/85 backdrop-blur-[1px] rounded-[1.5rem] flex flex-col items-center justify-center gap-2 z-10">
-                        <span className="material-symbols-outlined text-2xl text-fm-error">lock</span>
-                        <p className="text-xs font-bold text-fm-error text-center px-4">
-                          {weekIdx <= 2 ? '1ra quincena' : '2da quincena'}
-                        </p>
-                        <p className="text-[10px] text-fm-on-surface-variant text-center px-4">
-                          Bloqueada — pago pendiente
-                        </p>
-                      </div>
-                    )}
+            return (
+              <div
+                key={week.label}
+                className="glass-panel p-5 rounded-[1.5rem] relative"
+                style={week.isCurrent ? { background: 'rgba(0,103,92,0.05)', border: '2px solid rgba(0,103,92,0.3)' } : {}}
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <p className="text-[11px] font-extrabold uppercase tracking-widest" style={{ color: week.isCurrent ? '#00675c' : '#595c5e' }}>
+                    {weekLabel}{week.isCurrent && ' · Actual'}
+                  </p>
+                  {week.isCurrent && <span className="flex h-2 w-2 rounded-full bg-fm-primary animate-pulse flex-shrink-0" />}
+                </div>
 
-                    {budgetTypes.length === 0 && !hasActivity ? (
-                      <p className="text-xs text-fm-outline-variant">{isFuture ? 'Pendiente' : 'Sin actividad'}</p>
-                    ) : (
-                      <div className="space-y-3">
-                        {(budgetTypes.length > 0 ? budgetTypes : pipelineTypes.filter(t => (week.counts[t] ?? 0) > 0)).map((type) => {
-                          const consumed = week.counts[type] ?? 0
-                          const budget = week.budget[type] ?? 0
-                          const extra = week.overflow[type] ?? 0
-                          const pct = budget > 0 ? Math.min(100, Math.round((consumed / budget) * 100)) : 0
-                          const isComplete = budget > 0 && consumed >= budget
-                          const weekBarColor = isComplete ? '#00675c' : isFuture ? '#e5e9eb' : '#f59e0b'
-                          return (
-                            <div key={type}>
-                              <div className="flex justify-between items-center mb-1">
-                                <span className="flex items-center gap-1 text-[11px] text-fm-on-surface-variant font-medium">
-                                  <span className="material-symbols-outlined text-sm">{CONTENT_ICONS[type]}</span>
-                                  {CONTENT_TYPE_LABELS[type]}
+                {!unlocked && (
+                  <div className="absolute inset-0 bg-fm-surface-container-lowest/85 backdrop-blur-[1px] rounded-[1.5rem] flex flex-col items-center justify-center gap-2 z-10">
+                    <span className="material-symbols-outlined text-2xl text-fm-error">lock</span>
+                    <p className="text-xs font-bold text-fm-error text-center px-4">{lockedLabel}</p>
+                    <p className="text-[10px] text-fm-on-surface-variant text-center px-4">
+                      Bloqueada — pago pendiente
+                    </p>
+                  </div>
+                )}
+
+                {budgetTypes.length === 0 && !hasActivity ? (
+                  <p className="text-xs text-fm-outline-variant">{isFuture ? 'Pendiente' : 'Sin actividad'}</p>
+                ) : (
+                  <div className="space-y-3">
+                    {(budgetTypes.length > 0 ? budgetTypes : pipelineTypes.filter(t => (week.counts[t] ?? 0) > 0)).map((type) => {
+                      const consumed = week.counts[type] ?? 0
+                      const budget = week.budget[type] ?? 0
+                      const extra = week.overflow[type] ?? 0
+                      const pct = budget > 0 ? Math.min(100, Math.round((consumed / budget) * 100)) : 0
+                      const isComplete = budget > 0 && consumed >= budget
+                      const weekBarColor = isComplete ? '#00675c' : isFuture ? '#e5e9eb' : '#f59e0b'
+                      return (
+                        <div key={type}>
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="flex items-center gap-1 text-[11px] text-fm-on-surface-variant font-medium">
+                              <span className="material-symbols-outlined text-sm">{CONTENT_ICONS[type]}</span>
+                              {CONTENT_TYPE_LABELS[type]}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[11px] font-bold text-fm-on-surface">
+                                {consumed}<span className="font-normal text-fm-outline-variant">/{budget}</span>
+                              </span>
+                              {extra > 0 && (
+                                <span className="text-[9px] font-bold px-1 py-0.5 rounded-full bg-fm-error/10 text-fm-error">
+                                  +{extra}
                                 </span>
-                                <div className="flex items-center gap-1">
-                                  <span className="text-[11px] font-bold text-fm-on-surface">
-                                    {consumed}<span className="font-normal text-fm-outline-variant">/{budget}</span>
-                                  </span>
-                                  {extra > 0 && (
-                                    <span className="text-[9px] font-bold px-1 py-0.5 rounded-full bg-fm-error/10 text-fm-error">
-                                      +{extra}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              {budget > 0 && (
-                                <div className="w-full bg-fm-surface-container dark:bg-fm-surface-container-high rounded-full h-1.5 overflow-hidden">
-                                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: weekBarColor }} />
-                                </div>
                               )}
                             </div>
-                          )
-                        })}
-                      </div>
-                    )}
+                          </div>
+                          {budget > 0 && (
+                            <div className="w-full bg-fm-surface-container dark:bg-fm-surface-container-high rounded-full h-1.5 overflow-hidden">
+                              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: weekBarColor }} />
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
-                )
-              })
-          }
-        </div>
+                )}
+              </div>
+            )
+          }}
+        />
       </section>}
 
       {/* ── Matriz, producciones y reuniones del mes ── */}

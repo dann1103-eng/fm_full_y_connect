@@ -55,6 +55,7 @@ export async function renewContentPackage(
       period_end: farFuture,
       status: 'current',
       payment_status: 'unpaid',
+      billing_period: plan.billing_period ?? 'monthly',
       no_expira: plan.no_expira ?? false,
     })
     .select('id')

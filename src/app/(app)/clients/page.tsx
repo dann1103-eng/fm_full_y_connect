@@ -41,7 +41,7 @@ export default async function ClientsPage() {
 
   const { data: plans } = await supabase
     .from('plans')
-    .select('id, name, price_usd, unified_content_limit')
+    .select('id, name, price_usd, unified_content_limit, billing_period')
     .eq('active', true)
 
   return (

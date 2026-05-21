@@ -75,20 +75,27 @@ function subDayISO(dateStr: string): string {
 
 function nextCycleDates(
   previousPeriodEnd: string,
-  billingPeriod: 'monthly' | 'biweekly'
+  billingPeriod: 'monthly' | 'biweekly' | 'bimonthly'
 ): { periodStart: string; periodEnd: string } {
   const periodStart = addDaysISO(previousPeriodEnd, 1)
-  const periodEnd =
-    billingPeriod === 'biweekly'
-      ? addDaysISO(periodStart, 13)
-      : subDayISO(addMonthsClamped(periodStart, 1))
+  let periodEnd: string
+  switch (billingPeriod) {
+    case 'biweekly':
+      periodEnd = addDaysISO(periodStart, 13)
+      break
+    case 'bimonthly':
+      periodEnd = addDaysISO(periodStart, 59)
+      break
+    default:
+      periodEnd = subDayISO(addMonthsClamped(periodStart, 1))
+  }
   return { periodStart, periodEnd }
 }
 
 function periodLabel(
   periodStart: string,
   periodEnd: string,
-  billingPeriod: 'monthly' | 'biweekly',
+  billingPeriod: 'monthly' | 'biweekly' | 'bimonthly',
   half: 'first' | 'second' | null
 ): string {
   const start = new Date(periodStart)
@@ -113,7 +120,7 @@ interface ClientRow {
   id: string
   name: string
   current_plan_id: string
-  billing_period: 'monthly' | 'biweekly'
+  billing_period: 'monthly' | 'biweekly' | 'bimonthly'
   auto_billing: boolean
   aplica_renta_retenida: boolean
   default_tax_rate: number | null
@@ -139,10 +146,10 @@ interface ClientRow {
  */
 function isCycleFullyPaid(
   cycle: { payment_status: string | null; payment_status_2: string | null },
-  billingPeriod: 'monthly' | 'biweekly'
+  billingPeriod: 'monthly' | 'biweekly' | 'bimonthly'
 ): boolean {
   if (cycle.payment_status !== 'paid') return false
-  if (billingPeriod === 'biweekly' && cycle.payment_status_2 !== 'paid') return false
+  if ((billingPeriod === 'biweekly' || billingPeriod === 'bimonthly') && cycle.payment_status_2 !== 'paid') return false
   return true
 }
 
@@ -309,19 +316,23 @@ Deno.serve(async (_req) => {
 
   try {
     // ========== STEP 1: AUTO-BILLING ==========
+    // Excluye no_expira=true (planes que nunca vencen) y billing_period='bimonthly'
+    // (planes de 60 días con 2 pagos manuales — el admin emite las facturas).
     const { data: autoCycles } = await supabase
       .from('billing_cycles')
-      .select('id, period_start, period_end, client_id, plan_id_snapshot, payment_status, payment_status_2, no_expira, clients(*)')
+      .select('id, period_start, period_end, client_id, plan_id_snapshot, payment_status, payment_status_2, no_expira, billing_period, clients(*)')
       .eq('status', 'current')
       .eq('no_expira', false)
+      .neq('billing_period', 'bimonthly')
 
     const emitter = await loadCompanySettings()
 
     for (const cycle of autoCycles ?? []) {
       const client = cycle.clients as ClientRow | null
       if (!client || !client.auto_billing) continue
-      // Defensa extra: aunque ya filtramos no_expira en el SELECT, lo verificamos por si el query devuelve algo inesperado.
+      // Defensa extra: aunque ya filtramos no_expira y bimonthly en el SELECT, validamos por si el query devuelve algo inesperado.
       if ((cycle as { no_expira?: boolean }).no_expira) continue
+      if ((cycle as { billing_period?: string }).billing_period === 'bimonthly') continue
       if (daysUntil(cycle.period_end) > AUTO_INVOICE_LEAD_DAYS) continue
 
       // GATE: no pre-crear el siguiente ciclo si el cliente tiene impagos en
@@ -379,6 +390,7 @@ Deno.serve(async (_req) => {
             period_end: periodEnd,
             status: 'scheduled',
             payment_status: 'unpaid',
+            billing_period: (plan?.billing_period ?? client.billing_period ?? 'monthly') as 'monthly' | 'biweekly' | 'bimonthly',
             no_expira: plan?.no_expira ?? false,
           })
           .select('id')
@@ -617,6 +629,7 @@ Deno.serve(async (_req) => {
               period_end: periodEnd,
               status: 'current',
               payment_status: 'unpaid',
+              billing_period: (plan?.billing_period ?? client.billing_period ?? 'monthly') as 'monthly' | 'biweekly' | 'bimonthly',
               no_expira: plan?.no_expira ?? false,
             })
             .select('id')

@@ -41,7 +41,9 @@ export function ReactivatePanel({ client, plans }: ReactivatePanelProps) {
       .limit(1)
       .maybeSingle()
 
-    const { periodStart, periodEnd } = firstCycleDates(startDate)
+    // Usa el billing_period del plan si está disponible; fallback al del cliente
+    const effectiveBillingPeriod = plan.billing_period ?? client.billing_period ?? 'monthly'
+    const { periodStart, periodEnd } = firstCycleDates(startDate, { billingPeriod: effectiveBillingPeriod })
 
     // Copia el unified_content_limit del plan al snapshot (plan "Contenido")
     const snapshot = plan.unified_content_limit != null
@@ -60,6 +62,7 @@ export function ReactivatePanel({ client, plans }: ReactivatePanelProps) {
         period_end: periodEnd,
         status: 'current',
         payment_status: 'unpaid',
+        billing_period: effectiveBillingPeriod,
         no_expira: plan.no_expira ?? false,
       })
       .select('id')
@@ -71,10 +74,14 @@ export function ReactivatePanel({ client, plans }: ReactivatePanelProps) {
       return
     }
 
-    // DESPUÉS: actualizar estado del cliente
+    // DESPUÉS: actualizar estado del cliente (incl. billing_period si cambió de plan)
     const { error: clientError } = await supabase
       .from('clients')
-      .update({ status: 'active', current_plan_id: selectedPlanId })
+      .update({
+        status: 'active',
+        current_plan_id: selectedPlanId,
+        billing_period: effectiveBillingPeriod,
+      })
       .eq('id', client.id)
 
     if (clientError) {

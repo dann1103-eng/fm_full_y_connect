@@ -2,13 +2,14 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import type { PlanLimits, WeeklyDistribution } from '@/types/db'
+import type { PlanLimits, WeeklyDistribution, BillingPeriod } from '@/types/db'
 
 export interface PlanInput {
   name: string
   price_usd: number
   cambios_included: number
   active: boolean
+  billing_period: BillingPeriod
   limits_json: PlanLimits
   default_weekly_distribution_json: WeeklyDistribution | null
   unified_content_limit: number | null
@@ -61,6 +62,7 @@ export async function createPlan(data: PlanInput): Promise<{ error?: string; id?
       price_usd: data.price_usd,
       cambios_included: data.cambios_included,
       active: data.active,
+      billing_period: data.billing_period,
       limits_json: limitsJsonToSave,
       default_weekly_distribution_json: data.default_weekly_distribution_json,
       unified_content_limit: data.unified_content_limit,
@@ -95,6 +97,7 @@ export async function updatePlan(
       price_usd: data.price_usd,
       cambios_included: data.cambios_included,
       active: data.active,
+      billing_period: data.billing_period,
       limits_json: limitsJsonToSave,
       default_weekly_distribution_json: data.default_weekly_distribution_json,
       unified_content_limit: data.unified_content_limit,

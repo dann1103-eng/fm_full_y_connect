@@ -19,6 +19,9 @@ export function isGracePeriodActive(cycle: Pick<BillingCycle, 'grace_period_unti
   return cycle.grace_period_until >= today()
 }
 
+/** Índice de semana válido según billing_period: 1-4 para monthly/biweekly, 1-8 para bimonthly. */
+export type WeekIndex = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
+
 /**
  * Unlock por pago: retorna true si la semana dada está desbloqueada para registrar
  * requerimientos según el estado de pago del ciclo.
@@ -28,15 +31,21 @@ export function isGracePeriodActive(cycle: Pick<BillingCycle, 'grace_period_unti
  *   no ha pagado el ciclo, NINGUNA semana está habilitada (ningún registro nuevo).
  * - Biweekly: S1-S2 requieren `payment_status = 'paid'`; S3-S4 requieren
  *   `payment_status_2 = 'paid'` — los dos pagos son independientes.
+ * - Bimonthly: S1-S4 requieren `payment_status = 'paid'`; S5-S8 requieren
+ *   `payment_status_2 = 'paid'`.
  */
 export function isWeekUnlocked(
-  week: 1 | 2 | 3 | 4,
+  week: WeekIndex,
   cycle: BillingCycle,
   client: Pick<Client, 'billing_period'>
 ): boolean {
   if (isGracePeriodActive(cycle)) return true
   if (client.billing_period === 'biweekly') {
-    if (week === 1 || week === 2) return cycle.payment_status === 'paid'
+    if (week <= 2) return cycle.payment_status === 'paid'
+    return cycle.payment_status_2 === 'paid'
+  }
+  if (client.billing_period === 'bimonthly') {
+    if (week <= 4) return cycle.payment_status === 'paid'
     return cycle.payment_status_2 === 'paid'
   }
   // Monthly: todo el ciclo gateado por payment_status
@@ -53,21 +62,21 @@ export function isCycleFullyLocked(
   client: Pick<Client, 'billing_period'>
 ): boolean {
   if (isGracePeriodActive(cycle)) return false
-  if (client.billing_period === 'biweekly') {
+  if (client.billing_period === 'biweekly' || client.billing_period === 'bimonthly') {
     return cycle.payment_status !== 'paid' && cycle.payment_status_2 !== 'paid'
   }
   return cycle.payment_status !== 'paid'
 }
 
 /**
- * Valida el pago + límite al registrar un requerimiento (biweekly aware).
+ * Valida el pago + límite al registrar un requerimiento.
  * Retorna { ok, reason }.
  */
 export function canRegisterWithContext(
   type: ContentType,
   totals: RequirementTotals,
   limits: Record<ContentType, number>,
-  ctx: { week: 1 | 2 | 3 | 4; cycle: BillingCycle; client: Pick<Client, 'billing_period'> }
+  ctx: { week: WeekIndex; cycle: BillingCycle; client: Pick<Client, 'billing_period'> }
 ): { ok: boolean; reason?: string } {
   if (!isWeekUnlocked(ctx.week, ctx.cycle, ctx.client)) {
     let reason: string
@@ -75,6 +84,10 @@ export function canRegisterWithContext(
       reason = ctx.week <= 2
         ? 'Pago pendiente de 1ra quincena'
         : 'Pago pendiente de 2da quincena'
+    } else if (ctx.client.billing_period === 'bimonthly') {
+      reason = ctx.week <= 4
+        ? 'Pago pendiente del 1er mes'
+        : 'Pago pendiente del 2do mes'
     } else {
       reason = 'Pago pendiente del ciclo'
     }
@@ -138,12 +151,24 @@ export function canRegisterBreakdown(
   return { ok: true }
 }
 
-/** Calcula el índice de semana (1..4) de una fecha dentro del ciclo. S5+ se clampa a 4. */
-export function weekIndexInCycle(date: Date, periodStart: string): 1 | 2 | 3 | 4 {
+/**
+ * Calcula el índice de semana (1..maxWeek) de una fecha dentro del ciclo.
+ * maxWeek default es 4 (monthly/biweekly); para bimonthly pasar 8.
+ */
+export function weekIndexInCycle(
+  date: Date,
+  periodStart: string,
+  maxWeek: 4 | 8 = 4,
+): WeekIndex {
   const start = new Date(periodStart)
   const diffDays = Math.floor((date.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-  const w = Math.min(4, Math.max(1, Math.floor(diffDays / 7) + 1))
-  return w as 1 | 2 | 3 | 4
+  const w = Math.min(maxWeek, Math.max(1, Math.floor(diffDays / 7) + 1))
+  return w as WeekIndex
+}
+
+/** Max semanas según billing_period: bimonthly=8, demás=4. */
+export function maxWeeksForPeriod(billingPeriod: Client['billing_period']): 4 | 8 {
+  return billingPeriod === 'bimonthly' ? 8 : 4
 }
 
 /** Retorna { year, month } (month 0-11) con más días dentro de [startIso, endIso).
@@ -218,10 +243,11 @@ export function canRegister(
 }
 
 /** Group requirements by ISO week within a cycle period.
- *  Returns weeks S1–S4 (and S5 if needed). */
+ *  Returns weeks S1–SN según `maxWeek` (default 4). */
 export function groupByWeek(
   requirements: Requirement[],
-  periodStart: string
+  periodStart: string,
+  maxWeek: 4 | 8 = 4,
 ): Record<string, Requirement[]> {
   const start = new Date(periodStart)
   const groups: Record<string, Requirement[]> = {}
@@ -232,7 +258,7 @@ export function groupByWeek(
     const diffDays = Math.floor(
       (date.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
     )
-    const weekNum = Math.floor(diffDays / 7) + 1
+    const weekNum = Math.min(maxWeek, Math.max(1, Math.floor(diffDays / 7) + 1))
     const key = `S${weekNum}`
     if (!groups[key]) groups[key] = []
     groups[key].push(r)
@@ -259,22 +285,25 @@ export function computeRollover(
 }
 
 /**
- * Default weekly target for a content type: monthly limit ÷ 4, rounded up.
+ * Default weekly target for a content type: limit ÷ N semanas, rounded up.
+ * Para bimonthly se divide entre 8; monthly/biweekly entre 4.
  * Returns 0 when limit is 0 — callers can treat that as the type being inactive.
  */
-export function weeklyTarget(_type: ContentType, limit: number): number {
-  return Math.ceil(limit / 4)
+export function weeklyTarget(_type: ContentType, limit: number, weeks: 4 | 8 = 4): number {
+  return Math.ceil(limit / weeks)
 }
 
 /**
  * Resolve the effective weekly target for a client, falling back to the default.
+ * Pass `weeks=8` para clientes bimonthly.
  */
 export function effectiveWeeklyTarget(
   type: ContentType,
   monthlyLimit: number,
-  clientTargets: Partial<Record<ContentType, number>> | null | undefined
+  clientTargets: Partial<Record<ContentType, number>> | null | undefined,
+  weeks: 4 | 8 = 4,
 ): number {
-  return clientTargets?.[type] ?? weeklyTarget(type, monthlyLimit)
+  return clientTargets?.[type] ?? weeklyTarget(type, monthlyLimit, weeks)
 }
 
 /** Resolve the active weekly distribution: client override → plan default → null */
@@ -295,15 +324,21 @@ export interface WeekBreakdown {
 
 /**
  * Compute weekly breakdown with cascade overflow.
- * Each requirement fills the earliest available budget slot (S1 → S2 → S3 → S4),
- * regardless of the week it was registered in. Surplus with no room anywhere is "overflow" (shown in S4).
+ * Each requirement fills the earliest available budget slot (S1 → S2 → ... → SN),
+ * regardless of the week it was registered in. Surplus with no room anywhere is "overflow"
+ * (shown in la última semana). `maxWeek` define cuántas semanas considerar (4 default, 8 para bimonthly).
  */
 export function computeWeeklyBreakdownWithCascade(
   requirements: Requirement[],
   distribution: WeeklyDistribution,
   currentWeekIdx: number,
+  maxWeek: 4 | 8 = 4,
 ): WeekBreakdown[] {
-  const WEEKS: WeekKey[] = ['S1', 'S2', 'S3', 'S4']
+  const WEEKS: WeekKey[] = (
+    maxWeek === 8
+      ? ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8']
+      : ['S1', 'S2', 'S3', 'S4']
+  ) as WeekKey[]
 
   const remaining: WeeklyDistribution = {}
   for (const w of WEEKS) {
@@ -312,6 +347,7 @@ export function computeWeeklyBreakdownWithCascade(
 
   const counts: Partial<Record<ContentType, number>>[] = WEEKS.map(() => ({}))
   const overflow: Partial<Record<ContentType, number>>[] = WEEKS.map(() => ({}))
+  const lastIdx = WEEKS.length - 1
 
   const sorted = requirements
     .filter(r => !r.voided && !r.carried_over)
@@ -320,7 +356,7 @@ export function computeWeeklyBreakdownWithCascade(
   function fillCascade(type: ContentType) {
     let weekIdx = 0
     let consumed = false
-    while (weekIdx < 4) {
+    while (weekIdx < WEEKS.length) {
       const budget = remaining[WEEKS[weekIdx]]?.[type] ?? 0
       if (budget > 0) {
         remaining[WEEKS[weekIdx]]![type] = budget - 1
@@ -330,7 +366,7 @@ export function computeWeeklyBreakdownWithCascade(
       }
       weekIdx++
     }
-    if (!consumed) overflow[3][type] = (overflow[3][type] ?? 0) + 1
+    if (!consumed) overflow[lastIdx][type] = (overflow[lastIdx][type] ?? 0) + 1
   }
 
   for (const r of sorted) {

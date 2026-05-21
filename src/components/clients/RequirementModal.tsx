@@ -15,7 +15,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { ClientWithPlan, BillingCycle, ContentType, Priority } from '@/types/db'
 import { PRIORITY_LABELS, PRIORITY_COLORS } from '@/types/db'
 import { CONTENT_TYPES, CONTENT_TYPE_LABELS, TIPPABLE_CONTENT_TYPES } from '@/lib/domain/plans'
-import { canRegisterWithContext, canRegisterBreakdown, weekIndexInCycle } from '@/lib/domain/requirement'
+import { canRegisterWithContext, canRegisterBreakdown, weekIndexInCycle, maxWeeksForPeriod } from '@/lib/domain/requirement'
 import { insertInitialPhaseLog } from '@/lib/domain/pipeline'
 import { consumeContentCreditForRequirement } from '@/app/actions/credits'
 
@@ -166,8 +166,8 @@ export function RequirementModal({
     setError(null)
     setLoading(true)
 
-    // Biweekly gate — si la semana actual está bloqueada, detener (no bypasseable por admin).
-    const currentWeek = weekIndexInCycle(new Date(), cycle.period_start)
+    // Payment gate — si la semana actual está bloqueada, detener (no bypasseable por admin).
+    const currentWeek = weekIndexInCycle(new Date(), cycle.period_start, maxWeeksForPeriod(client.billing_period))
     const gate = canRegisterWithContext(selectedType, totals, limits, {
       week: currentWeek,
       cycle,

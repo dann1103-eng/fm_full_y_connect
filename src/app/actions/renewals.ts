@@ -88,6 +88,7 @@ export async function renewCycle(args: RenewArgs) {
       period_end: periodEnd,
       status: 'scheduled' as const,
       payment_status: 'unpaid' as const,
+      billing_period: planRow.billing_period ?? 'monthly',
       no_expira: planRow.no_expira ?? false,
       cambios_budget:
         planRow.cambios_included +
@@ -138,6 +139,7 @@ export async function renewCycle(args: RenewArgs) {
       period_end: periodEnd,
       status: 'current',
       payment_status: 'unpaid',
+      billing_period: planRow.billing_period ?? 'monthly',
       no_expira: planRow.no_expira ?? false,
       cambios_budget: planRow.cambios_included + (args.withChanges ? args.cambiosPackages.reduce((s, p) => s + p.qty, 0) : 0),
       cambios_packages_json: args.withChanges ? args.cambiosPackages : [],
@@ -445,6 +447,7 @@ export async function createCurrentCycle(args: CreateCurrentCycleArgs) {
       cambios_budget:         planRow.cambios_included,
       cambios_packages_json:  [],
       extra_content_json:     [],
+      billing_period:         planRow.billing_period ?? 'monthly',
       no_expira:              planRow.no_expira ?? false,
     })
 

@@ -23,6 +23,7 @@ interface Plan {
   name: string
   price_usd: number
   unified_content_limit?: number | null
+  billing_period?: BillingPeriod
 }
 
 interface ClientFormProps {
@@ -254,6 +255,7 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
           period_end: periodEnd,
           status: 'current',
           payment_status: 'unpaid',
+          billing_period: billingPeriod,
           no_expira: plan.no_expira ?? false,
         })
       }
@@ -314,7 +316,15 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
               <select
                 required
                 value={form.current_plan_id}
-                onChange={(e) => set('current_plan_id', e.target.value)}
+                onChange={(e) => {
+                  const newPlanId = e.target.value
+                  set('current_plan_id', newPlanId)
+                  // Auto-sincroniza billing_period con el del plan (si no se está editando un cliente existente)
+                  const newPlan = plans.find((p) => p.id === newPlanId)
+                  if (newPlan?.billing_period) {
+                    setBillingPeriod(newPlan.billing_period)
+                  }
+                }}
                 className="w-full py-2 px-3 text-sm bg-fm-background border border-fm-surface-container-high rounded-xl text-fm-on-surface focus:outline-none focus:border-fm-primary"
               >
                 {plans.map((p) => (
@@ -357,7 +367,11 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
                   >
                     <option value="monthly">Mensual</option>
                     <option value="biweekly">Quincenal</option>
+                    <option value="bimonthly">Bimestral (60 días, 2 pagos)</option>
                   </select>
+                  {billingPeriod === 'bimonthly' && (
+                    <p className="text-[11px] text-fm-outline">El cliente paga al inicio y de nuevo a los 30 días. Las semanas 5-8 se desbloquean con el 2do pago.</p>
+                  )}
                 </div>
 
                 {billingPeriod === 'biweekly' && (

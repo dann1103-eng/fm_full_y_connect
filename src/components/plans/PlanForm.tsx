@@ -2,11 +2,13 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { Plan, PlanLimits, WeeklyDistribution, ContentType, WeekKey } from '@/types/db'
+import type { Plan, PlanLimits, WeeklyDistribution, ContentType, WeekKey, BillingPeriod } from '@/types/db'
+import { weeksForBillingPeriod } from '@/types/db'
 import { createPlan, updatePlan, type PlanInput } from '@/app/actions/plans'
 import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 
-const WEEKS: WeekKey[] = ['S1', 'S2', 'S3', 'S4']
+const WEEKS_4: WeekKey[] = ['S1', 'S2', 'S3', 'S4']
+const WEEKS_8: WeekKey[] = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8']
 const TIPPABLE: ContentType[] = ['historia', 'estatico', 'video_corto', 'reel', 'short']
 const TIPPABLE_LIMIT_KEYS = [
   'historias',
@@ -15,6 +17,12 @@ const TIPPABLE_LIMIT_KEYS = [
   'reels',
   'shorts',
 ] as const satisfies readonly (keyof PlanLimits)[]
+
+const BILLING_PERIOD_LABELS: Record<BillingPeriod, { label: string; help: string }> = {
+  monthly:   { label: 'Mensual',    help: 'Ciclo de ~30 días. 4 semanas. 1 pago al inicio.' },
+  biweekly:  { label: 'Quincenal',  help: 'Ciclo de 14 días. 2 semanas por pago. Cliente paga al inicio y a los 15 días.' },
+  bimonthly: { label: 'Bimestral',  help: 'Ciclo de 60 días. 8 semanas. 2 pagos manuales (al inicio y a los 30 días). El cron no factura automáticamente.' },
+}
 
 interface PlanFormProps {
   plan?: Plan          // undefined = crear; definido = editar
@@ -35,13 +43,13 @@ function emptyLimits(): PlanLimits {
   }
 }
 
-function emptyDistribution(): WeeklyDistribution {
-  return {
-    S1: { historia: 0, estatico: 0, video_corto: 0, reel: 0, short: 0 },
-    S2: { historia: 0, estatico: 0, video_corto: 0, reel: 0, short: 0 },
-    S3: { historia: 0, estatico: 0, video_corto: 0, reel: 0, short: 0 },
-    S4: { historia: 0, estatico: 0, video_corto: 0, reel: 0, short: 0 },
+function emptyDistribution(billingPeriod: BillingPeriod): WeeklyDistribution {
+  const weeks = weeksForBillingPeriod(billingPeriod)
+  const result: WeeklyDistribution = {}
+  for (const w of weeks) {
+    result[w] = { historia: 0, estatico: 0, video_corto: 0, reel: 0, short: 0 }
   }
+  return result
 }
 
 export function PlanForm({ plan, onClose }: PlanFormProps) {
@@ -53,9 +61,10 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
     plan ? String(plan.cambios_included) : '1'
   )
   const [active, setActive] = useState(plan?.active ?? true)
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>(plan?.billing_period ?? 'monthly')
   const [limits, setLimits] = useState<PlanLimits>(plan?.limits_json ?? emptyLimits())
   const [distribution, setDistribution] = useState<WeeklyDistribution>(
-    plan?.default_weekly_distribution_json ?? emptyDistribution()
+    plan?.default_weekly_distribution_json ?? emptyDistribution(plan?.billing_period ?? 'monthly')
   )
   const [useDistribution, setUseDistribution] = useState<boolean>(
     !!plan?.default_weekly_distribution_json
@@ -76,6 +85,17 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
       for (const k of TIPPABLE_LIMIT_KEYS) cleared[k] = 0
       setLimits(cleared)
     }
+  }
+
+  /** Cambia el billing_period y reajusta la distribución (recorta a 4 o expande a 8 weeks). */
+  function handleChangeBillingPeriod(next: BillingPeriod) {
+    setBillingPeriod(next)
+    const targetWeeks = weeksForBillingPeriod(next)
+    const newDist: WeeklyDistribution = {}
+    for (const w of targetWeeks) {
+      newDist[w] = distribution[w] ?? { historia: 0, estatico: 0, video_corto: 0, reel: 0, short: 0 }
+    }
+    setDistribution(newDist)
   }
   const [error, setError] = useState<string | null>(null)
 
@@ -107,6 +127,7 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
       price_usd: parseFloat(priceUsd) || 0,
       cambios_included: parseInt(cambiosIncluded, 10) || 0,
       active,
+      billing_period: billingPeriod,
       limits_json: limits,
       default_weekly_distribution_json: useDistribution ? distribution : null,
       unified_content_limit: unified,
@@ -224,6 +245,30 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
           )}
         </div>
 
+        {/* Periodicidad del plan */}
+        <div className="bg-fm-background rounded-xl p-4 space-y-2">
+          <span className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide block">
+            Periodicidad
+          </span>
+          <div className="flex flex-col gap-2 pl-1">
+            {(Object.keys(BILLING_PERIOD_LABELS) as BillingPeriod[]).map((bp) => (
+              <label key={bp} className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="billing_period"
+                  checked={billingPeriod === bp}
+                  onChange={() => handleChangeBillingPeriod(bp)}
+                  className="accent-fm-primary mt-1"
+                />
+                <span className="flex flex-col">
+                  <span className="text-sm font-medium text-fm-on-surface">{BILLING_PERIOD_LABELS[bp].label}</span>
+                  <span className="text-xs text-fm-outline">{BILLING_PERIOD_LABELS[bp].help}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+
         {/* Vencimiento del plan */}
         <div className="bg-fm-background rounded-xl p-4 space-y-2">
           <span className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide block">
@@ -318,40 +363,48 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
               Usar distribución semanal personalizada
             </span>
           </label>
-          {useDistribution && (
-            <div className="bg-fm-background rounded-xl p-3 overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr>
-                    <th className="text-left text-fm-on-surface-variant font-bold pb-2">Semana</th>
-                    {TIPPABLE.map((t) => (
-                      <th key={t} className="text-right text-fm-on-surface-variant font-bold pb-2 pl-2">
-                        {CONTENT_TYPE_LABELS[t]}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {WEEKS.map((w) => (
-                    <tr key={w}>
-                      <td className="text-fm-on-surface font-semibold py-1">{w}</td>
+          {useDistribution && (() => {
+            const weeksRender = billingPeriod === 'bimonthly' ? WEEKS_8 : WEEKS_4
+            return (
+              <div className="bg-fm-background rounded-xl p-3 overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr>
+                      <th className="text-left text-fm-on-surface-variant font-bold pb-2">Semana</th>
                       {TIPPABLE.map((t) => (
-                        <td key={t} className="text-right pl-2">
-                          <input
-                            type="number"
-                            min="0"
-                            value={distribution[w]?.[t] ?? 0}
-                            onChange={(e) => updateDist(w, t, e.target.value)}
-                            className="w-14 border border-fm-surface-container-high rounded px-1 py-0.5 text-right"
-                          />
-                        </td>
+                        <th key={t} className="text-right text-fm-on-surface-variant font-bold pb-2 pl-2">
+                          {CONTENT_TYPE_LABELS[t]}
+                        </th>
                       ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  </thead>
+                  <tbody>
+                    {weeksRender.map((w) => (
+                      <tr key={w} className={billingPeriod === 'bimonthly' && (w === 'S5') ? 'border-t-2 border-fm-outline-variant/40' : ''}>
+                        <td className="text-fm-on-surface font-semibold py-1">
+                          {w}
+                          {billingPeriod === 'bimonthly' && w === 'S5' && (
+                            <span className="ml-1 text-[10px] text-fm-outline">(2do pago)</span>
+                          )}
+                        </td>
+                        {TIPPABLE.map((t) => (
+                          <td key={t} className="text-right pl-2">
+                            <input
+                              type="number"
+                              min="0"
+                              value={distribution[w]?.[t] ?? 0}
+                              onChange={(e) => updateDist(w, t, e.target.value)}
+                              className="w-14 border border-fm-surface-container-high rounded px-1 py-0.5 text-right"
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          })()}
         </div>
 
         {error && (
