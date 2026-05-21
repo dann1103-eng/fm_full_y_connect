@@ -7,7 +7,20 @@
 --    cuando billing_period = 'bimonthly' (S1-S4 → payment_status, S5-S8 → payment_status_2).
 --    Mensual y biweekly mantienen comportamiento idéntico.
 
--- ── 1) Extender CHECK constraint de billing_period ────────────────────────
+-- ── 1) Crear columna billing_cycles.billing_period si no existe ───────────
+-- Snapshot del billing_period del cliente al crear el ciclo. Backfill desde
+-- clients.billing_period para ciclos existentes.
+alter table public.billing_cycles
+  add column if not exists billing_period text not null default 'monthly';
+
+update public.billing_cycles bc
+  set billing_period = c.billing_period
+  from public.clients c
+  where bc.client_id = c.id
+    and bc.billing_period = 'monthly'
+    and c.billing_period <> 'monthly';
+
+-- ── 2) Extender CHECK constraint de billing_period ────────────────────────
 alter table public.clients drop constraint if exists clients_billing_period_check;
 alter table public.clients add constraint clients_billing_period_check
   check (billing_period in ('monthly','biweekly','bimonthly'));
@@ -16,7 +29,7 @@ alter table public.billing_cycles drop constraint if exists billing_cycles_billi
 alter table public.billing_cycles add constraint billing_cycles_billing_period_check
   check (billing_period in ('monthly','biweekly','bimonthly'));
 
--- ── 2) plans.billing_period (default monthly) ─────────────────────────────
+-- ── 3) plans.billing_period (default monthly) ─────────────────────────────
 alter table public.plans
   add column if not exists billing_period text not null default 'monthly';
 
@@ -27,7 +40,7 @@ alter table public.plans add constraint plans_billing_period_check
 comment on column public.plans.billing_period is
   'Periodicidad por defecto del plan. Al asignar el plan a un cliente, se copia a clients.billing_period y al snapshot del ciclo. bimonthly = 60 días con 8 semanas, 2 pagos manuales (split día 30).';
 
--- ── 3) Reescribir trigger para soportar 8 semanas en bimonthly ────────────
+-- ── 4) Reescribir trigger para soportar 8 semanas en bimonthly ────────────
 create or replace function public.requirements_check_week_payment()
 returns trigger language plpgsql security definer set search_path = public
 as $$
