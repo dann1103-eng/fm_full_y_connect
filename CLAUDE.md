@@ -283,6 +283,75 @@ end $$;
 ## Modales con scroll (portal)
 Patrón estándar para modales tall: `fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center` → card con `flex flex-col max-h-[90dvh] rounded-t-2xl sm:rounded-2xl` → header `flex-shrink-0` + body `overflow-y-auto flex-1` + footer `flex-shrink-0`. Mobile bottom sheet, desktop centrado.
 
+## Planes — billing_period + no_expira (0098 + 0100)
+
+**`plans.billing_period`** (default `'monthly'`): periodicidad por defecto del plan. Valores: `'monthly' | 'biweekly' | 'bimonthly'`. Al asignar plan al cliente en `ClientForm`, el selector se autocompleta con `plan.billing_period`.
+
+**`plans.no_expira`** (default `false`): si `true`, los ciclos creados con ese plan se marcan `no_expira=true` y `daily-cycle-runner` los ignora (no archiva, no factura auto). UI: toggle "Vencimiento" en `PlanForm` (Mensual / No vence).
+
+**Pool unificado bloquea tippables:** constante `TIPPABLE_LIMIT_KEYS = ['historias','estaticos','videos_cortos','reels','shorts']`. Cuando `useUnifiedPool=true` los 5 inputs se deshabilitan y resetean a 0. Producciones, reuniones, horas/reunión y matriz siguen editables.
+
+### Bimonthly (60 días, 8 semanas)
+- `period_end = period_start + 59 días` (60 días inclusive)
+- 8 semanas: `WEEKS_BIMONTHLY = ['S1'..'S8']` en `src/types/db.ts`. Helper `weeksForBillingPeriod(bp)`.
+- Mapeo pago→semanas: **S1-S4 → `payment_status`, S5-S8 → `payment_status_2`**
+- **2 pagos manuales** (cron excluye bimonthly del auto-billing, admin emite las 2 facturas)
+- Trigger `requirements_check_week_payment_trg` cap dinámico (8 si bimonthly, 4 en otros)
+- `WeekRangeNavigator` (`src/components/clients/WeekRangeNavigator.tsx`) anima flecha entre S1-S4 y S5-S8. Usado en `RequirementPanel`. Semanas sin pago muestran lock icon.
+
+### Snapshot de billing_period al crear ciclos
+**7 puntos de creación de billing_cycles** que deben snapshotar `billing_period`:
+1. `ClientForm.tsx` (al crear cliente)
+2. `ReactivatePanel.tsx` (al reactivar)
+3. `renewals.ts` × 3 (scheduled, immediate, fallback admin)
+4. `invoices.ts` (`ensureScheduledCycle`)
+5. `contentPackage.ts` (paquete de contenido)
+6. `daily-cycle-runner/index.ts` × 2 (auto-billing crea scheduled, fallback de promoción)
+
+## /renovaciones — scheduled cycles stale (fix 2026-05-23)
+
+**Problema histórico:** `ensureScheduledCycle` solo chequeaba `status='scheduled'` sin validar fechas. Cuando el cron promovía un scheduled a current pero creaba un duplicado, quedaban scheduleds "stale" con `period_start ≤ current.period_end`. La UI mostraba "Renovación pagada · inicia 1 de mayo" siendo idéntico al ciclo actual.
+
+**Fix defensivo** en `src/app/actions/invoices.ts` `ensureScheduledCycle`:
+```ts
+if (existing?.id) {
+  const isStale = existing.period_start <= current.period_end
+  if (!isStale) return { ok, cycleId: existing.id }
+  // Stale: archivar y caer al flujo de creación abajo
+  await admin.from('billing_cycles').update({ status: 'archived' }).eq('id', existing.id)
+}
+```
+
+**Cleanup one-shot** cuando haya stales en DB:
+```sql
+update billing_cycles bc_s
+set period_start = (bc_c.period_end + interval '1 day')::date,
+    period_end = case c.billing_period
+      when 'biweekly'  then (bc_c.period_end + interval '14 days')::date
+      when 'bimonthly' then (bc_c.period_end + interval '60 days')::date
+      else (bc_c.period_end + interval '1 month')::date
+    end,
+    billing_period = c.billing_period
+from billing_cycles bc_c, clients c
+where bc_s.client_id = bc_c.client_id and bc_c.client_id = c.id
+  and bc_s.status = 'scheduled' and bc_c.status = 'current'
+  and bc_s.period_start <= bc_c.period_end;
+```
+
+## Auth — passwords y avatares (post-0099)
+
+- **Reset por admin**: `resetPortalUserPassword({userId, clientId, newPassword})` en `clientUsers.ts` (usa `admin.auth.admin.updateUserById`). UI: botón "Resetear contraseña" en `ClientPortalInvite` con input inline.
+- **Cambio por el propio usuario**: `changeMyPassword(newPassword)` en `profile.ts` (server-side). `supabase.auth.updateUser` desde browser client falla con "Auth session missing!" en SSR — la sesión vive en HttpOnly cookies que solo el server puede leer. Aplicado a `/profile` (admin) y `/portal/config` (cliente).
+- **Avatar portal**: migración 0099 recrea policies del bucket `user-avatars` para permitir a cualquier usuario autenticado gestionar `{auth.uid()}/*`. `setClientAvatarUrl` en `portalProfile.ts` usa `createAdminClient()` para el UPDATE en `users` (belt-and-suspenders contra RLS).
+
+## Patrón: `.delete()` de Supabase NO lanza
+
+Las violaciones de FK (RESTRICT) **no producen excepción** — retornan `{ error }`. Hay que verificarlo siempre. Patrón aplicado en `deleteClient.ts`:
+1. Pre-check `invoices` y `quotes` (FK RESTRICT) → si count > 0, devolver `{ error: 'No se puede eliminar: el cliente tiene N factura(s)...' }`.
+2. En cada `.delete()` posterior, checar `{ error }` y devolverlo.
+3. `redirect('/clients')` como última línea, solo si todo bien.
+`DeleteClientButton` recibe `{ error }` y lo muestra en banner rojo en lugar de cerrar el modal.
+
 ## Patrones UI
 - Colores primarios: teal `#00675c` / rojo `#b31b25` / gris `#595c5e`
 - CSS classes: `glass-panel`, `fm-primary`, `fm-on-surface`, `fm-surface-container-*`, etc. — todas en Tailwind como custom tokens
@@ -303,7 +372,7 @@ Patrón estándar para modales tall: `fixed inset-0 z-50 bg-black/40 flex items-
 - **EasyPanel:** descartado — el contenedor app está detenido. La VPS de Hostinger se mantiene apagada / o eventualmente para borrar.
 - **Vercel Observability Plus:** desactivado (excluido el proyecto) para evitar el cargo grande por Observability Events. Logs siguen en `vercel logs` y panel Functions.
 
-## Migraciones aplicadas (0001–0097)
+## Migraciones aplicadas (0001–0100)
 | # | Contenido |
 |---|-----------|
 | 0001–0006 | Schema inicial, pipeline base, reuniones, campos de clientes |
