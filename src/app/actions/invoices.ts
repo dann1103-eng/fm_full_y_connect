@@ -338,15 +338,8 @@ export async function ensureScheduledCycle(
   if ('error' in auth) return { error: auth.error as string }
   const admin = createAdminClient()
 
-  const { data: existing } = await admin
-    .from('billing_cycles')
-    .select('id')
-    .eq('client_id', clientId)
-    .eq('status', 'scheduled')
-    .maybeSingle()
-  if (existing?.id) return { ok: true as const, cycleId: existing.id as string }
-
-  const [{ data: clientRow }, { data: currentRow }] = await Promise.all([
+  // Necesitamos current ANTES de evaluar si el scheduled existente es válido
+  const [{ data: clientRow }, { data: currentRow }, { data: existing }] = await Promise.all([
     admin.from('clients').select('*').eq('id', clientId).single(),
     admin
       .from('billing_cycles')
@@ -354,11 +347,32 @@ export async function ensureScheduledCycle(
       .eq('client_id', clientId)
       .eq('status', 'current')
       .maybeSingle(),
+    admin
+      .from('billing_cycles')
+      .select('id, period_start, period_end')
+      .eq('client_id', clientId)
+      .eq('status', 'scheduled')
+      .maybeSingle(),
   ])
   const client = clientRow as Client | null
   const current = currentRow as Pick<BillingCycle, 'id' | 'period_start' | 'period_end'> | null
   if (!client) return { error: 'Cliente no encontrado' as const }
   if (!current) return { error: 'El cliente no tiene un ciclo activo' as const }
+
+  // Defensa: si existe un scheduled cuya period_start NO es posterior al
+  // period_end del current, está stale (creado antes de una promoción y
+  // nunca limpiado). Archivarlo para que abajo creemos uno con fechas correctas.
+  if (existing?.id) {
+    const existingStart = existing.period_start as string
+    const isStale = existingStart <= (current.period_end as string)
+    if (!isStale) {
+      return { ok: true as const, cycleId: existing.id as string }
+    }
+    await admin
+      .from('billing_cycles')
+      .update({ status: 'archived' })
+      .eq('id', existing.id)
+  }
 
   const { data: planRow } = await admin
     .from('plans')
