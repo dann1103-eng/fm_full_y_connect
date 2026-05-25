@@ -27,7 +27,7 @@ export function ClientNotesPanel({ clientId, initialNotes }: ClientNotesPanelPro
 
   return (
     <div className="glass-panel p-6 rounded-[2rem] flex flex-col" style={{ minHeight: '340px' }}>
-      <textarea
+      <textarea aria-label="Notas internas sobre el cliente..."
         className="flex-1 w-full bg-transparent border border-fm-outline-variant/30 rounded-2xl p-4 text-sm text-fm-on-surface placeholder:text-fm-outline/50 resize-none outline-none transition-all focus:border-fm-primary/50 focus:ring-2 focus:ring-fm-primary-container/40"
         rows={8}
         value={notes}
@@ -35,7 +35,7 @@ export function ClientNotesPanel({ clientId, initialNotes }: ClientNotesPanelPro
         placeholder="Notas internas sobre el cliente..."
       />
       <div className="mt-4 flex justify-end">
-        <button
+        <button type="button"
           onClick={handleSave}
           disabled={saving}
           className="px-6 py-2.5 text-white font-bold rounded-full shadow-lg hover:scale-[1.02] transition-transform active:scale-95 text-sm disabled:opacity-60"

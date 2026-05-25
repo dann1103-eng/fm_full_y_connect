@@ -38,48 +38,52 @@ export function TeamShiftNotificationHost() {
   useEffect(() => {
     if (!me) return
     const supabase = createClient()
-    const channel = supabase
-      .channel('team-presence', { config: { broadcast: { self: false } } })
-      .on('broadcast', { event: 'shift_started' }, (msg) => {
-        const payload = msg.payload as ShiftStartedPayload
-        if (!payload || !payload.userId) return
-        if (payload.userId === me.id) return
-        if (payload.role === 'client' || payload.role === 'agent') return
+    const timeouts = new Set<ReturnType<typeof setTimeout>>()
+    const channel = supabase.channel('team-presence', { config: { broadcast: { self: false } } })
+    channel.on('broadcast', { event: 'shift_started' }, (msg) => {
+      const payload = msg.payload as ShiftStartedPayload
+      if (!payload || !payload.userId) return
+      if (payload.userId === me.id) return
+      if (payload.role === 'client' || payload.role === 'agent') return
 
-        const id = `${payload.userId}-${payload.at}`
-        setToasts((prev) => {
-          if (prev.some((t) => t.id === id)) return prev
-          return [...prev, { id, payload }]
-        })
-        setTimeout(() => {
-          setToasts((prev) => prev.filter((t) => t.id !== id))
-        }, TOAST_DURATION_MS)
+      const id = `${payload.userId}-${payload.at}`
+      setToasts((prev) => {
+        if (prev.some((t) => t.id === id)) return prev
+        return [...prev, { id, payload }]
+      })
+      const timeoutId = setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id))
+        timeouts.delete(timeoutId)
+      }, TOAST_DURATION_MS)
+      timeouts.add(timeoutId)
 
-        // Play sound (best-effort: autoplay policies pueden bloquear si no
-        // hubo interacción del usuario en la pestaña aún)
-        try {
-          if (!audioRef.current) {
-            audioRef.current = new Audio('/sounds/login.mp3')
-            audioRef.current.volume = 0.4
-            audioRef.current.onerror = () => {
-              // Fallback al sonido genérico de notificación si /login.mp3 no existe
-              if (audioRef.current) {
-                audioRef.current.src = '/sounds/notification.mp3'
-              }
+      // Play sound (best-effort: autoplay policies pueden bloquear si no
+      // hubo interacción del usuario en la pestaña aún)
+      try {
+        if (!audioRef.current) {
+          audioRef.current = new Audio('/sounds/login.mp3')
+          audioRef.current.volume = 0.4
+          audioRef.current.onerror = () => {
+            // Fallback al sonido genérico de notificación si /login.mp3 no existe
+            if (audioRef.current) {
+              audioRef.current.src = '/sounds/notification.mp3'
             }
           }
-          audioRef.current.currentTime = 0
-          void audioRef.current.play().catch(() => {
-            /* autoplay bloqueado, silencio */
-          })
-        } catch {
-          /* ignore */
         }
-      })
-      .subscribe()
+        audioRef.current.currentTime = 0
+        void audioRef.current.play().catch(() => {
+          /* autoplay bloqueado, silencio */
+        })
+      } catch {
+        /* ignore */
+      }
+    })
+    channel.subscribe()
 
     return () => {
-      void supabase.removeChannel(channel)
+      timeouts.forEach(clearTimeout)
+      timeouts.clear()
+      channel.unsubscribe()
     }
   }, [me])
 

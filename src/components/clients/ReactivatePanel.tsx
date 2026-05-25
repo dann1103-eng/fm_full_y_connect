@@ -123,7 +123,7 @@ export function ReactivatePanel({ client, plans }: ReactivatePanelProps) {
           <label className="text-sm font-medium text-fm-on-surface mb-2 block">Plan para el nuevo ciclo</label>
           <div className="grid grid-cols-3 gap-2">
             {plans.map((plan) => (
-              <button
+              <button type="button"
                 key={plan.id}
                 onClick={() => setSelectedPlanId(plan.id)}
                 className={`p-3 rounded-xl border-2 text-left transition-all ${
@@ -147,8 +147,8 @@ export function ReactivatePanel({ client, plans }: ReactivatePanelProps) {
         {/* Start date */}
         <div className="flex items-end gap-4">
           <div className="flex-1 space-y-1.5">
-            <label className="text-sm font-medium text-fm-on-surface block">Fecha de inicio del ciclo</label>
-            <input
+            <label htmlFor="f-fecha-de-inicio-del-ciclo-b2c335fc" className="text-sm font-medium text-fm-on-surface block">Fecha de inicio del ciclo</label>
+            <input id="f-fecha-de-inicio-del-ciclo-b2c335fc"
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
@@ -166,7 +166,7 @@ export function ReactivatePanel({ client, plans }: ReactivatePanelProps) {
           </p>
         )}
 
-        <button
+        <button type="button"
           onClick={handleReactivate}
           disabled={loading}
           className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"

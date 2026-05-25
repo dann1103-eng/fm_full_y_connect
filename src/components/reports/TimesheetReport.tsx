@@ -15,7 +15,8 @@ import {
   type TimesheetGroup,
 } from '@/lib/domain/timesheet'
 import { formatDurationHMS } from '@/lib/domain/time'
-import { DateRangePicker, monthRange, type DateRangeValue } from '@/components/ui/DateRangePicker'
+import { DateRangePicker } from '@/components/ui/DateRangePicker'
+import { monthRange, type DateRangeValue } from '@/components/ui/date-range-helpers'
 import { CsvDownloadButton } from './CsvDownloadButton'
 import { TimesheetTree } from './TimesheetTree'
 import { TimesheetPdfDownloadButton } from './TimesheetPdfDownloadButton'

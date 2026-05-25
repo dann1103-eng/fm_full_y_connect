@@ -19,7 +19,8 @@ import {
   deleteReviewComment,
 } from '@/app/actions/content-review'
 import { MentionAutocomplete } from '@/components/requirements/MentionAutocomplete'
-import { EmojiPicker, insertAtCursor } from '@/components/ui/EmojiPicker'
+import { EmojiPicker } from '@/components/ui/EmojiPicker'
+import { insertAtCursor } from '@/components/ui/emoji-picker-utils'
 import type { UserRole } from '@/types/db'
 
 interface UserMini {
@@ -135,7 +136,7 @@ function CommentRow({
           )}
           {mine && !editing && (
             <div className="relative ml-auto">
-              <button
+              <button type="button"
                 onClick={() => setMenuOpen((v) => !v)}
                 className="p-0.5 rounded hover:bg-fm-surface-container text-fm-on-surface-variant"
                 aria-label="Opciones"
@@ -144,7 +145,7 @@ function CommentRow({
               </button>
               {menuOpen && (
                 <div className="absolute right-0 top-5 z-10 bg-fm-surface-container-lowest rounded-md shadow-lg ring-1 ring-black/10 py-1 min-w-[120px]">
-                  <button
+                  <button type="button"
                     onClick={() => {
                       setEditing(true)
                       setMenuOpen(false)
@@ -154,7 +155,7 @@ function CommentRow({
                     <PencilIcon className="w-3 h-3" />
                     Editar
                   </button>
-                  <button
+                  <button type="button"
                     onClick={() => {
                       setMenuOpen(false)
                       remove()
@@ -187,7 +188,7 @@ function CommentRow({
               className="w-full text-xs text-fm-on-surface bg-fm-background rounded-md px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-fm-primary/30"
             />
             <div className="flex gap-1 mt-1 justify-end">
-              <button
+              <button type="button"
                 onClick={() => {
                   setEditing(false)
                   setDraft(comment.body)
@@ -196,7 +197,7 @@ function CommentRow({
               >
                 Cancelar
               </button>
-              <button
+              <button type="button"
                 onClick={saveEdit}
                 disabled={!draft.trim()}
                 className="px-2 py-0.5 text-[11px] rounded bg-fm-primary text-white disabled:opacity-40"
@@ -334,7 +335,7 @@ export function CommentCard({
 
       <div className="flex items-center gap-1 mt-2 pl-7">
         {!clientMode && (
-          <button
+          <button type="button"
             onClick={(e) => {
               e.stopPropagation()
               toggleResolved()
@@ -360,7 +361,7 @@ export function CommentCard({
           </button>
         )}
         {!replyOpen && pin.status === 'active' && (
-          <button
+          <button type="button"
             onClick={(e) => {
               e.stopPropagation()
               setReplyOpen(true)
@@ -371,7 +372,7 @@ export function CommentCard({
           </button>
         )}
         {mine && !clientMode && (
-          <button
+          <button type="button"
             onClick={(e) => {
               e.stopPropagation()
               removePin()
@@ -398,7 +399,7 @@ export function CommentCard({
               currentMentionIds={replyMentionIds}
               onMentionsChange={setReplyMentionIds}
             />
-            <textarea
+            <textarea aria-label="Escribir respuesta... (@ para mencionar)"
               ref={replyRef}
               value={replyBody}
               onChange={(e) => setReplyBody(e.target.value)}
@@ -431,13 +432,13 @@ export function CommentCard({
                 })
               }}
             />
-            <button
+            <button type="button"
               onClick={() => setReplyOpen(false)}
               className="px-2 py-0.5 text-[11px] rounded hover:bg-[#f5f7f9] text-[#595c5e]"
             >
               Cancelar
             </button>
-            <button
+            <button type="button"
               onClick={submitReply}
               disabled={!replyBody.trim() || busy}
               className="flex items-center gap-1 px-2 py-0.5 text-[11px] rounded bg-fm-primary text-white disabled:opacity-40"

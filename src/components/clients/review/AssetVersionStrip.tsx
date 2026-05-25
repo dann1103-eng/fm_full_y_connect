@@ -34,7 +34,7 @@ export function AssetVersionStrip({
               : asset.name.slice(0, 12)
 
           return (
-            <button
+            <button type="button"
               key={version.id}
               onClick={() => onSelectVersion(asset.id, version.id)}
               className={`flex-shrink-0 flex flex-col items-center gap-1 px-2 py-1.5 rounded-lg border-2 transition-colors ${

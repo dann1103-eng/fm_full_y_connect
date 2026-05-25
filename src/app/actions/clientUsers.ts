@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { requireUser } from '@/lib/auth/require-user'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -164,7 +165,7 @@ export async function listClientUsers(clientId: string): Promise<Array<{
   role: string
   users: { id: string; full_name: string | null; email: string | null; role: string } | null
 }>> {
-  const supabase = await createClient()
+  const { supabase } = await requireUser({ allowImpersonation: true })
   const { data, error } = await supabase
     .from('client_users')
     .select('id, user_id, role, created_at, users:users!inner(id, full_name, email, role)')

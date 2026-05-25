@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { requireAdminOrSupervisor } from '@/lib/auth/require-user'
 import type { WorkSession, WorkSessionBreak } from '@/types/db'
 
 export interface ShiftDayRow {
@@ -54,6 +55,7 @@ function sumBreakSeconds(s: WorkSession, sessionEnd: Date): number {
  *   fin:    ${dateStr}T23:59:59.999-06:00
  */
 export async function fetchShiftsReportForDate(dateStr: string): Promise<ShiftDayRow[]> {
+  await requireAdminOrSupervisor()
   // America/El_Salvador = UTC-6 sin DST
   const dayStartUTC = new Date(`${dateStr}T00:00:00-06:00`)
   const dayEndUTC = new Date(`${dateStr}T23:59:59.999-06:00`)

@@ -27,7 +27,7 @@ export function CycleHistory({ cycles, plansMap }: CycleHistoryProps) {
     <section>
       <div className="glass-panel rounded-[2rem] overflow-hidden">
         {/* Toggle header */}
-        <button
+        <button type="button"
           onClick={() => setOpen((v) => !v)}
           className="w-full flex items-center justify-between px-8 py-5 hover:bg-fm-surface-container-lowest/50 transition-colors"
         >

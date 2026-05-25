@@ -29,7 +29,7 @@ export function FileThumbnailStrip({
           ).length
           const isSelected = f.id === selectedFileId
           return (
-            <button
+            <button type="button"
               key={f.id}
               onClick={() => onSelect(f.id)}
               className={`relative flex-shrink-0 w-16 h-16 rounded-md overflow-hidden transition-all ${

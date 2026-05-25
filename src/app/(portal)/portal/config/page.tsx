@@ -50,11 +50,11 @@ export default function PortalConfigPage() {
         <h2 className="text-base font-semibold text-fm-on-surface">Cambiar contraseña</h2>
 
         <div className="space-y-1.5">
-          <label className="text-sm font-medium text-fm-on-surface">
+          <label htmlFor="f-contrase-a-actual-opcion-470d8dfe" className="text-sm font-medium text-fm-on-surface">
             Contraseña actual
             <span className="ml-1 text-xs text-fm-on-surface-variant font-normal">(opcional si es tu primera vez)</span>
           </label>
-          <input
+          <input id="f-contrase-a-actual-opcion-470d8dfe"
             type="password"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
@@ -64,8 +64,8 @@ export default function PortalConfigPage() {
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-sm font-medium text-fm-on-surface">Nueva contraseña</label>
-          <input
+          <label htmlFor="f-nueva-contrase-a-f71a5e61" className="text-sm font-medium text-fm-on-surface">Nueva contraseña</label>
+          <input id="f-nueva-contrase-a-f71a5e61"
             type="password"
             required
             minLength={8}
@@ -76,8 +76,8 @@ export default function PortalConfigPage() {
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-sm font-medium text-fm-on-surface">Confirmar nueva contraseña</label>
-          <input
+          <label htmlFor="f-confirmar-nueva-contrase-a-06ac2a3a" className="text-sm font-medium text-fm-on-surface">Confirmar nueva contraseña</label>
+          <input id="f-confirmar-nueva-contrase-a-06ac2a3a"
             type="password"
             required
             value={confirm}

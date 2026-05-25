@@ -245,7 +245,7 @@ export function VideoViewer({
       {/* Controles + timeline */}
       <div className="flex-shrink-0 bg-white border-t border-[#dfe3e6] px-4 py-2">
         <div className="flex items-center gap-3">
-          <button
+          <button type="button"
             onClick={togglePlay}
             className="text-[#2a2a2a] hover:text-[#00675c] transition-colors"
             aria-label={isPlaying ? 'Pausar' : 'Reproducir'}

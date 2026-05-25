@@ -142,7 +142,7 @@ export function LoginForm({ agencyLogoUrl }: LoginFormProps) {
               <p className="text-sm text-fm-on-surface-variant mb-4">
                 Enviamos un link de acceso a <strong>{email}</strong>. Haz clic en él para ingresar al portal.
               </p>
-              <button
+              <button type="button"
                 onClick={() => { setMagicSent(false); setMode('password') }}
                 className="text-sm text-fm-primary hover:underline"
               >
@@ -210,7 +210,7 @@ export function LoginForm({ agencyLogoUrl }: LoginFormProps) {
 
               <div className="mt-4 pt-4 border-t border-fm-outline-variant/30 text-center">
                 <p className="text-xs text-fm-on-surface-variant mb-2">¿Accediste por invitación y no tienes contraseña?</p>
-                <button
+                <button type="button"
                   onClick={() => { setMode('magic'); setError(null) }}
                   className="text-sm text-fm-primary hover:underline font-medium"
                 >
@@ -262,7 +262,7 @@ export function LoginForm({ agencyLogoUrl }: LoginFormProps) {
               </form>
 
               <div className="mt-4 pt-4 border-t border-fm-outline-variant/30 text-center">
-                <button
+                <button type="button"
                   onClick={() => { setMode('password'); setError(null) }}
                   className="text-sm text-fm-primary hover:underline font-medium"
                 >

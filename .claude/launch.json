@@ -1,11 +1,1 @@
-{
-  "version": "0.0.1",
-  "configurations": [
-    {
-      "name": "FM CRM — Next.js dev",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
-      "port": 3000
-    }
-  ]
-}
+{"version":"0.0.1","configurations":[{"name":"fm-crm","runtimeExecutable":"npm","runtimeArgs":["run","dev"],"port":3000,"autoPort":true},{"name":"mockup","runtimeExecutable":"npx","runtimeArgs":["serve","-p","5555","C:\\Users\\Daniel\\Desktop\\FM CRM"],"port":5555}]}

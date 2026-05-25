@@ -93,7 +93,7 @@ export function ClientPortalInvite({ clientId, users }: Props) {
 
       <form onSubmit={create} className="space-y-2 mb-4">
         <div className="flex flex-col md:flex-row gap-2">
-          <input
+          <input aria-label="email@empresa.com"
             type="email"
             required
             placeholder="email@empresa.com"
@@ -101,7 +101,7 @@ export function ClientPortalInvite({ clientId, users }: Props) {
             onChange={(e) => setEmail(e.target.value)}
             className="flex-1 rounded-lg border border-fm-outline-variant/40 px-3 py-2 text-sm"
           />
-          <input
+          <input aria-label="Nombre (opcional)"
             type="text"
             placeholder="Nombre (opcional)"
             value={name}
@@ -110,7 +110,7 @@ export function ClientPortalInvite({ clientId, users }: Props) {
           />
         </div>
         <div className="flex flex-col md:flex-row gap-2">
-          <input
+          <input aria-label="Contraseña (mín. 8 caracteres)"
             type="password"
             required
             minLength={8}
@@ -150,14 +150,14 @@ export function ClientPortalInvite({ clientId, users }: Props) {
                 <p className="text-xs text-fm-on-surface-variant">{link.users?.email}</p>
               </div>
               <div className="flex items-center gap-3">
-                <button
+                <button type="button"
                   onClick={() => resetingUserId === link.user_id ? cancelReset() : openReset(link.user_id)}
                   disabled={isPending}
                   className="text-sm text-fm-on-surface-variant hover:text-fm-on-surface hover:underline disabled:opacity-50"
                 >
                   {resetingUserId === link.user_id ? 'Cancelar' : 'Resetear contraseña'}
                 </button>
-                <button
+                <button type="button"
                   onClick={() => revoke(link.user_id)}
                   disabled={isPending}
                   className="text-sm text-fm-error hover:underline disabled:opacity-50"
@@ -168,7 +168,7 @@ export function ClientPortalInvite({ clientId, users }: Props) {
             </div>
             {resetingUserId === link.user_id && (
               <div className="flex gap-2 pt-1">
-                <input
+                <input aria-label="Nueva contraseña (mín. 8 caracteres)"
                   type="password"
                   minLength={8}
                   placeholder="Nueva contraseña (mín. 8 caracteres)"
@@ -177,7 +177,7 @@ export function ClientPortalInvite({ clientId, users }: Props) {
                   className="flex-1 rounded-lg border border-fm-outline-variant/40 px-3 py-1.5 text-sm"
                   autoFocus
                 />
-                <button
+                <button type="button"
                   onClick={() => submitReset(link.user_id)}
                   disabled={isPending}
                   className="rounded-lg bg-fm-primary text-white px-3 py-1.5 text-sm font-medium disabled:opacity-50"

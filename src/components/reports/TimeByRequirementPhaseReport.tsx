@@ -7,7 +7,8 @@ import { formatDuration, formatDurationHMS } from '@/lib/domain/time'
 import { PHASES, PHASE_LABELS } from '@/lib/domain/pipeline'
 import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import type { Phase, ContentType } from '@/types/db'
-import { DateRangePicker, monthRange, type DateRangeValue } from '@/components/ui/DateRangePicker'
+import { DateRangePicker } from '@/components/ui/DateRangePicker'
+import { monthRange, type DateRangeValue } from '@/components/ui/date-range-helpers'
 import { CsvDownloadButton } from './CsvDownloadButton'
 
 interface Props {
@@ -128,6 +129,7 @@ export function TimeByRequirementPhaseReport({ clients }: Props) {
         <label className="flex items-center gap-2">
           <span className="text-[10px] font-extrabold uppercase tracking-wider text-fm-on-surface-variant">Cliente</span>
           <select
+            aria-label="Cliente"
             value={clientFilter}
             onChange={(e) => { setClientFilter(e.target.value); setRequirementFilter('') }}
             className="bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-full px-3 py-1.5 text-xs font-bold text-fm-on-surface focus:outline-none focus:border-fm-primary"
@@ -142,6 +144,7 @@ export function TimeByRequirementPhaseReport({ clients }: Props) {
         <label className="flex items-center gap-2">
           <span className="text-[10px] font-extrabold uppercase tracking-wider text-fm-on-surface-variant">Requerimiento</span>
           <select
+            aria-label="Requerimiento"
             value={requirementFilter}
             onChange={(e) => setRequirementFilter(e.target.value)}
             disabled={reqOptions.length === 0}

@@ -127,7 +127,7 @@ export function ClockInPanel({ initialActive, userId = null }: Props) {
             <div className="text-3xl font-black text-fm-primary tabular-nums sm:ml-4">
               {formatDuration(elapsed)}
             </div>
-            <button
+            <button type="button"
               onClick={handleStop}
               disabled={isPending}
               className="sm:ml-auto flex items-center gap-2 px-5 py-2.5 bg-fm-error text-white font-bold rounded-full hover:bg-fm-error-dim transition-all text-sm disabled:opacity-60"
@@ -140,17 +140,17 @@ export function ClockInPanel({ initialActive, userId = null }: Props) {
           {/* Notes on active entry */}
           {editingNotes ? (
             <div className="flex gap-2 items-end">
-              <textarea
+              <textarea aria-label="Descripción (opcional)"
                 value={activeNotesDraft}
                 onChange={e => setActiveNotesDraft(e.target.value)}
                 placeholder="Descripción (opcional)"
                 rows={2}
                 className="flex-1 border border-fm-surface-container-high rounded-xl px-3 py-2 text-sm text-fm-on-surface bg-fm-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-fm-primary/30 resize-none"
               />
-              <button onClick={handleSaveActiveNotes} disabled={isPending} className="px-3 py-2 bg-fm-primary text-white text-xs font-bold rounded-xl disabled:opacity-60">
+              <button type="button" onClick={handleSaveActiveNotes} disabled={isPending} className="px-3 py-2 bg-fm-primary text-white text-xs font-bold rounded-xl disabled:opacity-60">
                 {isPending ? '…' : 'Guardar'}
               </button>
-              <button onClick={() => setEditingNotes(false)} className="px-3 py-2 text-fm-on-surface-variant text-xs font-bold rounded-xl border border-fm-surface-container-high">
+              <button type="button" onClick={() => setEditingNotes(false)} className="px-3 py-2 text-fm-on-surface-variant text-xs font-bold rounded-xl border border-fm-surface-container-high">
                 Cancelar
               </button>
             </div>
@@ -161,7 +161,7 @@ export function ClockInPanel({ initialActive, userId = null }: Props) {
               ) : (
                 <p className="text-xs text-fm-outline-variant flex-1 italic">Sin descripción</p>
               )}
-              <button
+              <button type="button"
                 onClick={() => { setActiveNotesDraft(active.notes ?? ''); setEditingNotes(true) }}
                 className="text-xs text-fm-on-surface-variant hover:text-fm-primary flex items-center gap-1"
               >
@@ -184,7 +184,7 @@ export function ClockInPanel({ initialActive, userId = null }: Props) {
                 <option key={cat} value={cat}>{ADMIN_CATEGORY_LABELS[cat]}</option>
               ))}
             </select>
-            <button
+            <button type="button"
               onClick={handleStart}
               disabled={isPending || hasActiveShift === false}
               title={hasActiveShift === false ? 'Debes iniciar tu jornada para registrar tiempo' : undefined}
@@ -199,7 +199,7 @@ export function ClockInPanel({ initialActive, userId = null }: Props) {
               Inicia tu jornada desde el widget en el header antes de registrar tiempo.
             </p>
           )}
-          <textarea
+          <textarea aria-label="Descripción (opcional)"
             value={notes}
             onChange={e => setNotes(e.target.value)}
             placeholder="Descripción (opcional)"

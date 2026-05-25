@@ -128,7 +128,7 @@ export function ChannelDetailsPanel({
         <h3 className="font-bold text-fm-on-surface">Detalles del canal</h3>
         <div className="flex items-center gap-1">
           {isAdmin && (
-            <button
+            <button type="button"
               onClick={() => setConfirmDelete(true)}
               className="p-1 text-fm-error hover:bg-fm-error/10 rounded"
               title="Eliminar canal"
@@ -138,7 +138,7 @@ export function ChannelDetailsPanel({
               </svg>
             </button>
           )}
-          <button
+          <button type="button"
             onClick={onClose}
             className="p-1 hover:bg-fm-background rounded"
             title="Cerrar"
@@ -156,7 +156,7 @@ export function ChannelDetailsPanel({
           <div className="flex items-center justify-between">
             <h4 className="text-[10px] font-bold uppercase tracking-widest text-fm-on-surface-variant">Acerca</h4>
             {isAdmin && !editingAbout && (
-              <button
+              <button type="button"
                 onClick={() => setEditingAbout(true)}
                 className="text-[10px] font-bold text-fm-primary"
               >
@@ -167,8 +167,8 @@ export function ChannelDetailsPanel({
           {editingAbout ? (
             <div className="space-y-2">
               <div>
-                <label className="text-[10px] font-bold text-fm-on-surface-variant/70 uppercase">Tema</label>
-                <input
+                <label htmlFor="f-tema-732845b3" className="text-[10px] font-bold text-fm-on-surface-variant/70 uppercase">Tema</label>
+                <input id="f-tema-732845b3"
                   type="text"
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
@@ -176,8 +176,8 @@ export function ChannelDetailsPanel({
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-fm-on-surface-variant/70 uppercase">Descripción</label>
-                <textarea
+                <label htmlFor="f-descripci-n-cf4dfa0f" className="text-[10px] font-bold text-fm-on-surface-variant/70 uppercase">Descripción</label>
+                <textarea id="f-descripci-n-cf4dfa0f"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={2}
@@ -185,14 +185,14 @@ export function ChannelDetailsPanel({
                 />
               </div>
               <div className="flex gap-2">
-                <button
+                <button type="button"
                   onClick={saveMeta}
                   disabled={pending}
                   className="text-[10px] font-bold text-fm-primary disabled:opacity-50"
                 >
                   Guardar
                 </button>
-                <button
+                <button type="button"
                   onClick={() => {
                     setDescription(conversation.description ?? '')
                     setTopic(conversation.topic ?? '')
@@ -231,7 +231,7 @@ export function ChannelDetailsPanel({
               Miembros ({members.length})
             </h4>
             {isAdmin && !addMode && (
-              <button
+              <button type="button"
                 onClick={() => setAddMode(true)}
                 className="text-[10px] font-bold text-fm-primary"
               >
@@ -269,14 +269,14 @@ export function ChannelDetailsPanel({
                 )}
               </div>
               <div className="flex gap-2">
-                <button
+                <button type="button"
                   onClick={handleAddMembers}
                   disabled={pending || selectedToAdd.length === 0}
                   className="text-[10px] font-bold text-fm-primary disabled:opacity-50"
                 >
                   Agregar seleccionados
                 </button>
-                <button
+                <button type="button"
                   onClick={() => {
                     setAddMode(false)
                     setSelectedToAdd([])
@@ -299,7 +299,7 @@ export function ChannelDetailsPanel({
                     )}
                   </div>
                   {isAdmin && m.id !== currentUserId && (
-                    <button
+                    <button type="button"
                       onClick={() => handleRemove(m.id)}
                       className="opacity-0 group-hover:opacity-100 text-fm-error p-1"
                       title="Expulsar"
@@ -335,7 +335,7 @@ export function ChannelDetailsPanel({
       </div>
 
       <div className="p-5 border-t border-fm-surface-container-high">
-        <button
+        <button type="button"
           onClick={handleLeave}
           disabled={pending}
           className="w-full py-2 px-4 border border-fm-error text-fm-error font-bold text-xs rounded-lg hover:bg-fm-error hover:text-white uppercase tracking-widest transition-colors disabled:opacity-50"
@@ -366,13 +366,13 @@ export function ChannelDetailsPanel({
               className="w-full border border-fm-surface-container-high rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fm-error/30"
             />
             <div className="flex justify-end gap-2">
-              <button
+              <button type="button"
                 onClick={() => setConfirmDelete(false)}
                 className="px-3 py-1.5 text-sm text-fm-on-surface-variant hover:bg-fm-background rounded-lg"
               >
                 Cancelar
               </button>
-              <button
+              <button type="button"
                 onClick={handleDelete}
                 disabled={pending || deleteConfirmText.trim() !== conversation.name}
                 className={cn(

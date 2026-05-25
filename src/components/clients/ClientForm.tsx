@@ -532,7 +532,7 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
               {fiscalOpen && (
                 <div className="grid grid-cols-2 gap-3 pt-3">
                   <div className="col-span-2 flex flex-col gap-2 rounded-xl bg-fm-background border border-fm-surface-container-high p-3">
-                    <label className="flex items-center gap-3 text-sm">
+                    <label htmlFor="f-facturaci-n-autom-tica-g-06f7b4d5" className="flex items-center gap-3 text-sm">
                       <input
                         type="checkbox"
                         checked={autoBilling}
@@ -546,8 +546,8 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
                         </span>
                       </span>
                     </label>
-                    <label className="flex items-center gap-3 text-sm">
-                      <input
+                    <label htmlFor="f-cliente-extranjero-clien-0059e722" className="flex items-center gap-3 text-sm">
+                      <input id="f-facturaci-n-autom-tica-g-06f7b4d5"
                         type="checkbox"
                         checked={isForeign}
                         onChange={(e) => setIsForeign(e.target.checked)}
@@ -572,7 +572,7 @@ export function ClientForm({ plans, existing }: ClientFormProps) {
                   </div>
                   <div className="space-y-1.5">
                     <Label>Tipo de persona</Label>
-                    <select
+                    <select id="f-cliente-extranjero-clien-0059e722"
                       value={form.person_type}
                       onChange={(e) => set('person_type', e.target.value)}
                       className="w-full py-2 px-3 text-sm bg-fm-background border border-fm-surface-container-high rounded-xl text-fm-on-surface focus:outline-none focus:border-fm-primary"

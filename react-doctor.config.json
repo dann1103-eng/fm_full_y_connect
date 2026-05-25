@@ -1,0 +1,25 @@
+{
+  "serverAuthFunctionNames": [
+    "requireUser",
+    "requireAdmin",
+    "requireAdminOrSupervisor",
+    "requirePortalClient",
+    "requireAgencyUser",
+    "requireQuoteAccess",
+    "requireClientUser",
+    "getCurrentUser",
+    "getAuthUser",
+    "getAuthUserOrError",
+    "getApproverOrError",
+    "assertAdmin",
+    "assertAdminOrSupervisor",
+    "assertNotImpersonating"
+  ],
+  "ignore": {
+    "rules": [
+      "react-doctor/react-compiler-destructure-method",
+      "react-doctor/click-events-have-key-events",
+      "deslop/unused-file"
+    ]
+  }
+}

@@ -212,45 +212,44 @@ export function useConversationMessages(
     const diagPrefix = `[rt conv ${conversationId.slice(0, 8)}]`
     console.info(diagPrefix, 'subscribing', new Date().toISOString())
 
-    const channel = supabase
-      .channel(`conv-messages-${conversationId}-${channelIdRef.current}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        (payload) => {
-          const row = payload.new as { conversation_id?: string; id?: string; created_at?: string }
-          const commitTs = (payload as { commit_timestamp?: string }).commit_timestamp
-          const matches = row.conversation_id === conversationId
-          const latencyMs = commitTs ? Date.now() - new Date(commitTs).getTime() : null
-          console.info(
-            diagPrefix,
-            'INSERT recibido',
-            { matches, msgId: row.id?.slice(0, 8), commitTs, latencyMs, now: new Date().toISOString() }
-          )
-          if (matches) fetchIncremental()
+    const channel = supabase.channel(`conv-messages-${conversationId}-${channelIdRef.current}`)
+    channel.on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'messages' },
+      (payload) => {
+        const row = payload.new as { conversation_id?: string; id?: string; created_at?: string }
+        const commitTs = (payload as { commit_timestamp?: string }).commit_timestamp
+        const matches = row.conversation_id === conversationId
+        const latencyMs = commitTs ? Date.now() - new Date(commitTs).getTime() : null
+        console.info(
+          diagPrefix,
+          'INSERT recibido',
+          { matches, msgId: row.id?.slice(0, 8), commitTs, latencyMs, now: new Date().toISOString() }
+        )
+        if (matches) fetchIncremental()
+      }
+    )
+    channel.on(
+      'postgres_changes',
+      { event: 'DELETE', schema: 'public', table: 'messages' },
+      (payload) => {
+        const old = payload.old as { id?: string; conversation_id?: string }
+        if (old.conversation_id === conversationId && old.id) {
+          setMessages((prev) => prev.filter((m) => m.id !== old.id))
         }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'messages' },
-        (payload) => {
-          const old = payload.old as { id?: string; conversation_id?: string }
-          if (old.conversation_id === conversationId && old.id) {
-            setMessages((prev) => prev.filter((m) => m.id !== old.id))
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'messages' },
-        (payload) => {
-          const row = payload.new as { conversation_id?: string }
-          if (row.conversation_id === conversationId) refresh()
-        }
-      )
-      .subscribe((status, err) => {
-        console.info(diagPrefix, 'subscribe status:', status, err ?? '', new Date().toISOString())
-      })
+      }
+    )
+    channel.on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'messages' },
+      (payload) => {
+        const row = payload.new as { conversation_id?: string }
+        if (row.conversation_id === conversationId) refresh()
+      }
+    )
+    channel.subscribe((status, err) => {
+      console.info(diagPrefix, 'subscribe status:', status, err ?? '', new Date().toISOString())
+    })
 
     const safetyTimer = window.setInterval(() => {
       console.info(diagPrefix, 'safety poll fire', new Date().toISOString())
@@ -260,7 +259,7 @@ export function useConversationMessages(
     return () => {
       console.info(diagPrefix, 'unsubscribing', new Date().toISOString())
       window.clearInterval(safetyTimer)
-      supabase.removeChannel(channel)
+      channel.unsubscribe()
     }
   }, [visible, conversationId, fetchIncremental, refresh])
 

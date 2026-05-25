@@ -32,7 +32,7 @@ export function DeleteClientButton({ clientId, clientName }: { clientId: string;
 
   if (!open) {
     return (
-      <button
+      <button type="button"
         onClick={() => setOpen(true)}
         className="text-xs font-semibold text-fm-error hover:underline"
       >
@@ -53,7 +53,7 @@ export function DeleteClientButton({ clientId, clientName }: { clientId: string;
         </p>
       )}
       <div className="flex gap-3">
-        <button
+        <button type="button"
           onClick={() => {
             setOpen(false)
             setError(null)
@@ -63,7 +63,7 @@ export function DeleteClientButton({ clientId, clientName }: { clientId: string;
         >
           Cancelar
         </button>
-        <button
+        <button type="button"
           onClick={handleDelete}
           disabled={loading}
           className="flex-1 py-2 text-sm bg-fm-error text-white rounded-xl font-semibold hover:bg-fm-error-dim transition-colors disabled:opacity-50"

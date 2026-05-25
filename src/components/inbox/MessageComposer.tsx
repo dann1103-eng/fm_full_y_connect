@@ -4,7 +4,8 @@ import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { sendMessage } from '@/app/actions/inbox'
-import { EmojiPicker, insertAtCursor } from '@/components/ui/EmojiPicker'
+import { EmojiPicker } from '@/components/ui/EmojiPicker'
+import { insertAtCursor } from '@/components/ui/emoji-picker-utils'
 import {
   uploadChatAttachment,
   CHAT_ATTACHMENT_MAX_BYTES,

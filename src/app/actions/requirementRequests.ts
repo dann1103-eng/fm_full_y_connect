@@ -20,7 +20,7 @@ export interface RequestRequirementInput {
   includesStory?: boolean
 }
 
-const ALLOWED_REQUEST_TYPES: ContentType[] = [
+const ALLOWED_REQUEST_TYPES = [
   'historia',
   'estatico',
   'video_corto',
@@ -28,8 +28,8 @@ const ALLOWED_REQUEST_TYPES: ContentType[] = [
   'short',
   'produccion',
   'reunion',
-]
-const SCHEDULED_TYPES: ContentType[] = ['reunion', 'produccion']
+] as const satisfies readonly ContentType[]
+const SCHEDULED_TYPES = ['reunion', 'produccion'] as const satisfies readonly ContentType[]
 
 /**
  * Server action invocado desde el portal del cliente. Crea un requirement
@@ -45,7 +45,7 @@ export async function requestRequirement(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'No autenticado' }
 
-  if (!ALLOWED_REQUEST_TYPES.includes(input.contentType)) {
+  if (!(ALLOWED_REQUEST_TYPES as readonly ContentType[]).includes(input.contentType)) {
     return { error: 'Tipo no permitido para solicitudes' }
   }
   if (!input.title.trim()) return { error: 'Ingresa un título' }
@@ -101,7 +101,7 @@ export async function requestRequirement(
     return { error: 'No se puede crear solicitudes en esta semana sin el pago correspondiente. Contacta a tu agencia.' }
   }
 
-  const isScheduled = SCHEDULED_TYPES.includes(input.contentType)
+  const isScheduled = (SCHEDULED_TYPES as readonly ContentType[]).includes(input.contentType)
   // Para reunion/produccion el cliente da datetime → starts_at.
   // Para artes el cliente da date (YYYY-MM-DD) → deadline.
   const startsAt = isScheduled ? input.desiredAt : null
@@ -163,7 +163,7 @@ export interface ApproveRequirementInput {
   consumptionOverridesJson?: Partial<Record<ContentType, number>> | null
 }
 
-const STORY_ELIGIBLE: ContentType[] = ['estatico', 'video_corto', 'reel', 'short']
+const STORY_ELIGIBLE = ['estatico', 'video_corto', 'reel', 'short'] as const satisfies readonly ContentType[]
 
 export async function approveRequirementRequest(
   input: ApproveRequirementInput,
@@ -193,8 +193,8 @@ export async function approveRequirementRequest(
   }
 
   const ct = existing.content_type as ContentType
-  const isScheduled = SCHEDULED_TYPES.includes(ct)
-  const isStoryEligible = STORY_ELIGIBLE.includes(ct)
+  const isScheduled = (SCHEDULED_TYPES as readonly ContentType[]).includes(ct)
+  const isStoryEligible = (STORY_ELIGIBLE as readonly ContentType[]).includes(ct)
   if (isScheduled) {
     if (!input.estimatedTimeMinutes || input.estimatedTimeMinutes <= 0) {
       return { error: 'Ingresa la duración estimada en minutos' }
@@ -315,7 +315,7 @@ export async function updateRequirementRequest(
   if (!input.desiredAt) return { error: 'Selecciona la fecha deseada' }
 
   const ct = existing.content_type as ContentType
-  const isScheduled = SCHEDULED_TYPES.includes(ct)
+  const isScheduled = (SCHEDULED_TYPES as readonly ContentType[]).includes(ct)
   const startsAt = isScheduled ? input.desiredAt : null
   const deadline = isScheduled ? null : input.desiredAt
   const clientRequestedDeadline = isScheduled
@@ -350,7 +350,7 @@ export async function updateRequirementRequest(
       client_requested_deadline: clientRequestedDeadline,
       starts_at: startsAt,
       deadline,
-      includes_story: STORY_ELIGIBLE.includes(ct) ? !!input.includesStory : false,
+      includes_story: (STORY_ELIGIBLE as readonly ContentType[]).includes(ct) ? !!input.includesStory : false,
       client_request_attachments_json: input.attachments.length > 0 ? input.attachments : null,
       client_request_links_json: input.links.length > 0 ? input.links : null,
     })

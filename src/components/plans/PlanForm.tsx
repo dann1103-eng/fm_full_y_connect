@@ -154,7 +154,7 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
           <h3 className="text-lg font-extrabold text-fm-on-surface">
             {isEditing ? 'Editar plan' : 'Crear plan'}
           </h3>
-          <button
+          <button type="button"
             onClick={onClose}
             className="p-1 rounded-full hover:bg-fm-background text-fm-on-surface-variant"
           >
@@ -165,10 +165,10 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
         {/* Datos generales */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">
+            <label htmlFor="f-nombre-cd2c84a4" className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">
               Nombre
             </label>
-            <input
+            <input id="f-nombre-cd2c84a4"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Premium Plus"
@@ -176,10 +176,10 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">
+            <label htmlFor="f-precio-usd-75479c0b" className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">
               Precio (USD)
             </label>
-            <input
+            <input id="f-precio-usd-75479c0b"
               type="number"
               min="0"
               step="1"
@@ -190,10 +190,10 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">
+            <label htmlFor="f-cambios-incluidos-b1e8f838" className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">
               Cambios incluidos
             </label>
-            <input
+            <input id="f-cambios-incluidos-b1e8f838"
               type="number"
               min="0"
               step="1"
@@ -203,7 +203,7 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
             />
           </div>
           <div className="flex items-end">
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label htmlFor="f-plan-activo-745df850" className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
                 checked={active}
@@ -217,8 +217,8 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
 
         {/* Pool unificado (plan Contenido) */}
         <div className="bg-fm-background rounded-xl p-4 space-y-2">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
+          <label htmlFor="f-plan-contenido-pool-unif-dccc6a0a" className="flex items-center gap-2 cursor-pointer">
+            <input id="f-plan-activo-745df850"
               type="checkbox"
               checked={useUnifiedPool}
               onChange={(e) => handleTogglePool(e.target.checked)}
@@ -231,7 +231,7 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
           {useUnifiedPool && (
             <div className="flex items-center gap-3 pl-6">
               <span className="text-sm text-fm-on-surface">Total de contenidos tippables:</span>
-              <input
+              <input id="f-plan-contenido-pool-unif-dccc6a0a"
                 type="number"
                 min="1"
                 value={unifiedPoolSize}
@@ -252,8 +252,8 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
           </span>
           <div className="flex flex-col gap-2 pl-1">
             {(Object.keys(BILLING_PERIOD_LABELS) as BillingPeriod[]).map((bp) => (
-              <label key={bp} className="flex items-start gap-2 cursor-pointer">
-                <input
+              <label htmlFor="f-input-type-radio-name-b-4f62df69" key={bp} className="flex items-start gap-2 cursor-pointer">
+                <input aria-label="Billing period"
                   type="radio"
                   name="billing_period"
                   checked={billingPeriod === bp}
@@ -275,8 +275,8 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
             Vencimiento
           </span>
           <div className="flex flex-col gap-2 pl-1">
-            <label className="flex items-start gap-2 cursor-pointer">
-              <input
+            <label htmlFor="f-mensual-los-ciclos-se-ar-a67b6f78" className="flex items-start gap-2 cursor-pointer">
+              <input id="f-input-type-radio-name-b-4f62df69"
                 type="radio"
                 name="expiration"
                 checked={!noExpira}
@@ -291,7 +291,7 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
               </span>
             </label>
             <label className="flex items-start gap-2 cursor-pointer">
-              <input
+              <input id="f-mensual-los-ciclos-se-ar-a67b6f78"
                 type="radio"
                 name="expiration"
                 checked={noExpira}
@@ -418,13 +418,13 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
         </p>
 
         <div className="flex gap-3">
-          <button
+          <button type="button"
             onClick={onClose}
             className="flex-1 py-2.5 border border-fm-surface-container-high rounded-full text-sm font-bold text-fm-on-surface-variant hover:bg-fm-background"
           >
             Cancelar
           </button>
-          <button
+          <button type="button"
             onClick={handleSubmit}
             disabled={saving}
             className="flex-1 py-2.5 bg-fm-primary text-white rounded-full text-sm font-bold hover:bg-fm-primary-dim disabled:opacity-60"

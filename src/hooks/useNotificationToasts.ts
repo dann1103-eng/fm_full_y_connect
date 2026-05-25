@@ -99,16 +99,15 @@ export function useNotificationToasts() {
   useEffect(() => {
     if (!user?.id) return
     const supabase = createClient()
-    const channel = supabase
-      .channel(`toast-backup-${Math.random().toString(36).slice(2)}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-        const msg = payload.new as { user_id?: string }
-        if (msg.user_id && msg.user_id !== user.id) {
-          refresh()
-        }
-      })
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
+    const channel = supabase.channel(`toast-backup-${Math.random().toString(36).slice(2)}`)
+    channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+      const msg = payload.new as { user_id?: string }
+      if (msg.user_id && msg.user_id !== user.id) {
+        refresh()
+      }
+    })
+    channel.subscribe()
+    return () => { channel.unsubscribe() }
   }, [user?.id, refresh])
 
   useEffect(() => {

@@ -62,76 +62,75 @@ export function useReviewRealtime({
     const versionSet = new Set(versionIds)
     const pinSet = new Set(pinIds)
 
-    const channel = supabase
-      .channel(`review:${requirementId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'review_assets',
-          filter: `requirement_id=eq.${requirementId}`,
-        },
-        (payload) => {
-          const row = (payload.new ?? payload.old) as ReviewAsset
-          onAssetChange({
-            event: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
-            row,
-          })
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'review_versions' },
-        (payload) => {
-          const row = (payload.new ?? payload.old) as ReviewVersion
-          if (!assetSet.has(row.asset_id)) return
-          onVersionChange({
-            event: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
-            row,
-          })
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'review_version_files' },
-        (payload) => {
-          const row = (payload.new ?? payload.old) as ReviewVersionFile
-          if (!versionSet.has(row.version_id)) return
-          onFileChange({
-            event: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
-            row,
-          })
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'review_pins' },
-        (payload) => {
-          const row = (payload.new ?? payload.old) as ReviewPin
-          if (!versionSet.has(row.version_id)) return
-          onPinChange({
-            event: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
-            row,
-          })
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'review_comments' },
-        (payload) => {
-          const row = (payload.new ?? payload.old) as ReviewComment
-          if (!pinSet.has(row.pin_id)) return
-          onCommentChange({
-            event: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
-            row,
-          })
-        }
-      )
-      .subscribe()
+    const channel = supabase.channel(`review:${requirementId}`)
+    channel.on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'review_assets',
+        filter: `requirement_id=eq.${requirementId}`,
+      },
+      (payload) => {
+        const row = (payload.new ?? payload.old) as ReviewAsset
+        onAssetChange({
+          event: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
+          row,
+        })
+      }
+    )
+    channel.on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'review_versions' },
+      (payload) => {
+        const row = (payload.new ?? payload.old) as ReviewVersion
+        if (!assetSet.has(row.asset_id)) return
+        onVersionChange({
+          event: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
+          row,
+        })
+      }
+    )
+    channel.on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'review_version_files' },
+      (payload) => {
+        const row = (payload.new ?? payload.old) as ReviewVersionFile
+        if (!versionSet.has(row.version_id)) return
+        onFileChange({
+          event: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
+          row,
+        })
+      }
+    )
+    channel.on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'review_pins' },
+      (payload) => {
+        const row = (payload.new ?? payload.old) as ReviewPin
+        if (!versionSet.has(row.version_id)) return
+        onPinChange({
+          event: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
+          row,
+        })
+      }
+    )
+    channel.on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'review_comments' },
+      (payload) => {
+        const row = (payload.new ?? payload.old) as ReviewComment
+        if (!pinSet.has(row.pin_id)) return
+        onCommentChange({
+          event: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
+          row,
+        })
+      }
+    )
+    channel.subscribe()
 
     return () => {
-      supabase.removeChannel(channel)
+      channel.unsubscribe()
     }
   }, [
     enabled,

@@ -368,7 +368,7 @@ export function RequirementTimesheet({
               </div>
             </div>
           </div>
-          <button
+          <button type="button"
             onClick={stopTimer}
             disabled={saving}
             className="mt-3 flex items-center gap-1.5 bg-fm-error text-white rounded-xl px-3 py-1.5 text-xs font-bold disabled:opacity-50"
@@ -406,7 +406,7 @@ export function RequirementTimesheet({
           )}
 
           <div className="space-y-1.5">
-            <input
+            <input aria-label="Título de la tarea (ej. Edición final)"
               type="text"
               value={newTitle}
               onChange={(e) => { setNewTitle(e.target.value); setTitleError(false) }}
@@ -433,7 +433,7 @@ export function RequirementTimesheet({
           <div className="flex gap-2">
             {/* Iniciar timer solo si el usuario no tiene otro timer corriendo */}
             {!globalActiveWarning && (
-              <button
+              <button type="button"
                 onClick={startTimer}
                 disabled={saving}
                 className="flex items-center gap-1.5 px-3 py-2 text-sm font-bold text-white rounded-xl disabled:opacity-50"
@@ -445,7 +445,7 @@ export function RequirementTimesheet({
             )}
             {/* Ingreso manual: solo admin/supervisor */}
             {canAssignToOthers && (
-              <button
+              <button type="button"
                 onClick={() => setShowManual((v) => !v)}
                 className="flex items-center gap-1.5 px-3 py-2 text-sm font-bold text-fm-on-surface-variant bg-fm-background border border-fm-surface-container-high rounded-xl"
               >
@@ -461,10 +461,10 @@ export function RequirementTimesheet({
             <div className="space-y-2 pt-1">
               {canAssignToOthers && assignableUsers.length > 0 && (
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-fm-outline-variant uppercase tracking-wider">
+                  <label htmlFor="f-registrar-tiempo-a-3c26ec1d" className="text-[10px] font-bold text-fm-outline-variant uppercase tracking-wider">
                     Registrar tiempo a
                   </label>
-                  <select
+                  <select id="f-registrar-tiempo-a-3c26ec1d"
                     value={manualTargetUserId}
                     onChange={(e) => setManualTargetUserId(e.target.value)}
                     className="w-full px-3 py-2 text-sm bg-fm-background border border-fm-surface-container-high rounded-xl outline-none text-fm-on-surface"
@@ -485,10 +485,10 @@ export function RequirementTimesheet({
               )}
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-fm-outline-variant uppercase tracking-wider">
+                  <label htmlFor="f-inicio-958788de" className="text-[10px] font-bold text-fm-outline-variant uppercase tracking-wider">
                     Inicio
                   </label>
-                  <input
+                  <input id="f-inicio-958788de"
                     type="datetime-local"
                     value={manualStartedAt}
                     onChange={(e) => setManualStartedAt(e.target.value)}
@@ -496,10 +496,10 @@ export function RequirementTimesheet({
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-fm-outline-variant uppercase tracking-wider">
+                  <label htmlFor="f-fin-c4be8ec2" className="text-[10px] font-bold text-fm-outline-variant uppercase tracking-wider">
                     Fin
                   </label>
-                  <input
+                  <input id="f-fin-c4be8ec2"
                     type="datetime-local"
                     value={manualEndedAt}
                     onChange={(e) => setManualEndedAt(e.target.value)}
@@ -511,7 +511,7 @@ export function RequirementTimesheet({
                 <p className="text-xs text-fm-error">{manualError}</p>
               )}
               <div className="flex justify-end">
-                <button
+                <button type="button"
                   onClick={addManualEntry}
                   disabled={saving || !manualStartedAt || !manualEndedAt}
                   className="px-4 py-2 text-sm font-bold text-white rounded-xl bg-fm-primary disabled:opacity-50"

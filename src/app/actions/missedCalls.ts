@@ -1,6 +1,7 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireUser } from '@/lib/auth/require-user'
 
 /**
  * Si la sesión `sessionId` corresponde a un DM cerrado sin que el receptor
@@ -11,6 +12,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
  */
 export async function recordMissedCall(sessionId: string): Promise<void> {
   try {
+    await requireUser()
     const admin = createAdminClient()
     const { data: session } = await admin
       .from('call_sessions')

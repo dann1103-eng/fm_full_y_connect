@@ -2,50 +2,19 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { isoDateStr } from '@/lib/domain/time'
+import { dayRange, weekRange, monthRange, type DateRangePreset, type DateRangeValue } from './date-range-helpers'
 
-export type DateRangePreset = 'day' | 'week' | 'month' | 'custom'
-
-export interface DateRangeValue {
-  start: string   // ISO datetime
-  end: string     // ISO datetime (exclusive)
-  preset: DateRangePreset
-}
+export type { DateRangePreset, DateRangeValue } from './date-range-helpers'
 
 interface Props {
   value: DateRangeValue
   onChange: (v: DateRangeValue) => void
 }
 
-function startOfDay(d: Date): Date {
-  const x = new Date(d)
-  x.setHours(0, 0, 0, 0)
-  return x
-}
-
 function addDays(d: Date, n: number): Date {
   const x = new Date(d)
   x.setDate(x.getDate() + n)
   return x
-}
-
-export function dayRange(now = new Date()): DateRangeValue {
-  const start = startOfDay(now)
-  const end = addDays(start, 1)
-  return { start: start.toISOString(), end: end.toISOString(), preset: 'day' }
-}
-
-export function weekRange(now = new Date()): DateRangeValue {
-  const today = startOfDay(now)
-  const dayOfWeek = (today.getDay() + 6) % 7 // Monday = 0
-  const start = addDays(today, -dayOfWeek)
-  const end = addDays(start, 7)
-  return { start: start.toISOString(), end: end.toISOString(), preset: 'week' }
-}
-
-export function monthRange(now = new Date()): DateRangeValue {
-  const start = new Date(now.getFullYear(), now.getMonth(), 1)
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-  return { start: start.toISOString(), end: end.toISOString(), preset: 'month' }
 }
 
 function fmt(iso: string): string {
@@ -132,8 +101,8 @@ export function DateRangePicker({ value, onChange }: Props) {
           className="absolute top-full left-0 mt-2 z-20 bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-2xl p-4 shadow-lg flex flex-col gap-3 min-w-[280px]"
         >
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-extrabold uppercase tracking-wider text-fm-on-surface-variant">Desde</label>
-            <input
+            <label htmlFor="f-desde-224ea524" className="text-[10px] font-extrabold uppercase tracking-wider text-fm-on-surface-variant">Desde</label>
+            <input id="f-desde-224ea524"
               type="date"
               value={customStart}
               onChange={(e) => setCustomStart(e.target.value)}
@@ -141,8 +110,8 @@ export function DateRangePicker({ value, onChange }: Props) {
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-extrabold uppercase tracking-wider text-fm-on-surface-variant">Hasta</label>
-            <input
+            <label htmlFor="f-hasta-5a6089ea" className="text-[10px] font-extrabold uppercase tracking-wider text-fm-on-surface-variant">Hasta</label>
+            <input id="f-hasta-5a6089ea"
               type="date"
               value={customEnd}
               onChange={(e) => setCustomEnd(e.target.value)}

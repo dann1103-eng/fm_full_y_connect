@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import React, { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateClientProfile } from '@/app/actions/clientProfile'
 import { LogoUploader } from '@/components/clients/LogoUploader'
@@ -275,7 +275,7 @@ export function ClientEmpresaForm({ client, cycle }: Props) {
             </Field>
 
             <Field label="País (ISO)">
-              <input type="text" maxLength={2} value={form.country_code} onChange={(e) => set('country_code', e.target.value.toUpperCase())} className="w-full rounded-lg border border-fm-outline-variant/40 bg-fm-surface-container-lowest px-3 py-2 text-sm text-fm-on-surface" placeholder="SV" />
+              <input aria-label="SV" type="text" maxLength={2} value={form.country_code} onChange={(e) => set('country_code', e.target.value.toUpperCase())} className="w-full rounded-lg border border-fm-outline-variant/40 bg-fm-surface-container-lowest px-3 py-2 text-sm text-fm-on-surface" placeholder="SV" />
             </Field>
           </div>
 
@@ -428,11 +428,12 @@ export function ClientEmpresaForm({ client, cycle }: Props) {
 }
 
 /** Wrapper para inputs con label arriba. */
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: React.ReactElement<{ id?: string }> }) {
+  const id = React.useId()
   return (
     <div className="space-y-1.5">
-      <label className="text-sm font-medium text-fm-on-surface">{label}</label>
-      {children}
+      <label htmlFor={id} className="text-sm font-medium text-fm-on-surface">{label}</label>
+      {React.cloneElement(children, { id })}
     </div>
   )
 }

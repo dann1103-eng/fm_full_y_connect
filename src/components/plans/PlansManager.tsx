@@ -19,7 +19,7 @@ export function PlansManager({ isAdmin }: PlansManagerProps) {
 
   return (
     <>
-      <button
+      <button type="button"
         onClick={() => setCreating(true)}
         className="flex items-center gap-2 px-5 py-2.5 bg-fm-primary text-white font-bold rounded-full hover:bg-fm-primary-dim transition-all text-sm"
       >
@@ -36,7 +36,7 @@ export function PlanEditButton({ plan }: { plan: Plan }) {
   const [editing, setEditing] = useState(false)
   return (
     <>
-      <button
+      <button type="button"
         onClick={() => setEditing(true)}
         className="text-xs font-semibold text-fm-primary hover:underline"
       >

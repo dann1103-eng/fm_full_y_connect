@@ -59,13 +59,13 @@ export function CycleHistorySwitcher({
         </h3>
         {hasPrevious && (
           <div className="flex rounded-full border border-fm-surface-container-high overflow-hidden text-xs font-bold">
-            <button
+            <button type="button"
               onClick={() => setView('current')}
               className={`px-3 py-1.5 transition-colors ${view === 'current' ? 'bg-fm-primary text-white' : 'text-fm-on-surface-variant hover:bg-fm-background'}`}
             >
               Actual
             </button>
-            <button
+            <button type="button"
               onClick={() => setView('previous')}
               className={`px-3 py-1.5 transition-colors ${view === 'previous' ? 'bg-fm-primary text-white' : 'text-fm-on-surface-variant hover:bg-fm-background'}`}
               title={previousPeriodStart ? `Ciclo de ${formatCycleLabel(previousPeriodStart)}` : 'Ciclo anterior'}

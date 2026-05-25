@@ -6,7 +6,8 @@ import { markConversationRead } from '@/app/actions/inbox'
 import { sendMessage } from '@/app/actions/inbox'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { EmojiPicker } from '@/components/ui/EmojiPicker'
-import { RequirementShareCard, parseReqShareBody } from '@/components/inbox/RequirementShareCard'
+import { RequirementShareCard } from '@/components/inbox/RequirementShareCard'
+import { parseReqShareBody } from '@/components/inbox/requirement-share-utils'
 import { CallButtons } from '@/components/calls/CallButtons'
 import { PresenceIndicator } from '@/components/presence/PresenceIndicator'
 import { useUsersPresence } from '@/hooks/useUsersPresence'
@@ -297,7 +298,7 @@ export function FloatingChatBubble({ conversation, onClose, onMinimize, minimize
               triggerClassName="p-1.5 rounded-lg text-fm-on-surface-variant hover:text-fm-primary hover:bg-fm-surface-container transition-colors"
               onSelect={(char) => setBody(b => b + char)}
             />
-            <input
+            <input aria-label="Escribe un mensaje..."
               value={body}
               onChange={(e) => setBody(e.target.value)}
               placeholder="Escribe un mensaje..."

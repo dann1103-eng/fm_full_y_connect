@@ -236,21 +236,21 @@ export function MyTimeHistory({ userId, initialEntries, initialYear, initialMont
           <div className="flex items-center gap-3">
             {mode === 'day' ? (
               <>
-                <button onClick={prevDay} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant transition-colors">
+                <button type="button" onClick={prevDay} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant transition-colors">
                   <span className="material-symbols-outlined text-lg">chevron_left</span>
                 </button>
                 <p className="text-base font-bold text-fm-on-surface w-44 text-center capitalize">{formatDayHeader(day)}</p>
-                <button onClick={nextDay} disabled={atMaxDay} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                <button type="button" onClick={nextDay} disabled={atMaxDay} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
                   <span className="material-symbols-outlined text-lg">chevron_right</span>
                 </button>
               </>
             ) : (
               <>
-                <button onClick={prevMonth} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant transition-colors">
+                <button type="button" onClick={prevMonth} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant transition-colors">
                   <span className="material-symbols-outlined text-lg">chevron_left</span>
                 </button>
                 <p className="text-base font-bold text-fm-on-surface w-36 text-center">{MONTHS[month]} {year}</p>
-                <button onClick={nextMonth} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant transition-colors">
+                <button type="button" onClick={nextMonth} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant transition-colors">
                   <span className="material-symbols-outlined text-lg">chevron_right</span>
                 </button>
               </>
@@ -261,7 +261,7 @@ export function MyTimeHistory({ userId, initialEntries, initialYear, initialMont
             {/* Toggle Día / Mes */}
             <div className="flex rounded-full border border-fm-surface-container-high overflow-hidden text-xs font-bold">
               {(['day', 'month'] as const).map(m => (
-                <button
+                <button type="button"
                   key={m}
                   onClick={() => setMode(m)}
                   className={`px-3 py-1.5 transition-colors ${mode === m ? 'bg-fm-primary text-white' : 'text-fm-on-surface-variant hover:bg-fm-background'}`}
@@ -395,7 +395,7 @@ function EntryRow({ entry, onOpenReq }: { entry: TimeEntryWithContext; onOpenReq
 
   if (isReq && entry.requirement_id) {
     return (
-      <button
+      <button type="button"
         onClick={() => onOpenReq(entry.requirement_id!)}
         className="block w-full text-left px-4 py-2.5 rounded-xl bg-fm-surface-container-low hover:bg-fm-surface-container transition-colors cursor-pointer"
       >

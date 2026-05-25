@@ -103,7 +103,7 @@ export function NewRequirementFromPipeline({ clients, isAdmin, canAssign }: Prop
 
   return (
     <>
-      <button
+      <button type="button"
         onClick={() => setStep('pick')}
         className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-fm-primary text-white text-sm font-semibold rounded-xl hover:bg-fm-primary-dim transition-colors"
       >
@@ -123,7 +123,7 @@ export function NewRequirementFromPipeline({ clients, isAdmin, canAssign }: Prop
             <div className="px-4 pt-4 pb-2">
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-fm-outline-variant text-base pointer-events-none">search</span>
-                <input
+                <input aria-label="Buscar cliente…"
                   autoFocus
                   type="text"
                   value={search}
@@ -152,7 +152,7 @@ export function NewRequirementFromPipeline({ clients, isAdmin, canAssign }: Prop
             </ul>
 
             <div className="px-6 pb-5">
-              <button onClick={close} className="w-full py-2 text-sm text-fm-on-surface-variant border border-fm-surface-container-high rounded-full hover:bg-fm-background">
+              <button type="button" onClick={close} className="w-full py-2 text-sm text-fm-on-surface-variant border border-fm-surface-container-high rounded-full hover:bg-fm-background">
                 Cancelar
               </button>
             </div>
@@ -175,7 +175,7 @@ export function NewRequirementFromPipeline({ clients, isAdmin, canAssign }: Prop
           <div className="bg-fm-surface-container-lowest rounded-2xl px-8 py-6 shadow-xl space-y-3 max-w-xs w-full text-center">
             <span className="material-symbols-outlined text-fm-error text-3xl">error</span>
             <p className="text-sm text-fm-on-surface">No se encontró un ciclo activo para este cliente.</p>
-            <button onClick={close} className="w-full py-2 text-sm border border-fm-surface-container-high rounded-full hover:bg-fm-background">Cerrar</button>
+            <button type="button" onClick={close} className="w-full py-2 text-sm border border-fm-surface-container-high rounded-full hover:bg-fm-background">Cerrar</button>
           </div>
         </div>
       )}

@@ -195,7 +195,7 @@ export function PresenceSelector() {
                 align="top-left"
                 triggerClassName="w-9 h-9 flex items-center justify-center bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-lg text-fm-on-surface-variant hover:bg-fm-background hover:text-fm-primary transition-colors"
               />
-              <input
+              <input aria-label="ej. ocupado, en café, feliz…"
                 type="text"
                 value={messageDraft}
                 onChange={(e) => setMessageDraft(e.target.value)}

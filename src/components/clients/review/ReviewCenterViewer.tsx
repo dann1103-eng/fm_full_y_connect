@@ -23,6 +23,17 @@ interface UserMini {
   role: UserRole
 }
 
+function DiagnosticRow({ ok, label, detail }: { ok: boolean; label: string; detail: string }) {
+  return (
+    <div className={`rounded-lg px-2.5 py-2 border ${ok ? 'border-green-500/30 bg-green-500/5' : 'border-fm-error/40 bg-fm-error/10'}`}>
+      <p className={`font-semibold mb-0.5 ${ok ? 'text-green-700 dark:text-green-400' : 'text-fm-error'}`}>
+        {ok ? '✓' : '✗'} {label}
+      </p>
+      <p className="text-fm-on-surface-variant">{detail}</p>
+    </div>
+  )
+}
+
 interface ReviewCenterViewerProps {
   loading: boolean
   error: string | null
@@ -113,7 +124,7 @@ export function ReviewCenterViewer({
               : 'Sube imágenes o videos para empezar a recibir feedback con pines.'}
           </p>
           {!clientMode && (
-            <button
+            <button type="button"
               onClick={onEmptyAddFiles}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-fm-primary text-white text-xs font-semibold hover:bg-fm-primary-dim transition-colors"
             >
@@ -127,32 +138,21 @@ export function ReviewCenterViewer({
             const cycleOk = diag.billingCycleVisible
             const allOk = phaseOk && linkOk && cycleOk
 
-            function Row({ ok, label, detail }: { ok: boolean; label: string; detail: string }) {
-              return (
-                <div className={`rounded-lg px-2.5 py-2 border ${ok ? 'border-green-500/30 bg-green-500/5' : 'border-fm-error/40 bg-fm-error/10'}`}>
-                  <p className={`font-semibold mb-0.5 ${ok ? 'text-green-700 dark:text-green-400' : 'text-fm-error'}`}>
-                    {ok ? '✓' : '✗'} {label}
-                  </p>
-                  <p className="text-fm-on-surface-variant">{detail}</p>
-                </div>
-              )
-            }
-
             return (
               <div className="mt-4 text-left rounded-xl border border-fm-error/30 bg-fm-error/5 p-3 text-xs space-y-2">
                 <p className="font-semibold text-fm-error">Diagnóstico de acceso</p>
 
-                <Row
+                <DiagnosticRow
                   ok={phaseOk}
                   label="Fase del requerimiento"
                   detail={`Fase actual: ${diag.phase ?? '—'}${!phaseOk ? ' — debe ser "revision_cliente".' : ''}`}
                 />
-                <Row
+                <DiagnosticRow
                   ok={linkOk}
                   label="Vinculación a esta marca"
                   detail={`client_users: ${diag.clientUsersRows} fila(s) · is_client_of(): ${diag.isClientOf === null ? '—' : String(diag.isClientOf)}${!linkOk ? ' — el usuario no está vinculado a esta marca.' : ''}`}
                 />
-                <Row
+                <DiagnosticRow
                   ok={cycleOk}
                   label="Ciclo de facturación visible"
                   detail={cycleOk

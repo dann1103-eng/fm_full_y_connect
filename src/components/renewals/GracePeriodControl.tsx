@@ -98,14 +98,14 @@ export function GracePeriodControl({
           </div>
         </div>
         <div className="flex gap-2">
-          <button
+          <button type="button"
             onClick={() => setEditing(true)}
             disabled={isPending}
             className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-emerald-400/60 text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
           >
             Extender
           </button>
-          <button
+          <button type="button"
             onClick={handleRevoke}
             disabled={isPending}
             className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-fm-error/40 text-fm-error hover:bg-fm-error/10 disabled:opacity-50"
@@ -145,7 +145,7 @@ export function GracePeriodControl({
               {n} días
             </button>
           ))}
-          <input
+          <input aria-label="otro"
             type="number"
             min={1}
             max={60}
@@ -159,14 +159,14 @@ export function GracePeriodControl({
         {error && <p className="text-xs text-fm-error font-semibold">{error}</p>}
 
         <div className="flex gap-2">
-          <button
+          <button type="button"
             onClick={() => { setEditing(false); setError(null); setCustomDays('') }}
             disabled={isPending}
             className="flex-1 py-2 text-xs border border-fm-surface-container-high rounded-lg text-fm-on-surface-variant hover:bg-fm-background disabled:opacity-50"
           >
             Cancelar
           </button>
-          <button
+          <button type="button"
             onClick={handleGrant}
             disabled={isPending}
             className="flex-1 py-2 text-xs bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 disabled:opacity-50"
@@ -180,7 +180,7 @@ export function GracePeriodControl({
 
   // ── Estado: sin gracia, idle ──
   return (
-    <button
+    <button type="button"
       onClick={() => setEditing(true)}
       className={
         variant === 'full'

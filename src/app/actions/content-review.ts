@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { assertNotImpersonating } from './impersonation'
+import { requireUser } from '@/lib/auth/require-user'
 import type {
   ReviewAssetKind,
   ReviewAsset,
@@ -81,6 +82,7 @@ export async function archiveReviewAsset(args: {
   assetId: string
   clientId: string
 }): Promise<ActionResult<null>> {
+  await requireUser()
   await assertNotImpersonating()
   const supabase = await createClient()
   const { error } = await supabase
@@ -252,6 +254,7 @@ export async function getSignedDownloadUrl(args: {
   storagePath: string
   fileName?: string | null
 }): Promise<ActionResult<{ url: string }>> {
+  await requireUser({ allowImpersonation: true })
   const supabase = await createClient()
   const { data, error } = await supabase.storage
     .from('review-files')
@@ -267,6 +270,7 @@ export async function getSignedDownloadUrl(args: {
 export async function getSignedViewUrl(args: {
   storagePath: string
 }): Promise<ActionResult<{ url: string }>> {
+  await requireUser({ allowImpersonation: true })
   const supabase = await createClient()
   const { data, error } = await supabase.storage
     .from('review-files')
@@ -425,6 +429,7 @@ export async function reopenReviewPin(args: {
   pinId: string
   clientId: string
 }): Promise<ActionResult<null>> {
+  await requireUser()
   await assertNotImpersonating()
   const supabase = await createClient()
   const { error } = await supabase
@@ -441,6 +446,7 @@ export async function deleteReviewPin(args: {
   pinId: string
   clientId: string
 }): Promise<ActionResult<null>> {
+  await requireUser()
   await assertNotImpersonating()
   const supabase = await createClient()
   const { error } = await supabase.from('review_pins').delete().eq('id', args.pinId)
@@ -542,6 +548,7 @@ export async function deleteReviewComment(args: {
   commentId: string
   clientId: string
 }): Promise<ActionResult<null>> {
+  await requireUser()
   await assertNotImpersonating()
   const supabase = await createClient()
   const { error } = await supabase

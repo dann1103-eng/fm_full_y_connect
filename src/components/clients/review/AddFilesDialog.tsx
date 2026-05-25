@@ -214,10 +214,10 @@ export function AddFilesDialog({
 
           {mode.kind === 'new-asset' && (
             <div className="mb-3">
-              <label className="block text-xs font-semibold text-fm-on-surface mb-1">
+              <label htmlFor="f-nombre-del-archivo-5a14fbd8" className="block text-xs font-semibold text-fm-on-surface mb-1">
                 Nombre del archivo
               </label>
-              <input
+              <input id="f-nombre-del-archivo-5a14fbd8"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -315,14 +315,14 @@ export function AddFilesDialog({
           )}
 
           <div className="flex justify-end gap-2 mt-4">
-            <button
+            <button type="button"
               onClick={handleClose}
               disabled={busy}
               className="px-4 py-2 rounded-full text-xs font-semibold text-fm-on-surface-variant hover:bg-fm-background disabled:opacity-40"
             >
               Cancelar
             </button>
-            <button
+            <button type="button"
               onClick={handleUpload}
               disabled={
                 files.length === 0 ||

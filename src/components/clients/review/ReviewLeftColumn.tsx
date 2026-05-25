@@ -74,7 +74,7 @@ export function ReviewLeftColumn({
   if (collapsed) {
     return (
       <div className="h-full flex items-start justify-center pt-4">
-        <button
+        <button type="button"
           onClick={() => setCollapsed(false)}
           className="text-fm-on-surface-variant hover:text-fm-on-surface p-1 rounded hover:bg-fm-surface-container"
           aria-label="Expandir"
@@ -90,7 +90,7 @@ export function ReviewLeftColumn({
       {/* Dropdown "Última versión" */}
       <div className="px-3 pt-3 pb-2 border-b border-fm-surface-container-high/60 flex items-center justify-between">
         <span className="text-xs font-semibold text-fm-on-surface">Última versión</span>
-        <button
+        <button type="button"
           onClick={() => setCollapsed(true)}
           className="text-fm-on-surface-variant hover:text-fm-on-surface p-1 rounded hover:bg-fm-surface-container"
           aria-label="Colapsar"
@@ -117,7 +117,7 @@ export function ReviewLeftColumn({
                     isSelectedAsset && version.id === selectedVersionId
                   return (
                     <div key={version.id} className="space-y-1">
-                      <button
+                      <button type="button"
                         onClick={() => {
                           onSelectAsset(asset.id)
                           onSelectVersion(version.id)
@@ -143,7 +143,7 @@ export function ReviewLeftColumn({
                       </div>
                       {isLatest && isSelectedAsset && (
                         <div className="flex gap-1">
-                          <button
+                          <button type="button"
                             onClick={handleDownload}
                             className="flex-1 flex items-center justify-center gap-1 text-[10px] font-semibold text-fm-primary hover:bg-fm-primary/10 py-1.5 rounded transition-colors"
                             title="Descargar última versión"
@@ -152,7 +152,7 @@ export function ReviewLeftColumn({
                             Descargar
                           </button>
                           {canDeleteVersion(version) && (
-                            <button
+                            <button type="button"
                               onClick={() => handleDeleteVersion(version)}
                               disabled={deletingId === version.id}
                               className="flex items-center justify-center px-2 py-1.5 rounded text-[#b31b25] hover:bg-[#b31b25]/10 transition-colors disabled:opacity-40"
@@ -172,7 +172,7 @@ export function ReviewLeftColumn({
                     ? (pinsByVersion[latestV.id] ?? []).some((p) => p.status === 'active')
                     : false
                   return (
-                    <button
+                    <button type="button"
                       onClick={() => onAddVersion(asset.id)}
                       disabled={latestHasActivePins}
                       title={
@@ -196,7 +196,7 @@ export function ReviewLeftColumn({
       {/* Botón agregar archivo global */}
       {!clientMode && (
         <div className="p-3 border-t border-fm-surface-container-high/60">
-          <button
+          <button type="button"
             onClick={onAddAsset}
             className="w-full flex items-center justify-center gap-1.5 py-2 rounded-full bg-fm-primary text-white text-xs font-semibold hover:bg-fm-primary-dim transition-colors"
           >

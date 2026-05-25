@@ -198,14 +198,14 @@ export function NewMessageDialog({ open, onOpenChange, canCreateChannels, allUse
               />
             </div>
             <div>
-              <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wider">Miembros</label>
+              <label htmlFor="f-miembros-e1b50943" className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wider">Miembros</label>
               <div className="max-h-40 overflow-y-auto border border-fm-surface-container-high rounded-lg mt-1 divide-y divide-fm-surface-container-high">
                 {allUsers.map((u) => (
                   <label
                     key={u.id}
                     className="flex items-center gap-2 px-3 py-1.5 hover:bg-fm-background cursor-pointer"
                   >
-                    <input
+                    <input id="f-miembros-e1b50943"
                       type="checkbox"
                       checked={channelMemberIds.includes(u.id)}
                       onChange={() => toggleChannelMember(u.id)}

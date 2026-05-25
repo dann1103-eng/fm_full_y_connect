@@ -322,7 +322,7 @@ export function RequirementPanel({
                   ✓ {isBiweekly ? '1er pago' : 'Pagado'}
                 </span>
               ) : isAdmin ? (
-                <button
+                <button type="button"
                   onClick={handleMarkPaid}
                   disabled={markingPaid}
                   className="px-2 py-0.5 bg-fm-error/10 text-fm-error text-[10px] font-extrabold rounded-full border border-fm-error/20 hover:bg-fm-error/20 transition-colors"
@@ -341,7 +341,7 @@ export function RequirementPanel({
                     ✓ 2do pago
                   </span>
                 ) : isAdmin ? (
-                  <button
+                  <button type="button"
                     onClick={handleMarkPaid2}
                     disabled={markingPaid}
                     className="px-2 py-0.5 bg-fm-error/10 text-fm-error text-[10px] font-extrabold rounded-full border border-fm-error/20 hover:bg-fm-error/20 transition-colors"
@@ -448,7 +448,7 @@ export function RequirementPanel({
                     ? 'Paquete agotado'
                     : 'Registrar requerimiento'
               return (
-                <button
+                <button type="button"
                   onClick={() => !buttonBlocked && setModalOpen(true)}
                   disabled={buttonBlocked}
                   className={`flex-1 md:flex-none px-5 py-2.5 text-white font-bold rounded-full flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 text-sm ${buttonBlocked ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-110'}`}
@@ -509,7 +509,7 @@ export function RequirementPanel({
             </div>
           </div>
           {canCreate && (
-            <button
+            <button type="button"
               onClick={handleRenewContentPackage}
               disabled={renewingPackage}
               className="flex items-center gap-2 px-5 py-2.5 text-white font-bold rounded-full text-sm disabled:opacity-60 flex-shrink-0"
@@ -983,7 +983,7 @@ export function RequirementPanel({
               Notas internas
             </h3>
             <div className="glass-panel p-6 rounded-[2rem] flex flex-col" style={{ minHeight: '340px' }}>
-              <textarea
+              <textarea aria-label="Notas internas sobre el cliente..."
                 className="flex-1 w-full bg-transparent border border-fm-outline-variant/30 rounded-2xl p-4 text-sm text-fm-on-surface placeholder:text-fm-outline/50 resize-none outline-none transition-all focus:border-fm-primary/50 focus:ring-2 focus:ring-fm-primary-container/40"
                 rows={8}
                 value={notes}
@@ -991,7 +991,7 @@ export function RequirementPanel({
                 placeholder="Notas internas sobre el cliente..."
               />
               <div className="mt-4 flex justify-end">
-                <button
+                <button type="button"
                   onClick={handleSaveNotes}
                   disabled={savingNotes}
                   className="px-6 py-2.5 text-white font-bold rounded-full shadow-lg hover:scale-[1.02] transition-transform active:scale-95 text-sm disabled:opacity-60"

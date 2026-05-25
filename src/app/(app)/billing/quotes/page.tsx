@@ -70,7 +70,7 @@ export default async function QuotesListPage({
 
         <form method="get" className="flex gap-2">
           {statusFilter && <input type="hidden" name="status" value={statusFilter} />}
-          <input
+          <input aria-label="Buscar por número o cliente…"
             type="search"
             name="q"
             defaultValue={params.q ?? ''}

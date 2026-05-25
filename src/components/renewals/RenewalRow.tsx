@@ -217,7 +217,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
           )}
 
           {cycle.payment_status === 'unpaid' && isAdmin && (
-            <button
+            <button type="button"
               onClick={markPaid}
               disabled={isPending}
               className="text-xs text-white font-medium px-3 py-1.5 rounded-lg transition-all hover:opacity-90"
@@ -239,7 +239,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
           )}
 
           {isAdmin && (
-            <button
+            <button type="button"
               onClick={toggleExpanded}
               className="p-1.5 rounded-lg text-fm-outline hover:bg-fm-background transition-colors"
             >
@@ -259,7 +259,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
 
           {/* Primary action buttons */}
           <div className="flex gap-2 p-4 pb-0">
-            <button
+            <button type="button"
               onClick={() => selectMode('simple')}
               className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all flex-1 justify-center ${
                 mode === 'simple'
@@ -274,7 +274,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
               Renovar plan
             </button>
 
-            <button
+            <button type="button"
               onClick={() => selectMode('cambios')}
               className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all flex-1 justify-center ${
                 mode === 'cambios'
@@ -312,7 +312,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
                 </div>
               </div>
 
-              <button
+              <button type="button"
                 onClick={() => doRenew(false)}
                 disabled={isPending}
                 className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
@@ -334,7 +334,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
                 </p>
                 <div className="flex gap-2">
                   {(['monthly', 'biweekly'] as BillingPeriod[]).map((period) => (
-                    <button
+                    <button type="button"
                       key={period}
                       onClick={() => setBillingPeriod(period)}
                       className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
@@ -354,8 +354,8 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
                 )}
                 {billingPeriod === 'biweekly' && (
                   <div className="mt-2 flex items-center gap-2">
-                    <label className="text-[11px] font-semibold text-fm-on-surface flex-shrink-0">2° día de facturación:</label>
-                    <input
+                    <label htmlFor="f-2-d-a-de-facturaci-n-fce78026" className="text-[11px] font-semibold text-fm-on-surface flex-shrink-0">2° día de facturación:</label>
+                    <input id="f-2-d-a-de-facturaci-n-fce78026"
                       type="number" min={1} max={31}
                       placeholder={client.billing_day_2?.toString() ?? 'ej. 15'}
                       defaultValue={client.billing_day_2 ?? ''}
@@ -374,7 +374,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
                 </p>
                 <div className="grid grid-cols-3 gap-2">
                   {allPlans.map((plan) => (
-                    <button
+                    <button type="button"
                       key={plan.id}
                       onClick={() => setSelectedPlanId(plan.id)}
                       className={`p-3 rounded-xl border-2 text-left transition-all ${
@@ -423,23 +423,23 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
 
                 <div className="flex gap-2 mb-2">
                   <div className="flex flex-col gap-1 flex-shrink-0 w-16">
-                    <label className="text-[10px] font-medium text-fm-on-surface-variant">Cant.</label>
-                    <input type="number" min={1} value={pkgQty} onChange={(e) => setPkgQty(e.target.value)}
+                    <label htmlFor="f-cant-e6788821" className="text-[10px] font-medium text-fm-on-surface-variant">Cant.</label>
+                    <input id="f-cant-e6788821" type="number" min={1} value={pkgQty} onChange={(e) => setPkgQty(e.target.value)}
                       className="h-8 px-2 rounded-lg border border-fm-surface-container-high bg-fm-surface-container-lowest text-xs focus:outline-none focus:border-fm-primary" />
                   </div>
                   <div className="flex flex-col gap-1 flex-shrink-0 w-24">
-                    <label className="text-[10px] font-medium text-fm-on-surface-variant">Precio (USD)</label>
-                    <input type="number" step="0.01" placeholder="0.00" value={pkgPrice} onChange={(e) => setPkgPrice(e.target.value)}
+                    <label htmlFor="f-precio-usd-bb9a2afa" className="text-[10px] font-medium text-fm-on-surface-variant">Precio (USD)</label>
+                    <input id="f-precio-usd-bb9a2afa" type="number" step="0.01" placeholder="0.00" value={pkgPrice} onChange={(e) => setPkgPrice(e.target.value)}
                       className="h-8 px-2 rounded-lg border border-fm-surface-container-high bg-fm-surface-container-lowest text-xs focus:outline-none focus:border-fm-primary" />
                   </div>
                   <div className="flex flex-col gap-1 flex-1">
-                    <label className="text-[10px] font-medium text-fm-on-surface-variant">Nota</label>
-                    <input placeholder="opcional" value={pkgNote} onChange={(e) => setPkgNote(e.target.value)}
+                    <label htmlFor="f-nota-995d7ed1" className="text-[10px] font-medium text-fm-on-surface-variant">Nota</label>
+                    <input id="f-nota-995d7ed1" placeholder="opcional" value={pkgNote} onChange={(e) => setPkgNote(e.target.value)}
                       className="h-8 px-2 rounded-lg border border-fm-surface-container-high bg-fm-surface-container-lowest text-xs focus:outline-none focus:border-fm-primary" />
                   </div>
                   <div className="flex flex-col gap-1 flex-shrink-0">
                     <label className="text-[10px] text-transparent">add</label>
-                    <button onClick={addCambiosPackage}
+                    <button type="button" onClick={addCambiosPackage}
                       className="h-8 px-3 rounded-lg border border-fm-primary text-fm-primary text-xs font-semibold hover:bg-fm-primary/5">
                       + Agregar
                     </button>
@@ -454,7 +454,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
                         {pkg.price_usd != null && ` · $${pkg.price_usd.toFixed(2)}`}
                         {pkg.note && ` · ${pkg.note}`}
                       </span>
-                      <button onClick={() => setCambiosPackages((prev) => prev.filter((_, j) => j !== i))}
+                      <button type="button" onClick={() => setCambiosPackages((prev) => prev.filter((_, j) => j !== i))}
                         className="text-fm-error opacity-60 hover:opacity-100">
                         <span className="material-symbols-outlined" style={{ fontSize: 14 }}>delete</span>
                       </button>
@@ -479,7 +479,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
 
                 {/* Mode toggle */}
                 <div className="flex gap-1 mb-3 bg-fm-surface-container-lowest rounded-lg border border-fm-surface-container-high p-0.5 w-fit">
-                  <button
+                  <button type="button"
                     onClick={() => setExtraIsCustom(false)}
                     className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
                       !extraIsCustom ? 'bg-fm-background text-fm-on-surface shadow-sm' : 'text-fm-outline'
@@ -487,7 +487,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
                   >
                     Estándar
                   </button>
-                  <button
+                  <button type="button"
                     onClick={() => setExtraIsCustom(true)}
                     className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
                       extraIsCustom ? 'bg-fm-background text-fm-on-surface shadow-sm' : 'text-fm-outline'
@@ -511,20 +511,20 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
                   {extraIsCustom ? (
                     <>
                       <div className="flex flex-col gap-1 flex-1">
-                        <label className="text-[10px] font-medium text-fm-on-surface-variant">Descripción</label>
-                        <input placeholder="ej. Sesión fotográfica" value={extraLabel} onChange={(e) => setExtraLabel(e.target.value)}
+                        <label htmlFor="f-descripci-n-ed7e174c" className="text-[10px] font-medium text-fm-on-surface-variant">Descripción</label>
+                        <input id="f-descripci-n-ed7e174c" placeholder="ej. Sesión fotográfica" value={extraLabel} onChange={(e) => setExtraLabel(e.target.value)}
                           className="h-8 px-2 rounded-lg border border-fm-surface-container-high bg-fm-surface-container-lowest text-xs focus:outline-none focus:border-fm-primary" />
                       </div>
                       <div className="flex flex-col gap-1 flex-shrink-0 w-20">
-                        <label className="text-[10px] font-medium text-fm-on-surface-variant">Precio/u</label>
-                        <input type="number" step="0.01" placeholder="0.00" value={extraPrice} onChange={(e) => setExtraPrice(e.target.value)}
+                        <label htmlFor="f-precio-u-38c226f9" className="text-[10px] font-medium text-fm-on-surface-variant">Precio/u</label>
+                        <input id="f-precio-u-38c226f9" type="number" step="0.01" placeholder="0.00" value={extraPrice} onChange={(e) => setExtraPrice(e.target.value)}
                           className="h-8 px-2 rounded-lg border border-fm-surface-container-high bg-fm-surface-container-lowest text-xs focus:outline-none focus:border-fm-primary" />
                       </div>
                     </>
                   ) : (
                     <div className="flex flex-col gap-1 flex-1">
-                      <label className="text-[10px] font-medium text-fm-on-surface-variant">Tipo</label>
-                      <select value={extraType} onChange={(e) => setExtraType(e.target.value as ContentType)}
+                      <label htmlFor="f-tipo-ab6a9fc3" className="text-[10px] font-medium text-fm-on-surface-variant">Tipo</label>
+                      <select id="f-tipo-ab6a9fc3" value={extraType} onChange={(e) => setExtraType(e.target.value as ContentType)}
                         className="h-8 px-2 rounded-lg border border-fm-surface-container-high bg-fm-surface-container-lowest text-xs text-fm-on-surface focus:outline-none focus:border-fm-primary">
                         {(Object.keys(EXTRA_CONTENT_PRICES) as ContentType[]).map((t) => (
                           <option key={t} value={t}>{CONTENT_TYPE_LABELS[t]} · ${EXTRA_CONTENT_PRICES[t]}</option>
@@ -533,18 +533,18 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
                     </div>
                   )}
                   <div className="flex flex-col gap-1 flex-shrink-0 w-14">
-                    <label className="text-[10px] font-medium text-fm-on-surface-variant">Cant.</label>
-                    <input type="number" min={1} value={extraQty} onChange={(e) => setExtraQty(e.target.value)}
+                    <label htmlFor="f-cant-8c72a869" className="text-[10px] font-medium text-fm-on-surface-variant">Cant.</label>
+                    <input id="f-cant-8c72a869" type="number" min={1} value={extraQty} onChange={(e) => setExtraQty(e.target.value)}
                       className="h-8 px-2 rounded-lg border border-fm-surface-container-high bg-fm-surface-container-lowest text-xs focus:outline-none focus:border-fm-primary" />
                   </div>
                   <div className="flex flex-col gap-1 flex-1">
-                    <label className="text-[10px] font-medium text-fm-on-surface-variant">Nota</label>
-                    <input placeholder="opcional" value={extraNote} onChange={(e) => setExtraNote(e.target.value)}
+                    <label htmlFor="f-nota-febbc7bb" className="text-[10px] font-medium text-fm-on-surface-variant">Nota</label>
+                    <input id="f-nota-febbc7bb" placeholder="opcional" value={extraNote} onChange={(e) => setExtraNote(e.target.value)}
                       className="h-8 px-2 rounded-lg border border-fm-surface-container-high bg-fm-surface-container-lowest text-xs focus:outline-none focus:border-fm-primary" />
                   </div>
                   <div className="flex flex-col gap-1 flex-shrink-0">
                     <label className="text-[10px] text-transparent">add</label>
-                    <button onClick={addExtraItem}
+                    <button type="button" onClick={addExtraItem}
                       className="h-8 px-3 rounded-lg border border-fm-primary text-fm-primary text-xs font-semibold hover:bg-fm-primary/5">
                       + Agregar
                     </button>
@@ -559,7 +559,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
                         {item.note && ` · ${item.note}`}
                       </span>
                       <span className="font-semibold text-fm-primary">${(item.price_per_unit * item.qty).toFixed(2)}</span>
-                      <button onClick={() => setExtraContent((prev) => prev.filter((_, j) => j !== i))}
+                      <button type="button" onClick={() => setExtraContent((prev) => prev.filter((_, j) => j !== i))}
                         className="text-fm-error opacity-60 hover:opacity-100">
                         <span className="material-symbols-outlined" style={{ fontSize: 14 }}>delete</span>
                       </button>
@@ -606,7 +606,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
                 </div>
               )}
 
-              <button
+              <button type="button"
                 onClick={() => doRenew(true)}
                 disabled={isPending}
                 className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
@@ -620,7 +620,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
           {/* ── PAUSAR ── */}
           <div className="px-4 pb-4 pt-3">
             {mode !== 'simple' && mode !== 'cambios' && (
-              <button
+              <button type="button"
                 onClick={() => selectMode('pausar')}
                 className="text-xs text-fm-on-surface-variant hover:text-fm-error transition-colors underline underline-offset-2"
               >
@@ -638,7 +638,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
                 </div>
 
                 {!pauseConfirm ? (
-                  <button
+                  <button type="button"
                     onClick={() => setPauseConfirm(true)}
                     className="w-full py-2.5 rounded-xl text-sm font-semibold text-fm-on-surface-variant bg-fm-surface-container-lowest border border-fm-surface-container-high hover:border-fm-on-surface-variant transition-all"
                   >
@@ -648,13 +648,13 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
                   <div className="space-y-2">
                     <p className="text-xs text-center text-fm-on-surface-variant">¿Confirmas que deseas pausar a <strong>{client.name}</strong>?</p>
                     <div className="flex gap-2">
-                      <button
+                      <button type="button"
                         onClick={() => { setPauseConfirm(false); selectMode(null) }}
                         className="flex-1 py-2 rounded-xl text-sm text-fm-on-surface-variant bg-fm-surface-container-lowest border border-fm-surface-container-high"
                       >
                         Cancelar
                       </button>
-                      <button
+                      <button type="button"
                         onClick={handlePause}
                         disabled={isPending}
                         className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-fm-on-surface-variant hover:bg-fm-on-surface transition-colors"
@@ -668,7 +668,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
             )}
 
             {(mode === 'simple' || mode === 'cambios') && (
-              <button
+              <button type="button"
                 onClick={() => selectMode('pausar')}
                 className="text-xs text-fm-on-surface-variant hover:text-fm-error transition-colors underline underline-offset-2 mt-1"
               >

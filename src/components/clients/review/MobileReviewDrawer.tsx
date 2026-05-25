@@ -53,7 +53,7 @@ export function MobileReviewDrawer({
       style={{ maxHeight: '60vh' }}
     >
       {/* Handle / toggle bar */}
-      <button
+      <button type="button"
         onClick={onToggle}
         className="flex items-center justify-between px-4 min-h-[44px] flex-shrink-0 hover:bg-fm-surface-container/50 transition-colors"
       >

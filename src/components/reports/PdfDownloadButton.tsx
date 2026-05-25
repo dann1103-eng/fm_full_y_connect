@@ -40,7 +40,7 @@ export function PdfDownloadButton({ clientId }: Props) {
         />
         Incluir detalle de requerimientos
       </label>
-      <button
+      <button type="button"
         onClick={handleDownload}
         disabled={loading}
         className="px-5 py-2.5 bg-fm-primary text-white font-bold rounded-full hover:bg-fm-primary-dim transition-all text-sm flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"

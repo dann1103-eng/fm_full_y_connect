@@ -530,7 +530,7 @@ export function CalendarPageClient({ currentUser, isPrivileged, allUsers, client
         {isPrivileged && (
           <div className="flex rounded-lg overflow-hidden border border-fm-surface-container-high text-xs">
             {(['personal', 'general'] as const).map((mode) => (
-              <button
+              <button type="button"
                 key={mode}
                 onClick={() => setCalendarMode(mode)}
                 className={`px-3 py-1.5 font-semibold transition-colors ${
@@ -552,7 +552,7 @@ export function CalendarPageClient({ currentUser, isPrivileged, allUsers, client
             { v: 'week' as ViewType, label: 'Semana' },
             { v: 'day' as ViewType, label: 'Día' },
           ]).map(({ v, label }) => (
-            <button
+            <button type="button"
               key={v}
               onClick={() => setView(v)}
               className={`px-3 py-1.5 font-semibold transition-colors ${
@@ -609,7 +609,7 @@ export function CalendarPageClient({ currentUser, isPrivileged, allUsers, client
       {dragError && (
         <div className="mx-5 mt-2 px-4 py-2 bg-fm-error/10 border border-fm-error/30 rounded-xl text-sm text-fm-error flex items-center justify-between flex-shrink-0">
           <span>{dragError}</span>
-          <button onClick={() => setDragError(null)} className="ml-4 text-fm-error/60 hover:text-fm-error text-lg leading-none">×</button>
+          <button type="button" onClick={() => setDragError(null)} className="ml-4 text-fm-error/60 hover:text-fm-error text-lg leading-none">×</button>
         </div>
       )}
 

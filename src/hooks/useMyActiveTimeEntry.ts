@@ -33,17 +33,16 @@ export function useMyActiveTimeEntry(
       setActive((data as TimeEntry | null) ?? null)
     }
 
-    const channel = supabase
-      .channel(`time-entries-${userId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'time_entries', filter: `user_id=eq.${userId}` },
-        () => { void refetch() },
-      )
-      .subscribe()
+    const channel = supabase.channel(`time-entries-${userId}`)
+    channel.on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'time_entries', filter: `user_id=eq.${userId}` },
+      () => { void refetch() },
+    )
+    channel.subscribe()
 
     return () => {
-      void supabase.removeChannel(channel)
+      channel.unsubscribe()
     }
   }, [userId])
 

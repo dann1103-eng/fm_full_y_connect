@@ -29,6 +29,7 @@ import { RequirementTimesheet } from './RequirementTimesheet'
 import { ShareRequirementDialog } from './ShareRequirementDialog'
 import { ContentReviewDialog } from '@/components/clients/review/ContentReviewDialog'
 import { voidCambioLog, approveCambioLog, rejectCambioLog, addCambioLog } from '@/app/actions/cambioLogs'
+import { requestIntakeAnalysis } from '@/app/actions/aiJobs'
 
 type Tab = 'fases' | 'chat' | 'tiempo'
 
@@ -484,7 +485,7 @@ export function PhaseSheet({
               </svg>
             ), label: 'Hoja de tiempo' },
           ] as { id: Tab; icon: React.ReactNode; label: string }[]).map((tab) => (
-            <button
+            <button type="button"
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors flex-1 justify-center ${
@@ -498,7 +499,7 @@ export function PhaseSheet({
             </button>
           ))}
           {clientId && (
-            <button
+            <button type="button"
               onClick={() => setReviewOpen(true)}
               className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 border-transparent text-fm-outline hover:text-fm-on-surface transition-colors flex-1 justify-center"
               title="Abrir revisión de contenido"
@@ -571,7 +572,7 @@ export function PhaseSheet({
                   <Label className="text-xs font-semibold text-fm-on-surface-variant">
                     Tiempo estimado <span className="text-fm-outline-variant font-normal">(min)</span>
                   </Label>
-                  <input
+                  <input aria-label="ej. 90"
                     type="number"
                     min="1"
                     value={editEstimatedTime}
@@ -673,7 +674,7 @@ export function PhaseSheet({
                     {editError}
                   </p>
                 )}
-                <button
+                <button type="button"
                   onClick={handleSaveEdit}
                   disabled={savingEdit || !editTitle.trim()}
                   className="w-full py-2 text-sm font-semibold rounded-xl text-white disabled:opacity-50"
@@ -810,7 +811,7 @@ export function PhaseSheet({
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-lg font-black text-fm-on-surface">{localCambios}</span>
-                    <button
+                    <button type="button"
                       onClick={() => setShowCambioForm(v => !v)}
                       disabled={incrementing}
                       className="text-xs font-bold px-2.5 py-1 rounded-lg transition-colors disabled:opacity-40 bg-fm-primary/10 text-fm-primary hover:bg-fm-primary/20"
@@ -840,13 +841,13 @@ export function PhaseSheet({
                       <p className="text-[10px] text-fm-error font-medium">{cambioNoteError}</p>
                     )}
                     <div className="flex gap-2">
-                      <button
+                      <button type="button"
                         onClick={() => { setShowCambioForm(false); setCambioNote(''); setCambioNoteError(null) }}
                         className="flex-1 py-1.5 text-xs font-semibold border border-fm-surface-container-high rounded-lg text-fm-on-surface-variant hover:bg-fm-surface-container-lowest"
                       >
                         Cancelar
                       </button>
-                      <button
+                      <button type="button"
                         onClick={handleAddCambio}
                         disabled={incrementing}
                         className="flex-1 py-1.5 text-xs font-semibold rounded-lg text-white bg-fm-primary hover:bg-fm-primary-dim disabled:opacity-50"
@@ -888,14 +889,14 @@ export function PhaseSheet({
                               )}
                               {isPending && isApprover && (
                                 <>
-                                  <button
+                                  <button type="button"
                                     onClick={() => handleApproveLog(log.id)}
                                     disabled={approvingLogId === log.id || rejectingLogId === log.id}
                                     className="text-[10px] font-bold text-fm-primary hover:underline disabled:opacity-30"
                                   >
                                     {approvingLogId === log.id ? '...' : 'Aprobar'}
                                   </button>
-                                  <button
+                                  <button type="button"
                                     onClick={() => handleRejectLog(log.id)}
                                     disabled={approvingLogId === log.id || rejectingLogId === log.id}
                                     className="text-[10px] font-bold text-fm-error hover:underline disabled:opacity-30"
@@ -905,7 +906,7 @@ export function PhaseSheet({
                                 </>
                               )}
                               {isApprovedLog && !log.voided && isAdmin && (
-                                <button
+                                <button type="button"
                                   onClick={() => handleVoidLog(log.id)}
                                   disabled={voidingLogId === log.id}
                                   className="text-[10px] font-bold text-fm-error hover:underline disabled:opacity-30"
@@ -1043,12 +1044,15 @@ export function PhaseSheet({
           </div>
 
           {/* CHAT */}
-          <div className={`h-full ${activeTab === 'chat' ? 'block' : 'hidden'}`}>
-            <RequirementChat
-              requirementId={requirementId}
-              currentUserId={currentUserId}
-              isAdmin={isAdmin}
-            />
+          <div className={`h-full flex flex-col ${activeTab === 'chat' ? 'flex' : 'hidden'}`}>
+            <AnalyzeWithAiButton requirementId={requirementId} />
+            <div className="flex-1 min-h-0">
+              <RequirementChat
+                requirementId={requirementId}
+                currentUserId={currentUserId}
+                isAdmin={isAdmin}
+              />
+            </div>
           </div>
 
           {/* HOJA DE TIEMPO */}
@@ -1106,5 +1110,40 @@ export function PhaseSheet({
         />
       )}
     </Sheet>
+  )
+}
+
+function AnalyzeWithAiButton({ requirementId }: { requirementId: string }) {
+  const [running, setRunning] = useState(false)
+  const [feedback, setFeedback] = useState<string | null>(null)
+  const handleClick = async () => {
+    setRunning(true)
+    setFeedback(null)
+    try {
+      const res = await requestIntakeAnalysis(requirementId)
+      if (res.ok) {
+        setFeedback('Analizando… el resultado aparecerá en el chat en unos segundos.')
+      } else {
+        setFeedback(`Error: ${res.error}`)
+      }
+    } finally {
+      setRunning(false)
+    }
+  }
+  return (
+    <div className="px-4 py-2 border-b border-fm-surface-container-high flex items-center gap-3 flex-shrink-0">
+      <Button
+        type="button"
+        variant="outline"
+        onClick={handleClick}
+        disabled={running}
+        className="rounded-xl h-8 text-xs gap-1.5"
+        title="Bot analiza el requerimiento y postea un reporte interno (no visible al cliente)"
+      >
+        <span className="material-symbols-outlined text-[16px]">smart_toy</span>
+        {running ? 'Encolando…' : 'Analizar con IA'}
+      </Button>
+      {feedback && <span className="text-xs text-fm-on-surface-variant truncate">{feedback}</span>}
+    </div>
   )
 }

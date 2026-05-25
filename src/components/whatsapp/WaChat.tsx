@@ -46,53 +46,52 @@ export function WaChat({ conversation, initialMessages, clients, linkedClient }:
   // Realtime: nuevos mensajes en la conversación.
   useEffect(() => {
     const supabase = createClient()
-    const ch = supabase
-      .channel(`wa-conv-${conversation.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'wa_messages',
-          filter: `conversation_id=eq.${conversation.id}`,
-        },
-        (payload) => {
-          setMessages((prev) => {
-            const next = payload.new as WaMessage
-            if (prev.some((m) => m.id === next.id)) return prev
-            return [...prev, next]
-          })
-        },
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'wa_messages',
-          filter: `conversation_id=eq.${conversation.id}`,
-        },
-        (payload) => {
-          setMessages((prev) => prev.map((m) => (m.id === (payload.new as WaMessage).id ? (payload.new as WaMessage) : m)))
-        },
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'wa_conversations',
-          filter: `id=eq.${conversation.id}`,
-        },
-        (payload) => {
-          const next = payload.new as WaConversation
-          setPaused(next.bot_paused)
-        },
-      )
-      .subscribe()
+    const ch = supabase.channel(`wa-conv-${conversation.id}`)
+    ch.on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'wa_messages',
+        filter: `conversation_id=eq.${conversation.id}`,
+      },
+      (payload) => {
+        setMessages((prev) => {
+          const next = payload.new as WaMessage
+          if (prev.some((m) => m.id === next.id)) return prev
+          return [...prev, next]
+        })
+      },
+    )
+    ch.on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'wa_messages',
+        filter: `conversation_id=eq.${conversation.id}`,
+      },
+      (payload) => {
+        setMessages((prev) => prev.map((m) => (m.id === (payload.new as WaMessage).id ? (payload.new as WaMessage) : m)))
+      },
+    )
+    ch.on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'wa_conversations',
+        filter: `id=eq.${conversation.id}`,
+      },
+      (payload) => {
+        const next = payload.new as WaConversation
+        setPaused(next.bot_paused)
+      },
+    )
+    ch.subscribe()
 
     return () => {
-      void supabase.removeChannel(ch)
+      ch.unsubscribe()
     }
   }, [conversation.id])
 
@@ -192,7 +191,7 @@ export function WaChat({ conversation, initialMessages, clients, linkedClient }:
       <footer className="border-t border-fm-outline-variant/30 bg-fm-surface px-3 py-3">
         {error && <p className="text-xs text-red-600 mb-2">{error}</p>}
         <div className="flex items-end gap-2">
-          <textarea
+          <textarea aria-label="Escribe tu respuesta… (Enter para enviar, Shift+Enter salto de línea)"
             value={body}
             onChange={(e) => setBody(e.target.value)}
             onKeyDown={(e) => {

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { consumeCredit, refundCredit, getAvailableContentCredits, getAvailableCambiosCredits } from '@/lib/domain/credits'
 import { CONTENT_TYPE_TO_CREDIT_KIND } from '@/types/db'
+import { requireUser } from '@/lib/auth/require-user'
 import type { ContentType } from '@/types/db'
 
 /**
@@ -13,7 +14,7 @@ import type { ContentType } from '@/types/db'
  * el modal de creación para validar si un requerimiento puede consumir crédito.
  */
 export async function listClientCredits(clientId: string) {
-  const supabase = await createClient()
+  const { supabase } = await requireUser({ allowImpersonation: true })
   const [content, cambios] = await Promise.all([
     getAvailableContentCredits(supabase, clientId),
     getAvailableCambiosCredits(supabase, clientId),

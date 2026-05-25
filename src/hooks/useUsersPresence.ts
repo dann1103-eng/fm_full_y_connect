@@ -107,36 +107,34 @@ export function useUsersPresence() {
     const supabase = createClient()
     refresh()
 
-    const presenceChannel = supabase
-      .channel(`presence-watch-${instanceId.current}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'user_presence' },
-        refresh
-      )
-      .subscribe()
+    const presenceChannel = supabase.channel(`presence-watch-${instanceId.current}`)
+    presenceChannel.on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'user_presence' },
+      refresh
+    )
+    presenceChannel.subscribe()
 
-    const callsChannel = supabase
-      .channel(`calls-presence-watch-${instanceId.current}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'call_participants' },
-        refresh
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'call_sessions' },
-        refresh
-      )
-      .subscribe()
+    const callsChannel = supabase.channel(`calls-presence-watch-${instanceId.current}`)
+    callsChannel.on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'call_participants' },
+      refresh
+    )
+    callsChannel.on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'call_sessions' },
+      refresh
+    )
+    callsChannel.subscribe()
 
     // Safety poll cada 60s — robustez si el WebSocket se desconecta.
     const safetyTimer = window.setInterval(refresh, 60_000)
 
     return () => {
       window.clearInterval(safetyTimer)
-      supabase.removeChannel(presenceChannel)
-      supabase.removeChannel(callsChannel)
+      presenceChannel.unsubscribe()
+      callsChannel.unsubscribe()
     }
   }, [refresh])
 

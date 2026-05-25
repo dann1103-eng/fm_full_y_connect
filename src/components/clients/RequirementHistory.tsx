@@ -264,7 +264,7 @@ export function RequirementHistory({
                       )}
                       {/* Badge de cambios aprobados (clickable) */}
                       {!r.voided && type !== 'produccion' && type !== 'reunion' && logs.length > 0 && approvedLogs.length > 0 && (
-                        <button
+                        <button type="button"
                           onClick={() => setExpandedId(isExpanded ? null : r.id)}
                           className="ml-2 text-xs font-medium px-1.5 py-0.5 rounded text-fm-on-surface-variant bg-fm-outline-variant/20 hover:bg-fm-outline-variant/40 transition-colors"
                         >
@@ -279,7 +279,7 @@ export function RequirementHistory({
                       )}
                       {/* Badge de pendientes */}
                       {!r.voided && type !== 'produccion' && type !== 'reunion' && pendingLogs.length > 0 && (
-                        <button
+                        <button type="button"
                           onClick={() => setExpandedId(isExpanded ? null : r.id)}
                           className="ml-1.5 text-xs font-medium px-1.5 py-0.5 rounded text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-400/15 hover:bg-amber-200 dark:hover:bg-amber-400/25 transition-colors"
                         >
@@ -314,7 +314,7 @@ export function RequirementHistory({
                 {/* Botones de acción */}
                 <div className="flex items-center gap-3 flex-shrink-0 ml-4">
                   {!r.voided && type !== 'produccion' && type !== 'reunion' && (
-                    <button
+                    <button type="button"
                       onClick={() => {
                         setCambioFormId(isCambioOpen ? null : r.id)
                         setCambioNote('')
@@ -327,7 +327,7 @@ export function RequirementHistory({
                     </button>
                   )}
                   {!r.voided && (
-                    <button
+                    <button type="button"
                       onClick={() => handleVoid(r.id)}
                       disabled={voidingId === r.id || !isAdmin}
                       className="text-fm-error text-xs font-bold hover:underline transition-colors disabled:opacity-30"
@@ -350,7 +350,7 @@ export function RequirementHistory({
                       Quedará pendiente de aprobación por un supervisor o admin.
                     </p>
                   )}
-                  <textarea
+                  <textarea aria-label="¿Qué cambió? (obligatorio)"
                     value={cambioNote}
                     onChange={e => { setCambioNote(e.target.value); setCambioError(null) }}
                     placeholder="¿Qué cambió? (obligatorio)"
@@ -363,13 +363,13 @@ export function RequirementHistory({
                     <p className="text-[10px] text-fm-error font-medium">{cambioError}</p>
                   )}
                   <div className="flex gap-2">
-                    <button
+                    <button type="button"
                       onClick={() => { setCambioFormId(null); setCambioNote(''); setCambioError(null) }}
                       className="flex-1 py-1.5 text-xs font-semibold border border-fm-surface-container-high rounded-lg text-fm-on-surface-variant hover:bg-fm-surface-container-lowest bg-transparent"
                     >
                       Cancelar
                     </button>
-                    <button
+                    <button type="button"
                       onClick={() => handleAddCambio(r.id)}
                       disabled={incrementingId === r.id}
                       className="flex-1 py-1.5 text-xs font-semibold rounded-lg text-white bg-fm-primary hover:bg-fm-primary-dim disabled:opacity-50"
@@ -429,14 +429,14 @@ export function RequirementHistory({
                             {/* Botones de aprobación (solo si es aprobador y el log está pendiente) */}
                             {isPending && isApprover && (
                               <>
-                                <button
+                                <button type="button"
                                   onClick={() => handleApproveLog(log.id, r.id)}
                                   disabled={approvingLogId === log.id || rejectingLogId === log.id}
                                   className="text-[10px] font-bold text-fm-primary hover:underline disabled:opacity-30"
                                 >
                                   {approvingLogId === log.id ? '...' : 'Aprobar'}
                                 </button>
-                                <button
+                                <button type="button"
                                   onClick={() => handleRejectLog(log.id, r.id)}
                                   disabled={approvingLogId === log.id || rejectingLogId === log.id}
                                   className="text-[10px] font-bold text-fm-error hover:underline disabled:opacity-30"
@@ -448,7 +448,7 @@ export function RequirementHistory({
 
                             {/* Anular (solo admin, solo logs aprobados) */}
                             {isApproved && !log.voided && isAdmin && (
-                              <button
+                              <button type="button"
                                 onClick={() => handleVoidLog(log.id, r.id)}
                                 disabled={voidingLogId === log.id}
                                 className="text-[10px] font-bold text-fm-error hover:underline disabled:opacity-30"

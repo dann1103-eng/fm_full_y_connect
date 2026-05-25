@@ -421,7 +421,7 @@ export function RequirementChat({ requirementId, currentUserId, isAdmin = false,
               Se comprimirá automáticamente antes de enviar
             </p>
           </div>
-          <button
+          <button type="button"
             onClick={clearPendingFile}
             className="text-fm-error p-1 rounded hover:bg-fm-error/10"
             title="Quitar adjunto"
@@ -456,7 +456,7 @@ export function RequirementChat({ requirementId, currentUserId, isAdmin = false,
           onChange={handlePickFile}
           className="hidden"
         />
-        <button
+        <button type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={sending}
           title="Adjuntar imagen"
@@ -490,7 +490,7 @@ export function RequirementChat({ requirementId, currentUserId, isAdmin = false,
             </span>
           </button>
         )}
-        <button
+        <button type="button"
           onClick={handleSend}
           disabled={(!body.trim() && !pendingFile) || sending}
           className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-opacity"

@@ -630,7 +630,7 @@ export default function ClientEditPage() {
                         </div>
                         <div className="flex flex-col gap-1 flex-shrink-0">
                           <label className="text-[10px] text-transparent">add</label>
-                          <button onClick={addCambiosPackage}
+                          <button type="button" onClick={addCambiosPackage}
                             className="h-8 px-3 rounded-lg border border-fm-primary text-fm-primary text-xs font-semibold hover:bg-fm-primary/5">
                             + Agregar
                           </button>
@@ -646,7 +646,7 @@ export default function ClientEditPage() {
                               {pkg.note && ` · ${pkg.note}`}
                             </span>
                             <span className="text-fm-outline-variant">{new Date(pkg.created_at).toLocaleDateString('es-SV', { day: 'numeric', month: 'short' })}</span>
-                            <button onClick={() => setCambiosPackages(prev => prev.filter((_, j) => j !== i))}
+                            <button type="button" onClick={() => setCambiosPackages(prev => prev.filter((_, j) => j !== i))}
                               className="text-fm-error opacity-60 hover:opacity-100">
                               <span className="material-symbols-outlined" style={{ fontSize: 14 }}>delete</span>
                             </button>
@@ -665,11 +665,11 @@ export default function ClientEditPage() {
                       <p className="text-[10px] text-fm-outline mb-3">Cobros adicionales fuera del plan — fotografía, diseño, consultorías, etc.</p>
 
                       <div className="flex gap-1 mb-3 bg-fm-background rounded-lg border border-fm-surface-container-high p-0.5 w-fit">
-                        <button onClick={() => setExtraIsCustom(false)}
+                        <button type="button" onClick={() => setExtraIsCustom(false)}
                           className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${!extraIsCustom ? 'bg-fm-surface-container-lowest text-fm-on-surface shadow-sm' : 'text-fm-outline'}`}>
                           Estándar
                         </button>
-                        <button onClick={() => setExtraIsCustom(true)}
+                        <button type="button" onClick={() => setExtraIsCustom(true)}
                           className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${extraIsCustom ? 'bg-fm-surface-container-lowest text-fm-on-surface shadow-sm' : 'text-fm-outline'}`}>
                           Personalizado
                         </button>
@@ -701,8 +701,8 @@ export default function ClientEditPage() {
                           </>
                         ) : (
                           <div className="flex flex-col gap-1 flex-1">
-                            <label className="text-[10px] font-medium text-fm-on-surface-variant">Tipo</label>
-                            <select value={extraType} onChange={e => setExtraType(e.target.value as ContentType)}
+                            <label htmlFor="f-tipo-e2ebe9b0" className="text-[10px] font-medium text-fm-on-surface-variant">Tipo</label>
+                            <select id="f-tipo-e2ebe9b0" value={extraType} onChange={e => setExtraType(e.target.value as ContentType)}
                               className="h-8 px-2 rounded-lg border border-fm-surface-container-high bg-fm-background text-xs text-fm-on-surface focus:outline-none focus:border-fm-primary">
                               {(Object.keys(EXTRA_CONTENT_PRICES) as ContentType[]).map(t => (
                                 <option key={t} value={t}>{CONTENT_TYPE_LABELS[t]} · ${EXTRA_CONTENT_PRICES[t]}</option>
@@ -722,7 +722,7 @@ export default function ClientEditPage() {
                         </div>
                         <div className="flex flex-col gap-1 flex-shrink-0">
                           <label className="text-[10px] text-transparent">add</label>
-                          <button onClick={addExtraContent}
+                          <button type="button" onClick={addExtraContent}
                             className="h-8 px-3 rounded-lg border border-fm-primary text-fm-primary text-xs font-semibold hover:bg-fm-primary/5">
                             + Agregar
                           </button>
@@ -734,7 +734,7 @@ export default function ClientEditPage() {
                           <div key={i} className="flex items-center gap-2 text-xs px-3 py-2 bg-fm-background rounded-lg border border-fm-surface-container-high">
                             <span className="flex-1 text-fm-on-surface">{item.qty}× {item.label}{item.note && ` · ${item.note}`}</span>
                             <span className="font-semibold text-fm-primary">${(item.price_per_unit * item.qty).toFixed(2)}</span>
-                            <button onClick={() => setExtraContent(prev => prev.filter((_, j) => j !== i))}
+                            <button type="button" onClick={() => setExtraContent(prev => prev.filter((_, j) => j !== i))}
                               className="text-fm-error opacity-60 hover:opacity-100">
                               <span className="material-symbols-outlined" style={{ fontSize: 14 }}>delete</span>
                             </button>
@@ -765,9 +765,9 @@ export default function ClientEditPage() {
                             <div key={type}
                               className={`rounded-xl p-2.5 border ${isModified ? 'border-fm-primary/30' : 'border-fm-surface-container-high bg-fm-background'}`}
                               style={isModified ? { background: 'rgba(0,103,92,.04)' } : {}}>
-                              <label className="text-[10px] font-medium text-fm-on-surface-variant block mb-1">{CONTENT_TYPE_LABELS[type]}</label>
+                              <label htmlFor="f-content-type-labels-typ-a12cc334" className="text-[10px] font-medium text-fm-on-surface-variant block mb-1">{CONTENT_TYPE_LABELS[type]}</label>
                               <p className="text-[9px] text-fm-outline-variant mb-1.5">Base: {baseVal}</p>
-                              <input type="number" min={0} placeholder={String(baseVal)} value={overrideVal ?? ''}
+                              <input id="f-content-type-labels-typ-a12cc334" aria-label="{CONTENT_TYPE_LABELS[type]}" type="number" min={0} placeholder={String(baseVal)} value={overrideVal ?? ''}
                                 onChange={e => {
                                   const val = e.target.value === '' ? undefined : parseInt(e.target.value)
                                   setContentOverride(prev => {
@@ -801,18 +801,18 @@ export default function ClientEditPage() {
                                 <div key={type} className="rounded-xl border border-fm-primary/20 p-3" style={{ background: 'rgba(0,103,92,.04)' }}>
                                   <p className="text-xs font-semibold text-fm-primary mb-2">{CONTENT_TYPE_LABELS[type]} — {delta > 0 ? `+${delta}` : delta}</p>
                                   <div className="flex flex-wrap items-center gap-3 text-xs mb-2">
-                                    <label className="flex items-center gap-1.5 text-fm-on-surface">
+                                    <label htmlFor="f-prorratear-bce55093" className="flex items-center gap-1.5 text-fm-on-surface">
                                       <input type="radio" checked={strategy.mode === 'prorate'}
                                         onChange={() => setDistStrategy(prev => ({ ...prev, [type]: { mode: 'prorate' } }))} />
                                       Prorratear
                                     </label>
-                                    <label className="flex items-center gap-1.5 text-fm-on-surface">
-                                      <input type="radio" checked={strategy.mode === 'accumulate'}
+                                    <label htmlFor="f-acumular-en-91be6f9e" className="flex items-center gap-1.5 text-fm-on-surface">
+                                      <input id="f-prorratear-bce55093" type="radio" checked={strategy.mode === 'accumulate'}
                                         onChange={() => setDistStrategy(prev => ({ ...prev, [type]: { mode: 'accumulate', week: 'S1' } }))} />
                                       Acumular en
                                     </label>
                                     {strategy.mode === 'accumulate' && (
-                                      <select value={strategy.week}
+                                      <select id="f-acumular-en-91be6f9e" value={strategy.week}
                                         onChange={e => setDistStrategy(prev => ({ ...prev, [type]: { mode: 'accumulate', week: e.target.value as WeekKey } }))}
                                         className="h-7 px-2 rounded-lg border border-fm-surface-container-high bg-fm-surface-container-lowest text-xs">
                                         {(['S1', 'S2', 'S3', 'S4'] as WeekKey[]).map(w => <option key={w} value={w}>{w}</option>)}
@@ -1021,7 +1021,7 @@ export default function ClientEditPage() {
                           className="rounded-xl bg-fm-background border-fm-surface-container-high" />
                       </div>
                       <div className="col-span-2">
-                        <label className="flex items-center gap-2 text-sm text-fm-on-surface cursor-pointer">
+                        <label htmlFor="f-cliente-del-exterior-iva-b5574b33" className="flex items-center gap-2 text-sm text-fm-on-surface cursor-pointer">
                           <input type="checkbox" checked={parseFloat(fiscal.default_tax_rate) === 0}
                             onChange={(e) => setFiscal2('default_tax_rate', e.target.checked ? '0' : '0.13')} />
                           Cliente del exterior (IVA 0%)
@@ -1031,8 +1031,8 @@ export default function ClientEditPage() {
                         </p>
                       </div>
                       <div className="col-span-2 pt-2 border-t border-fm-surface-container-high">
-                        <label className="flex items-center gap-2 text-sm text-fm-on-surface cursor-pointer">
-                          <input type="checkbox" checked={autoBilling}
+                        <label htmlFor="f-facturaci-n-autom-tica-38c7140a" className="flex items-center gap-2 text-sm text-fm-on-surface cursor-pointer">
+                          <input id="f-cliente-del-exterior-iva-b5574b33" type="checkbox" checked={autoBilling}
                             onChange={(e) => setAutoBilling(e.target.checked)} />
                           Facturación automática
                         </label>
@@ -1042,7 +1042,7 @@ export default function ClientEditPage() {
                       </div>
                       <div className="col-span-2 pt-2 border-t border-fm-surface-container-high">
                         <label className="flex items-center gap-2 text-sm text-fm-on-surface cursor-pointer">
-                          <input type="checkbox" checked={aplicaRentaRetenida}
+                          <input id="f-facturaci-n-autom-tica-38c7140a" type="checkbox" checked={aplicaRentaRetenida}
                             onChange={(e) => setAplicaRentaRetenida(e.target.checked)} />
                           Aplica renta retenida (10%)
                         </label>

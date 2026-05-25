@@ -188,21 +188,21 @@ export function AdminTimePanel({ users }: Props) {
         <div className="flex items-center gap-2">
           {mode === 'day' ? (
             <>
-              <button onClick={prevDay} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant">
+              <button type="button" onClick={prevDay} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant">
                 <span className="material-symbols-outlined text-lg">chevron_left</span>
               </button>
               <span className="text-sm font-bold text-fm-on-surface w-44 text-center capitalize">{formatDayHeader(day)}</span>
-              <button onClick={nextDay} disabled={atMaxDay} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant disabled:opacity-30 disabled:cursor-not-allowed">
+              <button type="button" onClick={nextDay} disabled={atMaxDay} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant disabled:opacity-30 disabled:cursor-not-allowed">
                 <span className="material-symbols-outlined text-lg">chevron_right</span>
               </button>
             </>
           ) : (
             <>
-              <button onClick={prevMonth} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant">
+              <button type="button" onClick={prevMonth} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant">
                 <span className="material-symbols-outlined text-lg">chevron_left</span>
               </button>
               <span className="text-sm font-bold text-fm-on-surface w-32 text-center">{MONTHS[month]} {year}</span>
-              <button onClick={nextMonth} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant">
+              <button type="button" onClick={nextMonth} className="p-1.5 rounded-full hover:bg-fm-background text-fm-on-surface-variant">
                 <span className="material-symbols-outlined text-lg">chevron_right</span>
               </button>
             </>
@@ -212,7 +212,7 @@ export function AdminTimePanel({ users }: Props) {
         {/* Toggle Día / Mes */}
         <div className="flex rounded-full border border-fm-surface-container-high overflow-hidden text-xs font-bold">
           {(['day', 'month'] as const).map(m => (
-            <button
+            <button type="button"
               key={m}
               onClick={() => setMode(m)}
               className={`px-3 py-1.5 transition-colors ${mode === m ? 'bg-fm-primary text-white' : 'text-fm-on-surface-variant hover:bg-fm-background'}`}
@@ -256,7 +256,7 @@ export function AdminTimePanel({ users }: Props) {
 
         <span className="text-sm text-fm-on-surface-variant">Total: <strong className="text-fm-on-surface">{formatDuration(summary.productiveSeconds)}</strong></span>
 
-        <button
+        <button type="button"
           onClick={() => setShowAdd(true)}
           className="ml-auto flex items-center gap-2 px-4 py-2 bg-fm-primary text-white font-bold rounded-full hover:bg-fm-primary-dim transition-all text-sm"
         >
@@ -310,7 +310,7 @@ export function AdminTimePanel({ users }: Props) {
                     </span>
                   )}
                 </div>
-                <button
+                <button type="button"
                   onClick={() => setEditWorkSession(ws)}
                   className="p-1.5 rounded-lg text-fm-on-surface-variant hover:bg-fm-surface-container-high hover:text-fm-on-surface transition-colors"
                   title="Editar jornada"
@@ -426,10 +426,10 @@ function AdminEntryRow({ entry, onEdit, onDelete, disabled, isOverlapping = fals
         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isReq ? 'bg-fm-primary-container/30 text-fm-primary' : 'bg-fm-surface-container-low text-fm-on-surface-variant'}`}>
           {isReq ? 'REQ' : 'ADM'}
         </span>
-        <button onClick={onEdit} disabled={disabled} className="p-1 rounded-lg hover:bg-fm-surface-container-high text-fm-on-surface-variant transition-colors">
+        <button type="button" onClick={onEdit} disabled={disabled} className="p-1 rounded-lg hover:bg-fm-surface-container-high text-fm-on-surface-variant transition-colors">
           <span className="material-symbols-outlined text-base">edit</span>
         </button>
-        <button onClick={onDelete} disabled={disabled} className="p-1 rounded-lg hover:bg-red-100 text-fm-error transition-colors">
+        <button type="button" onClick={onDelete} disabled={disabled} className="p-1 rounded-lg hover:bg-red-100 text-fm-error transition-colors">
           <span className="material-symbols-outlined text-base">delete</span>
         </button>
       </div>
@@ -481,7 +481,7 @@ function AddEntryModal({ targetUserId, onClose, onSaved }: {
       <div className="bg-fm-surface-container-lowest rounded-[2rem] p-8 w-full max-w-md space-y-5 shadow-2xl">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-extrabold text-fm-on-surface">Agregar entrada</h3>
-          <button onClick={onClose} className="p-1 rounded-full hover:bg-fm-background text-fm-on-surface-variant">
+          <button type="button" onClick={onClose} className="p-1 rounded-full hover:bg-fm-background text-fm-on-surface-variant">
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
@@ -491,7 +491,7 @@ function AddEntryModal({ targetUserId, onClose, onSaved }: {
             <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Tipo</label>
             <div className="flex gap-3 mt-1.5">
               {(['administrative', 'requirement'] as const).map(t => (
-                <button
+                <button type="button"
                   key={t}
                   onClick={() => setEntryType(t)}
                   className={`flex-1 py-2 rounded-xl text-sm font-bold border transition-all ${entryType === t ? 'bg-fm-primary text-white border-fm-primary' : 'border-fm-surface-container-high text-fm-on-surface-variant'}`}
@@ -504,8 +504,8 @@ function AddEntryModal({ targetUserId, onClose, onSaved }: {
 
           {entryType === 'administrative' ? (
             <div>
-              <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Categoría</label>
-              <select
+              <label htmlFor="f-categor-a-0c648ba7" className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Categoría</label>
+              <select id="f-categor-a-0c648ba7"
                 value={category}
                 onChange={e => setCategory(e.target.value as AdminCategory)}
                 className="mt-1.5 w-full border border-fm-surface-container-high rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fm-primary/30"
@@ -515,8 +515,8 @@ function AddEntryModal({ targetUserId, onClose, onSaved }: {
             </div>
           ) : (
             <div>
-              <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Título del requerimiento</label>
-              <input
+              <label htmlFor="f-t-tulo-del-requerimiento-557e813d" className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Título del requerimiento</label>
+              <input id="f-t-tulo-del-requerimiento-557e813d"
                 value={title}
                 onChange={e => setTitle(e.target.value)}
                 placeholder="Nombre del requerimiento"
@@ -527,8 +527,8 @@ function AddEntryModal({ targetUserId, onClose, onSaved }: {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Inicio</label>
-              <input
+              <label htmlFor="f-inicio-59d4383b" className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Inicio</label>
+              <input id="f-inicio-59d4383b"
                 type="datetime-local"
                 value={startedAt}
                 onChange={e => setStartedAt(e.target.value)}
@@ -536,8 +536,8 @@ function AddEntryModal({ targetUserId, onClose, onSaved }: {
               />
             </div>
             <div>
-              <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Fin</label>
-              <input
+              <label htmlFor="f-fin-2541e722" className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Fin</label>
+              <input id="f-fin-2541e722"
                 type="datetime-local"
                 value={endedAt}
                 onChange={e => setEndedAt(e.target.value)}
@@ -550,10 +550,10 @@ function AddEntryModal({ targetUserId, onClose, onSaved }: {
         {error && <p className="text-xs text-fm-error font-semibold">{error}</p>}
 
         <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 py-2.5 border border-fm-surface-container-high rounded-full text-sm font-bold text-fm-on-surface-variant hover:bg-fm-background">
+          <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-fm-surface-container-high rounded-full text-sm font-bold text-fm-on-surface-variant hover:bg-fm-background">
             Cancelar
           </button>
-          <button onClick={handleSubmit} disabled={isPending} className="flex-1 py-2.5 bg-fm-primary text-white rounded-full text-sm font-bold hover:bg-fm-primary-dim disabled:opacity-60">
+          <button type="button" onClick={handleSubmit} disabled={isPending} className="flex-1 py-2.5 bg-fm-primary text-white rounded-full text-sm font-bold hover:bg-fm-primary-dim disabled:opacity-60">
             {isPending ? 'Guardando…' : 'Guardar'}
           </button>
         </div>
@@ -599,7 +599,7 @@ function EditEntryModal({ entry, onClose, onSaved }: {
       <div className="bg-fm-surface-container-lowest rounded-[2rem] p-8 w-full max-w-md space-y-5 shadow-2xl">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-extrabold text-fm-on-surface">Editar entrada</h3>
-          <button onClick={onClose} className="p-1 rounded-full hover:bg-fm-background text-fm-on-surface-variant">
+          <button type="button" onClick={onClose} className="p-1 rounded-full hover:bg-fm-background text-fm-on-surface-variant">
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
@@ -607,8 +607,8 @@ function EditEntryModal({ entry, onClose, onSaved }: {
         <div className="space-y-4">
           {entry.entry_type === 'administrative' && (
             <div>
-              <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Categoría</label>
-              <select
+              <label htmlFor="f-categor-a-43d09f2c" className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Categoría</label>
+              <select id="f-categor-a-43d09f2c"
                 value={category ?? ''}
                 onChange={e => setCategory(e.target.value as AdminCategory)}
                 className="mt-1.5 w-full border border-fm-surface-container-high rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fm-primary/30"
@@ -619,13 +619,13 @@ function EditEntryModal({ entry, onClose, onSaved }: {
           )}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Inicio</label>
-              <input type="datetime-local" value={startedAt} onChange={e => setStartedAt(e.target.value)}
+              <label htmlFor="f-inicio-7350fdbd" className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Inicio</label>
+              <input id="f-inicio-7350fdbd" type="datetime-local" value={startedAt} onChange={e => setStartedAt(e.target.value)}
                 className="mt-1.5 w-full border border-fm-surface-container-high rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fm-primary/30" />
             </div>
             <div>
-              <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Fin</label>
-              <input type="datetime-local" value={endedAt} onChange={e => setEndedAt(e.target.value)}
+              <label htmlFor="f-fin-ec7b8a5e" className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Fin</label>
+              <input id="f-fin-ec7b8a5e" type="datetime-local" value={endedAt} onChange={e => setEndedAt(e.target.value)}
                 className="mt-1.5 w-full border border-fm-surface-container-high rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fm-primary/30" />
             </div>
           </div>
@@ -634,8 +634,8 @@ function EditEntryModal({ entry, onClose, onSaved }: {
         {error && <p className="text-xs text-fm-error font-semibold">{error}</p>}
 
         <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 py-2.5 border border-fm-surface-container-high rounded-full text-sm font-bold text-fm-on-surface-variant hover:bg-fm-background">Cancelar</button>
-          <button onClick={handleSubmit} disabled={isPending} className="flex-1 py-2.5 bg-fm-primary text-white rounded-full text-sm font-bold hover:bg-fm-primary-dim disabled:opacity-60">
+          <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-fm-surface-container-high rounded-full text-sm font-bold text-fm-on-surface-variant hover:bg-fm-background">Cancelar</button>
+          <button type="button" onClick={handleSubmit} disabled={isPending} className="flex-1 py-2.5 bg-fm-primary text-white rounded-full text-sm font-bold hover:bg-fm-primary-dim disabled:opacity-60">
             {isPending ? 'Guardando…' : 'Guardar'}
           </button>
         </div>

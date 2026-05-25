@@ -36,26 +36,25 @@ export function usePresence(
       },
     })
 
-    channel
-      .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState() as Record<string, PresenceMeta[]>
-        const flat: PresenceMeta[] = []
-        for (const arr of Object.values(state)) {
-          if (arr.length > 0) flat.push(arr[0])
-        }
-        setUsers(flat)
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED' && track && identity) {
-          await channel.track({
-            ...identity,
-            online_at: new Date().toISOString(),
-          })
-        }
-      })
+    channel.on('presence', { event: 'sync' }, () => {
+      const state = channel.presenceState() as Record<string, PresenceMeta[]>
+      const flat: PresenceMeta[] = []
+      for (const arr of Object.values(state)) {
+        if (arr.length > 0) flat.push(arr[0])
+      }
+      setUsers(flat)
+    })
+    channel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED' && track && identity) {
+        await channel.track({
+          ...identity,
+          online_at: new Date().toISOString(),
+        })
+      }
+    })
 
     return () => {
-      supabase.removeChannel(channel)
+      channel.unsubscribe()
     }
   }, [channelName, track, identity])
 

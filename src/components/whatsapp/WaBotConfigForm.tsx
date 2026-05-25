@@ -60,8 +60,8 @@ export function WaBotConfigForm({ config }: { config: WaBotConfig }) {
       className="space-y-6"
     >
       <section>
-        <label className="block text-sm font-medium text-fm-on-surface mb-1">System prompt</label>
-        <textarea
+        <label htmlFor="f-system-prompt-3ee46f2c" className="block text-sm font-medium text-fm-on-surface mb-1">System prompt</label>
+        <textarea id="f-system-prompt-3ee46f2c"
           value={systemPrompt}
           onChange={(e) => setSystemPrompt(e.target.value)}
           rows={10}
@@ -72,8 +72,8 @@ export function WaBotConfigForm({ config }: { config: WaBotConfig }) {
 
       <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-fm-on-surface mb-1">Modelo</label>
-          <select
+          <label htmlFor="f-modelo-a785c698" className="block text-sm font-medium text-fm-on-surface mb-1">Modelo</label>
+          <select id="f-modelo-a785c698"
             value={model}
             onChange={(e) => setModel(e.target.value)}
             className="w-full px-3 py-2 text-sm rounded-md bg-fm-surface-container-low border border-fm-outline-variant/40 outline-none focus:border-fm-primary"
@@ -84,10 +84,10 @@ export function WaBotConfigForm({ config }: { config: WaBotConfig }) {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-fm-on-surface mb-1">
+          <label htmlFor="f-temperature-temperature-tofixe-57bffceb" className="block text-sm font-medium text-fm-on-surface mb-1">
             Temperature ({temperature.toFixed(2)})
           </label>
-          <input
+          <input id="f-temperature-temperature-tofixe-57bffceb"
             type="range"
             min={0}
             max={1.5}
@@ -98,8 +98,8 @@ export function WaBotConfigForm({ config }: { config: WaBotConfig }) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-fm-on-surface mb-1">Max tokens (respuesta)</label>
-          <input
+          <label htmlFor="f-max-tokens-respuesta-281673b1" className="block text-sm font-medium text-fm-on-surface mb-1">Max tokens (respuesta)</label>
+          <input id="f-max-tokens-respuesta-281673b1"
             type="number"
             min={64}
             max={8192}
@@ -109,8 +109,8 @@ export function WaBotConfigForm({ config }: { config: WaBotConfig }) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-fm-on-surface mb-1">Debounce (segundos)</label>
-          <input
+          <label htmlFor="f-debounce-segundos-38970d8e" className="block text-sm font-medium text-fm-on-surface mb-1">Debounce (segundos)</label>
+          <input id="f-debounce-segundos-38970d8e"
             type="number"
             min={0}
             max={60}
@@ -123,8 +123,8 @@ export function WaBotConfigForm({ config }: { config: WaBotConfig }) {
           </p>
         </div>
         <div>
-          <label className="block text-sm font-medium text-fm-on-surface mb-1">Memoria de chat (mensajes)</label>
-          <input
+          <label htmlFor="f-memoria-de-chat-mensajes-9632282f" className="block text-sm font-medium text-fm-on-surface mb-1">Memoria de chat (mensajes)</label>
+          <input id="f-memoria-de-chat-mensajes-9632282f"
             type="number"
             min={0}
             max={100}

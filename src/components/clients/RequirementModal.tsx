@@ -469,7 +469,7 @@ export function RequirementModal({
                   : atLimit
 
                 return (
-                  <button
+                  <button type="button"
                     key={type}
                     onClick={() => setSelectedType(type)}
                     className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all text-center ${
@@ -736,7 +736,7 @@ export function RequirementModal({
                           <span className="text-xs text-fm-on-surface-variant flex-1 truncate">
                             {CONTENT_TYPE_LABELS[type]}
                           </span>
-                          <input
+                          <input aria-label="0"
                             type="number"
                             min="0"
                             value={val === 0 ? '' : val}

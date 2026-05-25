@@ -414,6 +414,38 @@ Firewall UFW abierto:
 
 ---
 
+## 9.1 Infraestructura de jobs (sub-proyecto #1 — implementado)
+
+Migración `0082_ai_jobs.sql` añade la base sobre la que corren todos los agentes:
+
+- **`users.role`** ahora acepta `'agent'`. El usuario `FM Bot` (UUID fijo `00000000-0000-0000-0000-000000000b07`) representa al sistema en `requirement_messages`, `review_versions`, etc. No tiene fila en `auth.users`.
+- **`ai_jobs`** — cola de trabajo. Columnas clave: `job_type`, `status` (`pending|processing|completed|failed|cancelled`), `priority`, `requirement_id`, `client_id`, `triggered_by`, `parent_job_id`, `input_json`, `result_json`, `error_text`, `attempts`, `max_attempts`, `cost_usd_cents`, `locked_by`, `scheduled_for`.
+- **`ai_job_events`** — audit log por job (`enqueued`, `locked`, `progress`, `completed`, `failed`, `released`).
+- **RPC `claim_ai_job(worker_id, job_types)`** — devuelve atómicamente un job en `pending` y lo marca `processing`. Usa `for update skip locked` (seguro para múltiples workers).
+- **RLS**: solo admins leen `ai_jobs` / `ai_job_events`. El worker usa service role.
+- **Realtime** habilitado en ambas tablas.
+
+**Cómo encolar desde código (Next.js):**
+```ts
+import { enqueueAiJob } from '@/app/actions/aiJobs'
+await enqueueAiJob({
+  jobType: 'echo',
+  requirementId,
+  payload: { message: 'hola' },
+})
+```
+
+**Worker** (`ai-worker/` en la raíz del repo): contenedor Docker en Easypanel. Polea cada `POLL_INTERVAL_MS` (default 2s), despacha al handler en `ai-worker/src/handlers/<jobType>.ts`. Para añadir un agente nuevo: registra el handler en `handlers/index.ts` y añade el `job_type` al union `AiJobType` en `src/types/db.ts`.
+
+**Helpers de identidad** en `src/lib/bot.ts`:
+- `FM_BOT_USER_ID` — constante.
+- `botPostMessage(admin, args)` — postea en `requirement_messages` como FM Bot (requiere admin client).
+- `botCreateReviewVersion(...)` — stub; cuerpo real en sub-proyecto #4.
+
+**UI admin**: `/ai-jobs` (solo `role='admin'`) — tabla en realtime de los últimos 100 jobs + form para encolar `echo` de prueba.
+
+---
+
 ## 10. Preguntas a resolver en la sesión de diseño del agente
 
 1. **¿Qué tipos de contenido priorizar?** ¿Empezar con estáticos (más fácil) o también video?

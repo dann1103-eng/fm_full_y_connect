@@ -58,7 +58,7 @@ export function ReviewRightColumn({
   return (
     <div className="flex flex-col h-full">
       <div className="flex border-b border-fm-surface-container-high flex-shrink-0">
-        <button
+        <button type="button"
           onClick={() => setTab('active')}
           className={`flex-1 text-xs font-semibold py-3 transition-colors ${
             tab === 'active'
@@ -68,7 +68,7 @@ export function ReviewRightColumn({
         >
           Activo {active.length > 0 && <span className="ml-1">({active.length})</span>}
         </button>
-        <button
+        <button type="button"
           onClick={() => setTab('resolved')}
           className={`flex-1 text-xs font-semibold py-3 transition-colors ${
             tab === 'resolved'

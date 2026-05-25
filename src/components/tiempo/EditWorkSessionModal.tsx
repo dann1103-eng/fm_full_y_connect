@@ -53,7 +53,7 @@ export function EditWorkSessionModal({ session, onSaved, onCancel }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-extrabold text-fm-on-surface">Editar jornada</h3>
-          <button
+          <button type="button"
             onClick={onCancel}
             className="p-1 rounded-full hover:bg-fm-background text-fm-on-surface-variant"
           >
@@ -64,10 +64,10 @@ export function EditWorkSessionModal({ session, onSaved, onCancel }: Props) {
         {/* Campos de hora */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">
+            <label htmlFor="f-inicio-9e63ca51" className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">
               Inicio
             </label>
-            <input
+            <input id="f-inicio-9e63ca51"
               type="datetime-local"
               value={startedAt}
               onChange={e => setStartedAt(e.target.value)}
@@ -75,10 +75,10 @@ export function EditWorkSessionModal({ session, onSaved, onCancel }: Props) {
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">
+            <label htmlFor="f-fin-0bc683bf" className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">
               Fin
             </label>
-            <input
+            <input id="f-fin-0bc683bf"
               type="datetime-local"
               value={endedAt}
               onChange={e => setEndedAt(e.target.value)}
@@ -111,10 +111,10 @@ export function EditWorkSessionModal({ session, onSaved, onCancel }: Props) {
 
         {/* Nota */}
         <div>
-          <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">
+          <label htmlFor="f-nota-opcional-2fbd6948" className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">
             Nota (opcional)
           </label>
-          <textarea
+          <textarea id="f-nota-opcional-2fbd6948"
             value={notes}
             onChange={e => setNotes(e.target.value)}
             rows={2}
@@ -127,14 +127,14 @@ export function EditWorkSessionModal({ session, onSaved, onCancel }: Props) {
 
         {/* Acciones */}
         <div className="flex gap-3">
-          <button
+          <button type="button"
             onClick={onCancel}
             disabled={isPending}
             className="flex-1 py-2.5 border border-fm-surface-container-high rounded-full text-sm font-bold text-fm-on-surface-variant hover:bg-fm-background disabled:opacity-60"
           >
             Cancelar
           </button>
-          <button
+          <button type="button"
             onClick={handleSave}
             disabled={isPending}
             className="flex-1 py-2.5 bg-fm-primary text-white rounded-full text-sm font-bold hover:bg-fm-primary-dim disabled:opacity-60"

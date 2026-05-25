@@ -38,7 +38,7 @@ export function PauseClientButton({ clientId, cycleId, clientName }: Props) {
 
   if (!open) {
     return (
-      <button
+      <button type="button"
         onClick={() => setOpen(true)}
         className="text-xs font-semibold text-amber-700 hover:underline"
       >
@@ -58,14 +58,14 @@ export function PauseClientButton({ clientId, cycleId, clientName }: Props) {
 
       {!confirm ? (
         <div className="flex gap-3">
-          <button
+          <button type="button"
             onClick={() => { setOpen(false); setError(null) }}
             disabled={isPending}
             className="flex-1 py-2 text-sm border border-fm-surface-container-high rounded-xl text-fm-on-surface-variant hover:bg-fm-background transition-colors disabled:opacity-50"
           >
             Cancelar
           </button>
-          <button
+          <button type="button"
             onClick={() => setConfirm(true)}
             disabled={isPending}
             className="flex-1 py-2 text-sm bg-amber-500 text-white rounded-xl font-semibold hover:bg-amber-600 transition-colors disabled:opacity-50"
@@ -79,14 +79,14 @@ export function PauseClientButton({ clientId, cycleId, clientName }: Props) {
             ¿Confirmas pausar a <strong>{clientName}</strong>?
           </p>
           <div className="flex gap-3">
-            <button
+            <button type="button"
               onClick={() => { setConfirm(false); setError(null) }}
               disabled={isPending}
               className="flex-1 py-2 text-sm border border-fm-surface-container-high rounded-xl text-fm-on-surface-variant hover:bg-fm-background transition-colors disabled:opacity-50"
             >
               Atrás
             </button>
-            <button
+            <button type="button"
               onClick={handlePause}
               disabled={isPending}
               className="flex-1 py-2 text-sm bg-amber-600 text-white rounded-xl font-semibold hover:bg-amber-700 transition-colors disabled:opacity-50"

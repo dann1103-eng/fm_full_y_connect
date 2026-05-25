@@ -227,7 +227,7 @@ export function PortalUsersClient({ initialUsers, clients }: Props) {
                           Ver como
                         </button>
                       </form>
-                      <button
+                      <button type="button"
                         onClick={() => openEdit(u)}
                         className="text-xs font-semibold text-fm-primary hover:underline"
                       >
@@ -293,7 +293,7 @@ export function PortalUsersClient({ initialUsers, clients }: Props) {
               <div className="space-y-1.5">
                 <Label>Permisos *</Label>
                 <div className="rounded-xl border border-fm-surface-container-high bg-fm-background p-3 space-y-2">
-                  <label className="flex items-start gap-2 cursor-pointer">
+                  <label htmlFor="f-facturaci-n-ve-facturas-24dbb943" className="flex items-start gap-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={canBilling}
@@ -308,8 +308,8 @@ export function PortalUsersClient({ initialUsers, clients }: Props) {
                       </p>
                     </div>
                   </label>
-                  <label className="flex items-start gap-2 cursor-pointer">
-                    <input
+                  <label htmlFor="f-gesti-n-de-trabajo-solic-e7d4a7c7" className="flex items-start gap-2 cursor-pointer">
+                    <input id="f-facturaci-n-ve-facturas-24dbb943"
                       type="checkbox"
                       checked={canWork}
                       onChange={(e) => setCanWork(e.target.checked)}
@@ -337,7 +337,7 @@ export function PortalUsersClient({ initialUsers, clients }: Props) {
                         key={c.id}
                         className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-fm-surface-container-low cursor-pointer"
                       >
-                        <input
+                        <input id="f-gesti-n-de-trabajo-solic-e7d4a7c7"
                           type="checkbox"
                           checked={selectedClientIds.includes(c.id)}
                           onChange={() => toggleClient(c.id)}

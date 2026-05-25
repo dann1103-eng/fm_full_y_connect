@@ -36,10 +36,10 @@ export function ShiftsReport({ users }: { users: UserMini[] }) {
     <div className="space-y-4">
       {/* Selector de fecha */}
       <div className="flex items-center gap-3">
-        <label className="text-xs font-semibold text-fm-on-surface-variant uppercase tracking-wider">
+        <label htmlFor="f-fecha-07800021" className="text-xs font-semibold text-fm-on-surface-variant uppercase tracking-wider">
           Fecha
         </label>
-        <input
+        <input id="f-fecha-07800021"
           type="date"
           value={dateStr}
           max={today}
@@ -47,7 +47,7 @@ export function ShiftsReport({ users }: { users: UserMini[] }) {
           className="text-sm border border-fm-outline-variant/40 rounded-lg px-3 py-1.5 bg-fm-surface-container text-fm-on-surface focus:outline-none focus:ring-2 focus:ring-fm-primary/40"
         />
         {dateStr !== today && (
-          <button
+          <button type="button"
             onClick={() => setDateStr(today)}
             className="text-xs text-fm-primary hover:underline"
           >

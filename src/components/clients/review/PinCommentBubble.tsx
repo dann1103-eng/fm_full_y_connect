@@ -54,7 +54,7 @@ export function PinCommentBubble({
     >
       <div className="flex items-start justify-between mb-1">
         <span className="text-[11px] font-semibold text-[#2a2a2a] px-1">Nuevo comentario</span>
-        <button
+        <button type="button"
           onClick={onCancel}
           className="text-[#595c5e] hover:text-[#2a2a2a] p-0.5 rounded hover:bg-[#f5f7f9]"
           aria-label="Cancelar"
@@ -71,7 +71,7 @@ export function PinCommentBubble({
           currentMentionIds={mentionIds}
           onMentionsChange={setMentionIds}
         />
-        <textarea
+        <textarea aria-label="Escribir un mensaje... (@ para mencionar)"
           ref={inputRef}
           value={body}
           onChange={(e) => setBody(e.target.value)}
@@ -88,7 +88,7 @@ export function PinCommentBubble({
         />
       </div>
       <div className="flex justify-end mt-1">
-        <button
+        <button type="button"
           onClick={handleSubmit}
           disabled={!body.trim() || submitting}
           className="flex items-center gap-1 px-2 py-1 rounded-md bg-[#00675c] text-white text-[11px] font-semibold disabled:opacity-40 hover:bg-[#004d45] transition-colors"

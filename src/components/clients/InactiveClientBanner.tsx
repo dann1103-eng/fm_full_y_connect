@@ -70,7 +70,7 @@ export function InactiveClientBanner({
         )}
       </div>
       {canReactivate && (
-        <button
+        <button type="button"
           onClick={handleReactivate}
           disabled={isPending}
           className="px-4 py-2 rounded-full bg-fm-error text-white text-xs font-bold hover:bg-fm-error/90 disabled:opacity-60 flex-shrink-0"

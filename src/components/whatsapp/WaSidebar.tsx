@@ -23,16 +23,6 @@ export function WaSidebar({ initial }: Props) {
   // Realtime: refresca cuando hay UPDATE/INSERT en wa_conversations.
   useEffect(() => {
     const supabase = createClient()
-    const channel = supabase
-      .channel('wa-conversations-sidebar')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'wa_conversations' },
-        () => {
-          void refresh()
-        },
-      )
-      .subscribe()
 
     async function refresh() {
       const { data } = await supabase
@@ -42,8 +32,18 @@ export function WaSidebar({ initial }: Props) {
       if (data) setItems(data as unknown as WaConvListItem[])
     }
 
+    const channel = supabase.channel('wa-conversations-sidebar')
+    channel.on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'wa_conversations' },
+      () => {
+        void refresh()
+      },
+    )
+    channel.subscribe()
+
     return () => {
-      void supabase.removeChannel(channel)
+      channel.unsubscribe()
     }
   }, [])
 
@@ -61,7 +61,7 @@ export function WaSidebar({ initial }: Props) {
   return (
     <aside className="flex flex-col w-full sm:w-80 border-r border-fm-outline-variant/40 bg-fm-surface">
       <div className="p-3 border-b border-fm-outline-variant/30">
-        <input
+        <input aria-label="Buscar por nombre o número…"
           type="text"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}

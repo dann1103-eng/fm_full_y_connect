@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { assertNotImpersonating } from './impersonation'
 import type { PresenceStatus } from '@/types/db'
 
-const VALID: readonly PresenceStatus[] = ['online', 'away', 'almuerzo']
+const VALID = ['online', 'away', 'almuerzo'] as const satisfies readonly PresenceStatus[]
 
 /**
  * Actualiza updated_at del usuario actual sin cambiar su status — mantiene
@@ -115,7 +115,7 @@ export async function setPresenceStatus(status: PresenceStatus) {
     } = await supabase.auth.getUser()
     if (!user) return { error: 'No autenticado' }
 
-    if (!VALID.includes(status)) {
+    if (!(VALID as readonly PresenceStatus[]).includes(status)) {
       return { error: 'Estado inválido' }
     }
 

@@ -42,26 +42,25 @@ export function ActiveCallProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!activeCall) return
     const supabase = createClient()
-    const channel = supabase
-      .channel(`active-call-watch-${activeCall.sessionId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'call_sessions',
-          filter: `id=eq.${activeCall.sessionId}`,
-        },
-        (payload) => {
-          const row = payload.new as { ended_at?: string | null }
-          if (row.ended_at) {
-            endActiveCall()
-          }
+    const channel = supabase.channel(`active-call-watch-${activeCall.sessionId}`)
+    channel.on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'call_sessions',
+        filter: `id=eq.${activeCall.sessionId}`,
+      },
+      (payload) => {
+        const row = payload.new as { ended_at?: string | null }
+        if (row.ended_at) {
+          endActiveCall()
         }
-      )
-      .subscribe()
+      }
+    )
+    channel.subscribe()
     return () => {
-      supabase.removeChannel(channel)
+      channel.unsubscribe()
     }
   }, [activeCall, endActiveCall])
 
@@ -71,17 +70,16 @@ export function ActiveCallProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user?.id) return
     const supabase = createClient()
-    const ch = supabase
-      .channel(`user:${user.id}`)
-      .on('broadcast', { event: 'call_ended' }, ({ payload }) => {
-        const sessionId = (payload as { sessionId?: string } | null)?.sessionId
-        if (sessionId && activeCall?.sessionId === sessionId) {
-          endActiveCall()
-        }
-      })
-      .subscribe()
+    const ch = supabase.channel(`user:${user.id}`)
+    ch.on('broadcast', { event: 'call_ended' }, ({ payload }) => {
+      const sessionId = (payload as { sessionId?: string } | null)?.sessionId
+      if (sessionId && activeCall?.sessionId === sessionId) {
+        endActiveCall()
+      }
+    })
+    ch.subscribe()
     return () => {
-      supabase.removeChannel(ch)
+      ch.unsubscribe()
     }
   }, [user?.id, activeCall?.sessionId, endActiveCall])
 

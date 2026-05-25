@@ -199,7 +199,7 @@ export function PdfViewer({
       {/* Navegación de páginas */}
       {totalPages > 0 && (
         <div className="flex items-center gap-3 py-1.5 flex-shrink-0 text-xs text-fm-on-surface-variant">
-          <button
+          <button type="button"
             onClick={() => onPageChange(Math.max(0, currentPage - 1))}
             disabled={currentPage === 0}
             className="px-2 py-0.5 rounded bg-fm-surface-container hover:bg-fm-surface-container-high disabled:opacity-40 transition-colors"
@@ -207,7 +207,7 @@ export function PdfViewer({
             ◀
           </button>
           <span className="font-medium">Página {currentPage + 1} / {totalPages}</span>
-          <button
+          <button type="button"
             onClick={() => onPageChange(Math.min(totalPages - 1, currentPage + 1))}
             disabled={currentPage === totalPages - 1}
             className="px-2 py-0.5 rounded bg-fm-surface-container hover:bg-fm-surface-container-high disabled:opacity-40 transition-colors"
@@ -292,7 +292,7 @@ export function PdfViewer({
       {totalPages > 1 && (
         <div className="flex gap-1 py-1.5 px-2 overflow-x-auto flex-shrink-0 border-t border-fm-surface-container-high/60">
           {Array.from({ length: totalPages }, (_, i) => (
-            <button
+            <button type="button"
               key={i}
               onClick={() => onPageChange(i)}
               title={`Página ${i + 1}`}

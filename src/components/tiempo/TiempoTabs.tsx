@@ -24,7 +24,7 @@ export function TiempoTabs({ userId, activeEntry, entries, year, month, allUsers
       {/* Tab switcher */}
       <div className="flex gap-1 p-1 bg-fm-surface-container-low rounded-2xl w-fit">
         {(['personal', 'equipo'] as const).map(t => (
-          <button
+          <button type="button"
             key={t}
             onClick={() => setTab(t)}
             className={`px-5 py-2 rounded-xl text-sm font-bold transition-all ${

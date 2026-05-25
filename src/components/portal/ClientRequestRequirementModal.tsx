@@ -404,7 +404,7 @@ export function ClientRequestRequirementModal({ open, onClose, existingRequest }
                   )}
                   {links.length < MAX_LINKS && (
                     <div className="flex gap-2">
-                      <input
+                      <input aria-label="https://drive.google.com/..."
                         type="text"
                         value={linkInput}
                         onChange={(e) => setLinkInput(e.target.value)}

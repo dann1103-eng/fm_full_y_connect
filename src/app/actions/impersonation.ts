@@ -94,6 +94,7 @@ export async function stopImpersonation(): Promise<never> {
  *
  * No se llama desde server actions puramente de lectura.
  */
+// react-doctor-disable-next-line react-doctor/server-auth-actions
 export async function assertNotImpersonating(): Promise<void> {
   const cookieStore = await cookies()
   if (cookieStore.get(IMPERSONATE_COOKIE)?.value) {

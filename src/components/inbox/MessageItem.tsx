@@ -7,7 +7,8 @@ import { cn } from '@/lib/utils'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { AttachmentPreview } from './AttachmentPreview'
 import { editMessage, deleteMessage, deleteAttachment } from '@/app/actions/inbox'
-import { RequirementShareCard, parseReqShareBody } from './RequirementShareCard'
+import { RequirementShareCard } from './RequirementShareCard'
+import { parseReqShareBody } from './requirement-share-utils'
 import { linkify } from '@/lib/linkify'
 import type { MessageWithMeta } from '@/types/db'
 
@@ -121,14 +122,14 @@ export function MessageItem({ message, currentUserId, isAdmin = false, onUpdated
               className="w-full text-sm border border-fm-surface-container-high rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-fm-primary/30"
             />
             <div className="flex items-center gap-2 mt-1 text-xs">
-              <button
+              <button type="button"
                 onClick={save}
                 disabled={pending || !draft.trim()}
                 className="text-fm-primary font-semibold disabled:opacity-50"
               >
                 Guardar
               </button>
-              <button
+              <button type="button"
                 onClick={() => {
                   setDraft(message.body)
                   setEditing(false)
@@ -183,17 +184,17 @@ export function MessageItem({ message, currentUserId, isAdmin = false, onUpdated
         {!editing && (
           <div className="flex items-center gap-2 text-[10px] text-fm-on-surface-variant/70 opacity-0 group-hover:opacity-100 transition-opacity">
             {onReply && (
-              <button onClick={() => onReply(message)} className="hover:text-fm-primary">
+              <button type="button" onClick={() => onReply(message)} className="hover:text-fm-primary">
                 Responder
               </button>
             )}
             {isMine && (
-              <button onClick={() => setEditing(true)} className="hover:text-fm-primary">
+              <button type="button" onClick={() => setEditing(true)} className="hover:text-fm-primary">
                 Editar
               </button>
             )}
             {canDelete && (
-              <button onClick={remove} disabled={pending} className="hover:text-fm-error">
+              <button type="button" onClick={remove} disabled={pending} className="hover:text-fm-error">
                 Eliminar
               </button>
             )}

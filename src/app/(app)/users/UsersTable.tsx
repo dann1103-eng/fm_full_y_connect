@@ -155,7 +155,7 @@ function UserRow({
 
       {/* Default assignee toggle */}
       <div className="flex items-center justify-center">
-        <button
+        <button type="button"
           onClick={handleToggleDefaultAssignee}
           disabled={isTogglingDefault}
           title={
@@ -196,7 +196,7 @@ function UserRow({
 
       {/* Acciones — siempre 4 slots (placeholder cuando "ver como" no aplica) */}
       <div className="grid grid-cols-4 gap-1 justify-items-center">
-        <button
+        <button type="button"
           onClick={() => onEdit(user)}
           title="Editar perfil"
           className="p-1.5 rounded-lg text-fm-on-surface-variant hover:bg-fm-background hover:text-fm-primary transition-colors"
@@ -204,7 +204,7 @@ function UserRow({
           <span className="material-symbols-outlined text-base">edit</span>
         </button>
 
-        <button
+        <button type="button"
           onClick={() => onChangePassword(user)}
           title="Cambiar contraseña"
           className="p-1.5 rounded-lg text-fm-on-surface-variant hover:bg-fm-background hover:text-fm-primary transition-colors"
@@ -226,7 +226,7 @@ function UserRow({
           <span aria-hidden className="block w-7 h-7" />
         )}
 
-        <button
+        <button type="button"
           onClick={handleDelete}
           disabled={isCurrentUser || isDeleting}
           title={isCurrentUser ? 'No puedes eliminar tu propia cuenta' : 'Eliminar usuario'}
@@ -297,23 +297,23 @@ function EditProfileModal({
       <div className="bg-fm-surface-container-lowest rounded-[2rem] p-8 w-full max-w-md space-y-5 shadow-2xl">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-extrabold text-fm-on-surface">Editar perfil</h3>
-          <button onClick={onClose} className="p-1 rounded-full hover:bg-fm-background text-fm-on-surface-variant">
+          <button type="button" onClick={onClose} className="p-1 rounded-full hover:bg-fm-background text-fm-on-surface-variant">
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
 
         <div className="space-y-4">
           <div>
-            <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Nombre completo</label>
-            <input
+            <label htmlFor="f-nombre-completo-2d8f59cf" className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Nombre completo</label>
+            <input id="f-nombre-completo-2d8f59cf"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               className="mt-1.5 w-full border border-fm-surface-container-high rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fm-primary/30"
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Correo electrónico</label>
-            <input
+            <label htmlFor="f-correo-electr-nico-9993b278" className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Correo electrónico</label>
+            <input id="f-correo-electr-nico-9993b278"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -321,8 +321,8 @@ function EditProfileModal({
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">URL de avatar (opcional)</label>
-            <input
+            <label htmlFor="f-url-de-avatar-opcional-912fbbfe" className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">URL de avatar (opcional)</label>
+            <input id="f-url-de-avatar-opcional-912fbbfe"
               value={avatarUrl}
               onChange={(e) => setAvatarUrl(e.target.value)}
               placeholder="https://…"
@@ -334,13 +334,13 @@ function EditProfileModal({
         {error && <p className="text-xs text-fm-error font-semibold">{error}</p>}
 
         <div className="flex gap-3">
-          <button
+          <button type="button"
             onClick={onClose}
             className="flex-1 py-2.5 border border-fm-surface-container-high rounded-full text-sm font-bold text-fm-on-surface-variant hover:bg-fm-background"
           >
             Cancelar
           </button>
-          <button
+          <button type="button"
             onClick={handleSubmit}
             disabled={isPending}
             className="flex-1 py-2.5 bg-fm-primary text-white rounded-full text-sm font-bold hover:bg-fm-primary-dim disabled:opacity-60"
@@ -393,7 +393,7 @@ function ChangePasswordModal({
       <div className="bg-fm-surface-container-lowest rounded-[2rem] p-8 w-full max-w-md space-y-5 shadow-2xl">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-extrabold text-fm-on-surface">Cambiar contraseña</h3>
-          <button onClick={onClose} className="p-1 rounded-full hover:bg-fm-background text-fm-on-surface-variant">
+          <button type="button" onClick={onClose} className="p-1 rounded-full hover:bg-fm-background text-fm-on-surface-variant">
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
@@ -407,7 +407,7 @@ function ChangePasswordModal({
             <div className="p-4 rounded-xl bg-fm-primary/10 text-fm-primary text-sm font-semibold">
               Contraseña actualizada correctamente.
             </div>
-            <button
+            <button type="button"
               onClick={onClose}
               className="w-full py-2.5 bg-fm-primary text-white rounded-full text-sm font-bold hover:bg-fm-primary-dim"
             >
@@ -418,8 +418,8 @@ function ChangePasswordModal({
           <>
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Nueva contraseña</label>
-                <input
+                <label htmlFor="f-nueva-contrase-a-3e61e346" className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Nueva contraseña</label>
+                <input id="f-nueva-contrase-a-3e61e346"
                   type="password"
                   value={pw}
                   onChange={(e) => setPw(e.target.value)}
@@ -428,8 +428,8 @@ function ChangePasswordModal({
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Confirmar contraseña</label>
-                <input
+                <label htmlFor="f-confirmar-contrase-a-bed8fb25" className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Confirmar contraseña</label>
+                <input id="f-confirmar-contrase-a-bed8fb25"
                   type="password"
                   value={pw2}
                   onChange={(e) => setPw2(e.target.value)}
@@ -441,13 +441,13 @@ function ChangePasswordModal({
             {error && <p className="text-xs text-fm-error font-semibold">{error}</p>}
 
             <div className="flex gap-3">
-              <button
+              <button type="button"
                 onClick={onClose}
                 className="flex-1 py-2.5 border border-fm-surface-container-high rounded-full text-sm font-bold text-fm-on-surface-variant hover:bg-fm-background"
               >
                 Cancelar
               </button>
-              <button
+              <button type="button"
                 onClick={handleSubmit}
                 disabled={isPending}
                 className="flex-1 py-2.5 bg-fm-primary text-white rounded-full text-sm font-bold hover:bg-fm-primary-dim disabled:opacity-60"
@@ -509,15 +509,15 @@ function CreateUserModal({ onClose, onCreated }: {
       <div className="bg-fm-surface-container-lowest rounded-[2rem] p-8 w-full max-w-md space-y-5 shadow-2xl">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-extrabold text-fm-on-surface">Nuevo usuario</h3>
-          <button onClick={onClose} className="p-1 rounded-full hover:bg-fm-background text-fm-on-surface-variant">
+          <button type="button" onClick={onClose} className="p-1 rounded-full hover:bg-fm-background text-fm-on-surface-variant">
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
 
         <div className="space-y-4">
           <div>
-            <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Nombre completo</label>
-            <input
+            <label htmlFor="f-nombre-completo-07e2cecb" className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Nombre completo</label>
+            <input id="f-nombre-completo-07e2cecb"
               value={fullName}
               onChange={e => setFullName(e.target.value)}
               placeholder="Ana García"
@@ -525,8 +525,8 @@ function CreateUserModal({ onClose, onCreated }: {
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Correo electrónico</label>
-            <input
+            <label htmlFor="f-correo-electr-nico-57866a66" className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Correo electrónico</label>
+            <input id="f-correo-electr-nico-57866a66"
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
@@ -535,8 +535,8 @@ function CreateUserModal({ onClose, onCreated }: {
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Contraseña inicial</label>
-            <input
+            <label htmlFor="f-contrase-a-inicial-a24131a9" className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Contraseña inicial</label>
+            <input id="f-contrase-a-inicial-a24131a9"
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
@@ -548,7 +548,7 @@ function CreateUserModal({ onClose, onCreated }: {
             <label className="text-xs font-bold text-fm-on-surface-variant uppercase tracking-wide">Rol</label>
             <div className="flex gap-3 mt-1.5">
               {(['operator', 'supervisor', 'admin'] as UserRole[]).map(r => (
-                <button
+                <button type="button"
                   key={r}
                   onClick={() => setRole(r)}
                   className={`flex-1 py-2.5 rounded-xl text-sm font-bold border transition-all ${
@@ -567,13 +567,13 @@ function CreateUserModal({ onClose, onCreated }: {
         {error && <p className="text-xs text-fm-error font-semibold">{error}</p>}
 
         <div className="flex gap-3">
-          <button
+          <button type="button"
             onClick={onClose}
             className="flex-1 py-2.5 border border-fm-surface-container-high rounded-full text-sm font-bold text-fm-on-surface-variant hover:bg-fm-background"
           >
             Cancelar
           </button>
-          <button
+          <button type="button"
             onClick={handleSubmit}
             disabled={isPending}
             className="flex-1 py-2.5 bg-fm-primary text-white rounded-full text-sm font-bold hover:bg-fm-primary-dim disabled:opacity-60"
@@ -630,7 +630,7 @@ export function UsersTable({ users: initialUsers, currentUserId }: UsersTablePro
       </div>
 
       <div className="mt-4 flex justify-end">
-        <button
+        <button type="button"
           onClick={() => setShowCreate(true)}
           className="flex items-center gap-2 px-5 py-2.5 bg-fm-primary text-white font-bold rounded-full hover:bg-fm-primary-dim transition-all text-sm"
         >

@@ -10,6 +10,7 @@ import { computeTotals } from '@/lib/domain/requirement'
 import { migrateOpenPipelineItems, PIPELINE_CONTENT_TYPES } from '@/lib/domain/pipeline'
 import { cleanupCycleStorage } from '@/lib/supabase/cleanup-cycle-storage'
 import { assertNotImpersonating } from './impersonation'
+import { requireAdminOrSupervisor } from '@/lib/auth/require-user'
 import type {
   BillingPeriod, CambiosPackage, ContentType, ExtraContentItem, PlanLimits, PaymentStatus,
 } from '@/types/db'
@@ -30,6 +31,7 @@ interface RenewArgs {
 }
 
 export async function renewCycle(args: RenewArgs) {
+  await requireAdminOrSupervisor()
   const supabase = await createClient()
   const immediate = args.immediate === true
 
@@ -176,6 +178,7 @@ export async function renewCycle(args: RenewArgs) {
 }
 
 export async function markCyclePaid(cycleId: string, clientId: string) {
+  await requireAdminOrSupervisor()
   const supabase = await createClient()
   const { error } = await supabase
     .from('billing_cycles')
@@ -313,6 +316,7 @@ export async function revokeGracePeriod(
 }
 
 export async function pauseClient(clientId: string, cycleId: string) {
+  await requireAdminOrSupervisor()
   const supabase = await createClient()
   const [{ error: e1 }, { error: e2 }] = await Promise.all([
     supabase.from('clients').update({ status: 'paused' }).eq('id', clientId),

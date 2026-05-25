@@ -86,7 +86,7 @@ export function PipelineContainer({
         {/* View switcher */}
         <div className="flex rounded-xl border border-fm-surface-container-high overflow-hidden bg-fm-surface-container-lowest text-sm mr-1">
           {(['kanban', 'table'] as const).map(v => (
-            <button
+            <button type="button"
               key={v}
               onClick={() => setView(v)}
               className={`px-4 py-1.5 font-semibold transition-colors ${
@@ -105,7 +105,7 @@ export function PipelineContainer({
           <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-fm-outline-variant text-base pointer-events-none">
             search
           </span>
-          <input
+          <input aria-label="Buscar…"
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -113,7 +113,7 @@ export function PipelineContainer({
             className="w-52 pl-9 pr-8 py-1.5 text-sm bg-fm-surface-container-lowest border border-fm-surface-container-high rounded-xl focus:outline-none focus:border-fm-primary/50 focus:ring-2 focus:ring-fm-primary-container/30 text-fm-on-surface placeholder:text-fm-outline-variant"
           />
           {search && (
-            <button
+            <button type="button"
               onClick={() => setSearch('')}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-fm-outline-variant hover:text-fm-on-surface-variant"
               aria-label="Limpiar búsqueda"
@@ -176,7 +176,7 @@ export function PipelineContainer({
         )}
 
         {hasFilters && (
-          <button
+          <button type="button"
             onClick={() => { setFilterClientId(''); setFilterPriority(''); setFilterPhase(''); setFilterAssigneeId(''); setSearch('') }}
             className="text-xs text-fm-on-surface-variant hover:text-fm-error px-2.5 py-1.5 rounded-lg border border-fm-surface-container-high transition-colors"
           >

@@ -19,6 +19,14 @@ const PHASE_ORDER = [
   'aprobado','pendiente_publicar','publicado_entregado',
 ]
 
+function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: SortField; sortDir: SortDir }) {
+  return (
+    <span className="ml-1 text-fm-outline-variant">
+      {sortField === field ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
+    </span>
+  )
+}
+
 function sortItems(items: PipelineItem[], field: SortField, dir: SortDir): PipelineItem[] {
   const sorted = [...items].sort((a, b) => {
     let cmp = 0
@@ -63,18 +71,12 @@ export function TableView({ items, logsMap, currentUserId, canAssign, isAdmin = 
 
   const sorted = sortItems(items, sortField, sortDir)
 
-  const SortIcon = ({ field }: { field: SortField }) => (
-    <span className="ml-1 text-fm-outline-variant">
-      {sortField === field ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
-    </span>
-  )
-
   const th = (field: SortField, label: string, cls = '') => (
     <th
       onClick={() => handleSort(field)}
       className={`px-3 py-2.5 text-left text-[10px] font-bold text-fm-outline uppercase tracking-wider cursor-pointer hover:text-fm-on-surface select-none whitespace-nowrap ${cls}`}
     >
-      {label}<SortIcon field={field} />
+      {label}<SortIcon field={field} sortField={sortField} sortDir={sortDir} />
     </th>
   )
 

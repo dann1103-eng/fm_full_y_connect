@@ -119,7 +119,7 @@ export function EmojiPicker({ onSelect, align = 'top-right', triggerClassName }:
       onMouseDown={(e) => e.stopPropagation()}
     >
       <div className="p-2 border-b border-fm-surface-container-low">
-        <input
+        <input aria-label="Buscar emoji…"
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -189,17 +189,3 @@ export function EmojiPicker({ onSelect, align = 'top-right', triggerClassName }:
   )
 }
 
-/** Helper: insert text at a textarea's cursor, updating both DOM and state. */
-export function insertAtCursor(
-  textarea: HTMLTextAreaElement | null,
-  current: string,
-  text: string
-): { next: string; caret: number } {
-  if (!textarea) {
-    return { next: current + text, caret: current.length + text.length }
-  }
-  const start = textarea.selectionStart ?? current.length
-  const end = textarea.selectionEnd ?? current.length
-  const next = current.slice(0, start) + text + current.slice(end)
-  return { next, caret: start + text.length }
-}

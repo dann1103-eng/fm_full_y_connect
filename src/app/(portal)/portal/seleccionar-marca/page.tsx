@@ -34,7 +34,7 @@ export default async function SeleccionarMarca() {
                 redirect('/portal/dashboard')
               }}
             >
-              <button className="w-full text-left px-4 py-3 rounded-xl border border-fm-outline-variant/40 hover:bg-fm-primary/5">
+              <button type="button" className="w-full text-left px-4 py-3 rounded-xl border border-fm-outline-variant/40 hover:bg-fm-primary/5">
                 {c.name}
               </button>
             </form>
