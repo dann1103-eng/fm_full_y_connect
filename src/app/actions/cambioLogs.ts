@@ -9,15 +9,34 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 /**
  * Consume cupo de cambios:
- *  1. Si `cambios_count < max_cambios`: incrementa el contador (cubre con el cupo del ciclo).
- *  2. Si está al límite: intenta consumir 1 crédito `cambios`. Si lo consigue, devuelve el credit_id.
+ *  1. Si el total aprobado en el ciclo < cambios_included del plan: cubre con el cupo global.
+ *  2. Si se agotó el cupo global: intenta consumir 1 crédito `cambios`. Si lo consigue, devuelve el credit_id.
  *  3. Si no hay crédito disponible: retorna false.
  */
 async function consumeCambioSlot(
   admin: SupabaseClient,
-  args: { requirementId: string; clientId: string; currentCount: number; maxCambios: number },
+  args: { billingCycleId: string; clientId: string; cambiosIncluidos: number },
 ): Promise<{ ok: true; creditId: string | null } | { ok: false }> {
-  if (args.currentCount < args.maxCambios) {
+  // Contar cambios aprobados (no anulados, no de crédito extra) en todo el ciclo
+  const { data: cycleReqs } = await admin
+    .from('requirements')
+    .select('id')
+    .eq('billing_cycle_id', args.billingCycleId)
+  const reqIds = (cycleReqs ?? []).map((r: { id: string }) => r.id)
+
+  let globalUsed = 0
+  if (reqIds.length > 0) {
+    const { count } = await admin
+      .from('requirement_cambio_logs')
+      .select('id', { count: 'exact', head: true })
+      .in('requirement_id', reqIds)
+      .eq('status', 'approved')
+      .neq('voided', true)
+      .is('paid_from_credit_id', null)
+    globalUsed = count ?? 0
+  }
+
+  if (globalUsed < args.cambiosIncluidos) {
     return { ok: true, creditId: null }
   }
   const creditId = await consumeCredit(admin, { clientId: args.clientId, kind: 'cambios' })
@@ -101,16 +120,15 @@ export async function addCambioLog(
       .single()
     const clientId = cycle?.client_id ?? null
     const { data: clientRow } = clientId
-      ? await admin.from('clients').select('max_cambios').eq('id', clientId).maybeSingle()
+      ? await admin.from('clients').select('plan:plans(cambios_included)').eq('id', clientId).maybeSingle()
       : { data: null }
-    const maxCambios = clientRow?.max_cambios ?? 2
+    const cambiosIncluidos: number = (clientRow?.plan as { cambios_included: number } | null)?.cambios_included ?? 0
 
-    const slot = clientId
+    const slot = clientId && req.billing_cycle_id
       ? await consumeCambioSlot(admin, {
-          requirementId,
+          billingCycleId: req.billing_cycle_id as string,
           clientId,
-          currentCount: req.cambios_count ?? 0,
-          maxCambios,
+          cambiosIncluidos,
         })
       : ({ ok: true, creditId: null } as const)
     if (!slot.ok) {
@@ -194,16 +212,15 @@ export async function approveCambioLog(
     .single()
   const clientId = cycle?.client_id ?? null
   const { data: clientRow } = clientId
-    ? await admin.from('clients').select('max_cambios').eq('id', clientId).maybeSingle()
+    ? await admin.from('clients').select('plan:plans(cambios_included)').eq('id', clientId).maybeSingle()
     : { data: null }
-  const maxCambios = clientRow?.max_cambios ?? 2
+  const cambiosIncluidos: number = (clientRow?.plan as { cambios_included: number } | null)?.cambios_included ?? 0
 
-  const slot = clientId
+  const slot = clientId && req.billing_cycle_id
     ? await consumeCambioSlot(admin, {
-        requirementId: log.requirement_id,
+        billingCycleId: req.billing_cycle_id as string,
         clientId,
-        currentCount: req.cambios_count ?? 0,
-        maxCambios,
+        cambiosIncluidos,
       })
     : ({ ok: true, creditId: null } as const)
   if (!slot.ok) {
