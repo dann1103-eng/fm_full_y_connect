@@ -56,17 +56,17 @@ export default async function InvoiceDetailPage({
     <div className="flex flex-col min-h-full">
       <TopNav title={`Factura ${invoice.invoice_number}`} backHref="/billing/invoices" />
 
-      <div className="flex-1 p-6">
-        <div className="grid grid-cols-[1fr_340px] gap-6">
+      <div className="flex-1 p-4 sm:p-6">
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_300px] gap-6">
           {/* Documento */}
-          <div className="bg-fm-surface-container-lowest rounded-2xl border border-fm-outline-variant/20 p-8 space-y-6">
-            <div className="flex justify-between items-start gap-4">
+          <div className="bg-fm-surface-container-lowest rounded-2xl border border-fm-outline-variant/20 p-4 sm:p-8 space-y-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-fm-outline-variant">Factura</p>
                 <h1 className="text-2xl font-bold text-fm-primary mt-1">{invoice.invoice_number}</h1>
                 <div className="mt-2"><InvoiceStatusBadge status={invoice.status} /></div>
               </div>
-              <div className="text-right text-xs text-fm-on-surface-variant">
+              <div className="text-xs text-fm-on-surface-variant sm:text-right">
                 <p className="font-semibold text-fm-on-surface">{emitterSnap.trade_name ?? emitterSnap.legal_name}</p>
                 <p>{emitterSnap.legal_name}</p>
                 {emitterSnap.fiscal_address && <p className="mt-1 whitespace-pre-line">{emitterSnap.fiscal_address}</p>}
@@ -75,8 +75,8 @@ export default async function InvoiceDetailPage({
               </div>
             </div>
 
-            <div className="grid grid-cols-4 gap-4 py-4 border-y border-fm-surface-container-high text-xs">
-              <Field label="Facturado a">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-4 border-y border-fm-surface-container-high text-xs">
+              <Field label="Facturado a" className="col-span-2 sm:col-span-1">
                 <p className="font-semibold text-fm-on-surface">{clientSnap.legal_name ?? clientSnap.name}</p>
                 {clientSnap.fiscal_address && <p className="text-fm-on-surface-variant mt-0.5">{clientSnap.fiscal_address}</p>}
                 {clientSnap.nit && <p className="text-fm-on-surface-variant mt-0.5">NIT: {clientSnap.nit}</p>}
@@ -90,6 +90,7 @@ export default async function InvoiceDetailPage({
               </Field>
             </div>
 
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-[10px] font-semibold text-fm-outline-variant uppercase tracking-wider border-b border-fm-surface-container-high">
@@ -110,9 +111,10 @@ export default async function InvoiceDetailPage({
                 ))}
               </tbody>
             </table>
+            </div>
 
-            <div className="flex justify-end">
-              <div className="w-72 space-y-1.5 text-sm">
+            <div className="sm:flex sm:justify-end">
+              <div className="w-full sm:w-72 space-y-1.5 text-sm">
                 <Row label="Subtotal" value={formatCurrency(invoice.subtotal)} />
                 {invoice.discount_amount > 0 && (
                   <Row label="Descuento" value={`−${formatCurrency(invoice.discount_amount)}`} />
@@ -210,9 +212,9 @@ export default async function InvoiceDetailPage({
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
-    <div>
+    <div className={className}>
       <p className="text-[10px] font-semibold uppercase tracking-wider text-fm-outline-variant mb-1">{label}</p>
       <div className="text-fm-on-surface">{children}</div>
     </div>

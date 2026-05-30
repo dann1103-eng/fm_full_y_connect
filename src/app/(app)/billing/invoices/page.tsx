@@ -50,7 +50,7 @@ export default async function InvoicesListPage({
     <div className="flex flex-col min-h-full">
       <TopNav title="Facturas" backHref="/billing" />
 
-      <div className="flex-1 p-6 space-y-5">
+      <div className="flex-1 p-4 sm:p-6 space-y-5">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex gap-2 flex-wrap">
             <FilterLink href="/billing/invoices" active={!statusFilter} label="Todas" />
@@ -93,37 +93,67 @@ export default async function InvoicesListPage({
           {filtered.length === 0 ? (
             <p className="p-10 text-center text-sm text-fm-on-surface-variant">Sin facturas con estos criterios.</p>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="text-xs font-semibold text-fm-outline-variant uppercase tracking-wider bg-fm-background">
-                <tr>
-                  <th className="text-left px-4 py-3">Número</th>
-                  <th className="text-left px-4 py-3">Cliente</th>
-                  <th className="text-left px-4 py-3">Emitida</th>
-                  <th className="text-left px-4 py-3">Vence</th>
-                  <th className="text-right px-4 py-3">Total</th>
-                  <th className="text-left px-4 py-3">Estado</th>
-                </tr>
-              </thead>
-              <tbody>
+            <>
+              {/* Móvil: lista de tarjetas */}
+              <ul className="sm:hidden divide-y divide-fm-surface-container-high">
                 {filtered.map(inv => {
                   const snap = inv.client_snapshot_json as ClientFiscalSnapshot | null
                   return (
-                    <tr key={inv.id} className="border-t border-fm-surface-container-high hover:bg-fm-background">
-                      <td className="px-4 py-3">
-                        <Link href={`/billing/invoices/${inv.id}`} className="font-semibold text-fm-on-surface hover:text-fm-primary">
-                          {inv.invoice_number}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3 text-fm-on-surface">{snap?.name ?? '—'}</td>
-                      <td className="px-4 py-3 text-fm-on-surface-variant">{inv.issue_date}</td>
-                      <td className="px-4 py-3 text-fm-on-surface-variant">{inv.due_date ?? '—'}</td>
-                      <td className="px-4 py-3 text-right font-semibold text-fm-on-surface">{formatCurrency(inv.total)}</td>
-                      <td className="px-4 py-3"><InvoiceStatusBadge status={inv.status} /></td>
-                    </tr>
+                    <li key={inv.id}>
+                      <Link
+                        href={`/billing/invoices/${inv.id}`}
+                        className="flex items-start justify-between gap-3 px-4 py-3 hover:bg-fm-background active:bg-fm-background"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-sm text-fm-on-surface">{inv.invoice_number}</span>
+                            <InvoiceStatusBadge status={inv.status} />
+                          </div>
+                          <p className="text-xs text-fm-on-surface-variant mt-0.5 truncate">{snap?.name ?? '—'}</p>
+                          <p className="text-xs text-fm-on-surface-variant mt-0.5">
+                            {inv.issue_date}{inv.due_date ? ` · vence ${inv.due_date}` : ''}
+                          </p>
+                        </div>
+                        <span className="text-sm font-semibold text-fm-on-surface tabular-nums shrink-0">{formatCurrency(inv.total)}</span>
+                      </Link>
+                    </li>
                   )
                 })}
-              </tbody>
-            </table>
+              </ul>
+
+              {/* Escritorio: tabla */}
+              <table className="hidden sm:table w-full text-sm">
+                <thead className="text-xs font-semibold text-fm-outline-variant uppercase tracking-wider bg-fm-background">
+                  <tr>
+                    <th className="text-left px-4 py-3">Número</th>
+                    <th className="text-left px-4 py-3">Cliente</th>
+                    <th className="text-left px-4 py-3">Emitida</th>
+                    <th className="text-left px-4 py-3">Vence</th>
+                    <th className="text-right px-4 py-3">Total</th>
+                    <th className="text-left px-4 py-3">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(inv => {
+                    const snap = inv.client_snapshot_json as ClientFiscalSnapshot | null
+                    return (
+                      <tr key={inv.id} className="border-t border-fm-surface-container-high hover:bg-fm-background">
+                        <td className="px-4 py-3">
+                          <Link href={`/billing/invoices/${inv.id}`} className="font-semibold text-fm-on-surface hover:text-fm-primary">
+                            {inv.invoice_number}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3 text-fm-on-surface">{snap?.name ?? '—'}</td>
+                        <td className="px-4 py-3 text-fm-on-surface-variant">{inv.issue_date}</td>
+                        <td className="px-4 py-3 text-fm-on-surface-variant">{inv.due_date ?? '—'}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-fm-on-surface">{formatCurrency(inv.total)}</td>
+                        <td className="px-4 py-3"><InvoiceStatusBadge status={inv.status} /></td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </>
           )}
         </div>
       </div>

@@ -51,10 +51,10 @@ export default async function QuoteDetailPage({
     <div className="flex flex-col min-h-full">
       <TopNav title={`Cotización ${quote.quote_number}`} backHref="/billing/quotes" />
 
-      <div className="flex-1 p-6">
-        <div className="grid grid-cols-[1fr_340px] gap-6">
-          <div className="bg-fm-surface-container-lowest rounded-2xl border border-fm-outline-variant/20 p-8 space-y-6">
-            <div className="flex justify-between items-start gap-4">
+      <div className="flex-1 p-4 sm:p-6">
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_300px] gap-6">
+          <div className="bg-fm-surface-container-lowest rounded-2xl border border-fm-outline-variant/20 p-4 sm:p-8 space-y-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-fm-outline-variant">Cotización</p>
                 <h1 className="text-2xl font-bold text-fm-primary mt-1">{quote.quote_number}</h1>
@@ -67,7 +67,7 @@ export default async function QuoteDetailPage({
                   )}
                 </div>
               </div>
-              <div className="text-right text-xs text-fm-on-surface-variant">
+              <div className="text-xs text-fm-on-surface-variant sm:text-right">
                 <p className="font-semibold text-fm-on-surface">{emitterSnap.trade_name ?? emitterSnap.legal_name}</p>
                 <p>{emitterSnap.legal_name}</p>
                 {emitterSnap.fiscal_address && <p className="mt-1 whitespace-pre-line">{emitterSnap.fiscal_address}</p>}
@@ -76,7 +76,7 @@ export default async function QuoteDetailPage({
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4 py-4 border-y border-fm-surface-container-high text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 py-4 border-y border-fm-surface-container-high text-xs">
               <Field label="Cotizado a">
                 <p className="font-semibold text-fm-on-surface">{clientSnap.legal_name ?? clientSnap.name}</p>
                 {clientSnap.fiscal_address && <p className="text-fm-on-surface-variant mt-0.5">{clientSnap.fiscal_address}</p>}
@@ -87,6 +87,7 @@ export default async function QuoteDetailPage({
               <Field label="Válida hasta">{quote.valid_until ?? '—'}</Field>
             </div>
 
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-[10px] font-semibold text-fm-outline-variant uppercase tracking-wider border-b border-fm-surface-container-high">
@@ -107,9 +108,10 @@ export default async function QuoteDetailPage({
                 ))}
               </tbody>
             </table>
+            </div>
 
-            <div className="flex justify-end">
-              <div className="w-72 space-y-1.5 text-sm">
+            <div className="sm:flex sm:justify-end">
+              <div className="w-full sm:w-72 space-y-1.5 text-sm">
                 <Row label="Subtotal" value={formatCurrency(quote.subtotal)} />
                 <Row label="Descuento" value={`−${formatCurrency(quote.discount_amount)}`} />
                 <Row label={`IVA (${formatTaxRate(quote.tax_rate)})`} value={quote.tax_rate === 0 ? '—' : formatCurrency(quote.tax_amount)} />

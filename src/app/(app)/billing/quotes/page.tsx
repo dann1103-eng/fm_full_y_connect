@@ -46,7 +46,7 @@ export default async function QuotesListPage({
     <div className="flex flex-col min-h-full">
       <TopNav title="Cotizaciones" backHref="/billing" />
 
-      <div className="flex-1 p-6 space-y-5">
+      <div className="flex-1 p-4 sm:p-6 space-y-5">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex gap-2 flex-wrap">
             <FilterLink href="/billing/quotes" active={!statusFilter} label="Todas" />
@@ -89,49 +89,91 @@ export default async function QuotesListPage({
           {filtered.length === 0 ? (
             <p className="p-10 text-center text-sm text-fm-on-surface-variant">Sin cotizaciones con estos criterios.</p>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="text-xs font-semibold text-fm-outline-variant uppercase tracking-wider bg-fm-background">
-                <tr>
-                  <th className="text-left px-4 py-3">Número</th>
-                  <th className="text-left px-4 py-3">Cliente</th>
-                  <th className="text-left px-4 py-3">Emitida</th>
-                  <th className="text-left px-4 py-3">Válida hasta</th>
-                  <th className="text-right px-4 py-3">Total</th>
-                  <th className="text-left px-4 py-3">Estado</th>
-                </tr>
-              </thead>
-              <tbody>
+            <>
+              {/* Móvil: lista de tarjetas */}
+              <ul className="sm:hidden divide-y divide-fm-surface-container-high">
                 {filtered.map(q => {
                   const snap = q.client_snapshot_json as ClientFiscalSnapshot | null
                   return (
-                    <tr key={q.id} className="border-t border-fm-surface-container-high hover:bg-fm-background">
-                      <td className="px-4 py-3">
-                        <Link href={`/billing/quotes/${q.id}`} className="font-semibold text-fm-on-surface hover:text-fm-primary">
-                          {q.quote_number}
-                        </Link>
-                        {q.converted_invoice_id && (
-                          <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-fm-primary bg-fm-primary/10 px-1.5 py-0.5 rounded-full">
-                            Facturada
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-fm-on-surface">
-                        {snap?.name ?? '—'}
-                        {!q.client_id && (
-                          <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full">
-                            Prospecto
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-fm-on-surface-variant">{q.issue_date}</td>
-                      <td className="px-4 py-3 text-fm-on-surface-variant">{q.valid_until ?? '—'}</td>
-                      <td className="px-4 py-3 text-right font-semibold text-fm-on-surface">{formatCurrency(q.total)}</td>
-                      <td className="px-4 py-3"><QuoteStatusBadge status={q.status} /></td>
-                    </tr>
+                    <li key={q.id}>
+                      <Link
+                        href={`/billing/quotes/${q.id}`}
+                        className="flex items-start justify-between gap-3 px-4 py-3 hover:bg-fm-background active:bg-fm-background"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-sm text-fm-on-surface">{q.quote_number}</span>
+                            <QuoteStatusBadge status={q.status} />
+                            {q.converted_invoice_id && (
+                              <span className="text-[10px] font-semibold uppercase tracking-wide text-fm-primary bg-fm-primary/10 px-1.5 py-0.5 rounded-full">
+                                Facturada
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                            <p className="text-xs text-fm-on-surface-variant truncate">{snap?.name ?? '—'}</p>
+                            {!q.client_id && (
+                              <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full">
+                                Prospecto
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-fm-on-surface-variant mt-0.5">
+                            {q.issue_date}{q.valid_until ? ` · válida hasta ${q.valid_until}` : ''}
+                          </p>
+                        </div>
+                        <span className="text-sm font-semibold text-fm-on-surface tabular-nums shrink-0">{formatCurrency(q.total)}</span>
+                      </Link>
+                    </li>
                   )
                 })}
-              </tbody>
-            </table>
+              </ul>
+
+              {/* Escritorio: tabla */}
+              <table className="hidden sm:table w-full text-sm">
+                <thead className="text-xs font-semibold text-fm-outline-variant uppercase tracking-wider bg-fm-background">
+                  <tr>
+                    <th className="text-left px-4 py-3">Número</th>
+                    <th className="text-left px-4 py-3">Cliente</th>
+                    <th className="text-left px-4 py-3">Emitida</th>
+                    <th className="text-left px-4 py-3">Válida hasta</th>
+                    <th className="text-right px-4 py-3">Total</th>
+                    <th className="text-left px-4 py-3">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(q => {
+                    const snap = q.client_snapshot_json as ClientFiscalSnapshot | null
+                    return (
+                      <tr key={q.id} className="border-t border-fm-surface-container-high hover:bg-fm-background">
+                        <td className="px-4 py-3">
+                          <Link href={`/billing/quotes/${q.id}`} className="font-semibold text-fm-on-surface hover:text-fm-primary">
+                            {q.quote_number}
+                          </Link>
+                          {q.converted_invoice_id && (
+                            <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-fm-primary bg-fm-primary/10 px-1.5 py-0.5 rounded-full">
+                              Facturada
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-fm-on-surface">
+                          {snap?.name ?? '—'}
+                          {!q.client_id && (
+                            <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full">
+                              Prospecto
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-fm-on-surface-variant">{q.issue_date}</td>
+                        <td className="px-4 py-3 text-fm-on-surface-variant">{q.valid_until ?? '—'}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-fm-on-surface">{formatCurrency(q.total)}</td>
+                        <td className="px-4 py-3"><QuoteStatusBadge status={q.status} /></td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </>
           )}
         </div>
       </div>
