@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { nextCycleDates } from '@/lib/domain/cycles'
+import { nextCycleDates, firstCycleDates } from '@/lib/domain/cycles'
 import { today as todayString, addDaysString } from '@/lib/domain/dates'
 import { CONTENT_TYPES, CONTENT_TO_PLAN_KEY, effectiveLimits } from '@/lib/domain/plans'
 import { computeTotals } from '@/lib/domain/requirement'
@@ -33,7 +33,6 @@ interface RenewArgs {
 export async function renewCycle(args: RenewArgs) {
   await requireAdminOrSupervisor()
   const supabase = await createClient()
-  const immediate = args.immediate === true
 
   const [{ data: cycleRow }, { data: clientRow }, { data: planRow }, { data: reqs }] = await Promise.all([
     supabase.from('billing_cycles').select('*').eq('id', args.cycleId).single(),
@@ -65,9 +64,26 @@ export async function renewCycle(args: RenewArgs) {
     }
   }
 
-  const { periodStart, periodEnd } = nextCycleDates(cycleRow.period_end, {
-    billingPeriod: args.billingPeriod,
-  })
+  // Decidir el modo de renovación.
+  //
+  // El modo "programado" (scheduled) solo tiene sentido cuando el ciclo que se
+  // renueva sigue VIGENTE (status='current' y aún no vence): el cron promueve
+  // scheduled→current al expirar un 'current'. Pero si el ciclo ya venció o está
+  // en pending_renewal/archived (el caso típico de un moroso en /renovaciones),
+  // NO existe ningún 'current' que vaya a expirar, así que el scheduled jamás se
+  // activaría y el cliente quedaría sin ciclo. En ese caso renovamos YA (inmediato).
+  const todayStr = todayString()
+  const cycleExpired = (cycleRow.period_end as string) < todayStr
+  const cycleNotCurrent = cycleRow.status !== 'current'
+  const immediate = args.immediate === true || cycleExpired || cycleNotCurrent
+
+  const rawNext = nextCycleDates(cycleRow.period_end, { billingPeriod: args.billingPeriod })
+  // En renovación inmediata de un ciclo vencido hace días, el "siguiente" calculado
+  // quedaría en el pasado. Anclar el inicio a hoy para no crear un ciclo ya expirado.
+  const anchorToToday = immediate && (rawNext.periodStart as string) < todayStr
+  const { periodStart, periodEnd } = anchorToToday
+    ? firstCycleDates(todayStr, { billingPeriod: args.billingPeriod })
+    : rawNext
 
   // Si NO es inmediata: solo crear/actualizar scheduled, sin tocar el current ni el cliente.
   // El cron promoverá scheduled→current cuando period_end del current expire, y en ese
@@ -118,19 +134,47 @@ export async function renewCycle(args: RenewArgs) {
     return { ok: true, mode: 'scheduled' as const }
   }
 
-  // ── Modo inmediato (legacy, conservado para casos especiales): archivar+crear current ──
+  // ── Modo inmediato: archivar el ciclo viejo + crear el nuevo 'current' YA ──
+  // Usa admin (service role) porque el cliente puede estar suspendido por impago
+  // (inactive_payment) y RLS sobre `clients` podría bloquear el UPDATE de reactivación.
+  const admin = createAdminClient()
+
+  const clientUpdate: {
+    status: 'active'
+    deactivation_reason: null
+    deactivated_at: null
+    current_plan_id?: string
+    billing_period?: BillingPeriod
+  } = {
+    status: 'active',
+    deactivation_reason: null,
+    deactivated_at: null,
+  }
+  if (args.withChanges && args.planId !== clientRow.current_plan_id) {
+    clientUpdate.current_plan_id = args.planId
+  }
+  if (args.withChanges && args.billingPeriod !== clientRow.billing_period) {
+    clientUpdate.billing_period = args.billingPeriod
+  }
+
   const [{ error: archiveErr }, { error: clientErr }] = await Promise.all([
-    supabase.from('billing_cycles').update({ status: 'archived' }).eq('id', args.cycleId),
-    supabase.from('clients').update({
-      status: 'active',
-      ...(args.withChanges && args.planId !== clientRow.current_plan_id ? { current_plan_id: args.planId } : {}),
-      ...(args.withChanges && args.billingPeriod !== clientRow.billing_period ? { billing_period: args.billingPeriod } : {}),
-    }).eq('id', args.clientId),
+    admin.from('billing_cycles').update({ status: 'archived' }).eq('id', args.cycleId),
+    admin.from('clients').update(clientUpdate).eq('id', args.clientId),
   ])
 
   if (archiveErr || clientErr) return { error: 'Error al archivar el ciclo anterior.' }
 
-  const { data: newCycle, error: insertErr } = await supabase
+  // Si había un 'scheduled' pre-creado (por el cron de auto-billing o por una
+  // renovación previa), la renovación inmediata lo supersede. Lo archivamos para
+  // que el cron no lo promueva más adelante con fechas obsoletas (lo que dejaría
+  // dos ciclos pisándose).
+  await admin
+    .from('billing_cycles')
+    .update({ status: 'archived' })
+    .eq('client_id', args.clientId)
+    .eq('status', 'scheduled')
+
+  const { data: newCycle, error: insertErr } = await admin
     .from('billing_cycles')
     .insert({
       client_id: args.clientId,
@@ -171,7 +215,9 @@ export async function renewCycle(args: RenewArgs) {
   }
 
   revalidatePath('/renewals')
+  revalidatePath('/clients')
   revalidatePath(`/clients/${args.clientId}`)
+  revalidatePath('/pipeline')
   revalidatePath('/dashboard')
 
   return { ok: true, mode: 'immediate' as const }
@@ -724,8 +770,8 @@ export async function rescueOrphanedRequirements(
  */
 async function mergeReqData(fromId: string, toId: string): Promise<void> {
   const admin = createAdminClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateReqId = (table: string) =>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (admin.from(table) as any).update({ requirement_id: toId }).eq('requirement_id', fromId)
 
   await Promise.all([

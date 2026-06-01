@@ -50,6 +50,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
   const [mode, setMode] = useState<PanelMode>(null)
   const [isPending, startTransition] = useTransition()
   const [pauseConfirm, setPauseConfirm] = useState(false)
+  const [feedback, setFeedback] = useState<{ type: 'error' | 'success'; msg: string } | null>(null)
 
   // "Hacer cambios" panel state
   const [selectedPlanId, setSelectedPlanId] = useState(client.current_plan_id)
@@ -73,14 +74,18 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
   const selectedPlan = allPlans.find((p) => p.id === selectedPlanId)
 
   function markPaid() {
+    setFeedback(null)
     startTransition(async () => {
-      await markCyclePaid(cycle.id, client.id)
+      const res = await markCyclePaid(cycle.id, client.id)
+      if (res && 'error' in res) setFeedback({ type: 'error', msg: res.error ?? 'No se pudo marcar el pago.' })
+      else setFeedback({ type: 'success', msg: 'Ciclo marcado como pagado.' })
     })
   }
 
   function doRenew(withChanges: boolean) {
+    setFeedback(null)
     startTransition(async () => {
-      await renewCycle({
+      const res = await renewCycle({
         cycleId: cycle.id,
         clientId: client.id,
         planId: withChanges ? selectedPlanId : client.current_plan_id,
@@ -90,12 +95,25 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
         extraContent,
         withChanges,
       })
+      if (res && 'error' in res) {
+        setFeedback({ type: 'error', msg: res.error ?? 'No se pudo renovar.' })
+      } else if (res && 'mode' in res) {
+        setFeedback({
+          type: 'success',
+          msg: res.mode === 'immediate'
+            ? 'Renovación aplicada: nuevo ciclo activo ahora. El cliente quedó activo.'
+            : 'Renovación programada: el nuevo ciclo se activará al vencer el actual.',
+        })
+        setMode(null)
+      }
     })
   }
 
   function handlePause() {
+    setFeedback(null)
     startTransition(async () => {
-      await pauseClient(client.id, cycle.id)
+      const res = await pauseClient(client.id, cycle.id)
+      if (res && 'error' in res) setFeedback({ type: 'error', msg: res.error ?? 'No se pudo pausar.' })
     })
   }
 
@@ -252,6 +270,23 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
           )}
         </div>
       </div>
+
+      {/* ── Feedback banner ── */}
+      {feedback && (
+        <div className={`mx-4 mb-3 -mt-1 rounded-xl px-3 py-2 text-xs font-medium flex items-start gap-2 ${
+          feedback.type === 'error'
+            ? 'bg-fm-error/10 text-fm-error border border-fm-error/20'
+            : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20'
+        }`}>
+          <span className="material-symbols-outlined text-[15px] leading-none mt-0.5">
+            {feedback.type === 'error' ? 'error' : 'check_circle'}
+          </span>
+          <span className="flex-1">{feedback.msg}</span>
+          <button type="button" onClick={() => setFeedback(null)} className="opacity-60 hover:opacity-100">
+            <span className="material-symbols-outlined text-[15px] leading-none">close</span>
+          </button>
+        </div>
+      )}
 
       {/* ── Expanded panel ── */}
       {expanded && isAdmin && (
