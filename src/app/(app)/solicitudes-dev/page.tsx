@@ -18,11 +18,19 @@ export default async function SolicitudesDevPage() {
   const userId = effectiveUser.id
   const admin  = createAdminClient()
 
-  // Traer todas las solicitudes en las que este usuario está involucrado
+  const isRealAdmin = effectiveUser.role === 'admin' && !ctx.isImpersonating
+
+  // Traer solicitudes donde el usuario está involucrado.
+  // El admin también recibe las filas legacy (target_user_id IS NULL) que no creó él mismo,
+  // ya que antes de la migración 0102 todas las solicitudes iban dirigidas al admin.
+  const orFilter = isRealAdmin
+    ? `created_by.eq.${userId},target_user_id.eq.${userId},target_user_id.is.null`
+    : `created_by.eq.${userId},target_user_id.eq.${userId}`
+
   const { data: requests } = await admin
     .from('dev_requests')
     .select('*')
-    .or(`created_by.eq.${userId},target_user_id.eq.${userId}`)
+    .or(orFilter)
     .order('created_at', { ascending: false })
 
   let received: DevRequestWithNotes[] = []
@@ -45,7 +53,8 @@ export default async function SolicitudesDevPage() {
     const enriched: DevRequestWithNotes[] = (requests as DevRequestWithNotes[]).map(r => ({
       ...r,
       notes: notesMap[r.id] ?? [],
-      is_recipient: r.target_user_id === userId,
+      // Legacy (NULL) + explícitamente dirigida al admin → es_recipient para el admin
+      is_recipient: r.target_user_id === userId || (isRealAdmin && r.target_user_id === null && r.created_by !== userId),
     }))
 
     received = enriched.filter(r => r.is_recipient)
