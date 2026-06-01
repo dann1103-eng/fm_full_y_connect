@@ -8,6 +8,7 @@ import { useUser } from '@/contexts/UserContext'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { useInboxList } from '@/hooks/useInboxPolling'
 import { useUsersPresence } from '@/hooks/useUsersPresence'
+import { useDevRequestsBadge } from '@/hooks/useDevRequestsBadge'
 import type { UserRole } from '@/types/db'
 
 interface NavItem {
@@ -183,6 +184,7 @@ export function SidebarContent({
   const [logoError, setLogoError] = useState(false)
   const { data: inboxList } = useInboxList()
   const { getStatusMessage } = useUsersPresence()
+  const devBadge = useDevRequestsBadge()
   const inboxUnread = inboxList.reduce((sum, c) => sum + c.unread_count, 0)
   const statusMessage = getStatusMessage(user.id)
   const statusLine = statusMessage && (statusMessage.emoji || statusMessage.message)
@@ -262,6 +264,11 @@ export function SidebarContent({
               {item.badgeKey === 'inbox' && inboxUnread > 0 && (
                 <span className="ml-auto bg-fm-error text-white text-xs font-semibold px-2 py-0.5 rounded-full min-w-[20px] text-center">
                   {inboxUnread > 99 ? '99+' : inboxUnread}
+                </span>
+              )}
+              {item.href === '/solicitudes-dev' && devBadge > 0 && (
+                <span className="ml-auto bg-fm-error text-white text-xs font-semibold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                  {devBadge > 9 ? '9+' : devBadge}
                 </span>
               )}
             </Link>

@@ -10,6 +10,7 @@ import { NotificationsDropdown } from '@/components/layout/NotificationsDropdown
 import { ShiftStatusWidget } from '@/components/layout/ShiftStatusWidget'
 import { PresenceSelector } from '@/components/presence/PresenceSelector'
 import { useUsersPresence } from '@/hooks/useUsersPresence'
+import { useDevRequestsBadge } from '@/hooks/useDevRequestsBadge'
 
 interface TopNavProps {
   title: string
@@ -46,6 +47,7 @@ export function TopNav({ title, backHref }: TopNavProps) {
   const user = useUser()
   const { setOpen } = useMobileSidebar()
   const { getStatusMessage } = useUsersPresence()
+  const devBadge = useDevRequestsBadge()
   const displayName = user.full_name || user.email
   const statusMessage = getStatusMessage(user.id)
   const statusLine = statusMessage && (statusMessage.emoji || statusMessage.message)
@@ -83,10 +85,15 @@ export function TopNav({ title, backHref }: TopNavProps) {
         {user.can_request_dev && user.role === 'admin' && (
           <Link
             href="/solicitudes-dev"
-            className="p-2 rounded-lg text-fm-on-surface-variant hover:bg-fm-surface-container-low transition-colors"
+            className="relative p-2 rounded-lg text-fm-on-surface-variant hover:bg-fm-surface-container-low transition-colors"
             title="Solicitudes especiales"
           >
             <span className="material-symbols-outlined text-[22px]">terminal</span>
+            {devBadge > 0 && (
+              <span className="absolute top-0.5 right-0.5 bg-fm-error text-white font-bold leading-none min-w-[16px] h-[16px] rounded-full flex items-center justify-center px-[3px] text-[9px]">
+                {devBadge > 9 ? '9+' : devBadge}
+              </span>
+            )}
           </Link>
         )}
         <Link
