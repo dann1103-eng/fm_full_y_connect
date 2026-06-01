@@ -82,7 +82,7 @@ export function TopNav({ title, backHref }: TopNavProps) {
         <ShiftStatusWidget />
         <ThemeToggle />
         <NotificationsDropdown />
-        {user.can_request_dev && user.role === 'admin' && (
+        {user.can_request_dev && (
           <Link
             href="/solicitudes-dev"
             className="relative p-2 rounded-lg text-fm-on-surface-variant hover:bg-fm-surface-container-low transition-colors"
