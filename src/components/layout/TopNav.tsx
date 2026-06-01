@@ -88,7 +88,7 @@ export function TopNav({ title, backHref }: TopNavProps) {
             className="relative p-2 rounded-lg text-fm-on-surface-variant hover:bg-fm-surface-container-low transition-colors"
             title="Solicitudes especiales"
           >
-            <span className="material-symbols-outlined text-[22px]">terminal</span>
+            <span className="text-[20px] leading-none">💌</span>
             {devBadge > 0 && (
               <span className="absolute top-0.5 right-0.5 bg-fm-error text-white font-bold leading-none min-w-[16px] h-[16px] rounded-full flex items-center justify-center px-[3px] text-[9px]">
                 {devBadge > 9 ? '9+' : devBadge}
