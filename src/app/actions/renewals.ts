@@ -223,6 +223,105 @@ export async function renewCycle(args: RenewArgs) {
   return { ok: true, mode: 'immediate' as const }
 }
 
+/**
+ * Auto-reparación de renovaciones atascadas.
+ *
+ * Todo el modelo "scheduled" depende de que el cron diario (daily-cycle-runner)
+ * promueva scheduled→current al expirar un ciclo. Si el cron no corre (o falla),
+ * los clientes con renovación pagada quedan con su ciclo vencido sin activarse
+ * ("Renovación pagada · inicia 31 de mayo" pero "Vencido hace 2 días").
+ *
+ * Esta función replica la promoción del cron, de forma idempotente y segura ante
+ * concurrencia (guards .eq('status', ...)). Se invoca al cargar /renovaciones:
+ * cada vez que un admin abre el panel, los ciclos vencidos + pagados + con
+ * renovación programada se activan al instante, sin esperar al cron.
+ *
+ * Solo toca ciclos COMPLETAMENTE PAGADOS con un scheduled listo. Los morosos
+ * (sin pago) los sigue manejando el flujo de suspensión.
+ */
+export async function catchUpExpiredRenewals(): Promise<{ promoted: number }> {
+  const admin = createAdminClient()
+  const todayStr = todayString()
+
+  const { data: expired } = await admin
+    .from('billing_cycles')
+    .select('id, client_id, period_end, payment_status, payment_status_2, billing_period')
+    .eq('status', 'current')
+    .eq('no_expira', false)
+    .lt('period_end', todayStr)
+
+  if (!expired || expired.length === 0) return { promoted: 0 }
+
+  let promoted = 0
+
+  for (const cycle of expired) {
+    const bp = (cycle.billing_period as BillingPeriod) ?? 'monthly'
+    const fullyPaid =
+      cycle.payment_status === 'paid' &&
+      (bp === 'monthly' || cycle.payment_status_2 === 'paid')
+    if (!fullyPaid) continue // morosos → flujo de suspensión, no aquí
+
+    // ¿Hay una renovación programada lista?
+    const { data: scheduled } = await admin
+      .from('billing_cycles')
+      .select('id, plan_id_snapshot')
+      .eq('client_id', cycle.client_id as string)
+      .eq('status', 'scheduled')
+      .maybeSingle()
+    if (!scheduled) continue // sin scheduled → lo maneja renovación manual / cron
+
+    // Archivar el viejo y promover el scheduled. Los guards .eq('status', ...)
+    // hacen la operación segura si dos admins cargan la página a la vez.
+    const { data: archivedRow } = await admin
+      .from('billing_cycles')
+      .update({ status: 'archived' })
+      .eq('id', cycle.id)
+      .eq('status', 'current')
+      .select('id')
+      .maybeSingle()
+    if (!archivedRow) continue // otro proceso ya lo promovió
+
+    await admin
+      .from('billing_cycles')
+      .update({ status: 'current' })
+      .eq('id', scheduled.id)
+      .eq('status', 'scheduled')
+
+    // Actualizar plan del cliente si la renovación cambió de plan + reactivar.
+    const { data: clientRow } = await admin
+      .from('clients')
+      .select('current_plan_id, status')
+      .eq('id', cycle.client_id as string)
+      .maybeSingle()
+
+    if (scheduled.plan_id_snapshot && clientRow?.current_plan_id !== scheduled.plan_id_snapshot) {
+      await admin
+        .from('clients')
+        .update({ current_plan_id: scheduled.plan_id_snapshot })
+        .eq('id', cycle.client_id as string)
+    }
+    if (clientRow?.status === 'inactive_payment') {
+      await admin.rpc('reactivate_client', { p_client_id: cycle.client_id as string })
+    }
+
+    // Trasladar requerimientos abiertos del ciclo viejo al promovido.
+    await migrateOpenPipelineItems(admin, {
+      previousCycleId: cycle.id as string,
+      newCycleId: scheduled.id as string,
+      movedBy: '',
+    })
+
+    promoted++
+  }
+
+  if (promoted > 0) {
+    revalidatePath('/renewals')
+    revalidatePath('/clients')
+    revalidatePath('/dashboard')
+  }
+  return { promoted }
+}
+
 export async function markCyclePaid(cycleId: string, clientId: string) {
   await requireAdminOrSupervisor()
   const supabase = await createClient()

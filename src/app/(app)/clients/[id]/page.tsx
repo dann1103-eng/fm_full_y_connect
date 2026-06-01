@@ -351,6 +351,16 @@ export default async function ClientDetailPage({
         ) : (
           <div className="glass-panel rounded-[2rem] p-8 text-center">
             <p className="text-fm-on-surface-variant text-sm">No hay ciclo activo para este cliente.</p>
+            {isAdmin && (
+              <Link
+                href={`/clients/${client.id}/edit`}
+                className="inline-flex items-center gap-1.5 mt-4 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
+                style={{ background: 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)' }}
+              >
+                <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                Crear ciclo activo
+              </Link>
+            )}
           </div>
         )}
 

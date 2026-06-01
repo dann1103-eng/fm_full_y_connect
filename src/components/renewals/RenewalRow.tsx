@@ -6,6 +6,7 @@ import type { BillingCycle, BillingPeriod, CambiosPackage, ClientWithPlan, Conte
 import { CONTENT_TYPES, CONTENT_TYPE_LABELS, EXTRA_CONTENT_PRICES, NON_CARRYOVER_TYPES, effectiveLimits } from '@/lib/domain/plans'
 import { formatDateEs } from '@/lib/domain/dates'
 import { renewCycle, markCyclePaid, pauseClient } from '@/app/actions/renewals'
+import { markInvoicePaid } from '@/app/actions/invoices'
 import { GracePeriodControl } from './GracePeriodControl'
 
 /**
@@ -114,6 +115,23 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
     startTransition(async () => {
       const res = await pauseClient(client.id, cycle.id)
       if (res && 'error' in res) setFeedback({ type: 'error', msg: res.error ?? 'No se pudo pausar.' })
+    })
+  }
+
+  function markRenewalPaid() {
+    if (renewalState.kind !== 'issued') return
+    const invoiceId = renewalState.invoiceId
+    setFeedback(null)
+    startTransition(async () => {
+      const res = await markInvoicePaid({ id: invoiceId, paymentMethod: 'transfer' })
+      if ('error' in res) {
+        setFeedback({ type: 'error', msg: res.error ?? 'No se pudo marcar la renovación pagada.' })
+      } else {
+        setFeedback({
+          type: 'success',
+          msg: 'Renovación marcada como pagada. Se activa al vencer el ciclo actual (o de inmediato si ya venció).',
+        })
+      }
     })
   }
 
@@ -234,6 +252,17 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
             <CopyLinkButton url={renewalState.paymentLinkUrl} />
           )}
 
+          {/* Pagar la RENOVACIÓN (factura del próximo ciclo) — distinto del ciclo actual */}
+          {renewalState.kind === 'issued' && isAdmin && (
+            <button type="button"
+              onClick={markRenewalPaid}
+              disabled={isPending}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg transition-all border border-amber-500/40 text-amber-700 dark:text-amber-400 bg-amber-500/5 hover:bg-amber-500/10"
+            >
+              Marcar renovación pagada
+            </button>
+          )}
+
           {cycle.payment_status === 'unpaid' && isAdmin && (
             <button type="button"
               onClick={markPaid}
@@ -241,7 +270,7 @@ export function RenewalRow({ cycle, client, daysLeft, isAdmin, allPlans, renewal
               className="text-xs text-white font-medium px-3 py-1.5 rounded-lg transition-all hover:opacity-90"
               style={{ background: 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)' }}
             >
-              Marcar pagado (manual)
+              Marcar ciclo actual pagado
             </button>
           )}
 

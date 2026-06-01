@@ -6,6 +6,7 @@ import { RenewalsFilters } from '@/components/renewals/RenewalsFilters'
 import type { BillingCycle, ClientWithPlan } from '@/types/db'
 import { daysUntilEnd, RENEWAL_WINDOW_DAYS } from '@/lib/domain/cycles'
 import { today, addDaysString } from '@/lib/domain/dates'
+import { catchUpExpiredRenewals } from '@/app/actions/renewals'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,6 +36,11 @@ export default async function RenewalsPage({
     : { data: null }
   const isAdmin = appUser?.role === 'admin'
   if (!isAdmin) redirect('/')
+
+  // Auto-reparación: promueve scheduled→current para clientes con renovación
+  // pagada cuyo ciclo ya venció pero el cron diario no activó (red de seguridad
+  // si el cron no está corriendo). Idempotente y seguro ante concurrencia.
+  await catchUpExpiredRenewals()
 
   // Usar zona horaria de El Salvador (GMT-6) para consistencia con daysUntilEnd().
   // Antes: new Date().toISOString() retornaba UTC, lo que en Vercel a partir de
