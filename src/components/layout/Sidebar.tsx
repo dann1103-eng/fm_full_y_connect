@@ -195,8 +195,9 @@ export function SidebarContent({
       if (item.allowedRoles.includes(user.role)) return true
       // Excepción: usuarios con can_quote ven el link de Facturación
       if (item.href === '/billing' && user.can_quote) return true
-      // Excepción: usuarios con can_request_dev ven Solicitudes al dev
-      if (item.href === '/solicitudes-dev' && user.can_request_dev) return true
+      // Excepción: el requester (no-admin con can_request_dev) ve Solicitudes al dev en sidebar.
+      // El admin developer lo ve en el TopNav, no aquí.
+      if (item.href === '/solicitudes-dev' && user.can_request_dev && user.role !== 'admin') return true
       return false
     }
   )

@@ -80,6 +80,15 @@ export function TopNav({ title, backHref }: TopNavProps) {
         <ShiftStatusWidget />
         <ThemeToggle />
         <NotificationsDropdown />
+        {user.can_request_dev && user.role === 'admin' && (
+          <Link
+            href="/solicitudes-dev"
+            className="p-2 rounded-lg text-fm-on-surface-variant hover:bg-fm-surface-container-low transition-colors"
+            title="Solicitudes al dev"
+          >
+            <span className="material-symbols-outlined text-[22px]">terminal</span>
+          </Link>
+        )}
         <Link
           href="/profile"
           className="flex items-center gap-3 hover:opacity-80 transition-opacity"
