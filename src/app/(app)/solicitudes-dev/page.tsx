@@ -30,7 +30,9 @@ export default async function SolicitudesDevPage() {
   const isAdmin     = appUser?.role === 'admin'
   const canRequest  = appUser?.can_request_dev === true
 
-  if (!isAdmin && !canRequest) redirect('/')
+  // Solo usuarios con can_request_dev=true pueden entrar (incluye al admin developer
+  // si también tiene el flag activado). Así la pestaña no le sale a todos los admins.
+  if (!canRequest) redirect('/')
 
   const requests = await listDevRequests()
 
