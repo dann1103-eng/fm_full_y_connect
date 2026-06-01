@@ -1,11 +1,11 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { getEffectiveUser } from '@/lib/auth/effective-user'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { TopNav } from '@/components/layout/TopNav'
 import { DevRequestForm } from '@/components/dev-requests/DevRequestForm'
 import { DevRequestAdminPanel } from '@/components/dev-requests/DevRequestAdminPanel'
-import { listDevRequests } from '@/app/actions/devRequests'
 import { DEV_REQUEST_STATUS_LABELS } from '@/types/db'
-import type { DevRequestStatus } from '@/types/db'
+import type { DevRequest, DevRequestStatus } from '@/types/db'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,27 +17,43 @@ const STATUS_STYLES: Record<DevRequestStatus, string> = {
 }
 
 export default async function SolicitudesDevPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  // getEffectiveUser respeta la impersonación: si el admin está suplantando a
+  // alguien, effectiveUser es ese alguien, no el admin.
+  const ctx = await getEffectiveUser()
+  if (!ctx) redirect('/login')
 
-  const { data: appUser } = await supabase
-    .from('users')
-    .select('role, can_request_dev')
-    .eq('id', user.id)
-    .single()
+  const effectiveUser  = ctx.appUser
+  const isImpersonating = ctx.isImpersonating
 
-  const isAdmin     = appUser?.role === 'admin'
-  const canRequest  = appUser?.can_request_dev === true
+  // La vista se decide por el usuario efectivo (respeta impersonación)
+  const isRealAdmin  = effectiveUser.role === 'admin' && !isImpersonating
+  const canRequest   = effectiveUser.can_request_dev === true
 
-  // Solo usuarios con can_request_dev=true pueden entrar (incluye al admin developer
-  // si también tiene el flag activado). Así la pestaña no le sale a todos los admins.
   if (!canRequest) redirect('/')
 
-  const requests = await listDevRequests()
+  // Fetch de datos usando adminClient para bypassear RLS
+  const admin = createAdminClient()
+  let requests: DevRequest[]
 
-  // ── Vista del ADMIN (el developer) ─────────────────────────────────────────
-  if (isAdmin) {
+  if (isRealAdmin) {
+    // Admin real: ve todas las solicitudes
+    const { data } = await admin
+      .from('dev_requests')
+      .select('*')
+      .order('created_at', { ascending: false })
+    requests = (data ?? []) as DevRequest[]
+  } else {
+    // Requester (o admin impersonando al requester): solo las suyas
+    const { data } = await admin
+      .from('dev_requests')
+      .select('*')
+      .eq('created_by', effectiveUser.id)
+      .order('created_at', { ascending: false })
+    requests = (data ?? []) as DevRequest[]
+  }
+
+  // ── Vista del ADMIN real (el developer) ─────────────────────────────────────
+  if (isRealAdmin) {
     return (
       <div className="flex flex-col min-h-full">
         <TopNav title="Solicitudes al dev" />
@@ -54,7 +70,7 @@ export default async function SolicitudesDevPage() {
     )
   }
 
-  // ── Vista del REQUESTER (el usuario específico) ─────────────────────────────
+  // ── Vista del REQUESTER (usuario con can_request_dev, o admin impersonándolo) ─
   const date = (s: string) =>
     new Date(s).toLocaleDateString('es-SV', { day: 'numeric', month: 'short', year: 'numeric' })
 
