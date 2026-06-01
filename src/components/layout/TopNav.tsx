@@ -84,7 +84,7 @@ export function TopNav({ title, backHref }: TopNavProps) {
           <Link
             href="/solicitudes-dev"
             className="p-2 rounded-lg text-fm-on-surface-variant hover:bg-fm-surface-container-low transition-colors"
-            title="Solicitudes al dev"
+            title="Solicitudes especiales"
           >
             <span className="material-symbols-outlined text-[22px]">terminal</span>
           </Link>

@@ -453,6 +453,7 @@ export interface Database {
           description: string
           compensation_method: string
           created_by: string | null
+          target_user_id: string | null
           created_at: string
           status: DevRequestStatus
         }
@@ -462,6 +463,7 @@ export interface Database {
           description: string
           compensation_method: string
           created_by?: string | null
+          target_user_id?: string | null
           created_at?: string
           status?: DevRequestStatus
         }
@@ -469,7 +471,28 @@ export interface Database {
           title?: string
           description?: string
           compensation_method?: string
+          target_user_id?: string | null
           status?: DevRequestStatus
+        }
+        Relationships: []
+      }
+      dev_request_notes: {
+        Row: {
+          id: string
+          request_id: string
+          content: string
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          request_id: string
+          content: string
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          content?: string
         }
         Relationships: []
       }
@@ -2447,11 +2470,19 @@ export interface IncomingCallPayload {
 
 export type DevRequestStatus = 'pending' | 'in_progress' | 'done' | 'rejected'
 
-export type DevRequest = Database['public']['Tables']['dev_requests']['Row']
+export type DevRequest     = Database['public']['Tables']['dev_requests']['Row']
+export type DevRequestNote = Database['public']['Tables']['dev_request_notes']['Row']
 
 export const DEV_REQUEST_STATUS_LABELS: Record<DevRequestStatus, string> = {
   pending:     'Pendiente',
   in_progress: 'En progreso',
   done:        'Completado',
   rejected:    'Rechazada',
+}
+
+/** DevRequest enriquecida con notas y flag de dirección para la UI */
+export interface DevRequestWithNotes extends DevRequest {
+  notes: DevRequestNote[]
+  /** true = el usuario actual es el destinatario (puede cambiar estado) */
+  is_recipient: boolean
 }

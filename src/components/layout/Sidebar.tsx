@@ -158,7 +158,7 @@ const navItems: NavItem[] = [
   },
   {
     href: '/solicitudes-dev',
-    label: 'Solicitudes al dev',
+    label: 'Solicitudes especiales',
     allowedRoles: [],  // oculto por defecto; solo can_request_dev lo activa (ver filtro abajo)
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
