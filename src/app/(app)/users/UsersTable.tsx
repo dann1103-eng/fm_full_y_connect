@@ -499,6 +499,7 @@ function CreateUserModal({ onClose, onCreated }: {
         default_assignee: false,
         current_session_id: null,
         can_quote: false,
+        can_request_dev: false,
       })
       onClose()
     })

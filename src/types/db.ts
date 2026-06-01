@@ -421,6 +421,7 @@ export interface Database {
           default_assignee: boolean
           current_session_id: string | null
           can_quote: boolean
+          can_request_dev: boolean
         }
         Insert: {
           id: string
@@ -431,6 +432,7 @@ export interface Database {
           default_assignee?: boolean
           current_session_id?: string | null
           can_quote?: boolean
+          can_request_dev?: boolean
         }
         Update: {
           email?: string
@@ -440,6 +442,34 @@ export interface Database {
           default_assignee?: boolean
           current_session_id?: string | null
           can_quote?: boolean
+          can_request_dev?: boolean
+        }
+        Relationships: []
+      }
+      dev_requests: {
+        Row: {
+          id: string
+          title: string
+          description: string
+          compensation_method: string
+          created_by: string | null
+          created_at: string
+          status: DevRequestStatus
+        }
+        Insert: {
+          id?: string
+          title: string
+          description: string
+          compensation_method: string
+          created_by?: string | null
+          created_at?: string
+          status?: DevRequestStatus
+        }
+        Update: {
+          title?: string
+          description?: string
+          compensation_method?: string
+          status?: DevRequestStatus
         }
         Relationships: []
       }
@@ -2408,4 +2438,20 @@ export interface IncomingCallPayload {
   }
   /** Nombre del canal si la llamada es en un channel/voice_channel (ej: "general"). Null para DMs. */
   channelName: string | null
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Dev Requests (migración 0101_dev_requests.sql)
+// Feature interna: un usuario específico envía solicitudes de cambio al admin.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type DevRequestStatus = 'pending' | 'in_progress' | 'done' | 'rejected'
+
+export type DevRequest = Database['public']['Tables']['dev_requests']['Row']
+
+export const DEV_REQUEST_STATUS_LABELS: Record<DevRequestStatus, string> = {
+  pending:     'Pendiente',
+  in_progress: 'En progreso',
+  done:        'Completado',
+  rejected:    'Rechazada',
 }

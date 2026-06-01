@@ -156,6 +156,16 @@ const navItems: NavItem[] = [
       </svg>
     ),
   },
+  {
+    href: '/solicitudes-dev',
+    label: 'Solicitudes al dev',
+    allowedRoles: ['admin'],
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M9.4 16.6 4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0 4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
+      </svg>
+    ),
+  },
 ]
 
 interface SidebarProps {
@@ -185,6 +195,8 @@ export function SidebarContent({
       if (item.allowedRoles.includes(user.role)) return true
       // Excepción: usuarios con can_quote ven el link de Facturación
       if (item.href === '/billing' && user.can_quote) return true
+      // Excepción: usuarios con can_request_dev ven Solicitudes al dev
+      if (item.href === '/solicitudes-dev' && user.can_request_dev) return true
       return false
     }
   )
