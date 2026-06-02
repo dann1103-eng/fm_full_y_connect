@@ -136,7 +136,7 @@ export function EmojiPicker({ onSelect, align = 'top-right', triggerClassName }:
               type="button"
               onClick={() => setCategory(c.key)}
               aria-label={c.label}
-              className={`flex-1 py-1.5 rounded-md text-base transition-colors ${
+              className={`emoji flex-1 py-1.5 rounded-md text-base transition-colors ${
                 category === c.key
                   ? 'bg-fm-primary-container text-fm-primary'
                   : 'hover:bg-fm-surface-container-low'
@@ -161,7 +161,7 @@ export function EmojiPicker({ onSelect, align = 'top-right', triggerClassName }:
                   onSelect(e.char)
                   setOpen(false)
                 }}
-                className="text-lg leading-none p-1.5 rounded hover:bg-fm-surface-container-low transition-colors"
+                className="emoji text-lg leading-none p-1.5 rounded hover:bg-fm-surface-container-low transition-colors"
               >
                 {e.char}
               </button>

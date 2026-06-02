@@ -46,6 +46,14 @@ export default function RootLayout({
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
         />
+        {/* Fuente de emojis web: garantiza que los emojis se vean igual en todos
+            los dispositivos, sin depender de la fuente de emojis del SO (que en
+            Windows desactualizado muestra cajitas tofu). Solo contiene glyphs de
+            emoji, así que el texto normal sigue usando Manrope. */}
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap"
+        />
       </head>
       <body className="min-h-full bg-fm-background text-fm-on-surface font-sans antialiased">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>

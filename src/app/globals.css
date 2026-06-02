@@ -259,11 +259,20 @@
   }
   body {
     @apply bg-fm-background text-fm-on-surface font-sans antialiased;
+    /* 'Noto Color Emoji' al final de la cadena: solo provee glyphs de emoji,
+       el texto sigue usando Manrope. Garantiza emojis consistentes aunque el
+       SO no los soporte. */
+    font-family: var(--font-sans), 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;
   }
 }
 
 /* ── Shared utility classes (used across components) ── */
 @layer utilities {
+  /* Fuerza la fuente de emojis web primero. Para contextos de puro emoji
+     (picker, chips de reacción). El texto normal NO debe usar esta clase. */
+  .emoji {
+    font-family: 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;
+  }
   .signature-gradient {
     background: linear-gradient(135deg, #00675c 0%, #5bf4de 100%);
   }
