@@ -130,7 +130,15 @@ export async function startAdminEntry(category: AdminCategory, notes?: string) {
     notes: notes?.trim() || null,
   })
 
-  if (error) return { error: error.message }
+  if (error) {
+    // 23505 = unique_violation contra time_entries_one_active_per_user.
+    // Ocurre si otra pestaña insertó un timer en el gap entre el check y este
+    // INSERT (race condition). El índice único es la red de seguridad real.
+    if (error.code === '23505') {
+      return { error: 'Ya tienes una entrada activa (quizás en otra pestaña). Marca salida primero.' }
+    }
+    return { error: error.message }
+  }
   revalidatePath('/tiempo')
   return { success: true }
 }
@@ -191,7 +199,14 @@ export async function startRequirementTimer(requirementId: string, requirementTi
     started_at: startedAt.toISOString(),
   }).select('id').single()
 
-  if (error) return { error: error.message }
+  if (error) {
+    // 23505 = unique_violation contra time_entries_one_active_per_user (race
+    // entre dos pestañas). El índice único es la red de seguridad real.
+    if (error.code === '23505') {
+      return { error: 'Ya tienes un timer activo (quizás en otra pestaña). Detenlo primero.' }
+    }
+    return { error: error.message }
+  }
   revalidatePath('/tiempo')
   return { success: true, entryId: data.id }
 }
