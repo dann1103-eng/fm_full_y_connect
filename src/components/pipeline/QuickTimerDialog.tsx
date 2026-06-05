@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import type { ContentType, Phase } from '@/types/db'
 import { isUserTrackedPhase } from '@/lib/domain/pipeline'
-import { getActiveTimer, startTimer, stopTimer, type ActiveTimer } from '@/lib/domain/timer'
+import { startTimer, stopTimer, TIMER_KEY, type ActiveTimer } from '@/lib/domain/timer'
 
 interface QuickTimerDialogProps {
   open: boolean
@@ -72,19 +72,59 @@ export function QuickTimerDialog({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hasActiveShift, setHasActiveShift] = useState<boolean | null>(null)
+  // Timer activo en OTRO requerimiento/actividad (bloquea iniciar uno aquí).
+  const [otherActive, setOtherActive] = useState<{ title: string } | null>(null)
 
   useEffect(() => {
     if (!open) return
     let cancelled = false
     Promise.resolve().then(async () => {
       if (cancelled) return
-      const t = getActiveTimer(requirementId, currentUserId)
-      setActiveTimer(t)
-      setElapsed(t ? Math.floor((new Date().getTime() - t.startedAt) / 1000) : 0)
       setError(null)
+      const supabase = createClient()
+
+      // Fuente de verdad: la entrada activa del usuario en la DB (el índice único
+      // garantiza a lo sumo una). Reconciliamos el estado local contra ella en vez
+      // de confiar en el localStorage por-requerimiento, que puede quedar stale o
+      // mostrar timers fantasma entre pestañas.
+      const { data: dbActive } = await supabase
+        .from('time_entries')
+        .select('id, started_at, title, phase, requirement_id')
+        .eq('user_id', currentUserId)
+        .is('ended_at', null)
+        .maybeSingle()
+
+      if (cancelled) return
+
+      const keyThis = TIMER_KEY(requirementId, currentUserId)
+
+      if (dbActive && dbActive.requirement_id === requirementId) {
+        // Timer activo para ESTE requerimiento.
+        const t: ActiveTimer = {
+          entryId: dbActive.id as string,
+          startedAt: new Date(dbActive.started_at as string).getTime(),
+          title: (dbActive.title as string) || title,
+          phase: (dbActive.phase as string) || currentPhase,
+        }
+        setActiveTimer(t)
+        setElapsed(Math.floor((new Date().getTime() - t.startedAt) / 1000))
+        setOtherActive(null)
+        if (typeof window !== 'undefined') localStorage.setItem(keyThis, JSON.stringify(t))
+      } else if (dbActive) {
+        // Hay un timer activo, pero en OTRO requerimiento (o administrativo).
+        setActiveTimer(null)
+        setElapsed(0)
+        setOtherActive({ title: (dbActive.title as string)?.trim() || 'otra actividad' })
+        if (typeof window !== 'undefined') localStorage.removeItem(keyThis)
+      } else {
+        // No hay ningún timer activo → limpiar estado + localStorage stale.
+        setActiveTimer(null)
+        setElapsed(0)
+        setOtherActive(null)
+        if (typeof window !== 'undefined') localStorage.removeItem(keyThis)
+      }
 
       // Verificar si el usuario tiene jornada activa
-      const supabase = createClient()
       const { data: shift } = await supabase
         .from('work_sessions')
         .select('id')
@@ -94,7 +134,7 @@ export function QuickTimerDialog({
       if (!cancelled) setHasActiveShift(!!shift)
     })
     return () => { cancelled = true }
-  }, [open, requirementId, currentUserId])
+  }, [open, requirementId, currentUserId, title, currentPhase])
 
   useEffect(() => {
     if (!activeTimer) return
@@ -247,6 +287,13 @@ export function QuickTimerDialog({
           </p>
         )}
 
+        {otherActive && !activeTimer && (
+          <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded-lg px-3 py-2 flex items-center gap-1.5 border border-amber-500/20">
+            <span className="material-symbols-outlined text-[16px]">timer</span>
+            Ya tienes un timer activo en «{otherActive.title}». Detenlo antes de iniciar otro.
+          </p>
+        )}
+
         {error && (
           <p className="text-xs text-fm-error bg-fm-error/5 rounded-lg px-3 py-2 border border-fm-error/20">
             {error}
@@ -272,14 +319,16 @@ export function QuickTimerDialog({
           ) : (
             <Button
               onClick={handleStart}
-              disabled={busy || !canStart || hasActiveShift === false}
+              disabled={busy || !canStart || hasActiveShift === false || !!otherActive}
               title={
-                hasActiveShift === false
-                  ? 'Debes iniciar tu jornada laboral antes de registrar tiempo'
-                  : windowLabel ?? undefined
+                otherActive
+                  ? `Ya tienes un timer activo en «${otherActive.title}»`
+                  : hasActiveShift === false
+                    ? 'Debes iniciar tu jornada laboral antes de registrar tiempo'
+                    : windowLabel ?? undefined
               }
               className="flex-1 rounded-xl h-10 text-white font-semibold disabled:opacity-50"
-              style={canStart && hasActiveShift !== false ? { background: 'linear-gradient(135deg,#00675c,#5bf4de)' } : {}}
+              style={canStart && hasActiveShift !== false && !otherActive ? { background: 'linear-gradient(135deg,#00675c,#5bf4de)' } : {}}
             >
               {busy ? 'Iniciando…' : 'Iniciar timer'}
             </Button>
