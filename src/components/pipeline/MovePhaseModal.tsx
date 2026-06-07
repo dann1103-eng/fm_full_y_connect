@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { createClient } from '@/lib/supabase/client'
 import { movePhase, PHASE_LABELS } from '@/lib/domain/pipeline'
 import { revalidatePipelineAfterMove } from '@/app/actions/pipelineRevalidate'
+import { enqueueReviewReadyNotification } from '@/app/actions/whatsappNotify'
 import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import type { PipelineItem } from '@/lib/domain/pipeline'
 import type { Phase } from '@/types/db'
@@ -76,6 +77,10 @@ export function MovePhaseModal({
       .eq('id', item.id)
       .single()
     console.info('[move-phase] after', after)
+
+    if (toPhase === 'revision_cliente') {
+      void enqueueReviewReadyNotification(item.id)
+    }
 
     setNotes('')
     setLoading(false)

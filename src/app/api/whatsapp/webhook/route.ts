@@ -288,6 +288,30 @@ async function maybeEnqueueReply(supabase: AdminClient, conversation: Conversati
   if (ins.error && !ins.error.message.includes('duplicate key')) {
     console.error('[whatsapp/webhook] enqueue job error', ins.error)
   }
+
+  // Disparo inmediato del runner: fire-and-forget (no esperamos respuesta para
+  // no bloquear el 200 OK que Meta exige rápido). El runner espera hasta
+  // `wait` ms a que el job sea elegible (cubre el debounce) y luego procesa.
+  triggerJobRunner(debounce * 1000 + 2000).catch((err) =>
+    console.warn('[whatsapp/webhook] trigger runner failed', err),
+  )
+}
+
+async function triggerJobRunner(waitMs: number): Promise<void> {
+  const secret = process.env.AI_JOBS_TRIGGER_SECRET
+  if (!secret) return
+  const base =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    process.env.NEXT_PUBLIC_APP_URL ??
+    'https://www.fullefm.site'
+  // No await: dispara y olvida.
+  void fetch(`${base}/api/ai-jobs/process?max=3&wait=${waitMs}`, {
+    method: 'POST',
+    headers: { 'x-trigger-secret': secret, 'content-type': 'application/json' },
+    body: '{}',
+    cache: 'no-store',
+    keepalive: true,
+  })
 }
 
 // ──────────────────────────────────────────────────────────────

@@ -29,7 +29,7 @@ import { RequirementTimesheet } from './RequirementTimesheet'
 import { ShareRequirementDialog } from './ShareRequirementDialog'
 import { ContentReviewDialog } from '@/components/clients/review/ContentReviewDialog'
 import { voidCambioLog, approveCambioLog, rejectCambioLog, addCambioLog } from '@/app/actions/cambioLogs'
-import { requestIntakeAnalysis } from '@/app/actions/aiJobs'
+import { enqueueReviewReadyNotification } from '@/app/actions/whatsappNotify'
 
 type Tab = 'fases' | 'chat' | 'tiempo'
 
@@ -274,6 +274,9 @@ export function PhaseSheet({
     })
     setMoving(false)
     if (error) { setMoveError(error); return }
+    if (toPhase === 'revision_cliente') {
+      void enqueueReviewReadyNotification(requirementId)
+    }
     setMoveNotes('')
     onClose()
     router.refresh()
@@ -1045,7 +1048,6 @@ export function PhaseSheet({
 
           {/* CHAT */}
           <div className={`h-full flex flex-col ${activeTab === 'chat' ? 'flex' : 'hidden'}`}>
-            <AnalyzeWithAiButton requirementId={requirementId} />
             <div className="flex-1 min-h-0">
               <RequirementChat
                 requirementId={requirementId}
@@ -1113,37 +1115,3 @@ export function PhaseSheet({
   )
 }
 
-function AnalyzeWithAiButton({ requirementId }: { requirementId: string }) {
-  const [running, setRunning] = useState(false)
-  const [feedback, setFeedback] = useState<string | null>(null)
-  const handleClick = async () => {
-    setRunning(true)
-    setFeedback(null)
-    try {
-      const res = await requestIntakeAnalysis(requirementId)
-      if (res.ok) {
-        setFeedback('Analizando… el resultado aparecerá en el chat en unos segundos.')
-      } else {
-        setFeedback(`Error: ${res.error}`)
-      }
-    } finally {
-      setRunning(false)
-    }
-  }
-  return (
-    <div className="px-4 py-2 border-b border-fm-surface-container-high flex items-center gap-3 flex-shrink-0">
-      <Button
-        type="button"
-        variant="outline"
-        onClick={handleClick}
-        disabled={running}
-        className="rounded-xl h-8 text-xs gap-1.5"
-        title="Bot analiza el requerimiento y postea un reporte interno (no visible al cliente)"
-      >
-        <span className="material-symbols-outlined text-[16px]">smart_toy</span>
-        {running ? 'Encolando…' : 'Analizar con IA'}
-      </Button>
-      {feedback && <span className="text-xs text-fm-on-surface-variant truncate">{feedback}</span>}
-    </div>
-  )
-}

@@ -76,21 +76,3 @@ export async function enqueueAiJob(input: EnqueueAiJobInput): Promise<EnqueueAiJ
   }
 }
 
-/**
- * Atajo para encolar un análisis de intake sobre un requerimiento.
- * El bot revisa el contexto (notes del cliente, briefing, assets adjuntos,
- * conversación reciente) y postea un análisis estructurado en el chat
- * interno del requerimiento (visible solo al equipo).
- */
-export async function requestIntakeAnalysis(requirementId: string): Promise<EnqueueAiJobResult> {
-  await requireUser()
-  if (!requirementId || typeof requirementId !== 'string') {
-    return { ok: false, error: 'requirementId es obligatorio' }
-  }
-  return enqueueAiJob({
-    jobType: 'intake_analyze',
-    requirementId,
-    payload: {},
-    priority: 3,
-  })
-}

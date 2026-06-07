@@ -121,7 +121,7 @@ export type UserRole = 'admin' | 'supervisor' | 'operator' | 'client' | 'agent'
 export type AiJobStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
 
 /** Tipos de job conocidos. Cualquier handler nuevo debe añadirse aquí y registrarse en ai-worker/src/handlers/index.ts. */
-export type AiJobType = 'echo' | 'intake_analyze' | 'whatsapp_reply' | (string & {})
+export type AiJobType = 'echo' | 'whatsapp_reply' | (string & {})
 
 export interface AiJob {
   id: string

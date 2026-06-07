@@ -38,6 +38,12 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next({ request })
   }
 
+  // Endpoint que procesa la cola de ai_jobs — autenticado por secret/cron header
+  // dentro del handler, no necesita sesión Supabase.
+  if (request.nextUrl.pathname.startsWith('/api/ai-jobs/')) {
+    return NextResponse.next({ request })
+  }
+
   // Callback público para flujo de pago embebido n1co — n1co redirige el iframe
   // a /n1co-callback y necesita cargarse sin auth (el iframe no tiene cookies).
   if (request.nextUrl.pathname.startsWith('/n1co-callback')) {
