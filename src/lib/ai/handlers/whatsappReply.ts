@@ -93,6 +93,10 @@ export const whatsappReplyHandler: AiHandler<{ conversationId?: string }, {
     return { messageId: null, costCents: 0, toolCalls: 0, skipped: 'no_new_messages' }
   }
 
+  // Primera vez que el bot responde en esta conversación? Si no hay outbound
+  // previo enviado por el bot, prependemos un saludo identificándose.
+  const isFirstReply = !history.some((m) => m.direction === 'outbound' && m.sent_by === 'bot')
+
   const messages = buildClaudeMessages(history)
 
   const tools = filterEnabled(cfg.enabled_tools)
@@ -160,9 +164,15 @@ export const whatsappReplyHandler: AiHandler<{ conversationId?: string }, {
 
   if (!assistantText) throw new Error('whatsapp_reply: el modelo no produjo texto tras el loop de tools')
 
-  await ctx.logEvent('progress', { step: 'sending_whatsapp', length: assistantText.length })
+  // En el primer turno, prependemos el saludo institucional (identificación
+  // explícita del bot — buena práctica de transparencia y reduce riesgo de
+  // reportes de spam por parte del cliente).
+  const WELCOME = 'Hola, soy el asistente automatizado de FM. Estoy aquí para ayudarte con consultas sobre tus contenidos y facturación. Si en cualquier momento prefieres hablar con una persona, solo dilo.'
+  const finalText = isFirstReply ? `${WELCOME}\n\n${assistantText}` : assistantText
 
-  const send = await sendWhatsappText({ toE164: conv.phone_e164, body: assistantText })
+  await ctx.logEvent('progress', { step: 'sending_whatsapp', length: finalText.length, firstReply: isFirstReply })
+
+  const send = await sendWhatsappText({ toE164: conv.phone_e164, body: finalText })
   const now = new Date().toISOString()
 
   const insert = await ctx.supabase
@@ -172,7 +182,7 @@ export const whatsappReplyHandler: AiHandler<{ conversationId?: string }, {
       direction: 'outbound',
       wamid: send.wamid,
       msg_type: 'text',
-      body: assistantText,
+      body: finalText,
       sent_by: 'bot',
       ai_job_id: ctx.job.id,
       wa_status: send.ok ? 'sent' : 'failed',
@@ -190,7 +200,7 @@ export const whatsappReplyHandler: AiHandler<{ conversationId?: string }, {
 
   await ctx.supabase
     .from('wa_conversations')
-    .update({ last_message_at: now, last_message_preview: assistantText.slice(0, 140) })
+    .update({ last_message_at: now, last_message_preview: finalText.slice(0, 140) })
     .eq('id', conversationId)
 
   const freshInput = Math.max(0, totalInput - totalCached)

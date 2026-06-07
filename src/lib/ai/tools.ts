@@ -1,7 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { CLIENT_PHASE_MAP, CLIENT_PHASE_LABELS, type ClientPhase } from '@/lib/domain/pipeline'
+import type { Phase } from '@/types/db'
 
-// Tools que se exponen al modelo en el handler whatsapp_reply.
-// Filtradas en runtime por wa_bot_configs.enabled_tools.
+// ──────────────────────────────────────────────────────────────
+// Tools del bot de WhatsApp — diseñadas para ser CONCISAS (pocos
+// tokens en schema y en respuestas) y siempre devolver fases
+// "client-friendly" (las 5 fases visibles al cliente, no las 12
+// internas del equipo).
+// ──────────────────────────────────────────────────────────────
 
 export interface ToolDef {
   name: string
@@ -22,142 +28,233 @@ export interface ToolContext {
 
 export type ToolFn = (ctx: ToolContext, input: Record<string, unknown>) => Promise<unknown>
 
+const NO_CLIENT = { error: 'Conversación sin cliente vinculado. Pide al usuario que un humano lo vincule, o usa handoff_to_human.' }
+
 export const TOOL_DEFS: Record<string, ToolDef> = {
   get_client_context: {
     name: 'get_client_context',
     description:
-      'Obtén información básica del cliente vinculado a esta conversación: nombre, plan actual, estado, redes sociales y notas internas. Úsalo al iniciar la conversación para personalizar el tono. Devuelve null si la conversación aún no está vinculada a un cliente.',
+      'Datos básicos del cliente: nombre, plan, estado y notas. Úsalo al inicio si lo necesitas para personalizar tono. NO lo llames si el usuario solo está saludando.',
     input_schema: { type: 'object', properties: {} },
   },
-  get_active_requirements: {
-    name: 'get_active_requirements',
+  get_requirements_summary: {
+    name: 'get_requirements_summary',
     description:
-      'Lista los requerimientos del cliente que están en revisión por su parte (fase revision_cliente) o pendientes de publicación. Incluye título, tipo de contenido, fase y deadline.',
+      'Resumen del pipeline del cliente en el ciclo actual: cuántos contenidos hay en cada fase (En proceso, Revisión, Aprobado, Pendiente de publicar, Publicado). Úsalo cuando el cliente pregunte "cómo va mi contenido", "qué tienes pendiente", etc.',
     input_schema: { type: 'object', properties: {} },
   },
-  get_requirement_status: {
-    name: 'get_requirement_status',
+  get_requirements_by_phase: {
+    name: 'get_requirements_by_phase',
     description:
-      'Obtén el detalle de UN requerimiento específico por id, incluyendo fase actual, último movimiento, número de cambios usados y deadline.',
+      'Lista detallada de contenidos en una fase específica del cliente. Úsalo después de get_requirements_summary cuando el cliente pida ver los títulos de algún grupo (ej. "muéstrame los que están en revisión").',
     input_schema: {
       type: 'object',
-      properties: { requirement_id: { type: 'string', description: 'UUID del requirement' } },
+      properties: {
+        client_phase: {
+          type: 'string',
+          enum: ['diseno', 'revision_cliente', 'aprobado', 'pendiente_publicar', 'publicado'],
+          description: 'La fase visible al cliente.',
+        },
+      },
+      required: ['client_phase'],
+    },
+  },
+  get_requirement_detail: {
+    name: 'get_requirement_detail',
+    description: 'Detalle de UN contenido específico por id (título, tipo, fase, deadline).',
+    input_schema: {
+      type: 'object',
+      properties: { requirement_id: { type: 'string' } },
       required: ['requirement_id'],
     },
   },
+  get_billing_status: {
+    name: 'get_billing_status',
+    description:
+      'Estado del ciclo de facturación actual del cliente: fecha de inicio/fin, días restantes, estado de pago, periodo de gracia y nombre del plan. Úsalo para preguntas como "cuándo termina mi mes", "ya pagué", "días que me quedan".',
+    input_schema: { type: 'object', properties: {} },
+  },
   get_unpaid_invoices: {
     name: 'get_unpaid_invoices',
-    description:
-      'Lista las facturas del cliente con estado pendiente de pago.',
+    description: 'Facturas emitidas sin pago. Devuelve número, monto y fechas.',
     input_schema: { type: 'object', properties: {} },
   },
   get_next_publications: {
     name: 'get_next_publications',
     description:
-      'Devuelve los próximos eventos del calendario del cliente (publicaciones agendadas, reuniones) en los siguientes N días (default 14).',
+      'Próximas publicaciones agendadas en los siguientes N días (default 14, máximo 60). Usa el deadline o starts_at del requerimiento.',
     input_schema: {
       type: 'object',
-      properties: { days: { type: 'number', description: 'Ventana en días, máximo 60', minimum: 1, maximum: 60 } },
+      properties: { days: { type: 'number', minimum: 1, maximum: 60 } },
     },
   },
   handoff_to_human: {
     name: 'handoff_to_human',
     description:
-      'Pausa el bot en esta conversación y avisa al equipo. Úsalo cuando el cliente pida hablar con humano o el tema esté fuera de tu alcance.',
+      'Pausa el bot y avisa al equipo. Úsalo cuando: el cliente pida hablar con humano, quiera dar de baja el servicio, esté frustrado, el tema esté fuera de tu alcance, o pregunte algo sensible (pagos puntuales no aclarados, quejas, problemas de calidad).',
     input_schema: {
       type: 'object',
-      properties: { reason: { type: 'string', description: 'Motivo breve (visible al equipo)' } },
+      properties: { reason: { type: 'string', description: 'Motivo breve, visible al equipo' } },
       required: ['reason'],
     },
   },
 }
 
+// ──────────────────────────────────────────────────────────────
+// Ejecutores — devuelven JSON pequeño y consistente.
+// ──────────────────────────────────────────────────────────────
+
 export const TOOL_FNS: Record<string, ToolFn> = {
   get_client_context: async (ctx) => {
-    if (!ctx.clientId) return { linked: false, message: 'Conversación sin cliente vinculado.' }
+    if (!ctx.clientId) return NO_CLIENT
     const { data } = await ctx.supabase
       .from('clients')
-      .select('id, name, status, ig_handle, fb_handle, tiktok_handle, notes, plans:current_plan_id ( name )')
+      .select('id, name, status, plans:current_plan_id ( name )')
       .eq('id', ctx.clientId)
       .maybeSingle()
-    if (!data) return { linked: false }
+    if (!data) return NO_CLIENT
     const row = data as unknown as {
       id: string; name: string; status: string
-      ig_handle: string | null; fb_handle: string | null; tiktok_handle: string | null
-      notes: string | null
       plans: { name: string } | null
     }
     return {
-      linked: true,
       id: row.id,
       name: row.name,
       status: row.status,
       plan: row.plans?.name ?? null,
-      socials: { instagram: row.ig_handle, facebook: row.fb_handle, tiktok: row.tiktok_handle },
-      notes: row.notes,
     }
   },
 
-  get_active_requirements: async (ctx) => {
-    if (!ctx.clientId) return { items: [], note: 'Conversación sin cliente vinculado.' }
+  get_requirements_summary: async (ctx) => {
+    if (!ctx.clientId) return NO_CLIENT
+    const cycle = await getCurrentCycleId(ctx.supabase, ctx.clientId)
+    if (!cycle) return { error: 'No hay ciclo activo.' }
+
     const { data } = await ctx.supabase
       .from('requirements')
-      .select('id, title, content_type, phase, deadline, review_started_at, billing_cycles!inner ( client_id, status )')
-      .eq('billing_cycles.client_id', ctx.clientId)
-      .in('phase', ['revision_cliente', 'pendiente_publicar', 'aprobado'])
+      .select('phase')
+      .eq('billing_cycle_id', cycle.id)
       .eq('approval_status', 'approved')
+      .eq('voided', false)
+      .limit(500)
+
+    const counts: Record<ClientPhase, number> = {
+      diseno: 0, revision_cliente: 0, aprobado: 0, pendiente_publicar: 0, publicado: 0,
+    }
+    for (const r of (data ?? []) as Array<{ phase: Phase }>) {
+      const cp = CLIENT_PHASE_MAP[r.phase]
+      if (cp) counts[cp]++
+    }
+    return {
+      counts: Object.fromEntries(
+        Object.entries(counts).map(([k, v]) => [k, { count: v, label: CLIENT_PHASE_LABELS[k as ClientPhase] }]),
+      ),
+      total: Object.values(counts).reduce((a, b) => a + b, 0),
+      cycle_id: cycle.id,
+    }
+  },
+
+  get_requirements_by_phase: async (ctx, input) => {
+    if (!ctx.clientId) return NO_CLIENT
+    const clientPhase = String(input.client_phase ?? '') as ClientPhase
+    const validPhases: ClientPhase[] = ['diseno', 'revision_cliente', 'aprobado', 'pendiente_publicar', 'publicado']
+    if (!validPhases.includes(clientPhase)) return { error: 'client_phase inválida' }
+
+    const internalPhases = (Object.keys(CLIENT_PHASE_MAP) as Phase[]).filter(
+      (p) => CLIENT_PHASE_MAP[p] === clientPhase,
+    )
+    const cycle = await getCurrentCycleId(ctx.supabase, ctx.clientId)
+    if (!cycle) return { items: [], note: 'No hay ciclo activo.' }
+
+    const { data } = await ctx.supabase
+      .from('requirements')
+      .select('id, title, content_type, phase, deadline')
+      .eq('billing_cycle_id', cycle.id)
+      .eq('approval_status', 'approved')
+      .eq('voided', false)
+      .in('phase', internalPhases)
       .order('deadline', { ascending: true, nullsFirst: false })
       .limit(20)
 
     const items = (data ?? []).map((r) => {
-      const row = r as unknown as {
-        id: string; title: string | null; content_type: string
-        phase: string; deadline: string | null; review_started_at: string | null
-      }
+      const row = r as { id: string; title: string | null; content_type: string; phase: Phase; deadline: string | null }
       return {
         id: row.id,
-        title: row.title || '(sin título)',
+        title: row.title || `(${row.content_type})`,
         content_type: row.content_type,
-        phase: row.phase,
         deadline: row.deadline,
-        review_started_at: row.review_started_at,
       }
     })
-    return { items, count: items.length }
+    return { items, count: items.length, phase_label: CLIENT_PHASE_LABELS[clientPhase] }
   },
 
-  get_requirement_status: async (ctx, input) => {
+  get_requirement_detail: async (ctx, input) => {
     const id = String(input.requirement_id ?? '')
     if (!id) return { error: 'Falta requirement_id' }
     const { data } = await ctx.supabase
       .from('requirements')
-      .select('id, title, content_type, phase, deadline, cambios_count, billing_cycles!inner ( client_id )')
+      .select('id, title, content_type, phase, deadline, billing_cycles!inner ( client_id )')
       .eq('id', id)
       .maybeSingle()
     if (!data) return { error: 'No encontrado' }
     const row = data as unknown as {
-      id: string; title: string | null; content_type: string
-      phase: string; deadline: string | null; cambios_count: number
+      id: string; title: string | null; content_type: string; phase: Phase; deadline: string | null
       billing_cycles?: { client_id: string }
     }
     if (ctx.clientId && row.billing_cycles?.client_id && row.billing_cycles.client_id !== ctx.clientId) {
       return { error: 'Ese requerimiento no pertenece a este cliente.' }
     }
+    const cp = CLIENT_PHASE_MAP[row.phase] ?? 'diseno'
     return {
       id: row.id,
-      title: row.title || '(sin título)',
+      title: row.title || `(${row.content_type})`,
       content_type: row.content_type,
-      phase: row.phase,
+      client_phase: cp,
+      phase_label: CLIENT_PHASE_LABELS[cp],
       deadline: row.deadline,
-      cambios_used: row.cambios_count,
+    }
+  },
+
+  get_billing_status: async (ctx) => {
+    if (!ctx.clientId) return NO_CLIENT
+    const { data } = await ctx.supabase
+      .from('billing_cycles')
+      .select('id, period_start, period_end, status, payment_status, payment_date, grace_period_until, no_expira, plans:plan_id_snapshot ( name )')
+      .eq('client_id', ctx.clientId)
+      .eq('status', 'current')
+      .order('period_end', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (!data) return { error: 'No hay ciclo activo.' }
+    const row = data as unknown as {
+      id: string; period_start: string; period_end: string
+      status: string; payment_status: 'paid' | 'unpaid'; payment_date: string | null
+      grace_period_until: string | null; no_expira: boolean
+      plans: { name: string } | null
+    }
+    const today = new Date()
+    const end = new Date(row.period_end)
+    const msPerDay = 24 * 60 * 60 * 1000
+    const daysRemaining = row.no_expira
+      ? null
+      : Math.max(0, Math.ceil((end.getTime() - today.getTime()) / msPerDay))
+    return {
+      plan: row.plans?.name ?? null,
+      period_start: row.period_start,
+      period_end: row.period_end,
+      days_remaining: daysRemaining,
+      no_expira: row.no_expira,
+      payment_status: row.payment_status,
+      payment_date: row.payment_date,
+      grace_period_until: row.grace_period_until,
     }
   },
 
   get_unpaid_invoices: async (ctx) => {
-    if (!ctx.clientId) return { items: [], note: 'Conversación sin cliente vinculado.' }
+    if (!ctx.clientId) return NO_CLIENT
     const { data } = await ctx.supabase
       .from('invoices')
-      .select('id, invoice_number, total, total_a_pagar, issue_date, due_date, status, payment_date')
+      .select('id, invoice_number, total_a_pagar, issue_date, due_date')
       .eq('client_id', ctx.clientId)
       .eq('status', 'issued')
       .is('payment_date', null)
@@ -167,21 +264,34 @@ export const TOOL_FNS: Record<string, ToolFn> = {
   },
 
   get_next_publications: async (ctx, input) => {
-    if (!ctx.clientId) return { items: [], note: 'Conversación sin cliente vinculado.' }
+    if (!ctx.clientId) return NO_CLIENT
     const days = Math.max(1, Math.min(60, Number(input.days ?? 14)))
     const now = new Date()
     const until = new Date(now.getTime() + days * 24 * 60 * 60 * 1000)
 
     const { data } = await ctx.supabase
       .from('requirements')
-      .select('id, title, content_type, phase, deadline, starts_at, billing_cycles!inner ( client_id )')
+      .select('id, title, content_type, phase, deadline, billing_cycles!inner ( client_id )')
       .eq('billing_cycles.client_id', ctx.clientId)
-      .or(`deadline.gte.${now.toISOString()},starts_at.gte.${now.toISOString()}`)
-      .or(`deadline.lte.${until.toISOString()},starts_at.lte.${until.toISOString()}`)
       .neq('approval_status', 'rejected')
-      .order('deadline', { ascending: true, nullsFirst: false })
-      .limit(30)
-    return { items: data ?? [], count: (data ?? []).length, window_days: days }
+      .eq('voided', false)
+      .gte('deadline', now.toISOString().slice(0, 10))
+      .lte('deadline', until.toISOString().slice(0, 10))
+      .order('deadline', { ascending: true })
+      .limit(20)
+
+    const items = (data ?? []).map((r) => {
+      const row = r as { id: string; title: string | null; content_type: string; phase: Phase; deadline: string | null }
+      const cp = CLIENT_PHASE_MAP[row.phase] ?? 'diseno'
+      return {
+        id: row.id,
+        title: row.title || `(${row.content_type})`,
+        content_type: row.content_type,
+        deadline: row.deadline,
+        phase_label: CLIENT_PHASE_LABELS[cp],
+      }
+    })
+    return { items, count: items.length, window_days: days }
   },
 
   handoff_to_human: async (ctx, input) => {
@@ -192,6 +302,21 @@ export const TOOL_FNS: Record<string, ToolFn> = {
       .eq('id', ctx.conversationId)
     return { ok: true, paused: true, reason }
   },
+}
+
+async function getCurrentCycleId(
+  supabase: SupabaseClient,
+  clientId: string,
+): Promise<{ id: string } | null> {
+  const { data } = await supabase
+    .from('billing_cycles')
+    .select('id')
+    .eq('client_id', clientId)
+    .eq('status', 'current')
+    .order('period_end', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return (data as { id: string } | null) ?? null
 }
 
 export function filterEnabled(enabled: string[]): ToolDef[] {

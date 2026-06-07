@@ -209,8 +209,10 @@ export interface WaMessage {
 /** Tools que el handler `whatsapp_reply` puede exponer al modelo. */
 export type WaBotTool =
   | 'get_client_context'
-  | 'get_active_requirements'
-  | 'get_requirement_status'
+  | 'get_requirements_summary'
+  | 'get_requirements_by_phase'
+  | 'get_requirement_detail'
+  | 'get_billing_status'
   | 'get_unpaid_invoices'
   | 'get_next_publications'
   | 'handoff_to_human'

@@ -5,9 +5,11 @@ import { updateBotConfig } from '@/app/actions/whatsapp'
 import type { WaBotConfig, WaBotTool } from '@/types/db'
 
 const ALL_TOOLS: Array<{ id: WaBotTool; label: string; description: string }> = [
-  { id: 'get_client_context', label: 'get_client_context', description: 'Datos básicos del cliente vinculado.' },
-  { id: 'get_active_requirements', label: 'get_active_requirements', description: 'Requerimientos en revisión / aprobado / pendiente publicar.' },
-  { id: 'get_requirement_status', label: 'get_requirement_status', description: 'Detalle de un requerimiento específico.' },
+  { id: 'get_client_context', label: 'get_client_context', description: 'Datos básicos del cliente vinculado (nombre, plan, estado).' },
+  { id: 'get_requirements_summary', label: 'get_requirements_summary', description: 'Resumen del pipeline: cuántos contenidos en cada fase visible al cliente.' },
+  { id: 'get_requirements_by_phase', label: 'get_requirements_by_phase', description: 'Lista detallada de contenidos en una fase del cliente.' },
+  { id: 'get_requirement_detail', label: 'get_requirement_detail', description: 'Detalle de un contenido específico por id.' },
+  { id: 'get_billing_status', label: 'get_billing_status', description: 'Ciclo actual: días restantes, estado de pago, plan, gracia.' },
   { id: 'get_unpaid_invoices', label: 'get_unpaid_invoices', description: 'Facturas emitidas sin pago.' },
   { id: 'get_next_publications', label: 'get_next_publications', description: 'Próximas publicaciones / deadlines en N días.' },
   { id: 'handoff_to_human', label: 'handoff_to_human', description: 'Pausa el bot y avisa al equipo.' },
