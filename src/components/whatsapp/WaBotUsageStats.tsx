@@ -57,13 +57,48 @@ async function aggregate(startIso: string, endIso: string): Promise<AggRow> {
   return { cost_cents: cost, tokens_input: tin, tokens_output: tout, tokens_cached: tcache, jobs }
 }
 
+interface PerClientRow {
+  clientId: string | null
+  name: string
+  cost_cents: number
+  jobs: number
+}
+
+async function aggregateByClient(startIso: string, endIso: string): Promise<PerClientRow[]> {
+  const supabase = createAdminClient()
+  const { data } = await supabase
+    .from('ai_jobs')
+    .select('client_id, cost_usd_cents, clients:client_id ( name )')
+    .in('job_type', ['whatsapp_reply', 'whatsapp_template'])
+    .eq('status', 'completed')
+    .gte('finished_at', startIso)
+    .lt('finished_at', endIso)
+    .limit(10000)
+
+  const map = new Map<string | null, PerClientRow>()
+  for (const row of (data ?? []) as unknown as Array<{
+    client_id: string | null
+    cost_usd_cents: number | null
+    clients: { name: string } | null
+  }>) {
+    const key = row.client_id
+    const name = key ? row.clients?.name ?? '(cliente eliminado)' : '— Leads / sin vinculo —'
+    const cur = map.get(key) ?? { clientId: key, name, cost_cents: 0, jobs: 0 }
+    cur.cost_cents += row.cost_usd_cents ?? 0
+    cur.jobs += 1
+    map.set(key, cur)
+  }
+  return Array.from(map.values()).sort((a, b) => b.cost_cents - a.cost_cents)
+}
+
 export async function WaBotUsageStats() {
   const current = getMonth(0)
   const previous = getMonth(-1)
 
-  const [cur, prev] = await Promise.all([
+  const [cur, prev, perClient] = await Promise.all([
     aggregate(current.startIso, current.endIso),
     aggregate(previous.startIso, previous.endIso),
+    aggregateByClient(current.startIso, current.endIso),
   ])
 
   return (
@@ -81,7 +116,56 @@ export async function WaBotUsageStats() {
         <MonthCard title={`Mes actual (${current.label})`} agg={cur} highlight />
         <MonthCard title={`Mes anterior (${previous.label})`} agg={prev} />
       </div>
+
+      <PerClientTable rows={perClient} monthLabel={current.label} />
     </section>
+  )
+}
+
+function PerClientTable({ rows, monthLabel }: { rows: PerClientRow[]; monthLabel: string }) {
+  if (rows.length === 0) {
+    return (
+      <p className="text-xs text-fm-on-surface-variant">
+        Sin actividad del bot en {monthLabel}.
+      </p>
+    )
+  }
+  return (
+    <div className="space-y-2">
+      <h3 className="text-xs font-medium text-fm-on-surface-variant uppercase tracking-wide">
+        Consumo por cliente — {monthLabel}
+      </h3>
+      <div className="overflow-x-auto rounded-lg border border-fm-outline-variant/30">
+        <table className="w-full text-sm">
+          <thead className="bg-fm-surface-container-low text-xs uppercase tracking-wide text-fm-on-surface-variant">
+            <tr>
+              <th className="text-left px-3 py-2 font-medium">Cliente</th>
+              <th className="text-right px-3 py-2 font-medium">Respuestas</th>
+              <th className="text-right px-3 py-2 font-medium">Costo USD</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-fm-outline-variant/30">
+            {rows.map((r) => (
+              <tr key={r.clientId ?? 'lead'} className="hover:bg-fm-surface-container-low/40">
+                <td className="px-3 py-2">
+                  {r.clientId ? (
+                    <a href={`/clients/${r.clientId}`} className="text-fm-primary hover:underline">
+                      {r.name}
+                    </a>
+                  ) : (
+                    <span className="text-fm-on-surface-variant italic">{r.name}</span>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-right text-fm-on-surface">{r.jobs}</td>
+                <td className="px-3 py-2 text-right font-medium text-fm-on-surface">
+                  ${(r.cost_cents / 100).toFixed(4)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   )
 }
 

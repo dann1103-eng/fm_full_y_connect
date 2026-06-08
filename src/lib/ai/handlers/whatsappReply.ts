@@ -174,9 +174,19 @@ export const whatsappReplyHandler: AiHandler<{ conversationId?: string }, {
 
   // En el primer turno, prependemos el saludo institucional (identificación
   // explícita del bot — buena práctica de transparencia y reduce riesgo de
-  // reportes de spam por parte del cliente).
-  const WELCOME = 'Hola, soy el asistente automatizado de FM. Estoy aquí para ayudarte con consultas sobre tus contenidos y facturación. Si en cualquier momento prefieres hablar con una persona, solo dilo.'
-  const finalText = isFirstReply ? `${WELCOME}\n\n${assistantText}` : assistantText
+  // reportes de spam por parte del cliente). El saludo varía según audiencia
+  // para que clientes existentes no escuchen "te ayudo con cotizaciones" y
+  // leads no escuchen "te ayudo con tu facturación".
+  const WELCOME_CLIENT =
+    'Hola, soy el asistente automatizado de FM. Estoy aquí para ayudarte con consultas sobre tus contenidos, facturación y publicaciones. Si en cualquier momento prefieres hablar con una persona, solo dilo.'
+  const WELCOME_LEAD =
+    'Hola, soy el asistente automatizado de FM Communication Solutions. Si necesitas información sobre nuestros servicios o una cotización, estoy aquí para ayudarte. Si prefieres hablar con un asesor humano, solo dilo.'
+  const WELCOME = audience === 'client' ? WELCOME_CLIENT : WELCOME_LEAD
+
+  // Filtro defensivo: si Claude saludó a pesar del system prompt, quitamos
+  // su saludo para que no haya doble bienvenida.
+  const cleanedAssistant = isFirstReply ? stripLeadingGreeting(assistantText) : assistantText
+  const finalText = isFirstReply ? `${WELCOME}\n\n${cleanedAssistant}` : cleanedAssistant
 
   await ctx.logEvent('progress', { step: 'sending_whatsapp', length: finalText.length, firstReply: isFirstReply })
 
@@ -245,6 +255,25 @@ function buildClaudeMessages(history: MsgRow[]): ClaudeMessage[] {
   }
   while (msgs.length && msgs[0]!.role !== 'user') msgs.shift()
   return msgs
+}
+
+/**
+ * Quita el primer "párrafo" si parece un saludo institucional. Defensa contra
+ * Claude que a veces ignora la regla del system prompt de no saludar en
+ * el primer turno (porque el sistema ya antepone el welcome).
+ */
+function stripLeadingGreeting(text: string): string {
+  const blocks = text.split(/\n+/).map((l) => l.trim()).filter((l) => l.length > 0)
+  if (blocks.length === 0) return text
+  // Patrones típicos de saludo/auto-identificación que Claude a veces antepone
+  // a pesar del system prompt: "Hola", "¡Hola!", "Buen día/tardes/noches",
+  // "Hello", "Bienvenido", "Saludos", "Soy el asistente...".
+  const greetingRe = /^(¡?\s*(hola|hello|hi|buen[ao]s?\s+(d[ií]as|tardes|noches)|saludos|bienvenido|bienvenida|estimado|estimada|que\s+tal)|soy\s+(el\s+)?asistente)/i
+  let i = 0
+  while (i < Math.min(3, blocks.length) && greetingRe.test(blocks[i]!)) i++
+  if (i === 0) return text
+  const remainder = blocks.slice(i).join('\n\n').trim()
+  return remainder || text
 }
 
 function renderMsgForModel(m: MsgRow): string {
