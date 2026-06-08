@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createRequirementRequestCore, ALLOWED_REQUEST_TYPES } from '@/app/actions/requirementRequests'
+import { createRequirementRequestCore } from '@/app/actions/requirementRequests'
+import { ALLOWED_REQUEST_TYPES } from '@/lib/domain/requirementRequest'
 import { effectiveLimits, applyContentLimitsWithOverride, CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import { computeTotals } from '@/lib/domain/requirement'
 import type { ContentType, PlanLimits, Requirement } from '@/types/db'

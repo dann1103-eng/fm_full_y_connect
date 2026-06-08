@@ -7,6 +7,7 @@ import { getActiveClientId } from '@/lib/supabase/active-client'
 import { assertNotImpersonating } from './impersonation'
 import type { ContentType, Priority, ClientRequestAttachment, ClientRequestLink } from '@/types/db'
 import { isWeekUnlocked, weekIndexInCycle } from '@/lib/domain/requirement'
+import { ALLOWED_REQUEST_TYPES, SCHEDULED_TYPES } from '@/lib/domain/requirementRequest'
 
 export interface RequestRequirementInput {
   contentType: ContentType
@@ -19,17 +20,6 @@ export interface RequestRequirementInput {
   desiredAt: string
   includesStory?: boolean
 }
-
-export const ALLOWED_REQUEST_TYPES = [
-  'historia',
-  'estatico',
-  'video_corto',
-  'reel',
-  'short',
-  'produccion',
-  'reunion',
-] as const satisfies readonly ContentType[]
-export const SCHEDULED_TYPES = ['reunion', 'produccion'] as const satisfies readonly ContentType[]
 
 /**
  * Core de creación de solicitud — sin dependencia de sesión browser.
