@@ -132,6 +132,16 @@ export async function adminChangeUserPassword(payload: {
   }
 }
 
+/**
+ * Elimina un usuario. Híbrido:
+ *  - Intenta el borrado DURO (auth.admin.deleteUser, que cascadea a public.users).
+ *  - Si falla porque el usuario tiene historial (FK RESTRICT: requirements
+ *    registrados, timesheets, mensajes, auditoría...), cae a SOFT-DELETE:
+ *    marca `deactivated_at`, banea el login en Auth y lo oculta de la lista.
+ *    Esto preserva el historial (reportes, "quién registró qué") intacto.
+ *
+ * Devuelve `mode: 'deleted' | 'deactivated'` para que la UI informe qué pasó.
+ */
 export async function deleteUser(targetUserId: string) {
   try {
     await assertAdmin()
@@ -142,15 +152,49 @@ export async function deleteUser(targetUserId: string) {
 
     const admin = createAdminClient()
 
+    // 1. Intento de borrado duro. El cascade users.id → auth.users(id) borra
+    //    public.users si no hay referencias RESTRICT que lo bloqueen.
     const { error: authError } = await admin.auth.admin.deleteUser(targetUserId)
-    if (authError) return { error: authError.message }
+    if (!authError) {
+      // Defensivo: si el cascade no corrió, limpiar la fila igual.
+      await admin.from('users').delete().eq('id', targetUserId)
+      revalidatePath('/users')
+      return { success: true, mode: 'deleted' as const }
+    }
 
-    await admin.from('users').delete().eq('id', targetUserId)
+    // 2. Borrado duro bloqueado (el usuario tiene historial) → desactivar.
+    const { error: deactErr } = await admin
+      .from('users')
+      .update({ deactivated_at: new Date().toISOString() })
+      .eq('id', targetUserId)
+    if (deactErr) return { error: deactErr.message }
+
+    // Banear el login en Auth (reversible con ban_duration='none' al reactivar).
+    await admin.auth.admin.updateUserById(targetUserId, { ban_duration: '876000h' })
 
     revalidatePath('/users')
-    return { success: true }
+    return { success: true, mode: 'deactivated' as const }
   } catch (e) {
     console.error('deleteUser failed:', e)
     return { error: e instanceof Error ? e.message : 'Error desconocido al eliminar usuario' }
+  }
+}
+
+/** Reactiva un usuario desactivado: limpia `deactivated_at` y quita el ban de Auth. */
+export async function reactivateUser(targetUserId: string) {
+  try {
+    await assertAdmin()
+    const admin = createAdminClient()
+    const { error } = await admin
+      .from('users')
+      .update({ deactivated_at: null })
+      .eq('id', targetUserId)
+    if (error) return { error: error.message }
+    await admin.auth.admin.updateUserById(targetUserId, { ban_duration: 'none' })
+    revalidatePath('/users')
+    return { success: true }
+  } catch (e) {
+    console.error('reactivateUser failed:', e)
+    return { error: e instanceof Error ? e.message : 'Error desconocido al reactivar usuario' }
   }
 }

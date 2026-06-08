@@ -424,6 +424,7 @@ export interface Database {
           current_session_id: string | null
           can_quote: boolean
           can_request_dev: boolean
+          deactivated_at: string | null
         }
         Insert: {
           id: string
@@ -435,6 +436,7 @@ export interface Database {
           current_session_id?: string | null
           can_quote?: boolean
           can_request_dev?: boolean
+          deactivated_at?: string | null
         }
         Update: {
           email?: string
@@ -445,6 +447,7 @@ export interface Database {
           current_session_id?: string | null
           can_quote?: boolean
           can_request_dev?: boolean
+          deactivated_at?: string | null
         }
         Relationships: []
       }

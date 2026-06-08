@@ -115,10 +115,20 @@ function UserRow({
   }
 
   function handleDelete() {
-    if (!confirm(`¿Eliminar a ${user.full_name ?? user.email}? Esta acción no se puede deshacer.`)) return
+    if (!confirm(
+      `¿Eliminar a ${user.full_name ?? user.email}?\n\n` +
+      `Si tiene historial (requerimientos, tiempo registrado, etc.) se desactivará ` +
+      `para conservar los registros: ya no podrá iniciar sesión y desaparecerá de esta lista.`
+    )) return
     startDeleteTransition(async () => {
       const res = await deleteUser(user.id)
-      if (res.error) { setError(res.error); return }
+      if ('error' in res && res.error) { setError(res.error); return }
+      if ('mode' in res && res.mode === 'deactivated') {
+        alert(
+          `${user.full_name ?? user.email} tiene historial en el sistema, así que se ` +
+          `desactivó en vez de borrarse (para no perder los registros). Ya no podrá iniciar sesión.`
+        )
+      }
       onDeleted(user.id)
     })
   }
@@ -500,6 +510,7 @@ function CreateUserModal({ onClose, onCreated }: {
         current_session_id: null,
         can_quote: false,
         can_request_dev: false,
+        deactivated_at: null,
       })
       onClose()
     })
