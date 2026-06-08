@@ -9,7 +9,7 @@ alter table public.requirements
     check (requested_via in ('portal', 'whatsapp_bot', 'staff', 'unknown'));
 
 create index if not exists requirements_requested_via_idx
-  on public.requirements(requested_via, created_at desc)
+  on public.requirements(requested_via, registered_at desc)
   where requested_via <> 'portal';
 
 commit;
