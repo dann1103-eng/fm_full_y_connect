@@ -1,4 +1,4 @@
--- 0092_wa_bot_config_upgrade.sql
+-- 0106_wa_bot_config_upgrade.sql
 -- Actualiza el system prompt y la lista de tools habilitadas del bot de
 -- WhatsApp a la versión "robusta" con identificación, opt-out y tools
 -- alineadas con las 5 fases visibles al cliente.

@@ -1,4 +1,4 @@
--- 0093_wa_bot_lead_config.sql
+-- 0107_wa_bot_lead_config.sql
 -- Permite dos configuraciones del bot en wa_bot_configs:
 --  - audience='client' → cuando la conversación está vinculada a un cliente.
 --  - audience='lead'   → cuando NO lo está (prospecto sin marca asignada).

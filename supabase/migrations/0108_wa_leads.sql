@@ -1,4 +1,4 @@
--- 0094_wa_leads.sql
+-- 0108_wa_leads.sql
 -- Tabla para almacenar la información que el bot recolecta de un lead/prospecto
 -- antes/durante una escalación a humano. El bot llama a la tool
 -- `submit_lead_info` y va llenando los campos a medida que avanza el chat.
