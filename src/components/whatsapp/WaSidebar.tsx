@@ -20,30 +20,79 @@ export function WaSidebar({ initial }: Props) {
   const [items, setItems] = useState<WaConvListItem[]>(initial)
   const [filter, setFilter] = useState('')
 
-  // Realtime: refresca cuando hay UPDATE/INSERT en wa_conversations.
+  // Realtime + poll de respaldo + refetch al volver al tab. La combinación
+  // garantiza que el preview/timestamp del sidebar refleje el último mensaje
+  // aún si un evento de realtime se pierde por reconexión.
   useEffect(() => {
     const supabase = createClient()
 
     async function refresh() {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('wa_conversations')
         .select('*, client:clients(id, name)')
         .order('last_message_at', { ascending: false, nullsFirst: false })
+        .limit(200)
+      if (error) {
+        console.warn('[WaSidebar] refresh failed', error)
+        return
+      }
       if (data) setItems(data as unknown as WaConvListItem[])
+    }
+
+    // Aplica un UPDATE directo desde el payload de realtime — más rápido y
+    // robusto que re-querear (no depende de RLS al momento de la suscripción).
+    function applyUpdate(next: WaConversation) {
+      setItems((prev) => {
+        const existing = prev.find((c) => c.id === next.id)
+        if (!existing) {
+          // INSERT (conv nueva) — recurrir a refresh() para hacer el join con clients.
+          void refresh()
+          return prev
+        }
+        const merged = { ...existing, ...next } as WaConvListItem
+        const others = prev.filter((c) => c.id !== next.id)
+        return [merged, ...others].sort((a, b) => {
+          const aT = a.last_message_at ?? a.created_at
+          const bT = b.last_message_at ?? b.created_at
+          return bT.localeCompare(aT)
+        })
+      })
     }
 
     const channel = supabase.channel('wa-conversations-sidebar')
     channel.on(
       'postgres_changes',
-      { event: '*', schema: 'public', table: 'wa_conversations' },
+      { event: 'UPDATE', schema: 'public', table: 'wa_conversations' },
+      (payload) => {
+        const next = payload.new as WaConversation | undefined
+        if (next?.id) applyUpdate(next)
+      },
+    )
+    channel.on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'wa_conversations' },
       () => {
         void refresh()
       },
     )
     channel.subscribe()
 
+    // Poll de respaldo cada 20s — captura cualquier UPDATE que el realtime
+    // se haya perdido (reconexiones, browser background, etc.).
+    const pollId = setInterval(() => {
+      if (document.visibilityState === 'visible') void refresh()
+    }, 20_000)
+
+    // Refresca al volver el tab al frente.
+    function onVisibility() {
+      if (document.visibilityState === 'visible') void refresh()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
     return () => {
       channel.unsubscribe()
+      clearInterval(pollId)
+      document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [])
 
