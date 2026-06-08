@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { CLIENT_PHASE_MAP, CLIENT_PHASE_LABELS, type ClientPhase } from '@/lib/domain/pipeline'
-import type { Phase } from '@/types/db'
+import type { ContentType, Phase } from '@/types/db'
+import { checkRequestEligibilityForClient, createRequirementFromBot } from '@/lib/ai/requirementRequestHelpers'
 
 // ──────────────────────────────────────────────────────────────
 // Tools del bot de WhatsApp — diseñadas para ser CONCISAS (pocos
@@ -96,6 +97,39 @@ export const TOOL_DEFS: Record<string, ToolDef> = {
       type: 'object',
       properties: { reason: { type: 'string', description: 'Motivo breve, visible al equipo' } },
       required: ['reason'],
+    },
+  },
+  check_request_eligibility: {
+    name: 'check_request_eligibility',
+    description:
+      'Verifica si el cliente puede solicitar contenido nuevo y devuelve la disponibilidad por tipo en el ciclo actual. Úsalo SIEMPRE como primer paso cuando el cliente quiera pedir un contenido nuevo. Devuelve blockers (si los hay), días restantes del ciclo, estado de pago, y por cada tipo: cuántos puede usar todavía y si permite agregar historia adicional.',
+    input_schema: { type: 'object', properties: {} },
+  },
+  create_requirement_request: {
+    name: 'create_requirement_request',
+    description:
+      'Crea una solicitud de contenido nuevo en nombre del cliente. Llámala SOLO después de: (1) confirmar con check_request_eligibility que puede solicitar y que hay disponibilidad del tipo pedido, (2) haber recolectado del cliente título, fecha deseada y opcionalmente descripción y si quiere historia adicional. La solicitud queda con estado "pendiente de aprobación" para que el equipo la revise.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        content_type: {
+          type: 'string',
+          enum: ['historia', 'estatico', 'video_corto', 'reel', 'short', 'produccion', 'reunion'],
+          description: 'Tipo de contenido a solicitar.',
+        },
+        title: { type: 'string', description: 'Título breve y descriptivo (lo verá el equipo).' },
+        desired_at: {
+          type: 'string',
+          description:
+            'Fecha deseada. Para reunion o produccion: ISO datetime "YYYY-MM-DDTHH:MM" (necesita hora). Para los demás: fecha "YYYY-MM-DD".',
+        },
+        description: { type: 'string', description: 'Notas adicionales del cliente (estilo, referencias, contexto, dudas).' },
+        includes_story: {
+          type: 'boolean',
+          description: 'Si quiere incluir una historia adicional. Solo válido para estatico, video_corto, reel o short.',
+        },
+      },
+      required: ['content_type', 'title', 'desired_at'],
     },
   },
   submit_lead_info: {
@@ -326,6 +360,57 @@ export const TOOL_FNS: Record<string, ToolFn> = {
         .eq('status', 'active')
     }
     return { ok: true, paused: true, reason }
+  },
+
+  check_request_eligibility: async (ctx) => {
+    if (!ctx.clientId) return NO_CLIENT
+    return await checkRequestEligibilityForClient(ctx.clientId)
+  },
+
+  create_requirement_request: async (ctx, input) => {
+    if (!ctx.clientId) return NO_CLIENT
+    const contentType = String(input.content_type ?? '') as ContentType
+    const title = String(input.title ?? '').trim()
+    const desiredAt = String(input.desired_at ?? '').trim()
+    const description = input.description ? String(input.description) : null
+    const includesStory = input.includes_story === true
+
+    if (!contentType) return { error: 'Falta content_type' }
+    if (!title) return { error: 'Falta título' }
+    if (!desiredAt) return { error: 'Falta fecha deseada' }
+
+    // Pre-check disponibilidad para devolver mensaje útil antes de crear.
+    const elig = await checkRequestEligibilityForClient(ctx.clientId)
+    if (!elig.can_create) {
+      return { error: 'No puedes crear solicitudes ahora.', blockers: elig.blockers }
+    }
+    const typeInfo = elig.available_content_types.find((t) => t.type === contentType)
+    if (typeInfo && typeInfo.available <= 0) {
+      return {
+        error: `Ya no tienes disponibles para el tipo "${typeInfo.label}" en este ciclo.`,
+        used: typeInfo.used,
+        limit: typeInfo.limit,
+        suggestion: 'Sugerir al cliente esperar al próximo ciclo o escalar con handoff_to_human para revisar opciones de plan.',
+      }
+    }
+
+    const res = await createRequirementFromBot({
+      clientId: ctx.clientId,
+      contentType,
+      title,
+      description,
+      desiredAt,
+      includesStory,
+    })
+
+    if ('error' in res) {
+      return { error: res.error }
+    }
+    return {
+      ok: true,
+      requirement_id: res.id,
+      message: `Solicitud creada. El equipo revisará tu petición de "${title}" y la aprobará pronto. Aparecerá en tu portal con estado "Pendiente de aprobación".`,
+    }
   },
 
   submit_lead_info: async (ctx, input) => {

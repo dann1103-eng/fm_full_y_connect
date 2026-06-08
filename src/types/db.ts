@@ -215,6 +215,8 @@ export type WaBotTool =
   | 'get_billing_status'
   | 'get_unpaid_invoices'
   | 'get_next_publications'
+  | 'check_request_eligibility'
+  | 'create_requirement_request'
   | 'handoff_to_human'
   | 'submit_lead_info'
 

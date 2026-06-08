@@ -12,6 +12,8 @@ const ALL_TOOLS: Array<{ id: WaBotTool; label: string; description: string }> = 
   { id: 'get_billing_status', label: 'get_billing_status', description: 'Ciclo actual: días restantes, estado de pago, plan, gracia.' },
   { id: 'get_unpaid_invoices', label: 'get_unpaid_invoices', description: 'Facturas emitidas sin pago.' },
   { id: 'get_next_publications', label: 'get_next_publications', description: 'Próximas publicaciones / deadlines en N días.' },
+  { id: 'check_request_eligibility', label: 'check_request_eligibility', description: 'Verifica si el cliente puede solicitar contenido y devuelve disponibilidad por tipo.' },
+  { id: 'create_requirement_request', label: 'create_requirement_request', description: 'Crea una nueva solicitud de contenido en nombre del cliente.' },
   { id: 'handoff_to_human', label: 'handoff_to_human', description: 'Pausa el bot y avisa al equipo.' },
   { id: 'submit_lead_info', label: 'submit_lead_info', description: 'Guarda datos recolectados del prospecto (empresa, interés, presupuesto, urgencia, notas).' },
 ]

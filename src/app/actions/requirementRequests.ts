@@ -20,7 +20,7 @@ export interface RequestRequirementInput {
   includesStory?: boolean
 }
 
-const ALLOWED_REQUEST_TYPES = [
+export const ALLOWED_REQUEST_TYPES = [
   'historia',
   'estatico',
   'video_corto',
@@ -29,7 +29,112 @@ const ALLOWED_REQUEST_TYPES = [
   'produccion',
   'reunion',
 ] as const satisfies readonly ContentType[]
-const SCHEDULED_TYPES = ['reunion', 'produccion'] as const satisfies readonly ContentType[]
+export const SCHEDULED_TYPES = ['reunion', 'produccion'] as const satisfies readonly ContentType[]
+
+/**
+ * Core de creación de solicitud — sin dependencia de sesión browser.
+ * Invocable desde el server action (portal) y desde el bot de WhatsApp.
+ *
+ * Validaciones aquí: tipos, status del cliente, ciclo activo, semana pagada.
+ * NO valida can_work — el caller decide si debe (portal sí, bot omite porque
+ * la conv ya está vinculada al cliente).
+ */
+export async function createRequirementRequestCore(args: {
+  clientId: string
+  /** UUID del user que figura como autor de la solicitud (puede ser FM Bot). */
+  requestedByUserId: string
+  contentType: ContentType
+  title: string
+  description?: string | null
+  desiredAt: string
+  includesStory?: boolean
+  /** 'portal' (default) | 'whatsapp_bot' | 'staff' | 'unknown' */
+  requestedVia?: 'portal' | 'whatsapp_bot' | 'staff' | 'unknown'
+}): Promise<{ ok: true; id: string } | { error: string }> {
+  if (!(ALLOWED_REQUEST_TYPES as readonly ContentType[]).includes(args.contentType)) {
+    return { error: 'Tipo no permitido para solicitudes' }
+  }
+  if (!args.title.trim()) return { error: 'Ingresa un título' }
+  if (!args.desiredAt) return { error: 'Selecciona la fecha deseada' }
+
+  const admin = createAdminClient()
+
+  // Status del cliente.
+  const { data: clientRow } = await admin
+    .from('clients')
+    .select('status, billing_period')
+    .eq('id', args.clientId)
+    .single()
+  if (!clientRow) return { error: 'Marca no encontrada' }
+  if (clientRow.status === 'inactive_payment') {
+    return { error: 'La cuenta está suspendida por falta de pago. Contacta a tu agencia.' }
+  }
+  if (clientRow.status === 'inactive_manual') {
+    return { error: 'La cuenta está desactivada. Contacta a tu agencia.' }
+  }
+
+  // Ciclo activo.
+  const { data: cycle } = await admin
+    .from('billing_cycles')
+    .select('id, period_start, payment_status, payment_status_2')
+    .eq('client_id', args.clientId)
+    .eq('status', 'current')
+    .order('period_start', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (!cycle) return { error: 'No hay ciclo de facturación activo para esta marca' }
+
+  // Semana pagada (defensa además del trigger SQL).
+  const week = weekIndexInCycle(new Date(), cycle.period_start as string)
+  if (
+    !isWeekUnlocked(
+      week,
+      cycle as unknown as Parameters<typeof isWeekUnlocked>[1],
+      clientRow as unknown as Parameters<typeof isWeekUnlocked>[2],
+    )
+  ) {
+    return { error: 'No se puede crear solicitudes en esta semana sin el pago correspondiente. Contacta a tu agencia.' }
+  }
+
+  const isScheduled = (SCHEDULED_TYPES as readonly ContentType[]).includes(args.contentType)
+  const startsAt = isScheduled ? args.desiredAt : null
+  const deadline = isScheduled ? null : args.desiredAt
+  const clientRequestedDeadline = isScheduled ? args.desiredAt : `${args.desiredAt}T00:00:00`
+  const cleanedDescription = (args.description ?? '').trim() || null
+
+  const { data: inserted, error } = await admin
+    .from('requirements')
+    .insert({
+      billing_cycle_id: cycle.id,
+      content_type: args.contentType,
+      registered_by_user_id: args.requestedByUserId,
+      title: args.title.trim(),
+      notes: cleanedDescription,
+      voided: false,
+      over_limit: false,
+      phase: 'pendiente',
+      carried_over: false,
+      cambios_count: 0,
+      includes_story: args.includesStory ?? false,
+      approval_status: 'pending',
+      requested_by_user_id: args.requestedByUserId,
+      client_requested_deadline: clientRequestedDeadline,
+      client_requested_notes: cleanedDescription,
+      starts_at: startsAt,
+      deadline,
+      assigned_to: [],
+      requested_via: args.requestedVia ?? 'portal',
+    } as never)
+    .select('id')
+    .single()
+
+  if (error || !inserted) {
+    console.error('[createRequirementRequestCore]', error)
+    return { error: error?.message ?? 'No se pudo crear la solicitud' }
+  }
+
+  return { ok: true, id: (inserted as { id: string }).id }
+}
 
 /**
  * Server action invocado desde el portal del cliente. Crea un requirement
@@ -45,16 +150,10 @@ export async function requestRequirement(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'No autenticado' }
 
-  if (!(ALLOWED_REQUEST_TYPES as readonly ContentType[]).includes(input.contentType)) {
-    return { error: 'Tipo no permitido para solicitudes' }
-  }
-  if (!input.title.trim()) return { error: 'Ingresa un título' }
-  if (!input.desiredAt) return { error: 'Selecciona la fecha deseada' }
-
   const activeClientId = await getActiveClientId()
   if (!activeClientId) return { error: 'No hay marca activa' }
 
-  // Verifica permiso can_work
+  // Verifica permiso can_work — específico del flujo portal, no del core.
   const admin = createAdminClient()
   const { data: link } = await admin
     .from('client_users')
@@ -66,86 +165,22 @@ export async function requestRequirement(
     return { error: 'No tienes permiso para solicitar requerimientos en esta marca' }
   }
 
-  // Verificar status del cliente: si está suspendido por impago, no permitir solicitar.
-  const { data: clientRow } = await admin
-    .from('clients')
-    .select('status, billing_period')
-    .eq('id', activeClientId)
-    .single()
-  if (!clientRow) return { error: 'Marca no encontrada' }
-  if (clientRow.status === 'inactive_payment') {
-    return { error: 'Tu cuenta está suspendida por falta de pago. Contacta a tu agencia.' }
+  const result = await createRequirementRequestCore({
+    clientId: activeClientId,
+    requestedByUserId: user.id,
+    contentType: input.contentType,
+    title: input.title,
+    description: input.description,
+    desiredAt: input.desiredAt,
+    includesStory: input.includesStory,
+    requestedVia: 'portal',
+  })
+
+  if ('ok' in result) {
+    revalidatePath('/portal/dashboard')
+    revalidatePath('/requirements/solicitudes')
   }
-  if (clientRow.status === 'inactive_manual') {
-    return { error: 'Tu cuenta está desactivada. Contacta a tu agencia.' }
-  }
-
-  // Resuelve ciclo abierto del cliente.
-  const { data: cycle } = await admin
-    .from('billing_cycles')
-    .select('id, period_start, payment_status, payment_status_2')
-    .eq('client_id', activeClientId)
-    .eq('status', 'current')
-    .order('period_start', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (!cycle) return { error: 'No hay ciclo de facturación activo para esta marca' }
-
-  // Validar que la semana actual esté pagada (defensa además del trigger SQL 0094).
-  const week = weekIndexInCycle(new Date(), cycle.period_start as string)
-  if (!isWeekUnlocked(
-    week,
-    cycle as unknown as Parameters<typeof isWeekUnlocked>[1],
-    clientRow as unknown as Parameters<typeof isWeekUnlocked>[2],
-  )) {
-    return { error: 'No se puede crear solicitudes en esta semana sin el pago correspondiente. Contacta a tu agencia.' }
-  }
-
-  const isScheduled = (SCHEDULED_TYPES as readonly ContentType[]).includes(input.contentType)
-  // Para reunion/produccion el cliente da datetime → starts_at.
-  // Para artes el cliente da date (YYYY-MM-DD) → deadline.
-  const startsAt = isScheduled ? input.desiredAt : null
-  const deadline = isScheduled ? null : input.desiredAt
-  // client_requested_deadline acepta cualquier formato porque es timestamptz nullable;
-  // para artes lo guardamos como medianoche local del día.
-  const clientRequestedDeadline = isScheduled
-    ? input.desiredAt
-    : `${input.desiredAt}T00:00:00`
-
-  const { data: inserted, error } = await admin
-    .from('requirements')
-    .insert({
-      billing_cycle_id: cycle.id,
-      content_type: input.contentType,
-      registered_by_user_id: user.id,
-      title: input.title.trim(),
-      notes: input.description.trim() || null,
-      voided: false,
-      over_limit: false,
-      phase: 'pendiente',
-      carried_over: false,
-      cambios_count: 0,
-      includes_story: input.includesStory ?? false,
-      // Solicitud: marca pending y guarda fecha del cliente
-      approval_status: 'pending',
-      requested_by_user_id: user.id,
-      client_requested_deadline: clientRequestedDeadline,
-      client_requested_notes: input.description.trim() || null,
-      starts_at: startsAt,
-      deadline,
-      assigned_to: [],
-    })
-    .select('id')
-    .single()
-
-  if (error || !inserted) {
-    console.error('[requestRequirement]', error)
-    return { error: 'No se pudo crear la solicitud' }
-  }
-
-  revalidatePath('/portal/dashboard')
-  revalidatePath('/requirements/solicitudes')
-  return { ok: true, id: inserted.id }
+  return result
 }
 
 export interface ApproveRequirementInput {
