@@ -13,6 +13,7 @@ const ALL_TOOLS: Array<{ id: WaBotTool; label: string; description: string }> = 
   { id: 'get_unpaid_invoices', label: 'get_unpaid_invoices', description: 'Facturas emitidas sin pago.' },
   { id: 'get_next_publications', label: 'get_next_publications', description: 'Próximas publicaciones / deadlines en N días.' },
   { id: 'handoff_to_human', label: 'handoff_to_human', description: 'Pausa el bot y avisa al equipo.' },
+  { id: 'submit_lead_info', label: 'submit_lead_info', description: 'Guarda datos recolectados del prospecto (empresa, interés, presupuesto, urgencia, notas).' },
 ]
 
 const MODELS = [

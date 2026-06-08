@@ -216,6 +216,7 @@ export type WaBotTool =
   | 'get_unpaid_invoices'
   | 'get_next_publications'
   | 'handoff_to_human'
+  | 'submit_lead_info'
 
 export type WaBotAudience = 'client' | 'lead'
 

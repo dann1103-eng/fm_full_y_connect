@@ -98,6 +98,22 @@ export const TOOL_DEFS: Record<string, ToolDef> = {
       required: ['reason'],
     },
   },
+  submit_lead_info: {
+    name: 'submit_lead_info',
+    description:
+      'Guarda la información que has recolectado del prospecto. Llámalo cada vez que el lead te dé nuevos datos (nombre de la empresa/marca, qué servicios busca, presupuesto aproximado, urgencia, etc.). Puedes llamarlo varias veces durante la conversación para agregar info; solo pasa los campos NUEVOS o ACTUALIZADOS, no repitas los que ya guardaste. Esta info la verá el equipo cuando tome la conversación.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        company_name: { type: 'string', description: 'Nombre de la empresa o marca del prospecto.' },
+        contact_name: { type: 'string', description: 'Nombre de la persona con la que estás hablando.' },
+        interest: { type: 'string', description: 'Qué servicio/s le interesan (contenido, redes, fotografía, video, etc.).' },
+        budget_range: { type: 'string', description: 'Rango de presupuesto si lo mencionó (libre: "$300-500", "no sé aún", etc.).' },
+        urgency: { type: 'string', description: 'Cuándo quiere empezar / qué tan urgente es.' },
+        notes: { type: 'string', description: 'Otros datos relevantes que mencionó (audiencia objetivo, competencia, dolores específicos, etc.).' },
+      },
+    },
+  },
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -301,6 +317,45 @@ export const TOOL_FNS: Record<string, ToolFn> = {
       .update({ bot_paused: true, paused_at: new Date().toISOString(), unread_count: 1 })
       .eq('id', ctx.conversationId)
     return { ok: true, paused: true, reason }
+  },
+
+  submit_lead_info: async (ctx, input) => {
+    // Upsert por conversation_id — el bot puede llamar muchas veces para ir
+    // acumulando datos del prospecto a lo largo de la conversación.
+    const fields = ['company_name', 'contact_name', 'interest', 'budget_range', 'urgency', 'notes'] as const
+    const update: Record<string, string> = {}
+    for (const f of fields) {
+      const v = input[f]
+      if (typeof v === 'string' && v.trim()) update[f] = v.trim().slice(0, 500)
+    }
+    if (Object.keys(update).length === 0) {
+      return { ok: false, error: 'No se pasaron campos válidos.' }
+    }
+
+    // ¿Ya existe lead? Upsert manual: select + insert/update.
+    const existing = await ctx.supabase
+      .from('wa_leads')
+      .select('id')
+      .eq('conversation_id', ctx.conversationId)
+      .maybeSingle()
+
+    if (existing.data) {
+      const upd = await ctx.supabase
+        .from('wa_leads')
+        .update(update)
+        .eq('id', (existing.data as { id: string }).id)
+      if (upd.error) return { ok: false, error: upd.error.message }
+    } else {
+      const ins = await ctx.supabase
+        .from('wa_leads')
+        .insert({
+          conversation_id: ctx.conversationId,
+          phone_e164: ctx.phoneE164,
+          ...update,
+        })
+      if (ins.error) return { ok: false, error: ins.error.message }
+    }
+    return { ok: true, saved_fields: Object.keys(update) }
   },
 }
 

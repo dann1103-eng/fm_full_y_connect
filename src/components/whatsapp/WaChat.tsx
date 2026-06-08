@@ -16,14 +16,27 @@ interface ClientOption {
   name: string
 }
 
+interface LeadInfo {
+  id: string
+  company_name: string | null
+  contact_name: string | null
+  interest: string | null
+  budget_range: string | null
+  urgency: string | null
+  notes: string | null
+  updated_at: string
+}
+
 interface Props {
   conversation: WaConversation
   initialMessages: WaMessage[]
   clients: ClientOption[]
   linkedClient: ClientOption | null
+  lead?: LeadInfo | null
 }
 
-export function WaChat({ conversation, initialMessages, clients, linkedClient }: Props) {
+export function WaChat({ conversation, initialMessages, clients, linkedClient, lead: initialLead }: Props) {
+  const [lead, setLead] = useState<LeadInfo | null>(initialLead ?? null)
   const [messages, setMessages] = useState<WaMessage[]>(initialMessages)
   const [paused, setPaused] = useState(conversation.bot_paused)
   const [client, setClient] = useState<ClientOption | null>(linkedClient)
@@ -86,6 +99,19 @@ export function WaChat({ conversation, initialMessages, clients, linkedClient }:
       (payload) => {
         const next = payload.new as WaConversation
         setPaused(next.bot_paused)
+      },
+    )
+    ch.on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'wa_leads',
+        filter: `conversation_id=eq.${conversation.id}`,
+      },
+      (payload) => {
+        const next = payload.new as LeadInfo | undefined
+        if (next && next.id) setLead(next)
       },
     )
     ch.subscribe()
@@ -179,6 +205,8 @@ export function WaChat({ conversation, initialMessages, clients, linkedClient }:
         </div>
       </header>
 
+      {lead && !linkedClient && <LeadPanel lead={lead} />}
+
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
         {messages.length === 0 && (
           <p className="text-center text-sm text-fm-on-surface-variant py-8">Sin mensajes todavía.</p>
@@ -219,6 +247,36 @@ export function WaChat({ conversation, initialMessages, clients, linkedClient }:
         </p>
       </footer>
     </section>
+  )
+}
+
+function LeadPanel({ lead }: { lead: LeadInfo }) {
+  const rows: Array<[string, string | null]> = [
+    ['Empresa', lead.company_name],
+    ['Contacto', lead.contact_name],
+    ['Interés', lead.interest],
+    ['Presupuesto', lead.budget_range],
+    ['Urgencia', lead.urgency],
+    ['Notas', lead.notes],
+  ]
+  const populated = rows.filter(([, v]) => v && v.trim())
+  if (populated.length === 0) return null
+
+  return (
+    <div className="border-b border-fm-outline-variant/30 bg-amber-50/50 px-4 py-3">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="material-symbols-outlined text-[16px] text-amber-700">person_search</span>
+        <h3 className="text-xs font-medium text-amber-900 uppercase tracking-wide">Info del lead (recopilada por el bot)</h3>
+      </div>
+      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs">
+        {populated.map(([k, v]) => (
+          <div key={k} className="flex gap-2">
+            <dt className="font-medium text-fm-on-surface-variant min-w-[70px]">{k}:</dt>
+            <dd className="text-fm-on-surface">{v}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   )
 }
 
