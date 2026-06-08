@@ -19,18 +19,22 @@ export default async function UsersPage() {
     .single()
   if (appUser?.role !== 'admin') redirect('/')
 
-  const { data: users } = await supabase
+  // select('*') + filtro en JS (en vez de .is('deactivated_at', null)) para ser
+  // resilientes a si la migración 0105 aún no se aplicó: si la columna no existe,
+  // `u.deactivated_at` es undefined y el usuario se conserva (no rompe la lista).
+  const { data: usersRaw } = await supabase
     .from('users')
-    .select('id, email, full_name, role, created_at, avatar_url, default_assignee')
+    .select('*')
     .not('role', 'eq', 'client')
-    .is('deactivated_at', null)
     .order('created_at')
+
+  const users = (usersRaw ?? []).filter((u) => !u.deactivated_at)
 
   return (
     <div className="flex flex-col min-h-full">
       <TopNav title="Usuarios" />
       <div className="p-6 max-w-4xl mx-auto w-full">
-        <UsersTable users={(users ?? []) as AppUser[]} currentUserId={authUser.id} />
+        <UsersTable users={users as AppUser[]} currentUserId={authUser.id} />
       </div>
     </div>
   )
