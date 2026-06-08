@@ -316,6 +316,15 @@ export const TOOL_FNS: Record<string, ToolFn> = {
       .from('wa_conversations')
       .update({ bot_paused: true, paused_at: new Date().toISOString(), unread_count: 1 })
       .eq('id', ctx.conversationId)
+
+    // Si hay un lead asociado (sin cliente vinculado), márcalo como escalated.
+    if (!ctx.clientId) {
+      await ctx.supabase
+        .from('wa_leads')
+        .update({ status: 'escalated' })
+        .eq('conversation_id', ctx.conversationId)
+        .eq('status', 'active')
+    }
     return { ok: true, paused: true, reason }
   },
 
