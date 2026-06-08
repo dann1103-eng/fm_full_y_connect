@@ -215,7 +215,15 @@ export const whatsappReplyHandler: AiHandler<{ conversationId?: string }, {
   const costCents = Math.ceil(
     (freshInput * 0.0003 + totalCached * 0.00003 + totalOutput * 0.0015) * 100,
   )
-  await ctx.supabase.from('ai_jobs').update({ cost_usd_cents: costCents }).eq('id', ctx.job.id)
+  await ctx.supabase
+    .from('ai_jobs')
+    .update({
+      cost_usd_cents: costCents,
+      tokens_input: totalInput,
+      tokens_output: totalOutput,
+      tokens_cached: totalCached,
+    })
+    .eq('id', ctx.job.id)
 
   if (!send.ok) await ctx.logEvent('whatsapp_send_failed', { error: send.errorText })
 

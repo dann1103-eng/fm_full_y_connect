@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { getEffectiveUser } from '@/lib/auth/effective-user'
 import { createWaAdminClient as createAdminClient } from '@/lib/whatsapp/db'
 import { WaBotConfigTabs } from '@/components/whatsapp/WaBotConfigTabs'
+import { WaBotUsageStats } from '@/components/whatsapp/WaBotUsageStats'
 import type { WaBotConfig } from '@/types/db'
 
 export default async function AdminWhatsappConfigPage() {
@@ -41,6 +42,7 @@ export default async function AdminWhatsappConfigPage() {
           Los cambios se aplican al próximo mensaje, sin redeploy.
         </p>
       </header>
+      <WaBotUsageStats />
       <WaBotConfigTabs clientConfig={clientConfig} leadConfig={leadConfig} />
     </div>
   )
