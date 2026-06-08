@@ -8,6 +8,7 @@ import {
   sendStaffReply,
   toggleBotForConversation,
   linkConversationToClient,
+  unlinkConversationFromClient,
 } from '@/app/actions/whatsapp'
 import type { WaConversation, WaMessage } from '@/types/db'
 
@@ -161,6 +162,25 @@ export function WaChat({ conversation, initialMessages, clients, linkedClient, l
     })
   }
 
+  function handleUnlink() {
+    if (!client) return
+    const ok = confirm(
+      `¿Quitar el vínculo con "${client.name}"?\n\n` +
+        'La conversación volverá a tratarse como lead (sin marca). ' +
+        'El contacto WhatsApp del cliente también se borrará para que el ' +
+        'próximo mensaje desde este número NO se auto-vincule.',
+    )
+    if (!ok) return
+    setClient(null)
+    startTransition(async () => {
+      const res = await unlinkConversationFromClient({
+        conversationId: conversation.id,
+        removeContact: true,
+      })
+      if (!res.ok) setError(res.error)
+    })
+  }
+
   const title = client?.name ?? conversation.display_name ?? conversation.phone_e164
 
   return (
@@ -175,19 +195,36 @@ export function WaChat({ conversation, initialMessages, clients, linkedClient, l
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {!client && clients.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          {clients.length > 0 && (
             <select
+              key={client?.id ?? 'none'}
               defaultValue=""
               onChange={(e) => handleLink(e.target.value)}
-              className="text-sm border border-fm-outline-variant/40 rounded-md px-2 py-1 bg-fm-surface-container-low"
+              className="text-sm border border-fm-outline-variant/40 rounded-md px-2 py-1 bg-fm-surface-container-low max-w-[200px]"
               disabled={pending}
+              title={client ? 'Cambiar a otra marca' : 'Vincular a una marca'}
             >
-              <option value="" disabled>Vincular a cliente…</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
+              <option value="" disabled>
+                {client ? 'Cambiar marca…' : 'Vincular a cliente…'}
+              </option>
+              {clients
+                .filter((c) => c.id !== client?.id)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
             </select>
+          )}
+          {client && (
+            <button
+              type="button"
+              onClick={handleUnlink}
+              disabled={pending}
+              className="text-sm px-2 py-1.5 rounded-md border border-fm-outline-variant/40 text-fm-on-surface-variant hover:bg-red-50 hover:border-red-300 hover:text-red-700 transition"
+              title="Quitar vínculo con la marca actual"
+            >
+              <span className="material-symbols-outlined text-[16px] align-middle">link_off</span>
+            </button>
           )}
           <button
             type="button"

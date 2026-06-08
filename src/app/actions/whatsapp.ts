@@ -169,7 +169,43 @@ export async function markConversationRead(conversationId: string): Promise<Resu
 }
 
 // ────────────────────────────────────────────────────────────
-// Vincular conversación a cliente manualmente
+// Quitar el vínculo cliente ↔ conversación (vuelve a ser lead)
+// ────────────────────────────────────────────────────────────
+export async function unlinkConversationFromClient(args: {
+  conversationId: string
+  /** Si true, también borra la fila de client_whatsapp_contacts para que
+   *  futuros mensajes desde el mismo número NO se auto-vinculen al cliente
+   *  anterior. Default true. */
+  removeContact?: boolean
+}): Promise<Result> {
+  const guard = await requireAgencyUser()
+  if (!guard.ok) return guard
+
+  const admin = createAdminClient()
+  const conv = await admin
+    .from('wa_conversations')
+    .select('id, phone_e164, client_id, contact_id')
+    .eq('id', args.conversationId)
+    .single()
+  if (conv.error || !conv.data) return { ok: false, error: 'Conversación no encontrada' }
+
+  // Borra el contacto si aplica.
+  if (args.removeContact !== false) {
+    await admin.from('client_whatsapp_contacts').delete().eq('phone_e164', conv.data.phone_e164)
+  }
+
+  const upd = await admin
+    .from('wa_conversations')
+    .update({ client_id: null, contact_id: null })
+    .eq('id', args.conversationId)
+  if (upd.error) return { ok: false, error: upd.error.message }
+
+  revalidatePath(`/whatsapp/${args.conversationId}`)
+  return { ok: true }
+}
+
+// ────────────────────────────────────────────────────────────
+// Vincular conversación a cliente manualmente (o REASIGNAR si ya está vinculada)
 // ────────────────────────────────────────────────────────────
 export async function linkConversationToClient(args: {
   conversationId: string
