@@ -217,8 +217,10 @@ export type WaBotTool =
   | 'get_next_publications'
   | 'handoff_to_human'
 
+export type WaBotAudience = 'client' | 'lead'
+
 export interface WaBotConfig {
-  id: 1
+  audience: WaBotAudience
   system_prompt: string
   model: string
   temperature: number

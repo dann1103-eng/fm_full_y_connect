@@ -67,15 +67,23 @@ export const whatsappReplyHandler: AiHandler<{ conversationId?: string }, {
     return { messageId: null, costCents: 0, toolCalls: 0, skipped: 'bot_paused' }
   }
 
-  const cfgRes = await ctx.supabase.from('wa_bot_configs').select('*').eq('id', 1).maybeSingle()
+  // Selecciona la config según si la conversación está vinculada a un cliente
+  // (audience='client') o no (audience='lead' — prospectos / leads).
+  const audience: 'client' | 'lead' = conv.client_id ? 'client' : 'lead'
+  const cfgRes = await ctx.supabase
+    .from('wa_bot_configs')
+    .select('*')
+    .eq('audience', audience)
+    .maybeSingle()
   const cfg: BotConfig = (cfgRes.data as BotConfig | null) ?? {
     system_prompt: 'Eres el asistente de WhatsApp de FM. Responde en español, breve y útil.',
     model: 'claude-sonnet-4-6',
     temperature: 0.3,
-    max_tokens: 1024,
-    enabled_tools: ['get_client_context', 'get_active_requirements', 'handoff_to_human'],
+    max_tokens: 600,
+    enabled_tools: audience === 'lead' ? ['handoff_to_human'] : ['get_client_context', 'handoff_to_human'],
     history_window: DEFAULT_HISTORY,
   }
+  await ctx.logEvent('progress', { step: 'config_loaded', audience })
   const model = process.env.ANTHROPIC_MODEL || cfg.model || 'claude-sonnet-4-6'
 
   const historyRes = await ctx.supabase

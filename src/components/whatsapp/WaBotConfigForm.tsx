@@ -40,6 +40,7 @@ export function WaBotConfigForm({ config }: { config: WaBotConfig }) {
     setStatus(null)
     startTransition(async () => {
       const res = await updateBotConfig({
+        audience: config.audience,
         systemPrompt,
         model,
         temperature,

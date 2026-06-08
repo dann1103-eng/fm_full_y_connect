@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createWaAdminClient as createAdminClient } from '@/lib/whatsapp/db'
 import { sendWhatsappText } from '@/lib/whatsapp/send'
 import { toE164 } from '@/lib/whatsapp/normalize'
-import type { WaBotTool } from '@/types/db'
+import type { WaBotTool, WaBotAudience } from '@/types/db'
 
 type Result<T extends object = object> =
   | ({ ok: true } & T)
@@ -230,6 +230,7 @@ export async function linkConversationToClient(args: {
 // Editar configuración del bot
 // ────────────────────────────────────────────────────────────
 export interface UpdateBotConfigInput {
+  audience: WaBotAudience
   systemPrompt: string
   model: string
   temperature: number
@@ -243,6 +244,9 @@ export async function updateBotConfig(input: UpdateBotConfigInput): Promise<Resu
   const guard = await requireAdmin()
   if (!guard.ok) return guard
 
+  if (!['client', 'lead'].includes(input.audience)) {
+    return { ok: false, error: 'audience inválida' }
+  }
   if (input.systemPrompt.trim().length < 20) {
     return { ok: false, error: 'El system prompt es demasiado corto' }
   }
@@ -272,7 +276,7 @@ export async function updateBotConfig(input: UpdateBotConfigInput): Promise<Resu
       history_window: input.historyWindow,
       updated_by: guard.userId,
     })
-    .eq('id', 1)
+    .eq('audience', input.audience)
 
   if (error) return { ok: false, error: error.message }
   revalidatePath('/admin/whatsapp')

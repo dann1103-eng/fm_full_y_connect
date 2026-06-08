@@ -260,13 +260,14 @@ async function maybeEnqueueReply(supabase: AdminClient, conversation: Conversati
     if (c.data && c.data.wa_bot_enabled === false) return
   }
 
-  // Leer debounce de la config singleton.
+  // Leer debounce de la config de la audiencia correspondiente.
+  const audience = conversation.client_id ? 'client' : 'lead'
   const cfg = await supabase
     .from('wa_bot_configs')
     .select('debounce_seconds')
-    .eq('id', 1)
+    .eq('audience', audience)
     .maybeSingle()
-  const debounce = cfg.data?.debounce_seconds ?? 8
+  const debounce = cfg.data?.debounce_seconds ?? 3
 
   const scheduledFor = new Date(Date.now() + debounce * 1000).toISOString()
 
