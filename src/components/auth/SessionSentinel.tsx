@@ -70,17 +70,19 @@ export function SessionSentinel() {
         )
         .subscribe()
 
-      // 3) Polling de respaldo
+      // 3) Polling de respaldo. Solo expulsar si la BD confirma OTRA sesión
+      //    (`superseded`). Un `unknown` (auth transitorio / red) NO debe
+      //    expulsar: causaba falsos positivos en la única sesión legítima.
       const poll = window.setInterval(async () => {
-        const { valid } = await verifySession(localId!)
-        if (!valid) setKicked(true)
+        const { status } = await verifySession(localId!)
+        if (status === 'superseded') setKicked(true)
       }, POLL_MS)
 
       // 4) On visibility change → revalidar
       const onVis = async () => {
         if (document.visibilityState !== 'visible') return
-        const { valid } = await verifySession(localId!)
-        if (!valid) setKicked(true)
+        const { status } = await verifySession(localId!)
+        if (status === 'superseded') setKicked(true)
       }
       document.addEventListener('visibilitychange', onVis)
 

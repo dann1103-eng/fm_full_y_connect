@@ -30,24 +30,38 @@ export async function claimSession(): Promise<
 }
 
 /**
- * Verifica si el `localSessionId` que tiene el cliente coincide con el
+ * Verifica el estado del `localSessionId` del cliente contra el
  * `current_session_id` actual en la BD. Usado como fallback cuando realtime
  * está caído (polling cada 30s + on visibilitychange).
+ *
+ * Devuelve tres estados — IMPORTANTE distinguirlos para no expulsar por error:
+ * - `valid`:      el id local coincide con la BD. Todo bien.
+ * - `superseded`: la BD tiene OTRO id no-nulo → otro dispositivo reclamó la
+ *                 sesión. Este es el ÚNICO caso que debe expulsar.
+ * - `unknown`:    no se pudo confirmar (auth transitorio sin user, fila/columna
+ *                 nula tras un signout, error de red/RLS). NO expulsar: tratar
+ *                 "no pude confirmar" como expulsión causaba falsos positivos
+ *                 que sacaban al usuario en su única sesión legítima.
  */
 export async function verifySession(
   localSessionId: string,
-): Promise<{ valid: boolean }> {
+): Promise<{ status: 'valid' | 'superseded' | 'unknown' }> {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { valid: false }
+  if (!user) return { status: 'unknown' }
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('users')
     .select('current_session_id')
     .eq('id', user.id)
     .maybeSingle()
 
-  return { valid: data?.current_session_id === localSessionId }
+  if (error || !data) return { status: 'unknown' }
+
+  const dbId = data.current_session_id
+  if (!dbId) return { status: 'unknown' }
+
+  return { status: dbId === localSessionId ? 'valid' : 'superseded' }
 }
