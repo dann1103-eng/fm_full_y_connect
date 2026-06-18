@@ -3,6 +3,7 @@ import { createRequirementRequestCore } from '@/app/actions/requirementRequests'
 import { ALLOWED_REQUEST_TYPES } from '@/lib/domain/requirementRequest'
 import { effectiveLimits, applyContentLimitsWithOverride, CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import { computeTotals } from '@/lib/domain/requirement'
+import { getAvailableContentCredits } from '@/lib/domain/credits'
 import type { ContentType, PlanLimits, Requirement } from '@/types/db'
 
 const FM_BOT_USER_ID = '00000000-0000-0000-0000-000000000b07'
@@ -29,6 +30,14 @@ export interface RequestEligibilityResult {
 }
 
 const STORY_ELIGIBLE: ContentType[] = ['estatico', 'video_corto', 'reel', 'short']
+
+/** Suma créditos extra de contenido al `available` de cada tipo (pura). */
+export function applyExtraCreditsToAvailability(
+  types: RequestEligibilityResult['available_content_types'],
+  credits: Partial<Record<ContentType, number>>,
+): RequestEligibilityResult['available_content_types'] {
+  return types.map((t) => ({ ...t, available: t.available + (credits[t.type] ?? 0) }))
+}
 
 /**
  * Computa elegibilidad y disponibilidad del cliente para crear solicitudes
@@ -113,6 +122,9 @@ export async function checkRequestEligibilityForClient(clientId: string): Promis
     }),
   )
 
+  const extraCredits = await getAvailableContentCredits(admin, clientId)
+  const merged = applyExtraCreditsToAvailability(available_content_types, extraCredits)
+
   return {
     can_create: blockers.length === 0,
     blockers,
@@ -124,7 +136,7 @@ export async function checkRequestEligibilityForClient(clientId: string): Promis
       payment_status: cycleRow.payment_status,
       no_expira: cycleRow.no_expira,
     },
-    available_content_types,
+    available_content_types: merged,
   }
 }
 
