@@ -422,3 +422,78 @@ Las violaciones de FK (RESTRICT) **no producen excepción** — retornan `{ erro
 | 0098 | **Planes sin vencimiento**: columnas `plans.no_expira` y `billing_cycles.no_expira` (snapshot). Ciclos con `no_expira=true` son ignorados por `daily-cycle-runner` en auto-billing y en el loop de expiración: no se archivan ni renuevan automáticamente |
 | 0099 | **Fix avatar portal**: storage policies del bucket `user-avatars` recreadas para permitir a cualquier usuario autenticado (incluido `role='client'`) gestionar archivos en su propia carpeta `{auth.uid()}/*` |
 | 0100 | **Planes bimestrales**: nuevo `billing_period='bimonthly'` en `plans`, `clients` y `billing_cycles`. Ciclo de 60 días con 8 semanas, 2 pagos manuales (S1-S4 → `payment_status`, S5-S8 → `payment_status_2`). Trigger `requirements_check_week_payment` actualizado para soportar 8 semanas según `billing_period`. `daily-cycle-runner` excluye `bimonthly` del auto-billing (facturas manuales). UI: `WeekRangeNavigator` con flecha animada S1-S4/S5-S8 en `RequirementPanel` |
+| 0101–0105 | dev_requests, schedule_daily_cron, enforce_single_active_timer, users_deactivation |
+| 0106 | **Bot WhatsApp v1**: prompt + tools alineadas a las 5 fases del cliente. `wa_bot_configs` con system_prompt robusto. |
+| 0107 | **Config de bot separada por audiencia** (`client` \| `lead`): drops singleton id=1, agrega `audience` como PK. Inserta fila `lead` con prompt para prospectos. |
+| 0108 | **`wa_leads`**: tabla one-row-per-conversation con datos recolectados por el bot (company, contact, interest, budget, urgency, notes). Habilita tool `submit_lead_info` en config `lead`. |
+| 0109 | **Pipeline comercial de leads** en `wa_leads`: status (`active`/`escalated`/`converted`/`rejected`/`archived`), `assigned_to_user_id`, `converted_to_client_id`, `rejected_reason`, trigger touch `status_updated_at`. |
+| 0110 | **Tracking de tokens** en `ai_jobs`: columnas `tokens_input`, `tokens_output`, `tokens_cached`. Para reportes de costo en `/admin/whatsapp`. |
+| 0111 | **Regla #1 NO SALUDAR** en ambos prompts (client y lead) — fix del saludo duplicado. |
+| 0112 | `REPLICA IDENTITY FULL` en `wa_conversations`, `wa_messages`, `wa_leads` — payloads de realtime UPDATE incluyen row completo. |
+| 0113 | Prompt de leads inyectado con contexto completo de fmcomsolutions.com (servicios, planes con precios públicos, industrias, clientes, contacto). |
+| 0114 | **`requirements.requested_via`** (`portal`/`whatsapp_bot`/`staff`/`unknown`) para trazabilidad de canal de origen. |
+| 0115 | Bot de clientes puede crear solicitudes de contenido: habilita tools `check_request_eligibility` + `create_requirement_request`. Sube `max_tokens` 600→800. Prompt reescrito con flujo step-by-step de 5 pasos. |
+
+## Integración WhatsApp Cloud API + Bot IA (migraciones 0091 + 0106–0115)
+
+**Stack:** webhook receiver en Vercel, runner de jobs IA reemplaza ai-worker externo (corre dentro de Vercel vía cron + trigger del webhook), Anthropic Claude Sonnet 4.6 con tool-use loop y prompt caching, plantillas aprobadas por Meta para mensajes salientes proactivos.
+
+### Tablas (migración 0091 + extensiones)
+- `client_whatsapp_contacts` — contactos WA por cliente (uno o varios números). `phone_e164` es UNIQUE.
+- `wa_conversations` — una por número externo (`phone_e164` UNIQUE). Campos: `client_id` (FK clients, NULL = lead), `bot_paused`, `unread_count`, `last_message_at`, `last_message_preview`.
+- `wa_messages` — todos los mensajes, direction `inbound`/`outbound`. `wamid` UNIQUE para idempotencia. `sent_by` ∈ `bot`/`staff`/`system`. `ai_job_id` FK para auditar qué job lo generó.
+- `wa_bot_configs` — PK `audience` (`client` \| `lead`). Cada audience tiene su prompt, modelo, tools habilitadas, debounce, max_tokens, etc. Editable en `/admin/whatsapp` sin redeploy.
+- `wa_leads` — one-row-per-conversation con info recolectada por el bot. Pipeline comercial (status, assigned_to, converted_to_client_id).
+
+### Columnas añadidas
+- `clients.wa_bot_enabled` (boolean default true) — toggle por cliente.
+- `requirements.requested_via` (text) — trazabilidad (`portal` default, `whatsapp_bot`, `staff`, `unknown`).
+- `ai_jobs.wa_conversation_id` + índice único parcial → dedupe de jobs `whatsapp_reply` por conversación.
+- `ai_jobs.tokens_input`/`tokens_output`/`tokens_cached` (integer) → costo en `/admin/whatsapp`.
+
+### Arquitectura del runner IA (sin ai-worker externo)
+- `src/lib/ai/runner.ts` — `runJobs({maxJobs, waitForUpcomingMs})`: claim_ai_job → dispatch al handler → completar/reintentar con backoff exponencial.
+- `src/app/api/ai-jobs/process/route.ts` — endpoint POST/GET autenticado por `CRON_SECRET` (Vercel Cron header) o `AI_JOBS_TRIGGER_SECRET` (trigger interno desde webhook + server actions).
+- `vercel.json` — cron cada minuto a `/api/ai-jobs/process?max=10&wait=15000` como fallback de procesamiento.
+- Webhook WhatsApp y `enqueueReviewReadyNotification` disparan el runner con fire-and-forget tras encolar (low-latency).
+- Handlers registrados en `src/lib/ai/runner.ts`: `whatsapp_reply`, `whatsapp_template`.
+- **El directorio `ai-worker/` ya NO está en uso productivo** — quedó legacy para referencia local. Vercel + Supabase es la infra real.
+
+### Tools del bot (src/lib/ai/tools.ts)
+Filtradas en runtime por `wa_bot_configs.enabled_tools`:
+- `get_client_context` — datos básicos del cliente
+- `get_requirements_summary` / `get_requirements_by_phase` / `get_requirement_detail` — fases visibles al cliente (5, mapeadas con `CLIENT_PHASE_MAP`)
+- `get_billing_status` — días restantes, pago, gracia, plan
+- `get_unpaid_invoices` / `get_next_publications`
+- `check_request_eligibility` + `create_requirement_request` — bot puede crear solicitudes de contenido (mismas validaciones que el portal, reusa `createRequirementRequestCore` extraído de `src/app/actions/requirementRequests.ts`)
+- `handoff_to_human` — pausa bot + marca lead como `escalated` si aplica
+- `submit_lead_info` — solo audience `lead`, upsert por conversation_id en `wa_leads`
+
+### Plantillas aprobadas (`src/lib/whatsapp/templates.ts`)
+Registry tipado `WA_TEMPLATES`. Cada entry declara `name` + `language` (debe coincidir EXACTO con lo aprobado por Meta, ej. `es_MX`) + `paramKeys` en orden.
+- `REVIEW_READY` → `revision_cliente_lista` (es_MX). Disparada por `enqueueReviewReadyNotification(requirementId)` desde `movePhase` cuando `toPhase='revision_cliente'` (PhaseSheet, MovePhaseModal).
+
+### Inbox UI
+- `/whatsapp` (admin/supervisor/operator) — sidebar reactiva (realtime + poll 20s + visibility refetch) + chat con vincular/cambiar/desvincular marca, pausar/reanudar bot, panel de lead si aplica.
+- `/whatsapp/leads` — bandeja dedicada con stats (total / activos / escalados / convertidos / % conversión / valor estimado), filtros (status, asignado, búsqueda), acciones por fila (escalar / convertir-a-cliente / descartar / reasignar), export CSV.
+- `/admin/whatsapp` (solo admin) — tabs Clientes / Leads para editar prompt + tools por audience. Stats de consumo del mes actual y anterior + breakdown por cliente.
+
+### Env vars añadidas (Vercel Production)
+- `WHATSAPP_VERIFY_TOKEN` — verificación GET del webhook.
+- `WHATSAPP_APP_SECRET` — validar firma `X-Hub-Signature-256`.
+- `WHATSAPP_TOKEN` — Bearer token Graph API (System User permanente).
+- `WHATSAPP_PHONE_NUMBER_ID` — para construir POST a `/v22.0/{id}/messages`.
+- `WHATSAPP_WABA_ID` — para gestión de templates.
+- `ANTHROPIC_API_KEY` — Claude API.
+- `ANTHROPIC_MODEL` — default override (ej. `claude-sonnet-4-6`).
+- `CRON_SECRET` — Bearer que Vercel Cron envía automáticamente al endpoint.
+- `AI_JOBS_TRIGGER_SECRET` — header `x-trigger-secret` para invocaciones internas (webhook → runner, server action → runner).
+
+### Convención de números
+- Internamente: `phone_e164` (con `+`).
+- A Meta Graph API: sin `+` (helper `sendWhatsappText` y `sendWhatsappTemplate` lo strip).
+- URL canónica de webhook: `https://www.fullefm.site/api/whatsapp/webhook` (con `www`). Meta NO sigue redirects; el dominio raíz `fullefm.site` redirige a `www`.
+
+### Trazabilidad de costos
+- `ai_jobs.cost_usd_cents` calculado por handler según pricing Sonnet 4.6 ($3/M in, $15/M out, $0.30/M cache).
+- `WaBotUsageStats` (src/components/whatsapp/) — tarjetas mes actual/anterior + tabla por cliente. TZ America/El_Salvador para corte mensual.
