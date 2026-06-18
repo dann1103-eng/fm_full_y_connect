@@ -18,6 +18,7 @@ import type {
   InvoiceExtrasMetadata,
 } from '@/types/db'
 import { CONTENT_TYPE_TO_CREDIT_KIND, CREDIT_KIND_TO_CONTENT_TYPE } from '@/types/db'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 /**
  * Materializa los créditos correspondientes a una factura pagada.
@@ -157,4 +158,108 @@ export async function getAvailableCambiosCredits(
     .eq('kind', 'cambios')
     .gt('qty_remaining', 0)
   return (data ?? []).reduce((sum, r) => sum + (r.qty_remaining as number), 0)
+}
+
+export interface CambiosBalance {
+  included: number
+  used: number
+  remaining_cycle: number
+  extra_credits: number
+  total_available: number
+  pending: number
+}
+
+/** Aritmética pura del pool de cambios. Sin DB — testeable directo. */
+export function computeCambiosBalance(input: {
+  included: number
+  used: number
+  extraCredits: number
+  pending: number
+}): CambiosBalance {
+  const remaining_cycle = Math.max(0, input.included - input.used)
+  return {
+    included: input.included,
+    used: input.used,
+    remaining_cycle,
+    extra_credits: input.extraCredits,
+    total_available: remaining_cycle + input.extraCredits,
+    pending: input.pending,
+  }
+}
+
+/**
+ * Cuenta cambios APROBADOS (no-crédito, no anulados) en todo el ciclo.
+ * Misma cuenta que consumeCambioSlot — fuente única de verdad del cupo usado.
+ */
+export async function countApprovedCambiosInCycle(
+  admin: SupabaseClient,
+  billingCycleId: string,
+): Promise<number> {
+  const { data: cycleReqs } = await admin
+    .from('requirements')
+    .select('id')
+    .eq('billing_cycle_id', billingCycleId)
+  const reqIds = (cycleReqs ?? []).map((r: { id: string }) => r.id)
+  if (reqIds.length === 0) return 0
+  const { count } = await admin
+    .from('requirement_cambio_logs')
+    .select('id', { count: 'exact', head: true })
+    .in('requirement_id', reqIds)
+    .eq('status', 'approved')
+    .neq('voided', true)
+    .is('paid_from_credit_id', null)
+  return count ?? 0
+}
+
+/** Cuenta cambios PENDIENTES de aprobación en el ciclo (los ya pedidos, aún sin aplicar). */
+export async function countPendingCambiosInCycle(
+  admin: SupabaseClient,
+  billingCycleId: string,
+): Promise<number> {
+  const { data: cycleReqs } = await admin
+    .from('requirements')
+    .select('id')
+    .eq('billing_cycle_id', billingCycleId)
+  const reqIds = (cycleReqs ?? []).map((r: { id: string }) => r.id)
+  if (reqIds.length === 0) return 0
+  const { count } = await admin
+    .from('requirement_cambio_logs')
+    .select('id', { count: 'exact', head: true })
+    .in('requirement_id', reqIds)
+    .eq('status', 'pending')
+    .neq('voided', true)
+  return count ?? 0
+}
+
+/**
+ * Saldo del pool de cambios del mes para un cliente. Crea su propio admin client
+ * (igual que checkRequestEligibilityForClient). Devuelve `null` si no hay ciclo activo.
+ */
+export async function getCambiosBalance(clientId: string): Promise<CambiosBalance | null> {
+  const admin = createAdminClient()
+  const { data: cycle } = await admin
+    .from('billing_cycles')
+    .select('id')
+    .eq('client_id', clientId)
+    .eq('status', 'current')
+    .order('period_end', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (!cycle?.id) return null
+
+  const { data: clientRow } = await admin
+    .from('clients')
+    .select('plan:plans(cambios_included)')
+    .eq('id', clientId)
+    .maybeSingle()
+  const included: number =
+    (clientRow?.plan as { cambios_included: number } | null)?.cambios_included ?? 0
+
+  const [used, pending, extraCredits] = await Promise.all([
+    countApprovedCambiosInCycle(admin, cycle.id as string),
+    countPendingCambiosInCycle(admin, cycle.id as string),
+    getAvailableCambiosCredits(admin, clientId),
+  ])
+
+  return computeCambiosBalance({ included, used, extraCredits, pending })
 }
