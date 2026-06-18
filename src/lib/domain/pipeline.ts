@@ -247,6 +247,14 @@ export function clientPhaseOf(phase: Phase): ClientPhase | null {
   return CLIENT_PHASE_MAP[phase] ?? null
 }
 
+/** Fases en las que NO tiene sentido pedir un cambio (contenido ya cerrado). */
+const CHANGE_BLOCKED_PHASES: Phase[] = ['aprobado', 'pendiente_publicar', 'publicado_entregado']
+
+/** True si en esta fase interna el cliente todavía puede pedir un cambio. */
+export function canRequestChangeForPhase(phase: Phase): boolean {
+  return !CHANGE_BLOCKED_PHASES.includes(phase)
+}
+
 // ---------------------------------------------------------------------------
 
 /**
