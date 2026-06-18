@@ -110,7 +110,8 @@ autor de cualquier escritura.
 - **Guard:** `NO_CLIENT` si falta `clientId`; manejar "sin ciclo activo".
 
 #### 🆕 `request_requirement_change` (sirve A4.2)
-- **Input:** `{ requirement_id: string, change_notes: string }`.
+- **Input:** `{ requirement_id: string, change_notes: string }`. **`change_notes` es obligatorio** — es la
+  justificación que el supervisor de FM lee para aprobar/rechazar. El bot nunca registra un cambio sin ella.
 - **Lógica:**
   1. Verificar pertenencia con **check estricto positivo** (ver B4): el requerimiento debe tener
      `billing_cycles.client_id === ctx.clientId`; rechazar si no se puede confirmar (no copiar el check

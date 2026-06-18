@@ -483,6 +483,8 @@ git commit -m "feat: get_requirement_detail incluye cambios_count"
 - Modify: `src/lib/ai/tools.ts`
 
 > Patrón "registrar, equipo confirma": inserta un cambio `pending` (aparece solo en la campana de admin/supervisor vía feed `cambio_pending`) + deja mensaje de contexto. NO consume el pool.
+>
+> **La justificación del cambio (`change_notes`) es OBLIGATORIA.** El bot no debe registrar ningún cambio sin ella. Esa justificación se guarda en `requirement_cambio_logs.notes` y es exactamente lo que el supervisor de FM lee para **aprobar o rechazar** (el feed `cambio_pending` la expone como `cambio_notes`). El prompt debe instruir al bot a pedirle al cliente que explique qué quiere cambiar antes de llamar la tool.
 
 - [ ] **Step 1: Imports necesarios**
 
@@ -503,7 +505,7 @@ import { botPostMessage, FM_BOT_USER_ID } from '@/lib/bot'
       type: 'object',
       properties: {
         requirement_id: { type: 'string' },
-        change_notes: { type: 'string', description: 'Qué quiere cambiar el cliente, en sus palabras.' },
+        change_notes: { type: 'string', description: 'OBLIGATORIO. Justificación/descripción de qué quiere cambiar el cliente, en sus palabras. El supervisor de FM la usa para aprobar o rechazar; nunca registres un cambio sin esto.' },
       },
       required: ['requirement_id', 'change_notes'],
     },
