@@ -1,7 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { CLIENT_PHASE_MAP, CLIENT_PHASE_LABELS, type ClientPhase } from '@/lib/domain/pipeline'
+import { CLIENT_PHASE_MAP, CLIENT_PHASE_LABELS, canRequestChangeForPhase, type ClientPhase } from '@/lib/domain/pipeline'
 import type { ContentType, Phase } from '@/types/db'
 import { checkRequestEligibilityForClient, createRequirementFromBot } from '@/lib/ai/requirementRequestHelpers'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { getCambiosBalance } from '@/lib/domain/credits'
+import { botPostMessage, FM_BOT_USER_ID } from '@/lib/bot'
+import { isPlausibleDesiredDate } from '@/lib/ai/dates'
 
 // ──────────────────────────────────────────────────────────────
 // Tools del bot de WhatsApp — diseñadas para ser CONCISAS (pocos
@@ -62,7 +66,7 @@ export const TOOL_DEFS: Record<string, ToolDef> = {
   },
   get_requirement_detail: {
     name: 'get_requirement_detail',
-    description: 'Detalle de UN contenido específico por id (título, tipo, fase, deadline).',
+    description: 'Detalle de UN contenido específico por id (título, tipo, fase, deadline). Incluye cambios ya aplicados (cambios_count, informativo).',
     input_schema: {
       type: 'object',
       properties: { requirement_id: { type: 'string' } },
@@ -130,6 +134,39 @@ export const TOOL_DEFS: Record<string, ToolDef> = {
         },
       },
       required: ['content_type', 'title', 'desired_at'],
+    },
+  },
+  get_changes_balance: {
+    name: 'get_changes_balance',
+    description:
+      'Cuántos cambios le quedan al cliente en el MES (pool del plan + créditos extra). Úsalo cuando el cliente pregunte por cambios o ANTES de registrar una solicitud de cambio. Devuelve: included (cupo del plan), used (ya aprobados), remaining_cycle, extra_credits, total_available y pending (cambios ya pedidos sin aprobar aún).',
+    input_schema: { type: 'object', properties: {} },
+  },
+  request_requirement_change: {
+    name: 'request_requirement_change',
+    description:
+      'Registra una SOLICITUD de cambio del cliente sobre un contenido existente (no lo aplica; el equipo lo revisa y aplica). Antes de llamarla: (1) identifica el requirement_id correcto (usa get_requirements_by_phase / get_requirement_detail), (2) verifica con get_changes_balance que total_available > 0. Si no hay cambios disponibles, NO la llames: explica que se agotaron y ofrece escalar.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        requirement_id: { type: 'string' },
+        change_notes: { type: 'string', description: 'OBLIGATORIO. Justificación/descripción de qué quiere cambiar el cliente, en sus palabras. El supervisor de FM la usa para aprobar o rechazar; nunca registres un cambio sin esto.' },
+      },
+      required: ['requirement_id', 'change_notes'],
+    },
+  },
+  request_reschedule: {
+    name: 'request_reschedule',
+    description:
+      'Registra una SOLICITUD del cliente para reprogramar la fecha de un contenido ya solicitado (no cambia la fecha real; el equipo confirma). Necesita requirement_id y la nueva fecha. Para reunión/producción usa "YYYY-MM-DDTHH:MM"; para los demás "YYYY-MM-DD".',
+    input_schema: {
+      type: 'object',
+      properties: {
+        requirement_id: { type: 'string' },
+        new_desired_date: { type: 'string', description: 'Nueva fecha deseada (YYYY-MM-DD o YYYY-MM-DDTHH:MM).' },
+        reason: { type: 'string', description: 'Motivo del cambio de fecha (opcional).' },
+      },
+      required: ['requirement_id', 'new_desired_date'],
     },
   },
   submit_lead_info: {
@@ -243,12 +280,13 @@ export const TOOL_FNS: Record<string, ToolFn> = {
     if (!id) return { error: 'Falta requirement_id' }
     const { data } = await ctx.supabase
       .from('requirements')
-      .select('id, title, content_type, phase, deadline, billing_cycles!inner ( client_id )')
+      .select('id, title, content_type, phase, deadline, cambios_count, billing_cycles!inner ( client_id )')
       .eq('id', id)
       .maybeSingle()
     if (!data) return { error: 'No encontrado' }
     const row = data as unknown as {
       id: string; title: string | null; content_type: string; phase: Phase; deadline: string | null
+      cambios_count: number | null
       billing_cycles?: { client_id: string }
     }
     if (ctx.clientId && row.billing_cycles?.client_id && row.billing_cycles.client_id !== ctx.clientId) {
@@ -262,6 +300,7 @@ export const TOOL_FNS: Record<string, ToolFn> = {
       client_phase: cp,
       phase_label: CLIENT_PHASE_LABELS[cp],
       deadline: row.deadline,
+      cambios_count: row.cambios_count ?? 0,
     }
   },
 
@@ -411,6 +450,113 @@ export const TOOL_FNS: Record<string, ToolFn> = {
       requirement_id: res.id,
       message: `Solicitud creada. El equipo revisará tu petición de "${title}" y la aprobará pronto. Aparecerá en tu portal con estado "Pendiente de aprobación".`,
     }
+  },
+
+  get_changes_balance: async (ctx) => {
+    if (!ctx.clientId) return NO_CLIENT
+    const bal = await getCambiosBalance(ctx.clientId)
+    if (!bal) return { error: 'No hay ciclo activo.' }
+    return bal
+  },
+
+  request_requirement_change: async (ctx, input) => {
+    if (!ctx.clientId) return NO_CLIENT
+    const reqId = String(input.requirement_id ?? '').trim()
+    const notes = String(input.change_notes ?? '').trim()
+    if (!reqId) return { error: 'Falta requirement_id' }
+    if (!notes) return { error: 'Falta la descripción del cambio' }
+
+    const admin = createAdminClient()
+    const { data } = await admin
+      .from('requirements')
+      .select('id, phase, billing_cycles!inner ( client_id )')
+      .eq('id', reqId)
+      .maybeSingle()
+    if (!data) return { error: 'No encontrado' }
+    const row = data as unknown as { id: string; phase: Phase; billing_cycles?: { client_id: string } }
+
+    if (row.billing_cycles?.client_id !== ctx.clientId) {
+      return { error: 'Ese requerimiento no pertenece a este cliente.' }
+    }
+    if (!canRequestChangeForPhase(row.phase)) {
+      return { error: 'Ese contenido ya está aprobado/publicado y no admite cambios.' }
+    }
+
+    const bal = await getCambiosBalance(ctx.clientId)
+    if (!bal || bal.total_available <= 0) {
+      return {
+        error: 'Se agotaron los cambios del plan para este mes.',
+        suggestion: 'Ofrecer paquete de cambios extra o escalar con handoff_to_human.',
+      }
+    }
+
+    const { data: log, error } = await admin
+      .from('requirement_cambio_logs')
+      .insert({ requirement_id: reqId, notes, created_by: FM_BOT_USER_ID, status: 'pending', voided: false })
+      .select('id')
+      .single()
+    if (error || !log) return { error: 'No se pudo registrar el cambio' }
+
+    await botPostMessage(admin, {
+      requirementId: reqId,
+      body: `✏️ Cambio solicitado por el cliente (vía WhatsApp): ${notes}`,
+      visibleToClient: false,
+    })
+
+    return {
+      ok: true,
+      cambio_log_id: (log as { id: string }).id,
+      message: 'Registré tu solicitud de cambio. El equipo la revisará y la aplicará pronto.',
+    }
+  },
+
+  request_reschedule: async (ctx, input) => {
+    if (!ctx.clientId) return NO_CLIENT
+    const reqId = String(input.requirement_id ?? '').trim()
+    const newDate = String(input.new_desired_date ?? '').trim()
+    const reason = input.reason ? String(input.reason).trim() : null
+    if (!reqId) return { error: 'Falta requirement_id' }
+    if (!isPlausibleDesiredDate(newDate)) {
+      return { error: 'Fecha inválida. Pide al cliente una fecha concreta (ej. 2026-07-15).' }
+    }
+
+    const admin = createAdminClient()
+    const { data } = await admin
+      .from('requirements')
+      .select('id, assigned_to, billing_cycles!inner ( client_id )')
+      .eq('id', reqId)
+      .maybeSingle()
+    if (!data) return { error: 'No encontrado' }
+    const row = data as unknown as {
+      id: string; assigned_to: string[] | null; billing_cycles?: { client_id: string }
+    }
+    if (row.billing_cycles?.client_id !== ctx.clientId) {
+      return { error: 'Ese requerimiento no pertenece a este cliente.' }
+    }
+
+    const body = `📅 El cliente pide reprogramar a ${newDate}${reason ? ` — motivo: ${reason}` : ''}`
+    const posted = await botPostMessage(admin, { requirementId: reqId, body, visibleToClient: false })
+    if (!posted.ok) return { error: posted.error }
+
+    let targets = (row.assigned_to ?? []).filter(Boolean)
+    if (targets.length === 0) {
+      const { data: staff } = await admin
+        .from('users')
+        .select('id')
+        .in('role', ['admin', 'supervisor'])
+      targets = (staff ?? []).map((u: { id: string }) => u.id)
+    }
+    if (targets.length > 0) {
+      const rows = targets.map((uid) => ({
+        message_id: posted.messageId,
+        requirement_id: reqId,
+        mentioned_user_id: uid,
+        mentioned_by_user_id: FM_BOT_USER_ID,
+      }))
+      await admin.from('requirement_mentions').upsert(rows, { onConflict: 'message_id,mentioned_user_id' })
+    }
+
+    return { ok: true, message: 'Avisé al equipo tu nueva fecha deseada. Te confirmarán pronto.' }
   },
 
   submit_lead_info: async (ctx, input) => {
