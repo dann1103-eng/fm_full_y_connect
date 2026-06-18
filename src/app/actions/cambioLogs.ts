@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { consumeCredit, refundCredit } from '@/lib/domain/credits'
+import { consumeCredit, refundCredit, countApprovedCambiosInCycle } from '@/lib/domain/credits'
 import { assertNotImpersonating } from './impersonation'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -17,24 +17,7 @@ async function consumeCambioSlot(
   admin: SupabaseClient,
   args: { billingCycleId: string; clientId: string; cambiosIncluidos: number },
 ): Promise<{ ok: true; creditId: string | null } | { ok: false }> {
-  // Contar cambios aprobados (no anulados, no de crédito extra) en todo el ciclo
-  const { data: cycleReqs } = await admin
-    .from('requirements')
-    .select('id')
-    .eq('billing_cycle_id', args.billingCycleId)
-  const reqIds = (cycleReqs ?? []).map((r: { id: string }) => r.id)
-
-  let globalUsed = 0
-  if (reqIds.length > 0) {
-    const { count } = await admin
-      .from('requirement_cambio_logs')
-      .select('id', { count: 'exact', head: true })
-      .in('requirement_id', reqIds)
-      .eq('status', 'approved')
-      .neq('voided', true)
-      .is('paid_from_credit_id', null)
-    globalUsed = count ?? 0
-  }
+  const globalUsed = await countApprovedCambiosInCycle(admin, args.billingCycleId)
 
   if (globalUsed < args.cambiosIncluidos) {
     return { ok: true, creditId: null }
