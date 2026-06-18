@@ -26,7 +26,10 @@ export const WA_TEMPLATES = {
    */
   REVIEW_READY: {
     name: 'revision_cliente_lista',
-    language: 'es',
+    // El template fue aprobado por Meta con código 'es_MX' (Meta lo asigna por
+    // defecto al elegir "Spanish" desde el UI). Si en el futuro lo recreas en
+    // otro código, actualiza aquí — debe coincidir EXACTO con el aprobado.
+    language: 'es_MX',
     category: 'UTILITY' as const,
     paramKeys: ['client_name', 'requirement_title', 'portal_url'] as const,
   },
