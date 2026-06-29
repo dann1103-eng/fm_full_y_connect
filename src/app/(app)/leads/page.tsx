@@ -41,7 +41,7 @@ export interface UserOption {
 export default async function WhatsappLeadsPage() {
   const ctx = await getEffectiveUser()
   if (!ctx) redirect('/login')
-  if (ctx.appUser.role === 'client') redirect('/portal/dashboard')
+  if (!['admin', 'supervisor'].includes(ctx.appUser.role)) redirect('/')
 
   const wa = createWaAdminClient()
   const admin = createAdminClient()

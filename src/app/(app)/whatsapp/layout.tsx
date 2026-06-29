@@ -29,7 +29,7 @@ async function loadConversations(): Promise<ConvWithClient[]> {
 export default async function WhatsappLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getEffectiveUser()
   if (!ctx) redirect('/login')
-  if (ctx.appUser.role === 'client') redirect('/portal/dashboard')
+  if (!['admin', 'supervisor'].includes(ctx.appUser.role)) redirect('/')
 
   const conversations = await loadConversations()
 

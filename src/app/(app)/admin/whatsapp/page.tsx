@@ -10,7 +10,7 @@ import type { WaBotConfig } from '@/types/db'
 export default async function AdminWhatsappConfigPage() {
   const ctx = await getEffectiveUser()
   if (!ctx) redirect('/login')
-  if (ctx.appUser.role !== 'admin') redirect('/')
+  if (!['admin', 'supervisor'].includes(ctx.appUser.role)) redirect('/')
 
   const admin = createAdminClient()
   const { data } = await admin.from('wa_bot_configs').select('*').order('audience')
