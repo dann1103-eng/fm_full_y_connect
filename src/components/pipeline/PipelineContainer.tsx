@@ -5,8 +5,9 @@ import { KanbanBoard } from './KanbanBoard'
 import { TableView } from './TableView'
 import { NewRequirementFromPipeline } from './NewRequirementFromPipeline'
 import { SyncedScrollbar } from './SyncedScrollbar'
-import { PHASES, PHASE_LABELS } from '@/lib/domain/pipeline'
+import { PHASES, PHASE_LABELS, PIPELINE_CONTENT_TYPES } from '@/lib/domain/pipeline'
 import type { PipelineItem } from '@/lib/domain/pipeline'
+import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import type { Phase, Priority, RequirementPhaseLog } from '@/types/db'
 import { PRIORITY_LABELS } from '@/types/db'
 
@@ -39,11 +40,12 @@ export function PipelineContainer({
   const [filterClientId, setFilterClientId] = useState('')
   const [filterPriority, setFilterPriority] = useState('')
   const [filterPhase, setFilterPhase] = useState('')
+  const [filterContentType, setFilterContentType] = useState('')
   const [filterAssigneeId, setFilterAssigneeId] = useState('')
   const [search, setSearch] = useState('')
   const kanbanScrollRef = useRef<HTMLDivElement>(null)
 
-  const hasFilters = filterClientId || filterPriority || filterPhase || filterAssigneeId || search.trim()
+  const hasFilters = filterClientId || filterPriority || filterPhase || filterContentType || filterAssigneeId || search.trim()
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -51,6 +53,7 @@ export function PipelineContainer({
       if (filterClientId && item.client_id !== filterClientId) return false
       if (filterPriority && item.priority !== filterPriority) return false
       if (filterPhase && item.phase !== filterPhase) return false
+      if (filterContentType && item.content_type !== filterContentType) return false
       if (filterAssigneeId) {
         const assigned = (item.assigned_to ?? []) as string[]
         if (!assigned.includes(filterAssigneeId)) return false
@@ -64,7 +67,7 @@ export function PipelineContainer({
       }
       return true
     })
-  }, [items, filterClientId, filterPriority, filterPhase, filterAssigneeId, search])
+  }, [items, filterClientId, filterPriority, filterPhase, filterContentType, filterAssigneeId, search])
 
   const byPhase = useMemo(() => {
     const map = Object.fromEntries(PHASES.map(p => [p, [] as PipelineItem[]])) as Record<Phase, PipelineItem[]>
@@ -161,6 +164,18 @@ export function PipelineContainer({
           ))}
         </select>
 
+        {/* Content type filter */}
+        <select
+          value={filterContentType}
+          onChange={e => setFilterContentType(e.target.value)}
+          className="text-sm border border-fm-surface-container-high rounded-xl px-3 py-1.5 bg-fm-surface-container-lowest text-fm-on-surface"
+        >
+          <option value="">Todos los tipos</option>
+          {PIPELINE_CONTENT_TYPES.map(ct => (
+            <option key={ct} value={ct}>{CONTENT_TYPE_LABELS[ct]}</option>
+          ))}
+        </select>
+
         {/* Assignee filter */}
         {assignableUsers.length > 0 && (
           <select
@@ -177,7 +192,7 @@ export function PipelineContainer({
 
         {hasFilters && (
           <button type="button"
-            onClick={() => { setFilterClientId(''); setFilterPriority(''); setFilterPhase(''); setFilterAssigneeId(''); setSearch('') }}
+            onClick={() => { setFilterClientId(''); setFilterPriority(''); setFilterPhase(''); setFilterContentType(''); setFilterAssigneeId(''); setSearch('') }}
             className="text-xs text-fm-on-surface-variant hover:text-fm-error px-2.5 py-1.5 rounded-lg border border-fm-surface-container-high transition-colors"
           >
             Limpiar
