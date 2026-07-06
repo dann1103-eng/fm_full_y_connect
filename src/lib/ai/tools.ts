@@ -106,7 +106,7 @@ export const TOOL_DEFS: Record<string, ToolDef> = {
   check_request_eligibility: {
     name: 'check_request_eligibility',
     description:
-      'Verifica si el cliente puede solicitar contenido nuevo y devuelve la disponibilidad por tipo en el ciclo actual. Úsalo SIEMPRE como primer paso cuando el cliente quiera pedir un contenido nuevo. Devuelve blockers (si los hay), días restantes del ciclo, estado de pago, y por cada tipo: cuántos puede usar todavía y si permite agregar historia adicional.',
+      'Verifica si el cliente puede solicitar contenido nuevo y devuelve la disponibilidad en el ciclo actual. Úsalo SIEMPRE como primer paso cuando el cliente quiera pedir un contenido nuevo. Devuelve blockers (si los hay), días restantes del ciclo, estado de pago, y por cada tipo cuántos puede usar todavía. IMPORTANTE: si la respuesta trae "unified_pool" (no null), el cliente tiene un PAQUETE on-demand de "limit" contenidos de CUALQUIER tipo con "available" restantes — repórtaselo como una bolsa única ("te quedan N contenidos de cualquier tipo"), NO listes número por tipo (todos repiten el mismo cupo del pool). Si unified_pool es null, sí reporta por tipo.',
     input_schema: { type: 'object', properties: {} },
   },
   create_requirement_request: {
@@ -385,9 +385,19 @@ export const TOOL_FNS: Record<string, ToolFn> = {
 
   handoff_to_human: async (ctx, input) => {
     const reason = String(input.reason ?? '').slice(0, 500)
+    // needs_attention es la bandera semántica que alimenta la campana global y
+    // el resaltado del inbox. bot_paused solo pausa (se usa también para la pausa
+    // manual del staff), por eso NO alcanza para avisar de un handoff.
     await ctx.supabase
       .from('wa_conversations')
-      .update({ bot_paused: true, paused_at: new Date().toISOString(), unread_count: 1 })
+      .update({
+        bot_paused: true,
+        paused_at: new Date().toISOString(),
+        unread_count: 1,
+        needs_attention: true,
+        attention_reason: reason || 'El bot escaló la conversación a un humano.',
+        attention_at: new Date().toISOString(),
+      })
       .eq('id', ctx.conversationId)
 
     // Si hay un lead asociado (sin cliente vinculado), márcalo como escalated.
@@ -426,9 +436,12 @@ export const TOOL_FNS: Record<string, ToolFn> = {
     const typeInfo = elig.available_content_types.find((t) => t.type === contentType)
     if (typeInfo && typeInfo.available <= 0) {
       return {
-        error: `Ya no tienes disponibles para el tipo "${typeInfo.label}" en este ciclo.`,
+        error: elig.unified_pool
+          ? `Ya no te quedan contenidos en tu paquete este ciclo (${elig.unified_pool.used}/${elig.unified_pool.limit} usados).`
+          : `Ya no tienes disponibles para el tipo "${typeInfo.label}" en este ciclo.`,
         used: typeInfo.used,
         limit: typeInfo.limit,
+        unified_pool: elig.unified_pool,
         suggestion: 'Sugerir al cliente esperar al próximo ciclo o escalar con handoff_to_human para revisar opciones de plan.',
       }
     }

@@ -59,6 +59,12 @@ function kindLabel(item: NotificationItem): { title: string; body: string } {
   if (item.kind === 'task_completed') {
     return { title: 'Tarea finalizada', body: item.task_title ?? '' }
   }
+  if (item.kind === 'wa_handoff') {
+    return {
+      title: 'WhatsApp: requiere humano',
+      body: item.wa_display ?? item.wa_reason ?? 'Un cliente pidió hablar con una persona',
+    }
+  }
   return { title: 'Notificación', body: '' }
 }
 

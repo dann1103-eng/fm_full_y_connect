@@ -6,7 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getActiveClientId } from '@/lib/supabase/active-client'
 import { assertNotImpersonating } from './impersonation'
 import type { ContentType, Priority, ClientRequestAttachment, ClientRequestLink } from '@/types/db'
-import { isWeekUnlocked, weekIndexInCycle } from '@/lib/domain/requirement'
+import { isWeekUnlocked, weekIndexInCycle, maxWeeksForPeriod } from '@/lib/domain/requirement'
 import { ALLOWED_REQUEST_TYPES, SCHEDULED_TYPES } from '@/lib/domain/requirementRequest'
 
 export interface RequestRequirementInput {
@@ -63,10 +63,13 @@ export async function createRequirementRequestCore(args: {
     return { error: 'La cuenta está desactivada. Contacta a tu agencia.' }
   }
 
-  // Ciclo activo.
+  // Ciclo activo. Incluimos grace_period_until y billing_period del ciclo para que
+  // el gate de semana coincida EXACTO con el trigger SQL (que lee bc.grace_period_until
+  // y bc.billing_period). Sin grace_period_until, un cliente con gracia vigente era
+  // bloqueado falsamente aquí y la solicitud del bot nunca se creaba.
   const { data: cycle } = await admin
     .from('billing_cycles')
-    .select('id, period_start, payment_status, payment_status_2')
+    .select('id, period_start, payment_status, payment_status_2, grace_period_until, billing_period')
     .eq('client_id', args.clientId)
     .eq('status', 'current')
     .order('period_start', { ascending: false })
@@ -74,13 +77,20 @@ export async function createRequirementRequestCore(args: {
     .maybeSingle()
   if (!cycle) return { error: 'No hay ciclo de facturación activo para esta marca' }
 
-  // Semana pagada (defensa además del trigger SQL).
-  const week = weekIndexInCycle(new Date(), cycle.period_start as string)
+  // Semana pagada (defensa además del trigger SQL). Usar el billing_period del
+  // ciclo (snapshot) y el maxWeek correcto (8 para bimonthly) — de lo contrario
+  // los clientes bimestrales en S5-S8 se evaluaban contra el pago equivocado.
+  const cycleBillingPeriod = (cycle.billing_period ?? clientRow.billing_period) as typeof clientRow.billing_period
+  const week = weekIndexInCycle(
+    new Date(),
+    cycle.period_start as string,
+    maxWeeksForPeriod(cycleBillingPeriod),
+  )
   if (
     !isWeekUnlocked(
       week,
       cycle as unknown as Parameters<typeof isWeekUnlocked>[1],
-      clientRow as unknown as Parameters<typeof isWeekUnlocked>[2],
+      { billing_period: cycleBillingPeriod },
     )
   ) {
     return { error: 'No se puede crear solicitudes en esta semana sin el pago correspondiente. Contacta a tu agencia.' }

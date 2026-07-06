@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { sendWhatsappText } from '@/lib/whatsapp/send'
+import { sanitizeForWhatsapp } from '@/lib/whatsapp/formatForWhatsapp'
 import { filterEnabled, TOOL_FNS, type ToolContext } from '@/lib/ai/tools'
 import type { AiHandler } from '@/lib/ai/types'
 
@@ -155,6 +156,15 @@ export const whatsappReplyHandler: AiHandler<{ conversationId?: string }, {
         } catch (e) {
           resultPayload = { error: e instanceof Error ? e.message : String(e) }
         }
+        // Auditar fallos de tool (p.ej. create_requirement_request rechazado):
+        // antes se serializaban al modelo sin dejar rastro, ocultando por qué una
+        // solicitud "confirmada" al cliente en realidad no se creó.
+        if (resultPayload && typeof resultPayload === 'object' && 'error' in resultPayload) {
+          await ctx.logEvent('tool_error', {
+            tool: block.name,
+            error: String((resultPayload as { error: unknown }).error),
+          })
+        }
         toolResults.push({
           type: 'tool_result',
           tool_use_id: block.id,
@@ -186,7 +196,10 @@ export const whatsappReplyHandler: AiHandler<{ conversationId?: string }, {
   // Filtro defensivo: si Claude saludó a pesar del system prompt, quitamos
   // su saludo para que no haya doble bienvenida.
   const cleanedAssistant = isFirstReply ? stripLeadingGreeting(assistantText) : assistantText
-  const finalText = isFirstReply ? `${WELCOME}\n\n${cleanedAssistant}` : cleanedAssistant
+  // Saneo markdown → WhatsApp-nativo (colapsa **negrita**→*negrita*, quita #
+  // y convierte tablas markdown en líneas legibles). Se aplica ANTES de enviar
+  // y de persistir, para que el inbox de staff muestre lo mismo que ve el cliente.
+  const finalText = sanitizeForWhatsapp(isFirstReply ? `${WELCOME}\n\n${cleanedAssistant}` : cleanedAssistant)
 
   await ctx.logEvent('progress', { step: 'sending_whatsapp', length: finalText.length, firstReply: isFirstReply })
 

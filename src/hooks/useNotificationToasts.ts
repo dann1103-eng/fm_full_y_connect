@@ -57,6 +57,12 @@ function buildBrowserNotifPayload(item: NotificationItem): { title: string; body
       body: item.task_actor_name ? `${item.task_actor_name}: ${item.task_title ?? ''}` : (item.task_title ?? ''),
     }
   }
+  if (item.kind === 'wa_handoff') {
+    return {
+      title: 'WhatsApp: requiere humano',
+      body: item.wa_display ? `${item.wa_display}${item.wa_reason ? ` — ${item.wa_reason}` : ''}` : (item.wa_reason ?? 'Un cliente pidió hablar con una persona'),
+    }
+  }
   return { title: 'Notificación FM CRM', body: '' }
 }
 
@@ -77,6 +83,7 @@ function buildHref(item: NotificationItem): string {
   }
   if (item.kind === 'calendar') return '/calendario'
   if (item.kind === 'task_assigned' || item.kind === 'task_completed') return '/tareas'
+  if (item.kind === 'wa_handoff' && item.wa_conversation_id) return `/whatsapp/${item.wa_conversation_id}`
   if (item.conversation_id) return `/inbox/${item.conversation_id}`
   return '/inbox'
 }
@@ -134,7 +141,7 @@ export function useNotificationToasts() {
     }
 
     const newItems = items.filter(
-      (it) => !seenIdsRef.current.has(key(it)) && (it.kind === 'mention' || it.kind === 'dm' || it.kind === 'channel' || it.kind === 'calendar' || it.kind === 'task_assigned' || it.kind === 'task_completed')
+      (it) => !seenIdsRef.current.has(key(it)) && (it.kind === 'mention' || it.kind === 'dm' || it.kind === 'channel' || it.kind === 'calendar' || it.kind === 'task_assigned' || it.kind === 'task_completed' || it.kind === 'wa_handoff')
     )
     if (newItems.length === 0) return
 

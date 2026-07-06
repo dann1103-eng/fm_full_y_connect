@@ -62,6 +62,14 @@ export function NotificationsDropdown() {
       router.push('/tareas')
       return
     }
+    if (item.kind === 'wa_handoff' && item.wa_conversation_id) {
+      router.push(`/whatsapp/${item.wa_conversation_id}`)
+      return
+    }
+    if (item.kind === 'pending_request') {
+      router.push('/solicitudes')
+      return
+    }
     if (item.kind === 'mention') {
       startTransition(async () => {
         if (item.mention_source === 'review') {
@@ -334,6 +342,65 @@ function NotificationRow({
                 <div className="text-fm-on-surface-variant text-[11px] mt-0.5 truncate italic">
                   &ldquo;{item.cambio_notes}&rdquo;
                 </div>
+              )}
+              <div className="text-fm-on-surface-variant/50 text-[10px] mt-0.5">{timeAgo}</div>
+            </div>
+          </div>
+        </button>
+        {dismissButton}
+      </div>
+    )
+  }
+
+  if (item.kind === 'wa_handoff') {
+    return (
+      <div className="relative group">
+        <button
+          type="button"
+          onClick={onClick}
+          className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-amber-50 dark:hover:bg-amber-400/10 transition-colors border-b border-fm-surface-container-high/60 last:border-b-0 bg-amber-50/60 dark:bg-amber-400/5 border-l-4 border-l-amber-400"
+        >
+          <span className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-400/20 flex items-center justify-center flex-shrink-0">
+            <span className="material-symbols-outlined text-[18px] text-amber-600 dark:text-amber-400">support_agent</span>
+          </span>
+          <div className="flex-1 min-w-0 pr-5">
+            <div className="text-xs leading-tight">
+              <span className="font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide text-[10px]">
+                Requiere humano · WhatsApp
+              </span>
+              <div className="font-semibold text-fm-on-surface mt-0.5 truncate">{item.wa_display}</div>
+              {item.wa_reason && (
+                <div className="text-fm-on-surface-variant text-[11px] mt-0.5 truncate italic">&ldquo;{item.wa_reason}&rdquo;</div>
+              )}
+              <div className="text-fm-on-surface-variant/50 text-[10px] mt-0.5">{timeAgo}</div>
+            </div>
+          </div>
+        </button>
+        {dismissButton}
+      </div>
+    )
+  }
+
+  if (item.kind === 'pending_request') {
+    const viaLabel = item.request_via === 'whatsapp_bot' ? 'WhatsApp' : item.request_via === 'portal' ? 'Portal' : null
+    return (
+      <div className="relative group">
+        <button
+          type="button"
+          onClick={onClick}
+          className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-fm-primary/10 transition-colors border-b border-fm-surface-container-high/60 last:border-b-0"
+        >
+          <span className="w-8 h-8 rounded-full bg-fm-primary/10 flex items-center justify-center flex-shrink-0">
+            <span className="material-symbols-outlined text-[18px] text-fm-primary">assignment_add</span>
+          </span>
+          <div className="flex-1 min-w-0 pr-5">
+            <div className="text-xs leading-tight">
+              <span className="font-bold text-fm-primary uppercase tracking-wide text-[10px]">
+                Solicitud pendiente{viaLabel ? ` · ${viaLabel}` : ''}
+              </span>
+              <div className="font-semibold text-fm-on-surface mt-0.5 truncate">{item.request_title}</div>
+              {item.request_client_name && (
+                <div className="text-fm-on-surface-variant/70 text-[11px]">{item.request_client_name}</div>
               )}
               <div className="text-fm-on-surface-variant/50 text-[10px] mt-0.5">{timeAgo}</div>
             </div>

@@ -183,6 +183,10 @@ export interface WaConversation {
   bot_paused: boolean
   paused_by: string | null
   paused_at: string | null
+  /** true cuando el bot hizo handoff y la conversación espera atención humana. */
+  needs_attention: boolean
+  attention_reason: string | null
+  attention_at: string | null
   last_inbound_at: string | null
   last_message_at: string | null
   last_message_preview: string | null
@@ -2312,7 +2316,7 @@ export const PAYMENT_METHOD_LABELS: Record<InvoicePaymentMethod, string> = {
 
 /** Item unificado para el dropdown de notificaciones (TopNav). */
 export interface NotificationItem {
-  kind: 'mention' | 'dm' | 'channel' | 'overdue' | 'calendar' | 'invoice_auto' | 'cambio_pending' | 'task_assigned' | 'task_completed'
+  kind: 'mention' | 'dm' | 'channel' | 'overdue' | 'calendar' | 'invoice_auto' | 'cambio_pending' | 'task_assigned' | 'task_completed' | 'wa_handoff' | 'pending_request'
   /** mention.id | conversation.id | requirement.id */
   id: string
   created_at: string
@@ -2364,6 +2368,17 @@ export interface NotificationItem {
   task_title?: string
   /** Quién generó el aviso: el asignador (task_assigned) o el responsable (task_completed). */
   task_actor_name?: string
+  /* Para 'wa_handoff' */
+  wa_conversation_id?: string
+  wa_display?: string
+  wa_reason?: string
+  /* Para 'pending_request' */
+  request_requirement_id?: string
+  request_title?: string
+  request_client_name?: string
+  request_content_type?: string
+  /** 'portal' | 'whatsapp_bot' | 'staff' | 'unknown' — canal de origen de la solicitud. */
+  request_via?: string
 }
 
 /** Mensaje enriquecido con autor y adjuntos para UI */

@@ -48,6 +48,8 @@ export async function toggleBotForConversation(conversationId: string, paused: b
       bot_paused: paused,
       paused_by: paused ? guard.userId : null,
       paused_at: paused ? new Date().toISOString() : null,
+      // Reanudar el bot implica que el handoff ya fue atendido.
+      ...(paused ? {} : { needs_attention: false, attention_reason: null, attention_at: null }),
     })
     .eq('id', conversationId)
 
@@ -146,10 +148,15 @@ export async function sendStaffReply(conversationId: string, body: string): Prom
       last_message_at: now,
       last_message_preview: text.slice(0, 140),
       unread_count: 0,
+      // El staff respondió → handoff atendido.
+      needs_attention: false,
+      attention_reason: null,
+      attention_at: null,
     })
     .eq('id', conversationId)
 
   revalidatePath(`/whatsapp/${conversationId}`)
+  revalidatePath('/whatsapp')
   return { ok: true, messageId: insert.data.id }
 }
 
@@ -162,9 +169,11 @@ export async function markConversationRead(conversationId: string): Promise<Resu
   const admin = createAdminClient()
   const { error } = await admin
     .from('wa_conversations')
-    .update({ unread_count: 0 })
+    // Abrir/leer la conversación cuenta como atender el handoff.
+    .update({ unread_count: 0, needs_attention: false, attention_reason: null, attention_at: null })
     .eq('id', conversationId)
   if (error) return { ok: false, error: error.message }
+  revalidatePath('/whatsapp')
   return { ok: true }
 }
 

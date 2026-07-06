@@ -149,12 +149,17 @@ export function WaSidebar({ initial }: Props) {
                     </span>
                   </div>
                   <div className="flex items-center gap-1 text-xs text-fm-on-surface-variant truncate">
+                    {c.needs_attention && (
+                      <span className="text-[10px] px-1 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold whitespace-nowrap">
+                        🙋 requiere humano
+                      </span>
+                    )}
                     {!c.client_id && (
                       <span className="text-[10px] px-1 py-0.5 rounded bg-orange-100 text-orange-700">
                         sin cliente
                       </span>
                     )}
-                    {c.bot_paused && (
+                    {c.bot_paused && !c.needs_attention && (
                       <span className="text-[10px] px-1 py-0.5 rounded bg-red-100 text-red-700">
                         bot pausado
                       </span>

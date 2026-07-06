@@ -550,8 +550,64 @@ export async function GET() {
     }
   }
 
+  /* ── WhatsApp: handoffs que requieren humano (admin/supervisor) ── */
+  const waHandoffItems: NotificationItem[] = []
+  if (isAdminOrSupervisor) {
+    const waAdmin = createAdminClient()
+    const { data: handoffs } = await waAdmin
+      .from('wa_conversations')
+      .select('id, display_name, phone_e164, attention_reason, attention_at, client:clients(name)')
+      .eq('needs_attention', true)
+      .order('attention_at', { ascending: false })
+      .limit(50)
+    for (const c of (handoffs ?? []) as unknown as Array<{
+      id: string; display_name: string | null; phone_e164: string
+      attention_reason: string | null; attention_at: string | null
+      client: { name: string } | null
+    }>) {
+      waHandoffItems.push({
+        kind: 'wa_handoff',
+        id: `wa-handoff-${c.id}`,
+        created_at: c.attention_at ?? new Date().toISOString(),
+        read: false,
+        wa_conversation_id: c.id,
+        wa_display: c.client?.name ?? c.display_name ?? c.phone_e164,
+        wa_reason: c.attention_reason ?? undefined,
+      })
+    }
+  }
+
+  /* ── Solicitudes de contenido pendientes de aprobación (admin/supervisor) ── */
+  const pendingRequestItems: NotificationItem[] = []
+  if (isAdminOrSupervisor) {
+    const { data: pending } = await supabase
+      .from('requirements')
+      .select('id, title, content_type, requested_via, registered_at, billing_cycle:billing_cycles!requirements_billing_cycle_id_fkey(client:clients!billing_cycles_client_id_fkey(name))')
+      .eq('approval_status', 'pending')
+      .eq('voided', false)
+      .order('registered_at', { ascending: false })
+      .limit(50)
+    for (const r of (pending ?? []) as unknown as Array<{
+      id: string; title: string | null; content_type: string
+      requested_via: string | null; registered_at: string
+      billing_cycle: { client: { name: string } | null } | null
+    }>) {
+      pendingRequestItems.push({
+        kind: 'pending_request',
+        id: `pending-req-${r.id}`,
+        created_at: r.registered_at,
+        read: false,
+        request_requirement_id: r.id,
+        request_title: r.title || `(${r.content_type})`,
+        request_client_name: r.billing_cycle?.client?.name ?? '',
+        request_content_type: r.content_type,
+        request_via: r.requested_via ?? undefined,
+      })
+    }
+  }
+
   /* ── Merge y sort: vencidos al frente, luego por fecha ─────── */
-  const items = [...overdueItems, ...cambioPendingItems, ...taskItems, ...mentionItems, ...reviewMentionItems, ...invoiceAutoItems, ...calendarItems, ...convItems].sort((a, b) => {
+  const items = [...overdueItems, ...waHandoffItems, ...cambioPendingItems, ...pendingRequestItems, ...taskItems, ...mentionItems, ...reviewMentionItems, ...invoiceAutoItems, ...calendarItems, ...convItems].sort((a, b) => {
     if (a.kind === 'overdue' && b.kind !== 'overdue') return -1
     if (a.kind !== 'overdue' && b.kind === 'overdue') return 1
     return a.created_at < b.created_at ? 1 : -1
