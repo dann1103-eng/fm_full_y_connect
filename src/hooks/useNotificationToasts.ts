@@ -45,6 +45,18 @@ function buildBrowserNotifPayload(item: NotificationItem): { title: string; body
       body: item.requirement_title ?? 'Tienes un requerimiento vencido',
     }
   }
+  if (item.kind === 'task_assigned') {
+    return {
+      title: 'Nueva tarea asignada',
+      body: item.task_title ?? '',
+    }
+  }
+  if (item.kind === 'task_completed') {
+    return {
+      title: 'Tarea finalizada',
+      body: item.task_actor_name ? `${item.task_actor_name}: ${item.task_title ?? ''}` : (item.task_title ?? ''),
+    }
+  }
   return { title: 'Notificación FM CRM', body: '' }
 }
 
@@ -64,6 +76,7 @@ function buildHref(item: NotificationItem): string {
     return '/pipeline'
   }
   if (item.kind === 'calendar') return '/calendario'
+  if (item.kind === 'task_assigned' || item.kind === 'task_completed') return '/tareas'
   if (item.conversation_id) return `/inbox/${item.conversation_id}`
   return '/inbox'
 }
@@ -121,7 +134,7 @@ export function useNotificationToasts() {
     }
 
     const newItems = items.filter(
-      (it) => !seenIdsRef.current.has(key(it)) && (it.kind === 'mention' || it.kind === 'dm' || it.kind === 'channel' || it.kind === 'calendar')
+      (it) => !seenIdsRef.current.has(key(it)) && (it.kind === 'mention' || it.kind === 'dm' || it.kind === 'channel' || it.kind === 'calendar' || it.kind === 'task_assigned' || it.kind === 'task_completed')
     )
     if (newItems.length === 0) return
 

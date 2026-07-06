@@ -1,4 +1,4 @@
-export type TimeEntryType = 'requirement' | 'administrative'
+export type TimeEntryType = 'requirement' | 'administrative' | 'task'
 
 export type AdminCategory =
   | 'administrativa'
@@ -7,6 +7,9 @@ export type AdminCategory =
   | 'direccion_creativa'
   | 'direccion_comunicacion'
   | 'standby'
+
+/** Estado de una tarea asignada (assigned_tasks). */
+export type TaskStatus = 'pending' | 'in_progress' | 'done' | 'cancelled'
 
 export type ContentType =
   | 'historia'
@@ -1031,6 +1034,7 @@ export interface Database {
         Row: {
           id: string
           requirement_id: string | null
+          task_id: string | null
           user_id: string
           entry_type: TimeEntryType
           category: AdminCategory | null
@@ -1048,6 +1052,7 @@ export interface Database {
         Insert: {
           id?: string
           requirement_id?: string | null
+          task_id?: string | null
           user_id: string
           entry_type?: TimeEntryType
           category?: AdminCategory | null
@@ -1064,6 +1069,7 @@ export interface Database {
         }
         Update: {
           requirement_id?: string | null
+          task_id?: string | null
           entry_type?: TimeEntryType
           category?: AdminCategory | null
           phase?: string
@@ -1082,6 +1088,69 @@ export interface Database {
             columns: ['requirement_id']
             isOneToOne: false
             referencedRelation: 'requirements'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'time_entries_task_id_fkey'
+            columns: ['task_id']
+            isOneToOne: false
+            referencedRelation: 'assigned_tasks'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      assigned_tasks: {
+        Row: {
+          id: string
+          title: string
+          description: string | null
+          client_ref: string | null
+          assigned_to_user_id: string
+          created_by_user_id: string
+          status: TaskStatus
+          created_at: string
+          updated_at: string
+          started_at: string | null
+          completed_at: string | null
+          cancelled_at: string | null
+        }
+        Insert: {
+          id?: string
+          title: string
+          description?: string | null
+          client_ref?: string | null
+          assigned_to_user_id: string
+          created_by_user_id: string
+          status?: TaskStatus
+          created_at?: string
+          updated_at?: string
+          started_at?: string | null
+          completed_at?: string | null
+          cancelled_at?: string | null
+        }
+        Update: {
+          title?: string
+          description?: string | null
+          client_ref?: string | null
+          assigned_to_user_id?: string
+          status?: TaskStatus
+          started_at?: string | null
+          completed_at?: string | null
+          cancelled_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'assigned_tasks_assigned_to_user_id_fkey'
+            columns: ['assigned_to_user_id']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'assigned_tasks_created_by_user_id_fkey'
+            columns: ['created_by_user_id']
+            isOneToOne: false
+            referencedRelation: 'users'
             referencedColumns: ['id']
           }
         ]
@@ -2192,6 +2261,7 @@ export type RequirementPhaseLog = Database['public']['Tables']['requirement_phas
 export type RequirementCambioLog = Database['public']['Tables']['requirement_cambio_logs']['Row']
 export type RequirementMessage = Database['public']['Tables']['requirement_messages']['Row']
 export type TimeEntry = Database['public']['Tables']['time_entries']['Row']
+export type AssignedTask = Database['public']['Tables']['assigned_tasks']['Row']
 export type Conversation = Database['public']['Tables']['conversations']['Row']
 export type ConversationMember = Database['public']['Tables']['conversation_members']['Row']
 export type Message = Database['public']['Tables']['messages']['Row']
@@ -2242,7 +2312,7 @@ export const PAYMENT_METHOD_LABELS: Record<InvoicePaymentMethod, string> = {
 
 /** Item unificado para el dropdown de notificaciones (TopNav). */
 export interface NotificationItem {
-  kind: 'mention' | 'dm' | 'channel' | 'overdue' | 'calendar' | 'invoice_auto' | 'cambio_pending'
+  kind: 'mention' | 'dm' | 'channel' | 'overdue' | 'calendar' | 'invoice_auto' | 'cambio_pending' | 'task_assigned' | 'task_completed'
   /** mention.id | conversation.id | requirement.id */
   id: string
   created_at: string
@@ -2289,6 +2359,11 @@ export interface NotificationItem {
   cambio_client_name?: string
   cambio_client_id?: string
   cambio_notes?: string
+  /* Para 'task_assigned' | 'task_completed' */
+  task_id?: string
+  task_title?: string
+  /** Quién generó el aviso: el asignador (task_assigned) o el responsable (task_completed). */
+  task_actor_name?: string
 }
 
 /** Mensaje enriquecido con autor y adjuntos para UI */
@@ -2318,6 +2393,20 @@ export const ADMIN_CATEGORY_LABELS: Record<AdminCategory, string> = {
   direccion_creativa:      'Dirección Creativa',
   direccion_comunicacion:  'Dirección de Comunicación',
   standby:                 'Tiempo de Standby',
+}
+
+export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
+  pending:     'Pendiente',
+  in_progress: 'En progreso',
+  done:        'Finalizada',
+  cancelled:   'Cancelada',
+}
+
+export const TASK_STATUS_COLORS: Record<TaskStatus, string> = {
+  pending:     '#595c5e', // gris
+  in_progress: '#00675c', // teal
+  done:        '#27ae60', // verde
+  cancelled:   '#b31b25', // rojo
 }
 export type AppUser = Database['public']['Tables']['users']['Row']
 

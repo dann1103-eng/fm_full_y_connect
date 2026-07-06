@@ -53,6 +53,12 @@ function kindLabel(item: NotificationItem): { title: string; body: string } {
       body: item.calendar_title ?? '',
     }
   }
+  if (item.kind === 'task_assigned') {
+    return { title: 'Nueva tarea asignada', body: item.task_title ?? '' }
+  }
+  if (item.kind === 'task_completed') {
+    return { title: 'Tarea finalizada', body: item.task_title ?? '' }
+  }
   return { title: 'Notificación', body: '' }
 }
 

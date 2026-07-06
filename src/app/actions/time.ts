@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { assertNotImpersonating } from './impersonation'
+import { getActiveEntry, findOverlappingEntry, overlapErrorMsg } from '@/lib/time/entry-guards'
 import type { AdminCategory, Database } from '@/types/db'
 
 type TimeEntryUpdate = Database['public']['Tables']['time_entries']['Update']
@@ -16,77 +17,9 @@ async function getAuthUser() {
   return { supabase, user }
 }
 
-async function assertAdmin(supabase: Awaited<ReturnType<typeof createClient>>, userId: string) {
-  const { data } = await supabase.from('users').select('role').eq('id', userId).single()
-  if (data?.role !== 'admin') throw new Error('Sin permisos')
-}
-
 async function assertAdminOrSupervisor(supabase: Awaited<ReturnType<typeof createClient>>, userId: string) {
   const { data } = await supabase.from('users').select('role').eq('id', userId).single()
   if (data?.role !== 'admin' && data?.role !== 'supervisor') throw new Error('Sin permisos')
-}
-
-/** Returns the active (ended_at IS NULL) entry for a user, or null */
-async function getActiveEntry(supabase: Awaited<ReturnType<typeof createClient>>, userId: string) {
-  const { data } = await supabase
-    .from('time_entries')
-    .select('*')
-    .eq('user_id', userId)
-    .is('ended_at', null)
-    .maybeSingle()
-  return data
-}
-
-/**
- * Busca una time_entry del usuario que se solape con [startedAt, endedAt).
- * Devuelve la primera coincidencia, o null si no hay solapamiento.
- *
- * Definición de overlap (intervalos semi-abiertos):
- *   existing.started_at < new.ended_at
- *   AND (existing.ended_at > new.started_at OR existing.ended_at IS NULL)
- *
- * Para entradas activas (ended_at NULL), se asume que se extienden
- * indefinidamente hacia el futuro, por lo que cualquier nueva entrada
- * que arranque después de la activa se solapa con ella.
- *
- * Si endedAt es null (live timer arrancando), se trata el nuevo intervalo
- * como [startedAt, +infinity) y se busca cualquier existente que termine
- * después de startedAt o esté abierto.
- */
-async function findOverlappingEntry(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-  startedAt: Date,
-  endedAt: Date | null,
-  excludeEntryId: string | null = null,
-) {
-  let q = supabase
-    .from('time_entries')
-    .select('id, title, started_at, ended_at')
-    .eq('user_id', userId)
-
-  if (endedAt) {
-    q = q.lt('started_at', endedAt.toISOString())
-  }
-  // existing.ended_at > new.started_at OR existing.ended_at IS NULL
-  q = q.or(`ended_at.gt.${startedAt.toISOString()},ended_at.is.null`)
-  if (excludeEntryId) q = q.neq('id', excludeEntryId)
-
-  const { data } = await q.limit(1)
-  return (data && data.length > 0) ? data[0] : null
-}
-
-function formatHm(iso: string): string {
-  const d = new Date(iso)
-  return d.toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit', hour12: false })
-}
-
-function overlapErrorMsg(other: { title: string | null; started_at: string; ended_at: string | null }): string {
-  const range = other.ended_at
-    ? `${formatHm(other.started_at)} – ${formatHm(other.ended_at)}`
-    : `desde ${formatHm(other.started_at)} (activa)`
-  const title = other.title?.trim() || 'otra entrada'
-  return `Se solapa con "${title}" (${range}). Ajustá los horarios o eliminá la entrada existente.`
 }
 
 // ── Start admin clock-in ───────────────────────────────────────────────────

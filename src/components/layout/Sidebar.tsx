@@ -128,6 +128,15 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    href: '/tareas',
+    label: 'Tareas',
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M22 5.18 10.59 16.6l-4.24-4.24 1.41-1.41 2.83 2.83 10-10L22 5.18zM12 20c-4.41 0-8-3.59-8-8s3.59-8 8-8c1.57 0 3.04.46 4.28 1.25l1.45-1.45A9.9 9.9 0 0 0 12 2C6.48 2 2 6.48 2 12s4.48 10 10 10c1.73 0 3.36-.44 4.78-1.22l-1.5-1.5A7.9 7.9 0 0 1 12 20z"/>
+      </svg>
+    ),
+  },
+  {
     href: '/plans',
     label: 'Planes',
     allowedRoles: ['admin', 'supervisor'],

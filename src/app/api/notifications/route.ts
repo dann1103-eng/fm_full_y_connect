@@ -500,8 +500,58 @@ export async function GET() {
     }
   }
 
+  /* ── Tareas asignadas ──────────────────────────────────────
+   * a. task_assigned: tareas asignadas a mí recientemente (aviso al responsable).
+   * b. task_completed: tareas que yo asigné y ya finalizaron (aviso al asignador).
+   */
+  const taskItems: NotificationItem[] = []
+  {
+    const last7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
+    const { data: assignedRaw } = await supabase
+      .from('assigned_tasks')
+      .select('id, title, created_at, creator:users!assigned_tasks_created_by_user_id_fkey(full_name)')
+      .eq('assigned_to_user_id', user.id)
+      .neq('status', 'cancelled')
+      .gte('created_at', last7d)
+      .order('created_at', { ascending: false })
+      .limit(30)
+    for (const t of (assignedRaw ?? []) as unknown as Array<{ id: string; title: string; created_at: string; creator: { full_name: string } | null }>) {
+      taskItems.push({
+        kind: 'task_assigned',
+        id: `task-assigned-${t.id}`,
+        created_at: t.created_at,
+        read: false,
+        task_id: t.id,
+        task_title: t.title,
+        task_actor_name: t.creator?.full_name ?? '',
+      })
+    }
+
+    const { data: completedRaw } = await supabase
+      .from('assigned_tasks')
+      .select('id, title, completed_at, assignee:users!assigned_tasks_assigned_to_user_id_fkey(full_name)')
+      .eq('created_by_user_id', user.id)
+      .eq('status', 'done')
+      .not('completed_at', 'is', null)
+      .gte('completed_at', last7d)
+      .order('completed_at', { ascending: false })
+      .limit(30)
+    for (const t of (completedRaw ?? []) as unknown as Array<{ id: string; title: string; completed_at: string; assignee: { full_name: string } | null }>) {
+      taskItems.push({
+        kind: 'task_completed',
+        id: `task-completed-${t.id}`,
+        created_at: t.completed_at,
+        read: false,
+        task_id: t.id,
+        task_title: t.title,
+        task_actor_name: t.assignee?.full_name ?? '',
+      })
+    }
+  }
+
   /* ── Merge y sort: vencidos al frente, luego por fecha ─────── */
-  const items = [...overdueItems, ...cambioPendingItems, ...mentionItems, ...reviewMentionItems, ...invoiceAutoItems, ...calendarItems, ...convItems].sort((a, b) => {
+  const items = [...overdueItems, ...cambioPendingItems, ...taskItems, ...mentionItems, ...reviewMentionItems, ...invoiceAutoItems, ...calendarItems, ...convItems].sort((a, b) => {
     if (a.kind === 'overdue' && b.kind !== 'overdue') return -1
     if (a.kind !== 'overdue' && b.kind === 'overdue') return 1
     return a.created_at < b.created_at ? 1 : -1

@@ -433,6 +433,16 @@ Las violaciones de FK (RESTRICT) **no producen excepción** — retornan `{ erro
 | 0113 | Prompt de leads inyectado con contexto completo de fmcomsolutions.com (servicios, planes con precios públicos, industrias, clientes, contacto). |
 | 0114 | **`requirements.requested_via`** (`portal`/`whatsapp_bot`/`staff`/`unknown`) para trazabilidad de canal de origen. |
 | 0115 | Bot de clientes puede crear solicitudes de contenido: habilita tools `check_request_eligibility` + `create_requirement_request`. Sube `max_tokens` 600→800. Prompt reescrito con flujo step-by-step de 5 pasos. |
+| 0116 | **Tareas asignadas**: tabla `assigned_tasks` (título, descripción, `client_ref` texto libre, responsable, creador, `status` pending/in_progress/done/cancelled, timestamps). `time_entries` gana `task_id` + `entry_type='task'` (constraints `entry_type_check` y `type_check` extendidos). El tiempo de una tarea es una `time_entry` normal → cuenta como productividad (endShift) y sale en /tiempo. RLS: responsable ve las suyas, admin/supervisor ven/gestionan todas; transiciones del operador (start/done) vía service role. Página `/tareas` role-aware. Notificaciones derivadas `task_assigned`/`task_completed`. |
+
+## Tareas asignadas (feature — migración 0116)
+
+Función para que supervisores/admins asignen tareas específicas (fuera del plan de un cliente) a miembros del equipo.
+
+- **Modelo**: metadata en `assigned_tasks`; el tiempo se registra en `time_entries` (`entry_type='task'`, `task_id`). Horas de una tarea = `SUM(duration_seconds)` de sus entries. Cuenta como productividad automáticamente (endShift/computeTimeSummary suman toda entry).
+- **Server actions** `src/app/actions/tasks.ts`: `createTask`/`editTask`/`reassignTask`/`cancelTask` (admin/supervisor), `startTaskTimer`/`markTaskDone` (responsable). Reusan guardas de timer desde `src/lib/time/entry-guards.ts` (helpers extraídos de `time.ts`: `getActiveEntry`, `findOverlappingEntry`, `overlapErrorMsg`). Un solo timer activo por usuario (índice 0104) cubre también las tareas.
+- **UI** `/tareas` (nav "Tareas", visible a todos los roles internos): admin/supervisor → `TaskManagerPanel` (lista + filtros por responsable/estado + asignar/editar/reasignar/cancelar); operador → `MyTasksPanel` (iniciar/detener timer, marcar finalizada, historial + contador de horas). El timer activo de tarea se refleja en `ClockInPanel` de /tiempo con badge "Tarea".
+- **Notificaciones**: derivadas en `/api/notifications` (sin tabla; kinds `task_assigned` al responsable y `task_completed` al asignador) + toast/bell + browser-notif.
 
 ## Integración WhatsApp Cloud API + Bot IA (migraciones 0091 + 0106–0115)
 

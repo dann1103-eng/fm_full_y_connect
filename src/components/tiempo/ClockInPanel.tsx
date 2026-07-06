@@ -63,6 +63,7 @@ export function ClockInPanel({ initialActive, userId = null }: Props) {
         notes: notes.trim() || null,
         created_at: new Date().toISOString(),
         requirement_id: null,
+        task_id: null,
         scheduled_at: null,
         scheduled_duration_minutes: null,
         scheduled_attendees: [],
@@ -115,7 +116,14 @@ export function ClockInPanel({ initialActive, userId = null }: Props) {
                 <span className="relative inline-flex h-3 w-3 rounded-full bg-fm-primary" />
               </span>
               <div>
-                <p className="text-sm font-bold text-fm-on-surface">{activeLabel}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-bold text-fm-on-surface">{activeLabel}</p>
+                  {active.entry_type === 'task' && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-fm-primary/10 text-fm-primary">
+                      Tarea
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-fm-on-surface-variant">
                   Inició {new Date(active.started_at).toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit', hour12: false })}
                 </p>

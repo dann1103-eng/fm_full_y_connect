@@ -58,6 +58,10 @@ export function NotificationsDropdown() {
       router.push(`/pipeline?req=${item.cambio_requirement_id}`)
       return
     }
+    if (item.kind === 'task_assigned' || item.kind === 'task_completed') {
+      router.push('/tareas')
+      return
+    }
     if (item.kind === 'mention') {
       startTransition(async () => {
         if (item.mention_source === 'review') {
@@ -329,6 +333,40 @@ function NotificationRow({
               {item.cambio_notes && (
                 <div className="text-fm-on-surface-variant text-[11px] mt-0.5 truncate italic">
                   &ldquo;{item.cambio_notes}&rdquo;
+                </div>
+              )}
+              <div className="text-fm-on-surface-variant/50 text-[10px] mt-0.5">{timeAgo}</div>
+            </div>
+          </div>
+        </button>
+        {dismissButton}
+      </div>
+    )
+  }
+
+  if (item.kind === 'task_assigned' || item.kind === 'task_completed') {
+    const isAssigned = item.kind === 'task_assigned'
+    return (
+      <div className="relative group">
+        <button
+          type="button"
+          onClick={onClick}
+          className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-fm-primary/10 transition-colors border-b border-fm-surface-container-high/60 last:border-b-0"
+        >
+          <span className="w-8 h-8 rounded-full bg-fm-primary/10 flex items-center justify-center flex-shrink-0">
+            <span className="material-symbols-outlined text-[18px] text-fm-primary">
+              {isAssigned ? 'assignment_ind' : 'task_alt'}
+            </span>
+          </span>
+          <div className="flex-1 min-w-0 pr-5">
+            <div className="text-xs leading-tight">
+              <span className="font-bold text-fm-primary uppercase tracking-wide text-[10px]">
+                {isAssigned ? 'Tarea asignada' : 'Tarea finalizada'}
+              </span>
+              <div className="font-semibold text-fm-on-surface mt-0.5 truncate">{item.task_title}</div>
+              {item.task_actor_name && (
+                <div className="text-fm-on-surface-variant/70 text-[11px]">
+                  {isAssigned ? `Te la asignó ${item.task_actor_name}` : `${item.task_actor_name} la finalizó`}
                 </div>
               )}
               <div className="text-fm-on-surface-variant/50 text-[10px] mt-0.5">{timeAgo}</div>
