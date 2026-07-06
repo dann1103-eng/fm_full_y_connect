@@ -433,9 +433,10 @@ Las violaciones de FK (RESTRICT) **no producen excepción** — retornan `{ erro
 | 0113 | Prompt de leads inyectado con contexto completo de fmcomsolutions.com (servicios, planes con precios públicos, industrias, clientes, contacto). |
 | 0114 | **`requirements.requested_via`** (`portal`/`whatsapp_bot`/`staff`/`unknown`) para trazabilidad de canal de origen. |
 | 0115 | Bot de clientes puede crear solicitudes de contenido: habilita tools `check_request_eligibility` + `create_requirement_request`. Sube `max_tokens` 600→800. Prompt reescrito con flujo step-by-step de 5 pasos. |
-| 0116 | **Tareas asignadas**: tabla `assigned_tasks` (título, descripción, `client_ref` texto libre, responsable, creador, `status` pending/in_progress/done/cancelled, timestamps). `time_entries` gana `task_id` + `entry_type='task'` (constraints `entry_type_check` y `type_check` extendidos). El tiempo de una tarea es una `time_entry` normal → cuenta como productividad (endShift) y sale en /tiempo. RLS: responsable ve las suyas, admin/supervisor ven/gestionan todas; transiciones del operador (start/done) vía service role. Página `/tareas` role-aware. Notificaciones derivadas `task_assigned`/`task_completed`. |
+| 0116 | Bot de clientes: capacidad de solicitar **cambios y reprogramaciones** (tools `request_requirement_change` + `request_reschedule`); prompt del cliente actualizado (supersede 0115), `max_tokens=1000`. |
+| 0117 | **Tareas asignadas**: tabla `assigned_tasks` (título, descripción, `client_ref` texto libre, responsable, creador, `status` pending/in_progress/done/cancelled, timestamps). `time_entries` gana `task_id` + `entry_type='task'` (constraints `entry_type_check` y `type_check` extendidos). El tiempo de una tarea es una `time_entry` normal → cuenta como productividad (endShift) y sale en /tiempo. RLS: responsable ve las suyas, admin/supervisor ven/gestionan todas; transiciones del operador (start/done) vía service role. Página `/tareas` role-aware. Notificaciones derivadas `task_assigned`/`task_completed`. |
 
-## Tareas asignadas (feature — migración 0116)
+## Tareas asignadas (feature — migración 0117)
 
 Función para que supervisores/admins asignen tareas específicas (fuera del plan de un cliente) a miembros del equipo.
 
