@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { useUser } from '@/contexts/UserContext'
 import { createClient } from '@/lib/supabase/client'
 import {
-  getMyActiveShift,
   startShift,
   endShift,
   startBreak,
@@ -15,11 +14,11 @@ import {
 import { stopActiveEntry } from '@/app/actions/time'
 import { formatDuration } from '@/lib/domain/time'
 import { clearAllTimerKeysForUser } from '@/lib/domain/timer'
+import { useActiveShift, notifyShiftChanged } from '@/hooks/useActiveShift'
 import type { WorkSession, WorkSessionBreak, ShiftBreakType } from '@/types/db'
 import { EndShiftConfirmDialog } from '@/components/tiempo/EndShiftConfirmDialog'
 import { ActiveTimerWarningDialog } from '@/components/layout/ActiveTimerWarningDialog'
 
-const SYNC_INTERVAL_MS = 30_000
 const LUNCH_LIMIT_SECONDS = 60 * 60 // 1 hora
 
 function elapsedSeconds(from: string, to?: Date): number {
@@ -37,7 +36,9 @@ function totalBreakSeconds(breaks: WorkSessionBreak[]): number {
 export function ShiftStatusWidget() {
   const user = useUser()
   const router = useRouter()
-  const [shift, setShift] = useState<WorkSession | null>(null)
+  // Store compartido: misma jornada que ven ShiftPanel y ClockInPanel.
+  // Iniciar/finalizar aquí se refleja al instante en la página de tiempo.
+  const { shift } = useActiveShift()
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -53,24 +54,6 @@ export function ShiftStatusWidget() {
     breakType: 'lunch' | 'away' | null
   }>({ open: false, timerLabel: null, breakType: null })
   const dropdownRef = useRef<HTMLDivElement>(null)
-
-  // Cargar shift al montar + re-sync cada 30s
-  useEffect(() => {
-    let cancelled = false
-    getMyActiveShift().then((s) => {
-      if (!cancelled) setShift(s)
-    })
-    const sync = window.setInterval(() => {
-      getMyActiveShift().then((s) => {
-        if (!cancelled) setShift(s)
-      })
-    }, SYNC_INTERVAL_MS)
-    return () => {
-      cancelled = true
-      window.clearInterval(sync)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   // Cronómetro vivo (1s) — solo si hay shift activa.
   // También maneja dos comportamientos de fondo:
@@ -98,7 +81,7 @@ export function ShiftStatusWidget() {
       convertedBreakRef.current = last.started_at
       void convertLunchToAway().then((r) => {
         if ('ok' in r) {
-          getMyActiveShift().then((s) => setShift(s))
+          notifyShiftChanged()
           // Notificación del navegador si el permiso está concedido
           if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
             new Notification('Almuerzo excedido', {
@@ -115,14 +98,12 @@ export function ShiftStatusWidget() {
       checkLunchOvertime(shift)
     }, 1000)
 
-    // Al volver al tab: actualizar display inmediatamente y revisar almuerzo
+    // Al volver al tab: actualizar display inmediatamente y revisar almuerzo.
+    // El store compartido ya vuelve a leer la jornada en visibilitychange.
     function onVisible() {
       if (document.visibilityState !== 'visible') return
       setTick((n) => n + 1)
-      getMyActiveShift().then((s) => {
-        setShift(s)
-        if (s) checkLunchOvertime(s)
-      })
+      if (shift) checkLunchOvertime(shift)
     }
     document.addEventListener('visibilitychange', onVisible)
 
@@ -130,7 +111,6 @@ export function ShiftStatusWidget() {
       clearInterval(t)
       document.removeEventListener('visibilitychange', onVisible)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shift])
 
   // Cerrar dropdown al click afuera
@@ -147,10 +127,6 @@ export function ShiftStatusWidget() {
   // No mostrar para clientes
   if (user.role === 'client') return null
 
-  function refresh() {
-    getMyActiveShift().then(setShift)
-  }
-
   function handle(action: () => Promise<{ ok: true } | { error: string } | { ok: true; sessionId: string }>) {
     setError(null)
     startTransition(async () => {
@@ -159,7 +135,8 @@ export function ShiftStatusWidget() {
         setError(r.error)
         return
       }
-      refresh()
+      // Actualiza a TODOS los consumidores (ShiftPanel, ClockInPanel) al instante.
+      notifyShiftChanged()
       router.refresh()
     })
   }

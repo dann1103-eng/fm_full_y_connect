@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@/contexts/UserContext'
 import { getMyActiveShift, startShift } from '@/app/actions/work-sessions'
+import { notifyShiftChanged } from '@/hooks/useActiveShift'
 import { useBrowserNotifications } from '@/hooks/useBrowserNotifications'
 
 function todayKey(userId: string): string {
@@ -65,6 +66,8 @@ export function LoginWelcomeDialog() {
         setError(r.error)
         return
       }
+      // Sincroniza el widget del header y la página de tiempo al instante.
+      notifyShiftChanged()
       close(true)
       router.refresh()
     })

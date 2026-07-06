@@ -3,11 +3,12 @@
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { startShift, endShift, startBreak, endBreak, getMyActiveShift } from '@/app/actions/work-sessions'
+import { startShift, endShift, startBreak, endBreak } from '@/app/actions/work-sessions'
 import { stopActiveEntry } from '@/app/actions/time'
 import { formatDuration } from '@/lib/domain/time'
 import { clearAllTimerKeysForUser } from '@/lib/domain/timer'
-import type { WorkSession, WorkSessionBreak, ShiftBreakType } from '@/types/db'
+import { useActiveShift, notifyShiftChanged } from '@/hooks/useActiveShift'
+import type { WorkSessionBreak, ShiftBreakType } from '@/types/db'
 import { EndShiftConfirmDialog } from './EndShiftConfirmDialog'
 import { ActiveTimerWarningDialog } from '@/components/layout/ActiveTimerWarningDialog'
 
@@ -25,8 +26,8 @@ function totalBreakSeconds(breaks: WorkSessionBreak[]): number {
 
 export function ShiftPanel() {
   const router = useRouter()
-  const [shift, setShift] = useState<WorkSession | null>(null)
-  const [loading, setLoading] = useState(true)
+  // Store compartido: misma jornada que ve el widget del header y ClockInPanel.
+  const { shift, loading } = useActiveShift()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [, setNow] = useState(0)
@@ -37,30 +38,12 @@ export function ShiftPanel() {
     breakType: 'lunch' | 'away' | null
   }>({ open: false, timerLabel: null, breakType: null })
 
-  // Refrescar shift al montar
-  useEffect(() => {
-    let cancelled = false
-    getMyActiveShift().then((s) => {
-      if (!cancelled) {
-        setShift(s)
-        setLoading(false)
-      }
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
   // Cronómetro vivo (1s)
   useEffect(() => {
     if (!shift) return
     const t = setInterval(() => setNow((n) => n + 1), 1000)
     return () => clearInterval(t)
   }, [shift])
-
-  function refresh() {
-    getMyActiveShift().then(setShift)
-  }
 
   function handle(action: () => Promise<{ ok: true } | { error: string } | { ok: true; sessionId: string }>) {
     setError(null)
@@ -70,7 +53,8 @@ export function ShiftPanel() {
         setError(r.error)
         return
       }
-      refresh()
+      // Actualiza a TODOS los consumidores (header, ClockInPanel) al instante.
+      notifyShiftChanged()
       router.refresh()
     })
   }

@@ -3,9 +3,9 @@
 import { useState, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { startAdminEntry, stopActiveEntry, updateMyActiveNotes } from '@/app/actions/time'
-import { getMyActiveShift } from '@/app/actions/work-sessions'
 import { ADMIN_CATEGORIES, ADMIN_CATEGORY_LABELS, formatDuration } from '@/lib/domain/time'
 import { useMyActiveTimeEntry } from '@/hooks/useMyActiveTimeEntry'
+import { useActiveShift } from '@/hooks/useActiveShift'
 import type { AdminCategory, TimeEntry } from '@/types/db'
 
 interface Props {
@@ -25,19 +25,16 @@ export function ClockInPanel({ initialActive, userId = null }: Props) {
   const [elapsed, setElapsed] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
-  const [hasActiveShift, setHasActiveShift] = useState<boolean | null>(null)
 
-  // Verificar jornada activa al montar
-  useEffect(() => {
-    let cancelled = false
-    getMyActiveShift().then((s) => {
-      if (!cancelled) setHasActiveShift(!!s)
-    })
-    return () => { cancelled = true }
-  }, [])
+  // Jornada activa desde el store compartido: se sincroniza al instante cuando
+  // el usuario inicia/finaliza la jornada en el widget del header (u otra tab).
+  // `null` = aún cargando (no bloqueamos el botón durante la carga inicial).
+  const { shift: activeShift, loading: shiftLoading } = useActiveShift()
+  const hasActiveShift: boolean | null = shiftLoading ? null : activeShift !== null
 
   // Live elapsed counter
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!active) { setElapsed(0); return }
     const calc = () => {
       const diff = Math.round((new Date().getTime() - new Date(active.started_at).getTime()) / 1000)
