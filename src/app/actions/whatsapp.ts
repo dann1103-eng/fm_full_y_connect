@@ -235,17 +235,20 @@ export async function linkConversationToClient(args: {
 
   let contactId: string | null = null
   if (args.saveAsContact) {
-    // Reusar contacto si ya existe.
+    // Multi-marca: el vínculo es ADITIVO. Buscamos el contacto de ESTE número
+    // para ESTA marca (acotado por client_id para no romper con varias marcas ni
+    // reasignar el contacto de otra marca). Si no existe, se agrega uno nuevo.
     const existing = await admin
       .from('client_whatsapp_contacts')
       .select('id')
       .eq('phone_e164', conv.data.phone_e164)
+      .eq('client_id', args.clientId)
       .maybeSingle()
     if (existing.data) {
       contactId = existing.data.id
       await admin
         .from('client_whatsapp_contacts')
-        .update({ client_id: args.clientId, display_name: args.displayName ?? null })
+        .update({ display_name: args.displayName ?? null })
         .eq('id', existing.data.id)
     } else {
       const ins = await admin
@@ -261,6 +264,7 @@ export async function linkConversationToClient(args: {
     }
   }
 
+  // Fijar esta marca como la ACTIVA de la conversación.
   const upd = await admin
     .from('wa_conversations')
     .update({ client_id: args.clientId, contact_id: contactId })
