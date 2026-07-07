@@ -14,7 +14,7 @@ import { effectiveWeeklyTarget } from '@/lib/domain/requirement'
 import { limitsToRecord, CONTENT_TYPE_LABELS, EXTRA_CONTENT_PRICES } from '@/lib/domain/plans'
 import { augmentDistribution, buildProrateOverride, buildAccumulateOverride } from '@/lib/domain/weekly-distribution'
 import { LogoUploader } from '@/components/clients/LogoUploader'
-import { updateCycleDates, createCurrentCycle } from '@/app/actions/renewals'
+import { updateCycleDates, createCurrentCycle, applyPlanToCurrentCycle } from '@/app/actions/renewals'
 
 export default function ClientEditPage() {
   const router = useRouter()
@@ -86,6 +86,9 @@ export default function ClientEditPage() {
   const [cycleDatesSaving, setCycleDatesSaving] = useState(false)
   const [cycleDatesError, setCycleDatesError] = useState<string | null>(null)
   const [cycleDatesOk, setCycleDatesOk] = useState(false)
+  const [applyingPlan, setApplyingPlan] = useState(false)
+  const [applyPlanError, setApplyPlanError] = useState<string | null>(null)
+  const [applyPlanOk, setApplyPlanOk] = useState(false)
 
   const [pkgQty, setPkgQty] = useState('5')
   const [pkgPrice, setPkgPrice] = useState('')
@@ -119,11 +122,14 @@ export default function ClientEditPage() {
       setIsStrictAdmin(appUser?.role === 'admin')
       if (!adminUser) { router.replace(`/clients/${id}`); return }
 
-      const [{ data: clientDataRaw }, { data: plansData }, { data: cycleData }] = await Promise.all([
+      const [{ data: clientDataRaw }, { data: plansData }, { data: cycleRows }] = await Promise.all([
         supabase.from('clients').select('*').eq('id', id).single(),
         supabase.from('plans').select('*').eq('active', true).order('price_usd'),
-        supabase.from('billing_cycles').select('*').eq('client_id', id).eq('status', 'current').maybeSingle(),
+        // limit(1) en vez de maybeSingle(): tolera duplicados de ciclo 'current'
+        // (si existieran) mostrando el más reciente en lugar de romperse con error.
+        supabase.from('billing_cycles').select('*').eq('client_id', id).eq('status', 'current').order('created_at', { ascending: false }).limit(1),
       ])
+      const cycleData = (cycleRows as BillingCycle[] | null)?.[0] ?? null
 
       const clientData = clientDataRaw as Client | null
       if (!clientData) { router.replace('/clients'); return }
@@ -298,7 +304,58 @@ export default function ClientEditPage() {
     if (result.error) { setCycleDatesError(result.error); return }
     setCycleDatesOk(true)
     setTimeout(() => setCycleDatesOk(false), 3000)
-    if (!currentCycle) router.refresh()
+    // Tras crear el ciclo, recargar el estado local para reflejarlo de
+    // inmediato (router.refresh() no re-ejecuta el load() del useEffect, así
+    // que el panel seguía mostrando "Crear ciclo activo" y el usuario volvía
+    // a hacer clic, creando duplicados).
+    if (!currentCycle) {
+      const supabase = createClient()
+      const { data: rows } = await supabase
+        .from('billing_cycles')
+        .select('*')
+        .eq('client_id', id)
+        .eq('status', 'current')
+        .order('created_at', { ascending: false })
+        .limit(1)
+      const cyc = (rows as BillingCycle[] | null)?.[0]
+      if (cyc) {
+        setCurrentCycle(cyc)
+        setCambiosPackages((cyc.cambios_packages_json as CambiosPackage[]) ?? [])
+        setExtraContent((cyc.extra_content_json as ExtraContentItem[]) ?? [])
+        setContentOverride((cyc.content_limits_override_json as Partial<Record<ContentType, number>>) ?? {})
+        setCycleStart(cyc.period_start)
+        setCycleEnd(cyc.period_end)
+        setCyclePayStatus(cyc.payment_status)
+        setCyclePayDate(cyc.payment_date ?? '')
+        setCyclePayStatus2((cyc.payment_status_2 as 'paid' | 'unpaid' | null) ?? '')
+        setCyclePayDate2(cyc.payment_date_2 ?? '')
+      }
+      router.refresh()
+    }
+  }
+
+  async function handleApplyPlanToCurrentCycle() {
+    setApplyingPlan(true)
+    setApplyPlanError(null)
+    setApplyPlanOk(false)
+    const result = await applyPlanToCurrentCycle({ clientId: id })
+    setApplyingPlan(false)
+    if (result.error) { setApplyPlanError(result.error); return }
+    setApplyPlanOk(true)
+    setTimeout(() => setApplyPlanOk(false), 3000)
+    // Refrescar el snapshot local para que el aviso desaparezca y el panel
+    // refleje el plan recién aplicado.
+    const supabase = createClient()
+    const { data: rows } = await supabase
+      .from('billing_cycles')
+      .select('*')
+      .eq('client_id', id)
+      .eq('status', 'current')
+      .order('created_at', { ascending: false })
+      .limit(1)
+    const cyc = (rows as BillingCycle[] | null)?.[0]
+    if (cyc) setCurrentCycle(cyc)
+    router.refresh()
   }
 
   const baseDistForOverride = useMemo<WeeklyDistribution>(() => {
@@ -957,6 +1014,35 @@ export default function ClientEditPage() {
                         ? 'Guardando...'
                         : currentCycle ? 'Guardar fechas y pagos' : 'Crear ciclo activo'}
                     </Button>
+
+                    {/* Aviso + acción: el plan del cliente cambió pero el ciclo
+                        activo sigue con el snapshot del plan anterior. */}
+                    {currentCycle && currentCycle.plan_id_snapshot !== form.current_plan_id && (
+                      <>
+                        <div className="h-px bg-fm-surface-container-high" />
+                        <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 space-y-2.5">
+                          <p className="text-xs text-amber-800">
+                            El ciclo activo quedó congelado en el plan{' '}
+                            <strong>{plans.find(p => p.id === currentCycle.plan_id_snapshot)?.name ?? '—'}</strong>.
+                            El plan actual del cliente es{' '}
+                            <strong>{plans.find(p => p.id === form.current_plan_id)?.name ?? '—'}</strong>.
+                            Guarda antes el cambio de plan, luego aplícalo al ciclo actual para que los límites se reflejen de inmediato.
+                          </p>
+                          {applyPlanError && (
+                            <p className="text-sm text-fm-error bg-fm-error/5 rounded-xl px-3 py-2 border border-fm-error/20">{applyPlanError}</p>
+                          )}
+                          {applyPlanOk && (
+                            <p className="text-sm text-fm-primary bg-fm-primary/5 rounded-xl px-3 py-2 border border-fm-primary/20">
+                              Plan aplicado al ciclo actual correctamente.
+                            </p>
+                          )}
+                          <Button type="button" variant="outline" onClick={handleApplyPlanToCurrentCycle} disabled={applyingPlan}
+                            className="w-full rounded-xl border-amber-300 text-amber-800 hover:bg-amber-100 font-semibold">
+                            {applyingPlan ? 'Aplicando...' : 'Aplicar plan al ciclo actual'}
+                          </Button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
