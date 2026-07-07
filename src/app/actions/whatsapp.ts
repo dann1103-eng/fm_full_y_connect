@@ -198,14 +198,56 @@ export async function unlinkConversationFromClient(args: {
     .single()
   if (conv.error || !conv.data) return { ok: false, error: 'Conversación no encontrada' }
 
-  // Borra el contacto si aplica.
-  if (args.removeContact !== false) {
-    await admin.from('client_whatsapp_contacts').delete().eq('phone_e164', conv.data.phone_e164)
+  // Multi-marca: quita SOLO el vínculo con la marca ACTIVA (no borra los
+  // contactos de las OTRAS marcas del mismo número).
+  if (args.removeContact !== false && conv.data.client_id) {
+    await admin
+      .from('client_whatsapp_contacts')
+      .delete()
+      .eq('phone_e164', conv.data.phone_e164)
+      .eq('client_id', conv.data.client_id)
   }
 
   const upd = await admin
     .from('wa_conversations')
     .update({ client_id: null, contact_id: null })
+    .eq('id', args.conversationId)
+  if (upd.error) return { ok: false, error: upd.error.message }
+
+  revalidatePath(`/whatsapp/${args.conversationId}`)
+  return { ok: true }
+}
+
+// ────────────────────────────────────────────────────────────
+// Fijar la marca ACTIVA de una conversación (multi-marca) desde el inbox.
+// La marca debe estar vinculada al número (client_whatsapp_contacts).
+// ────────────────────────────────────────────────────────────
+export async function setActiveBrandForConversation(args: {
+  conversationId: string
+  clientId: string
+}): Promise<Result> {
+  const guard = await requireAgencyUser()
+  if (!guard.ok) return guard
+
+  const admin = createAdminClient()
+  const conv = await admin
+    .from('wa_conversations')
+    .select('id, phone_e164')
+    .eq('id', args.conversationId)
+    .single()
+  if (conv.error || !conv.data) return { ok: false, error: 'Conversación no encontrada' }
+
+  const contact = await admin
+    .from('client_whatsapp_contacts')
+    .select('id')
+    .eq('phone_e164', conv.data.phone_e164)
+    .eq('client_id', args.clientId)
+    .maybeSingle()
+  if (!contact.data) return { ok: false, error: 'Esa marca no está vinculada a este número.' }
+
+  const upd = await admin
+    .from('wa_conversations')
+    .update({ client_id: args.clientId, contact_id: contact.data.id })
     .eq('id', args.conversationId)
   if (upd.error) return { ok: false, error: upd.error.message }
 

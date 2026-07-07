@@ -50,12 +50,28 @@ export default async function WhatsappConversationPage({ params }: PageProps) {
     linkedClient = clients.find((c) => c.id === conversation.client_id) ?? null
   }
 
+  // Marcas vinculadas al NÚMERO (multi-marca): de client_whatsapp_contacts + la activa.
+  const { data: contactRows } = await admin
+    .from('client_whatsapp_contacts')
+    .select('client_id')
+    .eq('phone_e164', conversation.phone_e164)
+  const brandIds = Array.from(
+    new Set([
+      ...(contactRows ?? []).map((r) => r.client_id as string),
+      ...(conversation.client_id ? [conversation.client_id] : []),
+    ]),
+  )
+  const linkedBrands = brandIds
+    .map((id) => clients.find((c) => c.id === id))
+    .filter((c): c is { id: string; name: string } => !!c)
+
   return (
     <WaChat
       conversation={conversation}
       initialMessages={messages}
       clients={clients}
       linkedClient={linkedClient}
+      linkedBrands={linkedBrands}
       lead={lead}
     />
   )

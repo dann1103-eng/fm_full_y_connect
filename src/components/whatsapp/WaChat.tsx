@@ -9,6 +9,7 @@ import {
   toggleBotForConversation,
   linkConversationToClient,
   unlinkConversationFromClient,
+  setActiveBrandForConversation,
 } from '@/app/actions/whatsapp'
 import type { WaConversation, WaMessage } from '@/types/db'
 
@@ -33,14 +34,17 @@ interface Props {
   initialMessages: WaMessage[]
   clients: ClientOption[]
   linkedClient: ClientOption | null
+  /** Todas las marcas vinculadas al número (multi-marca). Incluye la activa. */
+  linkedBrands?: ClientOption[]
   lead?: LeadInfo | null
 }
 
-export function WaChat({ conversation, initialMessages, clients, linkedClient, lead: initialLead }: Props) {
+export function WaChat({ conversation, initialMessages, clients, linkedClient, linkedBrands = [], lead: initialLead }: Props) {
   const [lead, setLead] = useState<LeadInfo | null>(initialLead ?? null)
   const [messages, setMessages] = useState<WaMessage[]>(initialMessages)
   const [paused, setPaused] = useState(conversation.bot_paused)
   const [client, setClient] = useState<ClientOption | null>(linkedClient)
+  const [brands, setBrands] = useState<ClientOption[]>(linkedBrands)
   const [body, setBody] = useState('')
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -148,10 +152,12 @@ export function WaChat({ conversation, initialMessages, clients, linkedClient, l
     })
   }
 
+  // Vincular (AGREGAR) una marca al número y fijarla como activa.
   function handleLink(clientId: string) {
     if (!clientId) return
     const c = clients.find((x) => x.id === clientId) ?? null
     setClient(c)
+    if (c) setBrands((prev) => (prev.some((b) => b.id === c.id) ? prev : [...prev, c]))
     startTransition(async () => {
       const res = await linkConversationToClient({
         conversationId: conversation.id,
@@ -162,16 +168,29 @@ export function WaChat({ conversation, initialMessages, clients, linkedClient, l
     })
   }
 
+  // Fijar como ACTIVA una marca ya vinculada al número.
+  function handleSetActive(clientId: string) {
+    const c = brands.find((b) => b.id === clientId) ?? null
+    if (!c || clientId === client?.id) return
+    setClient(c)
+    startTransition(async () => {
+      const res = await setActiveBrandForConversation({ conversationId: conversation.id, clientId })
+      if (!res.ok) setError(res.error)
+    })
+  }
+
+  // Quitar SOLO la marca activa (las otras marcas del número se conservan).
   function handleUnlink() {
     if (!client) return
     const ok = confirm(
       `¿Quitar el vínculo con "${client.name}"?\n\n` +
-        'La conversación volverá a tratarse como lead (sin marca). ' +
-        'El contacto WhatsApp del cliente también se borrará para que el ' +
-        'próximo mensaje desde este número NO se auto-vincule.',
+        'Se quita solo esta marca del número (las demás marcas se conservan). ' +
+        'La conversación quedará sin marca activa hasta que se elija otra.',
     )
     if (!ok) return
+    const removedId = client.id
     setClient(null)
+    setBrands((prev) => prev.filter((b) => b.id !== removedId))
     startTransition(async () => {
       const res = await unlinkConversationFromClient({
         conversationId: conversation.id,
@@ -190,26 +209,48 @@ export function WaChat({ conversation, initialMessages, clients, linkedClient, l
           <h2 className="font-medium text-fm-on-surface truncate">{title}</h2>
           <p className="text-xs text-fm-on-surface-variant truncate">
             {conversation.phone_e164}
-            {client && <span> · vinculado a {client.name}</span>}
-            {!client && <span className="text-orange-600"> · sin cliente vinculado</span>}
+            {client && brands.length > 1 && <span> · activa: {client.name} · {brands.length} marcas</span>}
+            {client && brands.length <= 1 && <span> · vinculado a {client.name}</span>}
+            {!client && brands.length > 0 && <span className="text-orange-600"> · varias marcas — elige la activa</span>}
+            {!client && brands.length === 0 && <span className="text-orange-600"> · sin cliente vinculado</span>}
           </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap justify-end">
-          {clients.length > 0 && (
+          {/* Chips de marcas vinculadas — la activa resaltada; clic en otra la fija. */}
+          {brands.length > 0 && (
+            <div className="flex items-center gap-1 flex-wrap">
+              {brands.map((b) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => handleSetActive(b.id)}
+                  disabled={pending || b.id === client?.id}
+                  className={cn(
+                    'text-xs px-2 py-1 rounded-full border transition',
+                    b.id === client?.id
+                      ? 'bg-fm-primary/10 border-fm-primary text-fm-primary font-semibold'
+                      : 'border-fm-outline-variant/40 text-fm-on-surface-variant hover:bg-fm-surface-container-low',
+                  )}
+                  title={b.id === client?.id ? 'Marca activa' : 'Fijar como marca activa'}
+                >
+                  {b.id === client?.id ? '● ' : ''}{b.name}
+                </button>
+              ))}
+            </div>
+          )}
+          {clients.filter((c) => !brands.some((b) => b.id === c.id)).length > 0 && (
             <select
-              key={client?.id ?? 'none'}
+              key={brands.length}
               defaultValue=""
               onChange={(e) => handleLink(e.target.value)}
               className="text-sm border border-fm-outline-variant/40 rounded-md px-2 py-1 bg-fm-surface-container-low max-w-[200px]"
               disabled={pending}
-              title={client ? 'Cambiar a otra marca' : 'Vincular a una marca'}
+              title="Vincular otra marca a este número"
             >
-              <option value="" disabled>
-                {client ? 'Cambiar marca…' : 'Vincular a cliente…'}
-              </option>
+              <option value="" disabled>+ Vincular marca…</option>
               {clients
-                .filter((c) => c.id !== client?.id)
+                .filter((c) => !brands.some((b) => b.id === c.id))
                 .map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
@@ -221,7 +262,7 @@ export function WaChat({ conversation, initialMessages, clients, linkedClient, l
               onClick={handleUnlink}
               disabled={pending}
               className="text-sm px-2 py-1.5 rounded-md border border-fm-outline-variant/40 text-fm-on-surface-variant hover:bg-red-50 hover:border-red-300 hover:text-red-700 transition"
-              title="Quitar vínculo con la marca actual"
+              title="Quitar la marca activa (las otras se conservan)"
             >
               <span className="material-symbols-outlined text-[16px] align-middle">link_off</span>
             </button>
