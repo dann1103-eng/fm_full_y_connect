@@ -224,6 +224,11 @@ export type WaBotTool =
   | 'get_next_publications'
   | 'check_request_eligibility'
   | 'create_requirement_request'
+  | 'get_changes_balance'
+  | 'request_requirement_change'
+  | 'request_reschedule'
+  | 'send_payment_link'
+  | 'create_extra_invoice'
   | 'handoff_to_human'
   | 'submit_lead_info'
 

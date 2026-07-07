@@ -2,6 +2,11 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { CLIENT_PHASE_MAP, CLIENT_PHASE_LABELS, canRequestChangeForPhase, type ClientPhase } from '@/lib/domain/pipeline'
 import type { ContentType, Phase } from '@/types/db'
 import { checkRequestEligibilityForClient, createRequirementFromBot } from '@/lib/ai/requirementRequestHelpers'
+import {
+  sendPaymentLinkForClient,
+  createExtraContentInvoiceForClient,
+  createExtraCambiosInvoiceForClient,
+} from '@/lib/ai/billingHelpers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCambiosBalance } from '@/lib/domain/credits'
 import { botPostMessage, FM_BOT_USER_ID } from '@/lib/bot'
@@ -83,6 +88,29 @@ export const TOOL_DEFS: Record<string, ToolDef> = {
     name: 'get_unpaid_invoices',
     description: 'Facturas emitidas sin pago. Devuelve número, monto y fechas.',
     input_schema: { type: 'object', properties: {} },
+  },
+  send_payment_link: {
+    name: 'send_payment_link',
+    description:
+      'Genera y devuelve el enlace de pago (n1co) de la factura PENDIENTE del cliente para que pague por WhatsApp. Sin argumentos toma la factura emitida e impaga más reciente; opcionalmente un invoice_id específico. Úsalo cuando el cliente diga "quiero pagar", "pásame el link", "cómo pago mi factura". NO crea facturas. Si no hay facturas pendientes, avísale con amabilidad.',
+    input_schema: {
+      type: 'object',
+      properties: { invoice_id: { type: 'string', description: 'Opcional: id de una factura específica.' } },
+    },
+  },
+  create_extra_invoice: {
+    name: 'create_extra_invoice',
+    description:
+      'EMITE una factura de un EXTRA de catálogo y devuelve su enlace de pago n1co. Precios FIJOS de catálogo: estático $15, video corto $20, reel $25, short $15; paquete de 5 cambios $25. IMPORTANTE: antes de llamarla DEBES confirmar con el cliente el ítem y el monto exacto ("voy a generar tu factura de X por $Y, ¿confirmas?") y llamarla SOLO si el cliente dice que sí — esto emite una factura fiscal REAL. Nunca inventes precios ni montos distintos al catálogo. Para renovar el plan NO uses esta tool (aún no disponible): usa handoff_to_human.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        kind: { type: 'string', enum: ['content', 'cambios'], description: "'content' para contenido extra; 'cambios' para paquete(s) de 5 cambios." },
+        content_type: { type: 'string', enum: ['estatico', 'video_corto', 'reel', 'short'], description: 'Requerido si kind=content.' },
+        quantity: { type: 'number', description: 'Para content: unidades del contenido. Para cambios: número de paquetes de 5.' },
+      },
+      required: ['kind', 'quantity'],
+    },
   },
   get_next_publications: {
     name: 'get_next_publications',
@@ -350,6 +378,60 @@ export const TOOL_FNS: Record<string, ToolFn> = {
       .order('issue_date', { ascending: false })
       .limit(10)
     return { items: data ?? [], count: (data ?? []).length }
+  },
+
+  send_payment_link: async (ctx, input) => {
+    if (!ctx.clientId) return NO_CLIENT
+    const invoiceId = input.invoice_id ? String(input.invoice_id) : undefined
+    const res = await sendPaymentLinkForClient(ctx.clientId, invoiceId)
+    if ('error' in res) return { error: res.error }
+    return {
+      ok: true,
+      invoice_number: res.invoiceNumber,
+      amount: res.totalAPagar,
+      payment_link: res.paymentLinkUrl,
+      message: `Enlace de pago listo. Compártelo con el cliente: ${res.paymentLinkUrl}`,
+    }
+  },
+
+  create_extra_invoice: async (ctx, input) => {
+    if (!ctx.clientId) return NO_CLIENT
+    const kind = String(input.kind ?? '')
+    const quantity = Number(input.quantity ?? 0)
+
+    if (kind === 'content') {
+      const ct = String(input.content_type ?? '') as ContentType
+      if (!['estatico', 'video_corto', 'reel', 'short'].includes(ct)) {
+        return { error: 'content_type inválido para un extra (estatico|video_corto|reel|short).' }
+      }
+      const res = await createExtraContentInvoiceForClient(ctx.clientId, ct, quantity)
+      if ('error' in res) return { error: res.error }
+      return {
+        ok: true,
+        invoice_number: res.invoiceNumber,
+        amount: res.totalAPagar,
+        payment_link: res.paymentLinkUrl,
+        message: res.paymentLinkUrl
+          ? `Factura emitida por $${res.totalAPagar}. Enlace de pago: ${res.paymentLinkUrl}`
+          : 'Factura emitida; el equipo enviará el enlace en breve.',
+      }
+    }
+
+    if (kind === 'cambios') {
+      const res = await createExtraCambiosInvoiceForClient(ctx.clientId, quantity)
+      if ('error' in res) return { error: res.error }
+      return {
+        ok: true,
+        invoice_number: res.invoiceNumber,
+        amount: res.totalAPagar,
+        payment_link: res.paymentLinkUrl,
+        message: res.paymentLinkUrl
+          ? `Factura emitida por $${res.totalAPagar}. Enlace de pago: ${res.paymentLinkUrl}`
+          : 'Factura emitida; el equipo enviará el enlace en breve.',
+      }
+    }
+
+    return { error: 'kind inválido (content|cambios).' }
   },
 
   get_next_publications: async (ctx, input) => {

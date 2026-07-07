@@ -10,6 +10,7 @@ import {
   type LineItemInput,
 } from '@/lib/domain/invoices'
 import { markInvoicePaidCore } from '@/lib/domain/invoice-paid'
+import { regenerateInvoiceLinkCore } from '@/lib/domain/invoice-create'
 import { nextCycleDates } from '@/lib/domain/cycles'
 import { today as todayString } from '@/lib/domain/dates'
 import { createInvoicePaymentLink, extractPaymentLinkId } from '@/lib/n1co/payment-links'
@@ -462,53 +463,11 @@ export async function regenerateN1coLink(
   if ('error' in auth) return { error: auth.error as string }
   const admin = createAdminClient()
 
-  const { data: inv } = await admin
-    .from('invoices')
-    .select('id, invoice_number, total, total_a_pagar, currency, billing_cycle_id, client_id, status, due_date')
-    .eq('id', invoiceId)
-    .single()
-  if (!inv) return { error: 'Factura no encontrada' as const }
-  if (inv.status === 'paid' || inv.status === 'void') {
-    return { error: 'No se puede regenerar el link de una factura pagada o anulada' as const }
-  }
-
-  const [{ data: clientRow }, emitter] = await Promise.all([
-    admin.from('clients').select('id, name, current_plan_id').eq('id', inv.client_id).single(),
-    loadEmitter(),
-  ])
-  if (!clientRow) return { error: 'Cliente no encontrado' as const }
-
-  const { data: planRow } = clientRow.current_plan_id
-    ? await admin.from('plans').select('id, name').eq('id', clientRow.current_plan_id).maybeSingle()
-    : { data: null }
-
-  const link = await createPaymentLinkSafe({
-    invoiceId: inv.id,
-    invoiceNumber: inv.invoice_number,
-    amount: inv.total_a_pagar ?? inv.total,
-    currency: inv.currency,
-    billingCycleId: inv.billing_cycle_id,
-    clientId: clientRow.id,
-    clientName: clientRow.name,
-    plan: planRow as { id: string; name: string } | null,
-    locationCode: emitter?.n1co_location_code ?? undefined,
-    dueDate: inv.due_date as string | null,
-  })
-
-  if (!link) return { error: 'No se pudo generar el link en n1co' as const }
-
-  await admin
-    .from('invoices')
-    .update({
-      n1co_payment_link_url: link.paymentLinkUrl,
-      n1co_payment_link_id: extractPaymentLinkId(link.paymentLinkUrl) ?? String(link.orderId),
-      n1co_order_reference: inv.id,
-      payment_provider: 'n1co_link',
-    })
-    .eq('id', invoiceId)
+  const res = await regenerateInvoiceLinkCore(admin, invoiceId)
+  if ('error' in res) return { error: res.error }
 
   revalidatePath(`/billing/invoices/${invoiceId}`)
-  return { ok: true as const, paymentLinkUrl: link.paymentLinkUrl }
+  return { ok: true as const, paymentLinkUrl: res.paymentLinkUrl }
 }
 
 /**
