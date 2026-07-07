@@ -229,6 +229,7 @@ export type WaBotTool =
   | 'request_reschedule'
   | 'send_payment_link'
   | 'create_extra_invoice'
+  | 'create_renewal_invoice'
   | 'handoff_to_human'
   | 'submit_lead_info'
 

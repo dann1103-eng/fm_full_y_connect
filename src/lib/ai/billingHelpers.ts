@@ -1,6 +1,12 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createIssuedInvoiceWithLink, regenerateInvoiceLinkCore } from '@/lib/domain/invoice-create'
+import {
+  createIssuedInvoiceWithLink,
+  regenerateInvoiceLinkCore,
+  ensureScheduledCycleCore,
+} from '@/lib/domain/invoice-create'
 import { EXTRA_CONTENT_PRICES, CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
+import { suggestItemsFromPlan } from '@/lib/domain/invoices'
+import { invoicePeriodLabel } from '@/lib/domain/billing'
 import type { Client, ContentType, Plan } from '@/types/db'
 
 /**
@@ -161,4 +167,80 @@ export async function createExtraCambiosInvoiceForClient(
       { name: 'extraQty', value: String(totalCambios) },
     ],
   })
+}
+
+// ── Carril B: renovación del plan (solo monthly; otros → handoff) ────────────
+
+/**
+ * Emite la factura de RENOVACIÓN del próximo ciclo del cliente + su link.
+ * Solo automatiza planes `monthly` (1 factura, precio completo). Para biweekly/
+ * bimonthly devuelve `needsHuman` porque su lógica de medios/2 pagos es delicada
+ * y cobrar mal es grave. Idempotente: si ya hay factura emitida e impaga para el
+ * ciclo programado, reutiliza esa (regenera el link) en vez de crear otra.
+ */
+export async function createRenewalInvoiceForClient(
+  clientId: string,
+): Promise<
+  | { ok: true; invoiceId: string; invoiceNumber: string; totalAPagar: number; paymentLinkUrl: string | null; reused: boolean }
+  | { needsHuman: true; reason: string }
+  | { error: string }
+> {
+  const admin = createAdminClient()
+  const loaded = await loadClientWithPlan(admin, clientId)
+  if ('error' in loaded) return { error: loaded.error }
+  const { client, plan } = loaded
+  if (!plan) return { error: 'El cliente no tiene un plan asignado.' }
+
+  if (client.billing_period !== 'monthly') {
+    return {
+      needsHuman: true,
+      reason: `La renovación de un plan ${client.billing_period} la gestiona el equipo (pagos por quincena/bimestre).`,
+    }
+  }
+
+  const scheduled = await ensureScheduledCycleCore(admin, clientId)
+  if ('error' in scheduled) return { error: scheduled.error }
+
+  // Idempotencia: reusar una factura ya emitida e impaga para ese ciclo.
+  const { data: existingInv } = await admin
+    .from('invoices')
+    .select('id, invoice_number, total_a_pagar, total')
+    .eq('billing_cycle_id', scheduled.cycleId)
+    .eq('status', 'issued')
+    .is('payment_date', null)
+    .order('issue_date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (existingInv) {
+    const link = await regenerateInvoiceLinkCore(admin, existingInv.id)
+    if ('error' in link) return { error: link.error }
+    return {
+      ok: true,
+      invoiceId: existingInv.id,
+      invoiceNumber: existingInv.invoice_number,
+      totalAPagar: existingInv.total_a_pagar ?? existingInv.total,
+      paymentLinkUrl: link.paymentLinkUrl,
+      reused: true,
+    }
+  }
+
+  const periodLabel = invoicePeriodLabel(scheduled.periodStart, scheduled.periodEnd, 'monthly', null)
+  const res = await createIssuedInvoiceWithLink(admin, {
+    client,
+    plan,
+    items: suggestItemsFromPlan(plan, periodLabel),
+    billingCycleId: scheduled.cycleId,
+    dueDate: scheduled.periodStart,
+    notes: `Renovación del plan solicitada por el cliente vía WhatsApp · ${plan.name}`,
+    extrasMetadata: null,
+    linkPlanName: plan.name,
+    paymentProvider: 'n1co_link',
+  })
+  if ('error' in res) return { error: res.error }
+
+  // Marcar el ciclo programado como auto-facturado para que el cron no genere
+  // una segunda factura del mismo período.
+  await admin.from('billing_cycles').update({ auto_billed_at: new Date().toISOString() }).eq('id', scheduled.cycleId)
+
+  return { ...res, reused: false }
 }

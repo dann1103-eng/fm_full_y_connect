@@ -6,6 +6,7 @@ import {
   sendPaymentLinkForClient,
   createExtraContentInvoiceForClient,
   createExtraCambiosInvoiceForClient,
+  createRenewalInvoiceForClient,
 } from '@/lib/ai/billingHelpers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCambiosBalance } from '@/lib/domain/credits'
@@ -111,6 +112,12 @@ export const TOOL_DEFS: Record<string, ToolDef> = {
       },
       required: ['kind', 'quantity'],
     },
+  },
+  create_renewal_invoice: {
+    name: 'create_renewal_invoice',
+    description:
+      'EMITE la factura de RENOVACIÓN del próximo ciclo del plan del cliente + su enlace de pago. Úsala cuando el cliente quiera renovar o pagar su próximo mes. IMPORTANTE: antes de llamarla confirma con el cliente que quiere renovar su plan ("voy a generar tu renovación del plan X, ¿confirmas?") — emite una factura fiscal real. Si la tool devuelve needs_human=true (plan quincenal/bimestral), NO insistas: usa handoff_to_human para que el equipo gestione la renovación.',
+    input_schema: { type: 'object', properties: {} },
   },
   get_next_publications: {
     name: 'get_next_publications',
@@ -432,6 +439,29 @@ export const TOOL_FNS: Record<string, ToolFn> = {
     }
 
     return { error: 'kind inválido (content|cambios).' }
+  },
+
+  create_renewal_invoice: async (ctx) => {
+    if (!ctx.clientId) return NO_CLIENT
+    const res = await createRenewalInvoiceForClient(ctx.clientId)
+    if ('needsHuman' in res) {
+      return {
+        needs_human: true,
+        reason: res.reason,
+        suggestion: 'Usa handoff_to_human para que el equipo gestione la renovación de este plan.',
+      }
+    }
+    if ('error' in res) return { error: res.error }
+    return {
+      ok: true,
+      invoice_number: res.invoiceNumber,
+      amount: res.totalAPagar,
+      payment_link: res.paymentLinkUrl,
+      reused: res.reused,
+      message: res.paymentLinkUrl
+        ? `Factura de renovación${res.reused ? ' (ya existente)' : ''} por $${res.totalAPagar}. Enlace de pago: ${res.paymentLinkUrl}`
+        : 'Factura de renovación emitida; el equipo enviará el enlace en breve.',
+    }
   },
 
   get_next_publications: async (ctx, input) => {

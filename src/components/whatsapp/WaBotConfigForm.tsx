@@ -13,6 +13,7 @@ const ALL_TOOLS: Array<{ id: WaBotTool; label: string; description: string }> = 
   { id: 'get_unpaid_invoices', label: 'get_unpaid_invoices', description: 'Facturas emitidas sin pago.' },
   { id: 'send_payment_link', label: 'send_payment_link', description: 'Genera y envía el enlace de pago n1co de la factura pendiente. No crea facturas.' },
   { id: 'create_extra_invoice', label: 'create_extra_invoice', description: 'EMITE una factura de un extra de catálogo (contenido/cambios) + enlace de pago. Precios fijos; pide confirmación antes.' },
+  { id: 'create_renewal_invoice', label: 'create_renewal_invoice', description: 'EMITE la factura de renovación del próximo ciclo (solo planes monthly; otros → handoff) + enlace de pago.' },
   { id: 'get_next_publications', label: 'get_next_publications', description: 'Próximas publicaciones / deadlines en N días.' },
   { id: 'check_request_eligibility', label: 'check_request_eligibility', description: 'Verifica si el cliente puede solicitar contenido y devuelve disponibilidad por tipo.' },
   { id: 'create_requirement_request', label: 'create_requirement_request', description: 'Crea una nueva solicitud de contenido en nombre del cliente.' },

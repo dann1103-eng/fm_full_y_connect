@@ -1,7 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Client, CompanySettings, InvoiceExtrasMetadata, Plan } from '@/types/db'
+import type { BillingCycle, Client, CompanySettings, InvoiceExtrasMetadata, Plan } from '@/types/db'
 import { buildClientSnapshot, buildEmitterSnapshot, calculateTotals, type LineItemInput } from '@/lib/domain/invoices'
 import { today as todayString } from '@/lib/domain/dates'
+import { nextCycleDates } from '@/lib/domain/cycles'
 import { createInvoicePaymentLink, extractPaymentLinkId } from '@/lib/n1co/payment-links'
 import { N1coApiError } from '@/lib/n1co/types'
 
@@ -34,6 +35,8 @@ export interface CreateIssuedInvoiceArgs {
   linkPlanName?: string | null
   /** Metadata extra para el webhook (extraKind/extraQty/…). */
   extraMetadataForLink?: { name: string; value: string }[]
+  /** Proveedor: 'n1co_link' (renovación ligada a ciclo) o 'n1co_link_oneoff' (extras). Default oneoff. */
+  paymentProvider?: 'n1co_link' | 'n1co_link_oneoff'
 }
 
 export type CreateIssuedInvoiceResult =
@@ -90,7 +93,7 @@ export async function createIssuedInvoiceWithLink(
       notes: args.notes,
       client_snapshot_json: buildClientSnapshot(client),
       emitter_snapshot_json: buildEmitterSnapshot(emitter),
-      payment_provider: hasN1co ? 'n1co_link_oneoff' : 'manual',
+      payment_provider: hasN1co ? (args.paymentProvider ?? 'n1co_link_oneoff') : 'manual',
       extras_metadata: args.extrasMetadata,
     })
     .select('id, invoice_number, total, total_a_pagar, currency, billing_cycle_id')
@@ -219,4 +222,60 @@ export async function regenerateInvoiceLinkCore(
     }
     return { error: 'No se pudo generar el enlace de pago con la pasarela.' }
   }
+}
+
+/**
+ * Devuelve (creándolo si no existe) el billing_cycle 'scheduled' del cliente
+ * para el PRÓXIMO período. Core sin gate — lo usan `ensureScheduledCycle` (admin)
+ * y el bot (renovación). Archiva scheduleds stale (period_start ≤ current.period_end).
+ */
+export async function ensureScheduledCycleCore(
+  admin: Admin,
+  clientId: string,
+): Promise<{ ok: true; cycleId: string; periodStart: string; periodEnd: string } | { error: string }> {
+  const [{ data: clientRow }, { data: currentRow }, { data: existing }] = await Promise.all([
+    admin.from('clients').select('*').eq('id', clientId).single(),
+    admin.from('billing_cycles').select('id, period_start, period_end').eq('client_id', clientId).eq('status', 'current').maybeSingle(),
+    admin.from('billing_cycles').select('id, period_start, period_end').eq('client_id', clientId).eq('status', 'scheduled').maybeSingle(),
+  ])
+  const client = clientRow as Client | null
+  const current = currentRow as Pick<BillingCycle, 'id' | 'period_start' | 'period_end'> | null
+  if (!client) return { error: 'Cliente no encontrado.' }
+  if (!current) return { error: 'El cliente no tiene un ciclo activo.' }
+
+  if (existing?.id) {
+    const isStale = (existing.period_start as string) <= (current.period_end as string)
+    if (!isStale) {
+      return { ok: true, cycleId: existing.id as string, periodStart: existing.period_start as string, periodEnd: existing.period_end as string }
+    }
+    await admin.from('billing_cycles').update({ status: 'archived' }).eq('id', existing.id)
+  }
+
+  const { data: planRow } = await admin.from('plans').select('*').eq('id', client.current_plan_id ?? '').maybeSingle()
+  const plan = planRow as Plan | null
+  if (!plan) return { error: 'El cliente no tiene un plan asignado.' }
+
+  const { periodStart, periodEnd } = nextCycleDates(current.period_end, { billingPeriod: client.billing_period })
+  const snapshot = plan.unified_content_limit != null
+    ? { ...(plan.limits_json ?? {}), unified_content_limit: plan.unified_content_limit }
+    : plan.limits_json
+
+  const { data: inserted, error } = await admin
+    .from('billing_cycles')
+    .insert({
+      client_id: client.id,
+      plan_id_snapshot: plan.id,
+      limits_snapshot_json: snapshot,
+      rollover_from_previous_json: null,
+      period_start: periodStart,
+      period_end: periodEnd,
+      status: 'scheduled',
+      payment_status: 'unpaid',
+      billing_period: plan.billing_period ?? 'monthly',
+      no_expira: plan.no_expira ?? false,
+    })
+    .select('id')
+    .single()
+  if (error || !inserted?.id) return { error: 'Error al crear el ciclo programado.' }
+  return { ok: true, cycleId: inserted.id as string, periodStart, periodEnd }
 }
