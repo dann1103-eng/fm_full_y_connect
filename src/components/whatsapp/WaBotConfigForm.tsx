@@ -20,6 +20,8 @@ const ALL_TOOLS: Array<{ id: WaBotTool; label: string; description: string }> = 
   { id: 'get_changes_balance', label: 'get_changes_balance', description: 'Cuántos cambios le quedan al cliente (plan + créditos extra).' },
   { id: 'request_requirement_change', label: 'request_requirement_change', description: 'Registra una solicitud de cambio del cliente sobre un contenido.' },
   { id: 'request_reschedule', label: 'request_reschedule', description: 'Registra una solicitud de reprogramación de fecha de un contenido.' },
+  { id: 'list_linked_brands', label: 'list_linked_brands', description: 'Lista las marcas vinculadas al número (multi-marca).' },
+  { id: 'set_active_brand', label: 'set_active_brand', description: 'Fija la marca activa de la conversación (multi-marca).' },
   { id: 'handoff_to_human', label: 'handoff_to_human', description: 'Pausa el bot y avisa al equipo.' },
   { id: 'submit_lead_info', label: 'submit_lead_info', description: 'Guarda datos recolectados del prospecto (empresa, interés, presupuesto, urgencia, notas).' },
 ]

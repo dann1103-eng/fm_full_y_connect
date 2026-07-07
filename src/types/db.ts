@@ -230,6 +230,8 @@ export type WaBotTool =
   | 'send_payment_link'
   | 'create_extra_invoice'
   | 'create_renewal_invoice'
+  | 'list_linked_brands'
+  | 'set_active_brand'
   | 'handoff_to_human'
   | 'submit_lead_info'
 

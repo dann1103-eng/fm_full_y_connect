@@ -68,9 +68,23 @@ export const whatsappReplyHandler: AiHandler<{ conversationId?: string }, {
     return { messageId: null, costCents: 0, toolCalls: 0, skipped: 'bot_paused' }
   }
 
-  // Selecciona la config según si la conversación está vinculada a un cliente
-  // (audience='client') o no (audience='lead' — prospectos / leads).
-  const audience: 'client' | 'lead' = conv.client_id ? 'client' : 'lead'
+  // Marcas vinculadas a este número (multi-marca). La "marca activa" es
+  // conv.client_id (puede ser null si el número tiene VARIAS y el cliente aún no
+  // eligió). Las candidatas se derivan de client_whatsapp_contacts + la activa.
+  const brandRes = await ctx.supabase
+    .from('client_whatsapp_contacts')
+    .select('client_id')
+    .eq('phone_e164', conv.phone_e164)
+  const candidateClientIds = Array.from(
+    new Set([
+      ...((brandRes.data ?? []).map((r) => r.client_id as string)),
+      ...(conv.client_id ? [conv.client_id] : []),
+    ]),
+  )
+
+  // audience='client' si hay marca activa O al menos una marca vinculada al número
+  // (aunque no haya activa aún); si no, 'lead' (prospecto).
+  const audience: 'client' | 'lead' = conv.client_id || candidateClientIds.length > 0 ? 'client' : 'lead'
   const cfgRes = await ctx.supabase
     .from('wa_bot_configs')
     .select('*')
@@ -114,6 +128,7 @@ export const whatsappReplyHandler: AiHandler<{ conversationId?: string }, {
     conversationId,
     clientId: conv.client_id,
     phoneE164: conv.phone_e164,
+    candidateClientIds,
   }
 
   const anthropic = new Anthropic({ apiKey })

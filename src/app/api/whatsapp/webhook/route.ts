@@ -212,14 +212,20 @@ async function upsertConversation(supabase: AdminClient, msg: ParsedInboundMessa
 }
 
 async function matchClientByPhone(supabase: AdminClient, phoneE164: string) {
-  // 1) Tabla dedicada
-  const contact = await supabase
+  // 1) Tabla dedicada. Un número puede estar vinculado a VARIAS marcas
+  //    (multi-marca): si hay exactamente una, esa queda como marca activa; si hay
+  //    varias, dejamos la marca activa en null (el bot preguntará de cuál marca) y
+  //    la resolución de candidatas se hace en el handler.
+  const contacts = await supabase
     .from('client_whatsapp_contacts')
     .select('id,client_id')
     .eq('phone_e164', phoneE164)
-    .maybeSingle()
-  if (contact.data) {
-    return { contactId: contact.data.id, clientId: contact.data.client_id }
+  const rows = contacts.data ?? []
+  if (rows.length === 1) {
+    return { contactId: rows[0].id, clientId: rows[0].client_id }
+  }
+  if (rows.length > 1) {
+    return null // multi-marca: sin marca activa hasta que se elija
   }
 
   // 2) Match laxo contra clients.contact_phone (normalizado en memoria).

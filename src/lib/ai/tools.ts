@@ -33,13 +33,32 @@ export interface ToolDef {
 export interface ToolContext {
   supabase: SupabaseClient
   conversationId: string
+  /** Marca ACTIVA de la conversación (null si multi-marca sin elegir, o lead). */
   clientId: string | null
   phoneE164: string
+  /** Marcas vinculadas al número (multi-marca). Vacío = lead. */
+  candidateClientIds?: string[]
 }
 
 export type ToolFn = (ctx: ToolContext, input: Record<string, unknown>) => Promise<unknown>
 
 const NO_CLIENT = { error: 'Conversación sin cliente vinculado. Pide al usuario que un humano lo vincule, o usa handoff_to_human.' }
+
+/**
+ * Respuesta cuando una tool que necesita marca activa se llama sin ella.
+ * Si el número tiene VARIAS marcas vinculadas, pide elegir (multi-marca);
+ * si no, es un lead sin cliente.
+ */
+function noClient(ctx: ToolContext): Record<string, unknown> {
+  if ((ctx.candidateClientIds?.length ?? 0) > 1) {
+    return {
+      needs_brand_selection: true,
+      message:
+        'Este número administra varias marcas y aún no hay una marca activa. Llama a list_linked_brands, pregúntale al cliente de cuál marca quiere hablar, y fíjala con set_active_brand antes de consultar o crear nada.',
+    }
+  }
+  return NO_CLIENT
+}
 
 export const TOOL_DEFS: Record<string, ToolDef> = {
   get_client_context: {
@@ -204,6 +223,22 @@ export const TOOL_DEFS: Record<string, ToolDef> = {
       required: ['requirement_id', 'new_desired_date'],
     },
   },
+  list_linked_brands: {
+    name: 'list_linked_brands',
+    description:
+      'Lista las marcas (clientes) vinculadas a ESTE número de WhatsApp. Úsala cuando el número administra varias marcas y no sabes de cuál habla el cliente, o cuando el cliente pregunte "qué marcas tengo aquí". Devuelve las marcas y cuál está activa.',
+    input_schema: { type: 'object', properties: {} },
+  },
+  set_active_brand: {
+    name: 'set_active_brand',
+    description:
+      'Fija la marca ACTIVA de la conversación (de entre las vinculadas al número). Úsala DESPUÉS de preguntarle al cliente de cuál marca quiere hablar. Todas las consultas siguientes (contenido, facturación, solicitudes) usarán esa marca hasta que el cliente indique explícitamente otra. NO adivines la marca: pregunta primero.',
+    input_schema: {
+      type: 'object',
+      properties: { client_id: { type: 'string', description: 'El id de la marca a activar (de list_linked_brands).' } },
+      required: ['client_id'],
+    },
+  },
   submit_lead_info: {
     name: 'submit_lead_info',
     description:
@@ -228,7 +263,7 @@ export const TOOL_DEFS: Record<string, ToolDef> = {
 
 export const TOOL_FNS: Record<string, ToolFn> = {
   get_client_context: async (ctx) => {
-    if (!ctx.clientId) return NO_CLIENT
+    if (!ctx.clientId) return noClient(ctx)
     const { data } = await ctx.supabase
       .from('clients')
       .select('id, name, status, plans:current_plan_id ( name )')
@@ -248,7 +283,7 @@ export const TOOL_FNS: Record<string, ToolFn> = {
   },
 
   get_requirements_summary: async (ctx) => {
-    if (!ctx.clientId) return NO_CLIENT
+    if (!ctx.clientId) return noClient(ctx)
     const cycle = await getCurrentCycleId(ctx.supabase, ctx.clientId)
     if (!cycle) return { error: 'No hay ciclo activo.' }
 
@@ -277,7 +312,7 @@ export const TOOL_FNS: Record<string, ToolFn> = {
   },
 
   get_requirements_by_phase: async (ctx, input) => {
-    if (!ctx.clientId) return NO_CLIENT
+    if (!ctx.clientId) return noClient(ctx)
     const clientPhase = String(input.client_phase ?? '') as ClientPhase
     const validPhases: ClientPhase[] = ['diseno', 'revision_cliente', 'aprobado', 'pendiente_publicar', 'publicado']
     if (!validPhases.includes(clientPhase)) return { error: 'client_phase inválida' }
@@ -340,7 +375,7 @@ export const TOOL_FNS: Record<string, ToolFn> = {
   },
 
   get_billing_status: async (ctx) => {
-    if (!ctx.clientId) return NO_CLIENT
+    if (!ctx.clientId) return noClient(ctx)
     const { data } = await ctx.supabase
       .from('billing_cycles')
       .select('id, period_start, period_end, status, payment_status, payment_date, grace_period_until, no_expira, plans:plan_id_snapshot ( name )')
@@ -375,7 +410,7 @@ export const TOOL_FNS: Record<string, ToolFn> = {
   },
 
   get_unpaid_invoices: async (ctx) => {
-    if (!ctx.clientId) return NO_CLIENT
+    if (!ctx.clientId) return noClient(ctx)
     const { data } = await ctx.supabase
       .from('invoices')
       .select('id, invoice_number, total_a_pagar, issue_date, due_date')
@@ -388,7 +423,7 @@ export const TOOL_FNS: Record<string, ToolFn> = {
   },
 
   send_payment_link: async (ctx, input) => {
-    if (!ctx.clientId) return NO_CLIENT
+    if (!ctx.clientId) return noClient(ctx)
     const invoiceId = input.invoice_id ? String(input.invoice_id) : undefined
     const res = await sendPaymentLinkForClient(ctx.clientId, invoiceId)
     if ('error' in res) return { error: res.error }
@@ -402,7 +437,7 @@ export const TOOL_FNS: Record<string, ToolFn> = {
   },
 
   create_extra_invoice: async (ctx, input) => {
-    if (!ctx.clientId) return NO_CLIENT
+    if (!ctx.clientId) return noClient(ctx)
     const kind = String(input.kind ?? '')
     const quantity = Number(input.quantity ?? 0)
 
@@ -442,7 +477,7 @@ export const TOOL_FNS: Record<string, ToolFn> = {
   },
 
   create_renewal_invoice: async (ctx) => {
-    if (!ctx.clientId) return NO_CLIENT
+    if (!ctx.clientId) return noClient(ctx)
     const res = await createRenewalInvoiceForClient(ctx.clientId)
     if ('needsHuman' in res) {
       return {
@@ -465,7 +500,7 @@ export const TOOL_FNS: Record<string, ToolFn> = {
   },
 
   get_next_publications: async (ctx, input) => {
-    if (!ctx.clientId) return NO_CLIENT
+    if (!ctx.clientId) return noClient(ctx)
     const days = Math.max(1, Math.min(60, Number(input.days ?? 14)))
     const now = new Date()
     const until = new Date(now.getTime() + days * 24 * 60 * 60 * 1000)
@@ -524,12 +559,12 @@ export const TOOL_FNS: Record<string, ToolFn> = {
   },
 
   check_request_eligibility: async (ctx) => {
-    if (!ctx.clientId) return NO_CLIENT
+    if (!ctx.clientId) return noClient(ctx)
     return await checkRequestEligibilityForClient(ctx.clientId)
   },
 
   create_requirement_request: async (ctx, input) => {
-    if (!ctx.clientId) return NO_CLIENT
+    if (!ctx.clientId) return noClient(ctx)
     const contentType = String(input.content_type ?? '') as ContentType
     const title = String(input.title ?? '').trim()
     const desiredAt = String(input.desired_at ?? '').trim()
@@ -578,14 +613,14 @@ export const TOOL_FNS: Record<string, ToolFn> = {
   },
 
   get_changes_balance: async (ctx) => {
-    if (!ctx.clientId) return NO_CLIENT
+    if (!ctx.clientId) return noClient(ctx)
     const bal = await getCambiosBalance(ctx.clientId)
     if (!bal) return { error: 'No hay ciclo activo.' }
     return bal
   },
 
   request_requirement_change: async (ctx, input) => {
-    if (!ctx.clientId) return NO_CLIENT
+    if (!ctx.clientId) return noClient(ctx)
     const reqId = String(input.requirement_id ?? '').trim()
     const notes = String(input.change_notes ?? '').trim()
     if (!reqId) return { error: 'Falta requirement_id' }
@@ -636,7 +671,7 @@ export const TOOL_FNS: Record<string, ToolFn> = {
   },
 
   request_reschedule: async (ctx, input) => {
-    if (!ctx.clientId) return NO_CLIENT
+    if (!ctx.clientId) return noClient(ctx)
     const reqId = String(input.requirement_id ?? '').trim()
     const newDate = String(input.new_desired_date ?? '').trim()
     const reason = input.reason ? String(input.reason).trim() : null
@@ -682,6 +717,40 @@ export const TOOL_FNS: Record<string, ToolFn> = {
     }
 
     return { ok: true, message: 'Avisé al equipo tu nueva fecha deseada. Te confirmarán pronto.' }
+  },
+
+  list_linked_brands: async (ctx) => {
+    const ids = ctx.candidateClientIds ?? []
+    if (ids.length === 0) {
+      return { brands: [], active_client_id: null, note: 'Este número no está vinculado a ninguna marca.' }
+    }
+    const { data } = await ctx.supabase.from('clients').select('id, name').in('id', ids)
+    return {
+      brands: (data ?? []).map((c) => ({ id: (c as { id: string }).id, name: (c as { name: string }).name })),
+      active_client_id: ctx.clientId,
+    }
+  },
+
+  set_active_brand: async (ctx, input) => {
+    const id = String(input.client_id ?? '').trim()
+    const ids = ctx.candidateClientIds ?? []
+    if (!id) return { error: 'Falta client_id.' }
+    if (!ids.includes(id)) {
+      return { error: 'Esa marca no está vinculada a este número. Usa list_linked_brands para ver las opciones válidas.' }
+    }
+    const { error } = await ctx.supabase
+      .from('wa_conversations')
+      .update({ client_id: id })
+      .eq('id', ctx.conversationId)
+    if (error) return { error: 'No se pudo fijar la marca activa.' }
+    const { data } = await ctx.supabase.from('clients').select('name').eq('id', id).maybeSingle()
+    const brandName = (data as { name: string } | null)?.name ?? null
+    return {
+      ok: true,
+      active_client_id: id,
+      brand_name: brandName,
+      message: `Marca activa fijada: ${brandName ?? id}. Continúa con la consulta usando esta marca.`,
+    }
   },
 
   submit_lead_info: async (ctx, input) => {
