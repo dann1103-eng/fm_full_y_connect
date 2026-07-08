@@ -49,7 +49,7 @@ export default async function ClientDetailPage({
   // de la query más lenta en lugar de sumarlas secuencialmente.
   const [
     { data: clientRaw },
-    { data: currentCycle },
+    { data: currentCycleRows },
     { data: pastCycles },
     { data: plans },
     { data: users },
@@ -59,12 +59,15 @@ export default async function ClientDetailPage({
       .select('*, plan:plans(*)')
       .eq('id', id)
       .single(),
+    // limit(1) en vez de maybeSingle(): tolera duplicados de ciclo 'current'
+    // (si existieran) mostrando el más reciente en lugar de romperse con error.
     supabase
       .from('billing_cycles')
       .select('*')
       .eq('client_id', id)
       .eq('status', 'current')
-      .maybeSingle(),
+      .order('created_at', { ascending: false })
+      .limit(1),
     supabase
       .from('billing_cycles')
       .select('*')
@@ -80,6 +83,8 @@ export default async function ClientDetailPage({
       .from('users')
       .select('id, full_name, role, avatar_url, default_assignee'),
   ])
+
+  const currentCycle = currentCycleRows?.[0] ?? null
 
   if (!clientRaw) notFound()
   const client = clientRaw as ClientWithPlan

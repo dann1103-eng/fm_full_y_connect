@@ -561,6 +561,40 @@ export async function createCurrentCycle(args: CreateCurrentCycleArgs) {
 
   const admin = createAdminClient()
 
+  // Idempotencia: si el cliente ya tiene un ciclo 'current' (p. ej. por doble
+  // clic, o porque el panel no se refrescó tras la primera creación),
+  // actualizar ese ciclo en vez de insertar un duplicado. Dos ciclos 'current'
+  // rompen las consultas .maybeSingle() y dejan al cliente mostrando
+  // "sin ciclo activo" en todas las pantallas.
+  const { data: existingCurrent } = await admin
+    .from('billing_cycles')
+    .select('id')
+    .eq('client_id', args.clientId)
+    .eq('status', 'current')
+    .order('created_at', { ascending: false })
+    .limit(1)
+  const existingCycleId = existingCurrent?.[0]?.id
+  if (existingCycleId) {
+    const { error: updErr } = await admin
+      .from('billing_cycles')
+      .update({
+        period_start:     args.periodStart,
+        period_end:       args.periodEnd,
+        payment_status:   args.paymentStatus,
+        payment_date:     args.paymentStatus === 'paid' ? (args.paymentDate || todayString()) : null,
+        payment_status_2: args.paymentStatus2 ?? null,
+        payment_date_2:   args.paymentStatus2 === 'paid' ? (args.paymentDate2 || null) : null,
+      })
+      .eq('id', existingCycleId)
+    if (updErr) return { error: 'Error al actualizar el ciclo activo existente.' }
+    await admin.from('clients').update({ status: 'active' }).eq('id', args.clientId)
+    revalidatePath(`/clients/${args.clientId}`)
+    revalidatePath(`/clients/${args.clientId}/edit`)
+    revalidatePath('/renewals')
+    revalidatePath('/dashboard')
+    return { ok: true }
+  }
+
   // Leer plan actual del cliente
   const { data: clientRow } = await admin
     .from('clients')
@@ -604,6 +638,82 @@ export async function createCurrentCycle(args: CreateCurrentCycleArgs) {
 
   // Activar el cliente
   await admin.from('clients').update({ status: 'active' }).eq('id', args.clientId)
+
+  revalidatePath(`/clients/${args.clientId}`)
+  revalidatePath(`/clients/${args.clientId}/edit`)
+  revalidatePath('/renewals')
+  revalidatePath('/dashboard')
+  return { ok: true }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Re-aplicar el plan actual del cliente al ciclo 'current' (re-snapshot).
+//
+// Un cambio de plan en el cliente solo afecta al PRÓXIMO ciclo: el ciclo
+// vigente conserva el snapshot (`limits_snapshot_json` + `plan_id_snapshot`)
+// congelado al crearse, así que los dashboards siguen mostrando los límites
+// del plan viejo. Esta acción re-congela los límites del plan actual del
+// cliente sobre el ciclo activo, para reflejar el cambio de inmediato.
+//
+// Solo toca los campos derivados del plan (plan_id_snapshot,
+// limits_snapshot_json, cambios_budget). NO cambia fechas, período de
+// facturación ni estado de pago del ciclo (para no desincronizar los pagos
+// ya registrados ni el mapeo de semanas).
+// ─────────────────────────────────────────────────────────────────
+export interface ApplyPlanToCurrentCycleArgs {
+  clientId: string
+}
+
+export async function applyPlanToCurrentCycle(args: ApplyPlanToCurrentCycleArgs) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado' }
+  const { data: appUser } = await supabase.from('users').select('role').eq('id', user.id).single()
+  if (appUser?.role !== 'admin' && appUser?.role !== 'supervisor') {
+    return { error: 'Solo admin o supervisor puede modificar el ciclo' }
+  }
+
+  const admin = createAdminClient()
+
+  // Ciclo activo (limit(1) tolera duplicados accidentales).
+  const { data: cycleRows } = await admin
+    .from('billing_cycles')
+    .select('id')
+    .eq('client_id', args.clientId)
+    .eq('status', 'current')
+    .order('created_at', { ascending: false })
+    .limit(1)
+  const cycleId = cycleRows?.[0]?.id
+  if (!cycleId) return { error: 'El cliente no tiene un ciclo activo.' }
+
+  // Plan actual del cliente (fuente de verdad: clients.current_plan_id).
+  const { data: clientRow } = await admin
+    .from('clients')
+    .select('current_plan_id')
+    .eq('id', args.clientId)
+    .single()
+  if (!clientRow) return { error: 'Cliente no encontrado.' }
+
+  const { data: planRow } = await admin
+    .from('plans')
+    .select('*')
+    .eq('id', clientRow.current_plan_id)
+    .single()
+  if (!planRow) return { error: 'Plan del cliente no encontrado.' }
+
+  const planLimits: PlanLimits = planRow.unified_content_limit != null
+    ? { ...planRow.limits_json, unified_content_limit: planRow.unified_content_limit }
+    : planRow.limits_json
+
+  const { error: updErr } = await admin
+    .from('billing_cycles')
+    .update({
+      plan_id_snapshot:     clientRow.current_plan_id,
+      limits_snapshot_json: planLimits,
+      cambios_budget:       planRow.cambios_included,
+    })
+    .eq('id', cycleId)
+  if (updErr) return { error: 'Error al aplicar el plan al ciclo actual.' }
 
   revalidatePath(`/clients/${args.clientId}`)
   revalidatePath(`/clients/${args.clientId}/edit`)
