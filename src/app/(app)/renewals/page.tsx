@@ -211,6 +211,15 @@ export default async function RenewalsPage({
     })
     .filter(Boolean) as RenewalItem[]
 
+  // Excluir clientes deliberadamente fuera del flujo de facturación: pausados o
+  // desactivados manualmente. Al pausar, `pauseClient` archiva el ciclo y lo deja
+  // impago; la Query B (impagos vencidos, que a propósito incluye 'archived')
+  // los volvía a traer a renovaciones aunque ya no correspondan.
+  // (Los 'inactive_payment' SÍ se mantienen: el admin aún puede cobrarlos o
+  // darles gracia desde aquí.)
+  const EXCLUDED_CLIENT_STATUSES: string[] = ['paused', 'inactive_manual']
+  items = items.filter((i) => !EXCLUDED_CLIENT_STATUSES.includes(i.client.status))
+
   // Apply filters
   if (params.q) {
     const q = params.q.toLowerCase()
