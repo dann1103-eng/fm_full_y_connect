@@ -7,6 +7,13 @@ import type { AiHandler } from '@/lib/ai/types'
 const MAX_TOOL_ROUNDS = 6
 const DEFAULT_HISTORY = 20
 
+// Precios de Claude Sonnet 4.6 en USD por MILLÓN de tokens. El costo se persiste
+// en céntimos de USD enteros (ai_jobs.cost_usd_cents). Si cambias de modelo
+// (ANTHROPIC_MODEL) actualiza estas tres tarifas.
+const USD_PER_MTOK_INPUT = 3
+const USD_PER_MTOK_CACHE_READ = 0.3
+const USD_PER_MTOK_OUTPUT = 15
+
 interface BotConfig {
   system_prompt: string
   model: string
@@ -250,9 +257,12 @@ export const whatsappReplyHandler: AiHandler<{ conversationId?: string }, {
     .eq('id', conversationId)
 
   const freshInput = Math.max(0, totalInput - totalCached)
-  const costCents = Math.ceil(
-    (freshInput * 0.0003 + totalCached * 0.00003 + totalOutput * 0.0015) * 100,
-  )
+  const costUsd =
+    (freshInput * USD_PER_MTOK_INPUT +
+      totalCached * USD_PER_MTOK_CACHE_READ +
+      totalOutput * USD_PER_MTOK_OUTPUT) /
+    1_000_000
+  const costCents = Math.ceil(costUsd * 100)
   await ctx.supabase
     .from('ai_jobs')
     .update({
