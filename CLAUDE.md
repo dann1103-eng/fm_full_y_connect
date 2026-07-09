@@ -372,7 +372,7 @@ Las violaciones de FK (RESTRICT) **no producen excepción** — retornan `{ erro
 - **EasyPanel:** descartado — el contenedor app está detenido. La VPS de Hostinger se mantiene apagada / o eventualmente para borrar.
 - **Vercel Observability Plus:** desactivado (excluido el proyecto) para evitar el cargo grande por Observability Events. Logs siguen en `vercel logs` y panel Functions.
 
-## Migraciones aplicadas (0001–0100)
+## Migraciones aplicadas (0001–0124)
 | # | Contenido |
 |---|-----------|
 | 0001–0006 | Schema inicial, pipeline base, reuniones, campos de clientes |
@@ -435,6 +435,13 @@ Las violaciones de FK (RESTRICT) **no producen excepción** — retornan `{ erro
 | 0115 | Bot de clientes puede crear solicitudes de contenido: habilita tools `check_request_eligibility` + `create_requirement_request`. Sube `max_tokens` 600→800. Prompt reescrito con flujo step-by-step de 5 pasos. |
 | 0116 | Bot de clientes: capacidad de solicitar **cambios y reprogramaciones** (tools `request_requirement_change` + `request_reschedule`); prompt del cliente actualizado (supersede 0115), `max_tokens=1000`. |
 | 0117 | **Tareas asignadas**: tabla `assigned_tasks` (título, descripción, `client_ref` texto libre, responsable, creador, `status` pending/in_progress/done/cancelled, timestamps). `time_entries` gana `task_id` + `entry_type='task'` (constraints `entry_type_check` y `type_check` extendidos). El tiempo de una tarea es una `time_entry` normal → cuenta como productividad (endShift) y sale en /tiempo. RLS: responsable ve las suyas, admin/supervisor ven/gestionan todas; transiciones del operador (start/done) vía service role. Página `/tareas` role-aware. Notificaciones derivadas `task_assigned`/`task_completed`. |
+| 0118 | **Bot fixes — formato WhatsApp**: `sanitizeForWhatsapp()` en `src/lib/whatsapp/formatForWhatsapp.ts` convierte markdown `**bold**`→`*bold*`, headings→`*Heading*`, normaliza bullets, convierte tablas markdown a `Label: Value`. Detección de tabla requiere header+separador+data-row (evita falsos positivos). Respeta bloques de código. + Prompt actualizado para no usar markdown. |
+| 0119 | **Bot handoff — notificación real**: `wa_conversations` gana columnas `needs_attention` (bool), `attention_reason` (text), `attention_at` (timestamptz). `handoff_to_human` tool ahora setea esas columnas + encola notif `wa_handoff`. Inbox sidebar destaca convs con `needs_attention=true`. `markConversationRead` + `toggleBotForConversation` (reanudar) limpian el estado. |
+| 0120 | **Bot billing — carril A + extras**: habilita tools `send_payment_link` (reenvía/regenera link n1co de factura pendiente) + `create_extra_invoice` (contenido/cambios a precio fijo, catálogo fijo). Core fiscal compartido `src/lib/domain/invoice-create.ts` (`createIssuedInvoiceWithLink`, `regenerateInvoiceLinkCore`, `ensureScheduledCycleCore`). Helpers de bot en `src/lib/ai/billingHelpers.ts`. |
+| 0121 | **Bot billing — renovación**: habilita tool `create_renewal_invoice`. Solo `monthly`; bimestral/quincenal → `needsHuman=true` → handoff. Idempotente (reutiliza factura unpaid del ciclo scheduled). Marca `auto_billed_at` para evitar duplicado con cron. |
+| 0122 | **Multi-marca por número**: `client_whatsapp_contacts.phone_e164` UNIQUE global → `UNIQUE(client_id, phone_e164)`. Permite un mismo número en N clientes. `wa_conversations.client_id` = marca ACTIVA (sticky, bot pregunta si es ambiguo). Tools nuevas `list_linked_brands` + `set_active_brand` en `wa_bot_configs.enabled_tools` (audience client). `src/app/actions/whatsapp.ts` gana `setActiveBrandForConversation`; `linkConversationToClient` es aditivo; `unlinkConversationFromClient` quita solo la marca activa. `WaChat.tsx` muestra chips de marcas vinculadas. |
+| 0123 | **Fix costo bot 100x (backfill)**: `ai_jobs.cost_usd_cents` de jobs `whatsapp_reply` estaba inflado ~100x (la fórmula en `whatsappReply.ts` multiplicaba por `*100` de más sobre coeficientes que ya estaban en céntimos/token). Divide entre 100 (`ceil`) las filas históricas. Solo `whatsapp_reply` escribe esa columna. Idempotente vía tabla `oneshot_backfills` + cutoff `now()`. **Aplicar DESPUÉS de desplegar el fix del handler.** |
+| 0124 | **Watchdog claim_ai_job**: rescata jobs colgados en `status='processing'` (serverless muerto entre claim y complete/fail). `claim_ai_job` ahora también reclama `processing` con `locked_at` > 5 min y `attempts < max_attempts` → reintento real. Preserva la firma `(text, text[])`. El índice de dedupe solo mira `pending`, así que un colgado no dejaba muda la conversación (hallazgo secundario). |
 
 ## Tareas asignadas (feature — migración 0117)
 
@@ -445,13 +452,17 @@ Función para que supervisores/admins asignen tareas específicas (fuera del pla
 - **UI** `/tareas` (nav "Tareas", visible a todos los roles internos): admin/supervisor → `TaskManagerPanel` (lista + filtros por responsable/estado + asignar/editar/reasignar/cancelar); operador → `MyTasksPanel` (iniciar/detener timer, marcar finalizada, historial + contador de horas). El timer activo de tarea se refleja en `ClockInPanel` de /tiempo con badge "Tarea".
 - **Notificaciones**: derivadas en `/api/notifications` (sin tabla; kinds `task_assigned` al responsable y `task_completed` al asignador) + toast/bell + browser-notif.
 
-## Integración WhatsApp Cloud API + Bot IA (migraciones 0091 + 0106–0115)
+## Auth — fix expulsión de sesión (2026-07-07)
+
+`verifySession` en `src/app/actions/sessions.ts` ahora retorna `status: 'valid' | 'superseded' | 'unknown'` en lugar de `{ valid: boolean }`. `SessionSentinel.tsx` solo expulsa al usuario en `superseded` (hay otro `current_session_id` no-nulo diferente en DB). `unknown` (fallo transitorio de auth, columna NULL) ya NO provoca kick — antes causaba falsos positivos cada 30s.
+
+## Integración WhatsApp Cloud API + Bot IA (migraciones 0091 + 0106–0122)
 
 **Stack:** webhook receiver en Vercel, runner de jobs IA reemplaza ai-worker externo (corre dentro de Vercel vía cron + trigger del webhook), Anthropic Claude Sonnet 4.6 con tool-use loop y prompt caching, plantillas aprobadas por Meta para mensajes salientes proactivos.
 
 ### Tablas (migración 0091 + extensiones)
-- `client_whatsapp_contacts` — contactos WA por cliente (uno o varios números). `phone_e164` es UNIQUE.
-- `wa_conversations` — una por número externo (`phone_e164` UNIQUE). Campos: `client_id` (FK clients, NULL = lead), `bot_paused`, `unread_count`, `last_message_at`, `last_message_preview`.
+- `client_whatsapp_contacts` — contactos WA por cliente. **Constraint post-0122: `UNIQUE(client_id, phone_e164)`** (antes era `UNIQUE(phone_e164)` global). Un mismo número puede pertenecer a N clientes (multi-marca).
+- `wa_conversations` — una por número externo (`phone_e164` UNIQUE). Campos: `client_id` (FK clients, NULL = lead o multi-marca sin activa elegida), `bot_paused`, `unread_count`, `last_message_at`, `last_message_preview`, `needs_attention` (bool), `attention_reason` (text), `attention_at` (timestamptz).
 - `wa_messages` — todos los mensajes, direction `inbound`/`outbound`. `wamid` UNIQUE para idempotencia. `sent_by` ∈ `bot`/`staff`/`system`. `ai_job_id` FK para auditar qué job lo generó.
 - `wa_bot_configs` — PK `audience` (`client` \| `lead`). Cada audience tiene su prompt, modelo, tools habilitadas, debounce, max_tokens, etc. Editable en `/admin/whatsapp` sin redeploy.
 - `wa_leads` — one-row-per-conversation con info recolectada por el bot. Pipeline comercial (status, assigned_to, converted_to_client_id).
@@ -476,9 +487,42 @@ Filtradas en runtime por `wa_bot_configs.enabled_tools`:
 - `get_requirements_summary` / `get_requirements_by_phase` / `get_requirement_detail` — fases visibles al cliente (5, mapeadas con `CLIENT_PHASE_MAP`)
 - `get_billing_status` — días restantes, pago, gracia, plan
 - `get_unpaid_invoices` / `get_next_publications`
-- `check_request_eligibility` + `create_requirement_request` — bot puede crear solicitudes de contenido (mismas validaciones que el portal, reusa `createRequirementRequestCore` extraído de `src/app/actions/requirementRequests.ts`)
-- `handoff_to_human` — pausa bot + marca lead como `escalated` si aplica
+- `check_request_eligibility` + `create_requirement_request` — bot puede crear solicitudes de contenido (mismas validaciones que el portal, reusa `createRequirementRequestCore`)
+- `request_requirement_change` — inserta `requirement_cambio_logs` status=pending (requiere `change_notes`). NO consume pool.
+- `request_reschedule` — mensaje+mention al asignado sin modificar deadline.
+- `handoff_to_human` — pausa bot + sets `needs_attention=true` en `wa_conversations` + notif `wa_handoff` al equipo + marca lead `escalated` si aplica
 - `submit_lead_info` — solo audience `lead`, upsert por conversation_id en `wa_leads`
+- `send_payment_link` — busca factura unpaid, regenera link n1co, retorna URL. `src/lib/ai/billingHelpers.ts`.
+- `create_extra_invoice` — emite factura de catálogo fijo: contenido extra (precios en `EXTRA_CONTENT_PRICES`) o cambios extra ($25/paquete de 5). Crea link n1co. Decisión de negocio: emisión directa con confirmación del bot (no aprobación staff).
+- `create_renewal_invoice` — solo `monthly`; bimestral/quincenal → handoff. Idempotente. Marca `auto_billed_at`.
+- `list_linked_brands` — lista marcas vinculadas al número en `client_whatsapp_contacts`. Multi-marca.
+- `set_active_brand` — fija `wa_conversations.client_id`. Valida contra `client_whatsapp_contacts`. Multi-marca.
+
+**Helper `noClient(ctx)`**: si `ctx.candidateClientIds.length > 1` retorna `needs_brand_selection=true`, si es 0 retorna `NO_CLIENT`. Todas las tools lo usan cuando `ctx.clientId` es null.
+
+### Formato WhatsApp
+`src/lib/whatsapp/formatForWhatsapp.ts` — `sanitizeForWhatsapp(text)`:
+- `**bold**` → `*bold*`, `__x__` → `*x*`, `## Heading` → `*Heading*`
+- Normaliza bullets (`- ` → `• `)
+- Tablas markdown → `Label: Value` por línea (requiere header+separador con `-`+data row; sin data row, pasa tal cual)
+- Respeta bloques de código (no toca nada dentro de ` ``` `)
+
+### Multi-marca por número (post-0122)
+- Bot: `whatsappReply.ts` deriva `candidateClientIds` de `client_whatsapp_contacts` por `phone_e164`. Si >1 y no hay `conv.client_id`, retorna `needs_brand_selection=true` en todas las tools → bot llama `list_linked_brands` → pregunta al cliente → `set_active_brand`.
+- Staff: `WaChat.tsx` muestra chips de todas las marcas vinculadas; la activa con `●`; clic en otra llama `setActiveBrandForConversation`.
+- `linkConversationToClient` es ADITIVO (scope a `client_id`). `unlinkConversationFromClient` quita SOLO la marca activa (no toca las otras).
+
+### Bot billing — módulo fiscal compartido
+`src/lib/domain/invoice-create.ts`:
+- `createIssuedInvoiceWithLink(admin, args)` — crea `invoice` issued + link n1co. Compartido por bot y portal.
+- `regenerateInvoiceLinkCore(admin, invoiceId)` — regenera link sin auth gate.
+- `ensureScheduledCycleCore(admin, clientId)` — crea/retorna cycle scheduled, archiva stales.
+
+`src/lib/ai/billingHelpers.ts` — adapta el core para el bot:
+- `sendPaymentLinkForClient(clientId, invoiceId?)` — encuentra factura unpaid, regenera link, retorna URL.
+- `createExtraContentInvoiceForClient(clientId, contentType, qty)` — precios fijos en `EXTRA_CONTENT_PRICES`.
+- `createExtraCambiosInvoiceForClient(clientId, packages)` — $25 por paquete de 5 cambios.
+- `createRenewalInvoiceForClient(clientId)` — solo monthly; `needsHuman:true` si no.
 
 ### Plantillas aprobadas (`src/lib/whatsapp/templates.ts`)
 Registry tipado `WA_TEMPLATES`. Cada entry declara `name` + `language` (debe coincidir EXACTO con lo aprobado por Meta, ej. `es_MX`) + `paramKeys` en orden.
@@ -506,5 +550,5 @@ Registry tipado `WA_TEMPLATES`. Cada entry declara `name` + `language` (debe coi
 - URL canónica de webhook: `https://www.fullefm.site/api/whatsapp/webhook` (con `www`). Meta NO sigue redirects; el dominio raíz `fullefm.site` redirige a `www`.
 
 ### Trazabilidad de costos
-- `ai_jobs.cost_usd_cents` calculado por handler según pricing Sonnet 4.6 ($3/M in, $15/M out, $0.30/M cache).
-- `WaBotUsageStats` (src/components/whatsapp/) — tarjetas mes actual/anterior + tabla por cliente. TZ America/El_Salvador para corte mensual.
+- `ai_jobs.cost_usd_cents` calculado por handler según pricing Sonnet 4.6 ($3/M in, $15/M out, $0.30/M cache). Fórmula en `whatsappReply.ts` usa constantes `USD_PER_MTOK_*` y `/1_000_000` → céntimos enteros. **NO agregar un `*100` extra**: la conversión USD→céntimos ya está incluida (bug histórico corregido en migración 0123).
+- `WaBotUsageStats` (src/components/whatsapp/) — tarjetas mes actual/anterior + tabla por cliente. Muestra dólares con `cost_usd_cents / 100` (conversión céntimos→dólares correcta; NO tocar). TZ America/El_Salvador para corte mensual.
