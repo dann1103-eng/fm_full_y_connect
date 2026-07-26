@@ -5,6 +5,7 @@ import { getEffectiveUser } from '@/lib/auth/effective-user'
 import { createWaAdminClient as createAdminClient } from '@/lib/whatsapp/db'
 import { WaBotConfigTabs } from '@/components/whatsapp/WaBotConfigTabs'
 import { WaBotUsageStats } from '@/components/whatsapp/WaBotUsageStats'
+import { WaBotFailedJobs } from '@/components/whatsapp/WaBotFailedJobs'
 import type { WaBotConfig } from '@/types/db'
 
 export default async function AdminWhatsappConfigPage() {
@@ -43,6 +44,7 @@ export default async function AdminWhatsappConfigPage() {
         </p>
       </header>
       <WaBotUsageStats />
+      <WaBotFailedJobs />
       <WaBotConfigTabs clientConfig={clientConfig} leadConfig={leadConfig} />
     </div>
   )

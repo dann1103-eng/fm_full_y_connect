@@ -531,7 +531,7 @@ Registry tipado `WA_TEMPLATES`. Cada entry declara `name` + `language` (debe coi
 ### Inbox UI
 - `/whatsapp` (admin/supervisor/operator) — sidebar reactiva (realtime + poll 20s + visibility refetch) + chat con vincular/cambiar/desvincular marca, pausar/reanudar bot, panel de lead si aplica.
 - `/whatsapp/leads` — bandeja dedicada con stats (total / activos / escalados / convertidos / % conversión / valor estimado), filtros (status, asignado, búsqueda), acciones por fila (escalar / convertir-a-cliente / descartar / reasignar), export CSV.
-- `/admin/whatsapp` (solo admin) — tabs Clientes / Leads para editar prompt + tools por audience. Stats de consumo del mes actual y anterior + breakdown por cliente.
+- `/admin/whatsapp` (solo admin) — tabs Clientes / Leads para editar prompt + tools por audience. Stats de consumo del mes actual y anterior + breakdown por cliente. Sección **`WaBotFailedJobs`**: últimos 20 `ai_jobs` con `status='failed'` (respuestas del bot, plantillas y recordatorios de factura) con cliente, factura, intentos y error. Es la única superficie donde el equipo ve que algo del bot no salió — un recordatorio de factura se envía at-most-once, así que si falla el cliente no recibe aviso.
 
 ### Env vars añadidas (Vercel Production)
 - `WHATSAPP_VERIFY_TOKEN` — verificación GET del webhook.
