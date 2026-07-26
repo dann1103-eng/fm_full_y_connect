@@ -24,7 +24,7 @@ export default async function PortalQuoteDetailPage({
 
   await requirePortalCapability('billing')
   const activeId = await getActiveClientId()
-  if (!activeId) redirect('/portal/seleccionar-marca')
+  if (!activeId) redirect('/login')
 
   const supabase = await createClient()
 

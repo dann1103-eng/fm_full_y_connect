@@ -49,7 +49,7 @@ export async function requirePortalCapability(
   const ctx = await getEffectiveUser()
   if (!ctx) redirect('/login')
   const activeClientId = await getActiveClientId()
-  if (!activeClientId) redirect('/portal/seleccionar-marca')
+  if (!activeClientId) redirect('/login')
 
   const permissions = await loadPortalPermissions(
     ctx.appUser.id,

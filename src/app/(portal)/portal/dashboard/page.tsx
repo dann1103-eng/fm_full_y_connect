@@ -48,7 +48,7 @@ function emptyGroups(): Record<ClientPhase, PipelineCardItem[]> {
 export default async function PortalDashboardPage() {
   await requirePortalCapability('work')
   const activeId = await getActiveClientId()
-  if (!activeId) redirect('/portal/seleccionar-marca')
+  if (!activeId) redirect('/login')
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

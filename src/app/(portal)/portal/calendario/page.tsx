@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic'
 export default async function PortalCalendarioPage() {
   await requirePortalCapability('work')
   const clientId = await getActiveClientId()
-  if (!clientId) redirect('/portal/seleccionar-marca')
+  if (!clientId) redirect('/login')
 
   const supabase = await createClient()
 

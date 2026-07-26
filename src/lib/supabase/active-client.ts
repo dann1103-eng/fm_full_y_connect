@@ -8,6 +8,21 @@ import { IMPERSONATE_COOKIE } from '@/lib/auth/effective-user'
 
 export const ACTIVE_CLIENT_COOKIE = 'portal_active_client'
 
+interface ClientUserRow {
+  client_id: string
+  clients: { name: string } | null
+}
+
+/**
+ * Ordena las marcas por nombre (locale es) para que "la primera marca" sea
+ * estable y predecible: es la que se abre por defecto al entrar al portal.
+ */
+function sortByClientName(rows: ClientUserRow[]): string[] {
+  return [...rows]
+    .sort((a, b) => (a.clients?.name ?? '').localeCompare(b.clients?.name ?? '', 'es'))
+    .map((r) => r.client_id)
+}
+
 /** Devuelve todos los client_id vinculados al user efectivo (real o suplantado). */
 export async function getActiveClientIds(): Promise<string[]> {
   const supabase = await createClient()
@@ -28,26 +43,33 @@ export async function getActiveClientIds(): Promise<string[]> {
       const admin = createAdminClient()
       const { data } = await admin
         .from('client_users')
-        .select('client_id')
+        .select('client_id, clients:client_id ( name )')
         .eq('user_id', impersonateId)
-      return (data ?? []).map((r) => r.client_id)
+      return sortByClientName((data ?? []) as unknown as ClientUserRow[])
     }
   }
 
   const { data, error } = await supabase
     .from('client_users')
-    .select('client_id')
+    .select('client_id, clients:client_id ( name )')
     .eq('user_id', user.id)
 
   if (error || !data) return []
-  return data.map((r) => r.client_id)
+  return sortByClientName(data as unknown as ClientUserRow[])
 }
 
 /**
- * Resuelve el client_id activo leyendo la cookie; si la cookie no está o
- * apunta a un client_id fuera de la lista del user, devuelve null.
- * Los server components deben redirigir a /portal/seleccionar-marca cuando
- * esta función retorna null pero getActiveClientIds() tiene al menos uno.
+ * Resuelve el client_id activo leyendo la cookie. Si no hay cookie válida,
+ * cae a la PRIMERA marca (orden alfabético por nombre).
+ *
+ * Solo devuelve null cuando el usuario no tiene ninguna marca vinculada —
+ * caso anómalo que el layout del portal resuelve cerrando sesión.
+ *
+ * Antes devolvía null con varias marcas y sin cookie, lo que enviaba al usuario
+ * a /portal/seleccionar-marca. Esa pantalla se eliminó (sus botones no
+ * disparaban el server action, así que el usuario quedaba atrapado): ahora se
+ * entra directo a una marca y se cambia con el desplegable del sidebar
+ * (ActiveClientSwitcher), que ya persiste la cookie.
  */
 export async function getActiveClientId(): Promise<string | null> {
   const ids = await getActiveClientIds()
@@ -57,7 +79,5 @@ export async function getActiveClientId(): Promise<string | null> {
   const fromCookie = cookieStore.get(ACTIVE_CLIENT_COOKIE)?.value
 
   if (fromCookie && ids.includes(fromCookie)) return fromCookie
-  if (ids.length === 1) return ids[0]
-
-  return null
+  return ids[0]
 }

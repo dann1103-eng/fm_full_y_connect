@@ -26,41 +26,21 @@ export default async function PortalLayout({ children }: { children: React.React
 
   const hdrs = await headers()
   const currentPath = hdrs.get('x-pathname') ?? ''
-  const isSelectingBrand = currentPath === '/portal/seleccionar-marca'
 
-  let activeId = await getActiveClientId()
-
-  // Si el admin está suplantando un cliente y no hay activeId resuelto
-  // (ej. el admin nunca tuvo cookie portal_active_client, o apunta a una
-  // marca que no le pertenece al impersonado), auto-elegir la primera
-  // marca del impersonado para evitar mostrarle el selector al admin.
-  if (!activeId && ctx.isImpersonating && ids.length > 0) {
-    activeId = ids[0]
-  }
-
-  if (!activeId && !isSelectingBrand) redirect('/portal/seleccionar-marca')
-
-  if (isSelectingBrand && !activeId) {
-    return (
-      <UserProvider
-        user={ctx.appUser}
-        isImpersonating={ctx.isImpersonating}
-        realAdminName={ctx.isImpersonating ? ctx.realAppUser.full_name : null}
-      >
-        <SpectatorBanner />
-        <div className="flex h-screen overflow-hidden bg-fm-background">
-          <main className="flex-1 overflow-y-auto">{children}</main>
-        </div>
-        <SessionSentinel />
-      </UserProvider>
-    )
-  }
+  // Con marcas vinculadas, getActiveClientId() siempre resuelve una (la de la
+  // cookie o la primera alfabéticamente). El caso de 0 marcas ya se atendió
+  // arriba, así que aquí activeId nunca es null. El cambio de marca ocurre en
+  // el desplegable del sidebar (ActiveClientSwitcher).
+  const activeId = await getActiveClientId()
 
   const supabase = await createClient()
+  // Mismo orden alfabético que getActiveClientIds(), para que el desplegable
+  // del sidebar liste las marcas igual que como se elige la marca por defecto.
   const { data: clientOptions } = await supabase
     .from('clients')
     .select('id, name, logo_url')
     .in('id', ids)
+    .order('name')
 
   const active = clientOptions?.find((c) => c.id === activeId)
   const clientDisplayName = active?.name ?? 'Mi empresa'

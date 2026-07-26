@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function PortalEmpresaPage() {
   const activeId = await getActiveClientId()
-  if (!activeId) redirect('/portal/seleccionar-marca')
+  if (!activeId) redirect('/login')
 
   const supabase = await createClient()
 

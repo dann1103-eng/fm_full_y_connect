@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic'
 export default async function PortalFacturacionPage() {
   await requirePortalCapability('billing')
   const activeId = await getActiveClientId()
-  if (!activeId) redirect('/portal/seleccionar-marca')
+  if (!activeId) redirect('/login')
 
   const supabase = await createClient()
 
