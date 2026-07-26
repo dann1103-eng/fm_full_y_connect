@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server'
-import { renderToBuffer } from '@react-pdf/renderer'
 import { createClient } from '@/lib/supabase/server'
-import { InvoicePDF } from '@/components/billing/InvoicePDF'
-import type { Invoice, InvoiceItem } from '@/types/db'
+import { fetchInvoiceForPdf, renderInvoicePdf } from '@/lib/billing/invoice-pdf'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,11 +14,12 @@ export async function GET(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
-  const { data: invoice } = await supabase.from('invoices').select('*').eq('id', id).maybeSingle()
-  if (!invoice) return NextResponse.json({ error: 'Factura no encontrada' }, { status: 404 })
+  const data = await fetchInvoiceForPdf(supabase, id)
+  if (!data) return NextResponse.json({ error: 'Factura no encontrada' }, { status: 404 })
 
   // Staff (admin/supervisor) siempre puede ver cualquier factura.
   // Clientes pueden ver solo facturas de los clients a los que están vinculados.
+  // Se autoriza ANTES de renderizar para no gastar el render en un 403.
   const { data: appUser } = await supabase.from('users').select('role').eq('id', user.id).single()
   const isStaff = appUser?.role === 'admin' || appUser?.role === 'supervisor'
 
@@ -29,26 +28,18 @@ export async function GET(
       .from('client_users')
       .select('client_id')
       .eq('user_id', user.id)
-      .eq('client_id', (invoice as Invoice).client_id)
+      .eq('client_id', data.invoice.client_id)
       .maybeSingle()
     if (!link) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
   }
 
-  const { data: items } = await supabase
-    .from('invoice_items')
-    .select('*')
-    .eq('invoice_id', id)
-    .order('sort_order')
-
-  const buffer = await renderToBuffer(
-    <InvoicePDF invoice={invoice as Invoice} items={(items ?? []) as InvoiceItem[]} />
-  )
+  const buffer = await renderInvoicePdf(data)
 
   return new NextResponse(buffer as unknown as BodyInit, {
     status: 200,
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `inline; filename="${(invoice as Invoice).invoice_number}.pdf"`,
+      'Content-Disposition': `inline; filename="${data.invoice.invoice_number}.pdf"`,
     },
   })
 }
