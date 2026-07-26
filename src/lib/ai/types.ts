@@ -17,6 +17,7 @@ export interface AiJobRow {
   attempts: number
   max_attempts: number
   cost_usd_cents: number | null
+  invoice_id: string | null
   locked_at: string | null
   locked_by: string | null
   scheduled_for: string

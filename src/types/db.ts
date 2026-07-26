@@ -1597,6 +1597,7 @@ export interface Database {
           quote_id: string | null
           issue_date: string
           due_date: string | null
+          due_reminder_sent_at: string | null
           currency: string
           subtotal: number
           discount_amount: number
@@ -1645,6 +1646,7 @@ export interface Database {
           quote_id?: string | null
           issue_date?: string
           due_date?: string | null
+          due_reminder_sent_at?: string | null
           currency?: string
           subtotal?: number
           discount_amount?: number
@@ -1689,6 +1691,7 @@ export interface Database {
           quote_id?: string | null
           issue_date?: string
           due_date?: string | null
+          due_reminder_sent_at?: string | null
           currency?: string
           subtotal?: number
           discount_amount?: number
@@ -2140,6 +2143,7 @@ export interface Database {
           attempts: number
           max_attempts: number
           cost_usd_cents: number | null
+          invoice_id: string | null
           locked_at: string | null
           locked_by: string | null
           scheduled_for: string
@@ -2162,6 +2166,7 @@ export interface Database {
           attempts?: number
           max_attempts?: number
           cost_usd_cents?: number | null
+          invoice_id?: string | null
           locked_at?: string | null
           locked_by?: string | null
           scheduled_for?: string
@@ -2183,6 +2188,7 @@ export interface Database {
           attempts?: number
           max_attempts?: number
           cost_usd_cents?: number | null
+          invoice_id?: string | null
           locked_at?: string | null
           locked_by?: string | null
           scheduled_for?: string
