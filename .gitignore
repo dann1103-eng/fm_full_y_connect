@@ -40,3 +40,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+.vercel
+
+# Estado local del CLI de Supabase. NO commitear: pooler-url contiene la
+# cadena de conexión a Postgres CON USUARIO Y CONTRASEÑA.
+supabase/.temp/
+
+# Scratch local de las skills de brainstorming (PIDs, HTML temporal).
+.superpowers/
