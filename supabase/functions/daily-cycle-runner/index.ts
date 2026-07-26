@@ -244,6 +244,18 @@ function buildEmitterSnapshot(settings: Record<string, unknown> | null) {
 }
 
 /**
+ * Minutos desde ahora hasta las 23:59:59 (GMT-6) del día de vencimiento, con un
+ * piso de 60. Réplica del criterio de src/lib/n1co/payment-links.ts, que este
+ * Edge Function no puede importar (corre en Deno, sin acceso a src/).
+ */
+function minutesUntilEndOfDueDate(dueDate: string): number {
+  // -06:00 = El Salvador, sin horario de verano.
+  const endOfDay = new Date(`${dueDate}T23:59:59-06:00`).getTime()
+  if (Number.isNaN(endOfDay)) return 4320 // fallback al valor histórico
+  return Math.max(60, Math.ceil((endOfDay - Date.now()) / 60000))
+}
+
+/**
  * Llama a la CheckoutLink API de n1co para crear un link de pago para esta
  * factura. Si falta el secret o falla la llamada, retorna null y el caller
  * deja la factura en payment_provider='manual' (admin puede regenerar después).
@@ -257,6 +269,8 @@ async function tryCreateN1coPaymentLink(args: {
   planName: string
   cycleId: string
   periodLabel: string
+  /** due_date de la factura (YYYY-MM-DD). El link expira al final de ese día. */
+  dueDate: string
 }): Promise<{ url: string; orderId: number; shortId: string | null } | null> {
   const checkoutSecret = Deno.env.get('N1CO_CHECKOUT_LINK_SECRET')
   if (!checkoutSecret) return null
@@ -282,7 +296,11 @@ async function tryCreateN1coPaymentLink(args: {
         amount: args.amount,
         successUrl: `${appUrl}/n1co-callback?invoice=${encodeURIComponent(args.invoiceId)}&status=success`,
         cancelUrl: `${appUrl}/n1co-callback?invoice=${encodeURIComponent(args.invoiceId)}&status=cancel`,
-        expirationMinutes: 4320,
+        // Expira al final del día de vencimiento, igual que el resto del código
+        // (src/lib/n1co/payment-links.ts). Antes era 4320 (3 días) fijo: como la
+        // factura se emite ~10 días antes del vencimiento, el link moría ~5 días
+        // ANTES de que el cliente lo necesitara.
+        expirationMinutes: minutesUntilEndOfDueDate(args.dueDate),
         metadata: [
           { name: 'invoiceId', value: args.invoiceId },
           { name: 'invoiceNumber', value: args.invoiceNumber },
@@ -510,6 +528,7 @@ Deno.serve(async (_req) => {
         planName: plan.name,
         cycleId: scheduledCycleId,
         periodLabel: label,
+        dueDate: scheduledPeriodStart, // mismo valor que invoices.due_date arriba
       })
 
       if (linkInfo) {
