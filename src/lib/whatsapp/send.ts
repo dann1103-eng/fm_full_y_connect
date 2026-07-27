@@ -40,6 +40,46 @@ export async function sendWhatsappText(args: { toE164: string; body: string; pre
 }
 
 /**
+ * Envía un documento (PDF, etc.) ya subido a Meta con `uploadWhatsappMedia`.
+ * Solo válido DENTRO de la ventana de 24h; fuera de ella hay que usar una
+ * plantilla con encabezado de documento (ver `templates.ts`).
+ */
+export async function sendWhatsappDocument(args: {
+  toE164: string
+  mediaId: string
+  filename: string
+  caption?: string
+}): Promise<SendResult> {
+  const { token, phoneNumberId } = getWhatsappEnv()
+  const to = args.toE164.replace(/^\+/, '')
+
+  const res = await fetch(`${GRAPH_API_BASE}/${phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to,
+      type: 'document',
+      document: {
+        id: args.mediaId,
+        filename: args.filename,
+        ...(args.caption ? { caption: args.caption } : {}),
+      },
+    }),
+  })
+
+  const raw = (await res.json().catch(() => ({}))) as Record<string, unknown>
+  if (!res.ok) {
+    return { wamid: null, raw, ok: false, errorText: JSON.stringify(raw) }
+  }
+  return { wamid: extractWamid(raw), raw, ok: true }
+}
+
+/**
  * Envía un mensaje basado en una plantilla aprobada (Fase 2 — fuera de ventana 24h).
  */
 export async function sendWhatsappTemplate(args: {

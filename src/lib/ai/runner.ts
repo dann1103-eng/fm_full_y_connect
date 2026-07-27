@@ -3,6 +3,7 @@ import { createWaAdminClient } from '@/lib/whatsapp/db'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { whatsappReplyHandler } from './handlers/whatsappReply'
 import { whatsappTemplateHandler } from './handlers/whatsappTemplate'
+import { invoiceDueReminderHandler } from './handlers/invoiceDueReminder'
 import type { AiHandler, AiHandlerCtx, AiJobRow } from './types'
 
 /**
@@ -12,6 +13,9 @@ import type { AiHandler, AiHandlerCtx, AiJobRow } from './types'
 const HANDLERS: Record<string, AiHandler> = {
   whatsapp_reply: whatsappReplyHandler as AiHandler,
   whatsapp_template: whatsappTemplateHandler as AiHandler,
+  // No lleva prefijo whatsapp_ a propósito: así el runner le pasa el cliente
+  // TIPADO (invoices/clients) y el handler instancia el de wa_* por su cuenta.
+  invoice_due_reminder: invoiceDueReminderHandler as AiHandler,
 }
 
 const KNOWN_JOB_TYPES = Object.keys(HANDLERS)

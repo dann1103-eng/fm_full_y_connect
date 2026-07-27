@@ -33,6 +33,35 @@ export const WA_TEMPLATES = {
     category: 'UTILITY' as const,
     paramKeys: ['client_name', 'requirement_title', 'portal_url'] as const,
   },
+
+  /**
+   * Recordatorio de factura próxima a vencer (~3 días antes), con el PDF de la
+   * factura adjunto como ENCABEZADO DE DOCUMENTO.
+   *
+   * Body aprobado por Meta (2026-07-26):
+   *   "Hola {{1}} 👋 Te recordamos que tu factura {{2}} por {{3}} vence el {{4}}.
+   *
+   *    Puedes pagarla en este enlace: {{5}}
+   *
+   *    Si ya realizaste el pago, puedes ignorar este mensaje. ¡Gracias!"
+   *
+   * La línea de cierre no es decorativa: Meta rechaza plantillas que empiecen o
+   * terminen con una variable, y sin ella el cuerpo acabaría en {{5}}.
+   *
+   * Variables:
+   *  - {{1}} nombre de la MARCA (clients.name), no el del contacto: es lo que
+   *          distingue recordatorios de dos marcas que comparten el mismo número
+   *  - {{2}} número de factura
+   *  - {{3}} monto a pagar (con símbolo)
+   *  - {{4}} fecha de vencimiento ya formateada
+   *  - {{5}} enlace de pago n1co (regenerado antes de enviar)
+   */
+  INVOICE_DUE_SOON: {
+    name: 'factura_por_vencer',
+    language: 'es_MX',
+    category: 'UTILITY' as const,
+    paramKeys: ['client_name', 'invoice_number', 'amount', 'due_date', 'payment_url'] as const,
+  },
 } as const
 
 export type WaTemplateKey = keyof typeof WA_TEMPLATES
@@ -53,17 +82,37 @@ export async function sendWhatsappTemplate(args: {
   toE164: string
   templateKey: WaTemplateKey
   params: Record<string, string>
+  /**
+   * Adjunta un documento en el encabezado. Solo para plantillas aprobadas con
+   * header de tipo DOCUMENT (p. ej. INVOICE_DUE_SOON). El `mediaId` sale de
+   * `uploadWhatsappMedia`.
+   */
+  headerDocument?: { mediaId: string; filename: string }
 }): Promise<SendTemplateResult> {
   const tpl = WA_TEMPLATES[args.templateKey]
   const { token, phoneNumberId } = getWhatsappEnv()
 
   const orderedValues = tpl.paramKeys.map((k) => args.params[k] ?? '')
-  const components = orderedValues.length
-    ? [{
-        type: 'body',
-        parameters: orderedValues.map((v) => ({ type: 'text', text: v })),
-      }]
-    : []
+  const components: unknown[] = []
+  // El encabezado va ANTES del body en el payload de Meta.
+  if (args.headerDocument) {
+    components.push({
+      type: 'header',
+      parameters: [{
+        type: 'document',
+        document: {
+          id: args.headerDocument.mediaId,
+          filename: args.headerDocument.filename,
+        },
+      }],
+    })
+  }
+  if (orderedValues.length) {
+    components.push({
+      type: 'body',
+      parameters: orderedValues.map((v) => ({ type: 'text', text: v })),
+    })
+  }
 
   const to = args.toE164.replace(/^\+/, '')
   const res = await fetch(`${GRAPH_API_BASE}/${phoneNumberId}/messages`, {

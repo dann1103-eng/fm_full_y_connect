@@ -3,6 +3,10 @@
     {
       "path": "/api/ai-jobs/process?max=10&wait=15000",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/billing/due-reminders",
+      "schedule": "0 15 * * *"
     }
   ]
 }
