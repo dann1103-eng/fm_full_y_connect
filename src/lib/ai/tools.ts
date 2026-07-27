@@ -7,6 +7,7 @@ import {
   createExtraContentInvoiceForClient,
   createExtraCambiosInvoiceForClient,
   createRenewalInvoiceForClient,
+  sendInvoiceDocumentToClient,
 } from '@/lib/ai/billingHelpers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCambiosBalance } from '@/lib/domain/credits'
@@ -130,6 +131,18 @@ export const TOOL_DEFS: Record<string, ToolDef> = {
         quantity: { type: 'number', description: 'Para content: unidades del contenido. Para cambios: número de paquetes de 5.' },
       },
       required: ['kind', 'quantity'],
+    },
+  },
+  send_invoice_document: {
+    name: 'send_invoice_document',
+    description:
+      'ENVÍA al cliente el PDF de una de sus facturas como archivo adjunto por WhatsApp. Sin argumentos manda la factura emitida más reciente; opcionalmente invoice_number (ej. "INV-2026000123") o invoice_id para una específica. Úsalo cuando el cliente pida "mándame mi factura", "quiero el PDF", "necesito el documento de la factura", o cuando pida el comprobante de un extra que acaba de pagar. NO emite facturas nuevas ni cobra nada: solo envía un documento que ya existe. Tras llamarla, el archivo YA fue enviado: solo confírmalo en tu respuesta, no digas que lo enviarás después.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        invoice_number: { type: 'string', description: 'Opcional: número de factura tal como lo dijo el cliente.' },
+        invoice_id: { type: 'string', description: 'Opcional: id interno de una factura específica.' },
+      },
     },
   },
   create_renewal_invoice: {
@@ -433,6 +446,25 @@ export const TOOL_FNS: Record<string, ToolFn> = {
       amount: res.totalAPagar,
       payment_link: res.paymentLinkUrl,
       message: `Enlace de pago listo. Compártelo con el cliente: ${res.paymentLinkUrl}`,
+    }
+  },
+
+  send_invoice_document: async (ctx, input) => {
+    if (!ctx.clientId) return noClient(ctx)
+    const res = await sendInvoiceDocumentToClient({
+      clientId: ctx.clientId,
+      phoneE164: ctx.phoneE164,
+      conversationId: ctx.conversationId,
+      invoiceId: input.invoice_id ? String(input.invoice_id) : undefined,
+      invoiceNumber: input.invoice_number ? String(input.invoice_number) : undefined,
+    })
+    if ('error' in res) return { error: res.error }
+    return {
+      ok: true,
+      invoice_number: res.invoiceNumber,
+      amount: res.totalAPagar,
+      paid: res.status === 'paid',
+      message: `El PDF de la factura ${res.invoiceNumber} YA fue enviado al cliente por WhatsApp. Confírmaselo brevemente.`,
     }
   },
 

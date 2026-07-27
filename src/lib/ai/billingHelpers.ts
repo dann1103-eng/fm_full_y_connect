@@ -1,4 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createWaAdminClient } from '@/lib/whatsapp/db'
+import { renderInvoicePdfBuffer } from '@/lib/billing/invoice-pdf'
+import { uploadWhatsappMedia } from '@/lib/whatsapp/media-upload'
+import { sendWhatsappDocument } from '@/lib/whatsapp/send'
 import {
   createIssuedInvoiceWithLink,
   regenerateInvoiceLinkCore,
@@ -243,4 +247,91 @@ export async function createRenewalInvoiceForClient(
   await admin.from('billing_cycles').update({ auto_billed_at: new Date().toISOString() }).eq('id', scheduled.cycleId)
 
   return { ...res, reused: false }
+}
+
+/**
+ * Envía al cliente el PDF de una de SUS facturas por WhatsApp, como documento
+ * adjunto en la conversación.
+ *
+ * Va como mensaje libre (no plantilla) porque el cliente acaba de escribir: la
+ * ventana de 24h de Meta está abierta. Reutiliza la infra construida para el
+ * recordatorio de vencimiento (render sin sesión + upload a Meta).
+ *
+ * Alcance: cualquier factura EMITIDA del cliente (issued o paid), de ciclo o de
+ * extras. Se excluyen draft (aún no es documento fiscal) y void (anulada).
+ * El scope por clientId es obligatorio: nunca se resuelve una factura desde el
+ * texto del cliente sin validar que le pertenece.
+ */
+export async function sendInvoiceDocumentToClient(args: {
+  clientId: string
+  phoneE164: string
+  conversationId: string
+  invoiceId?: string
+  invoiceNumber?: string
+}): Promise<
+  | { ok: true; invoiceNumber: string; totalAPagar: number; status: string }
+  | { error: string }
+> {
+  const admin = createAdminClient()
+
+  let query = admin
+    .from('invoices')
+    .select('id, invoice_number, client_id, total, total_a_pagar, status, issue_date')
+    .eq('client_id', args.clientId)
+    .in('status', ['issued', 'paid'])
+
+  if (args.invoiceId) query = query.eq('id', args.invoiceId)
+  else if (args.invoiceNumber) query = query.eq('invoice_number', args.invoiceNumber)
+
+  const { data: rows } = await query.order('issue_date', { ascending: false }).limit(1)
+  const inv = (rows ?? [])[0]
+  if (!inv) {
+    return {
+      error: args.invoiceId || args.invoiceNumber
+        ? 'No encontré esa factura entre las de este cliente.'
+        : 'Este cliente todavía no tiene facturas emitidas.',
+    }
+  }
+
+  const pdf = await renderInvoicePdfBuffer(admin, inv.id as string)
+  if (!pdf) return { error: 'No se pudo generar el PDF de la factura.' }
+
+  const filename = `Factura-${inv.invoice_number}.pdf`
+  const media = await uploadWhatsappMedia({
+    buffer: pdf.buffer,
+    filename,
+    mimeType: 'application/pdf',
+  })
+  if (!media.ok || !media.mediaId) {
+    return { error: 'No se pudo preparar el archivo para enviarlo por WhatsApp.' }
+  }
+
+  const send = await sendWhatsappDocument({
+    toE164: args.phoneE164,
+    mediaId: media.mediaId,
+    filename,
+  })
+  if (!send.ok) return { error: 'No se pudo enviar el documento por WhatsApp.' }
+
+  // Registrar el saliente para que el staff lo vea en el inbox.
+  const wa = createWaAdminClient()
+  const now = new Date().toISOString()
+  await wa.from('wa_messages').insert({
+    conversation_id: args.conversationId,
+    direction: 'outbound',
+    wamid: send.wamid,
+    msg_type: 'document',
+    sent_by: 'bot',
+    body: `Factura ${inv.invoice_number} (PDF enviado al cliente)`,
+    wa_status: 'sent',
+    raw_json: send.raw,
+    created_at: now,
+  })
+
+  return {
+    ok: true,
+    invoiceNumber: String(inv.invoice_number),
+    totalAPagar: Number(inv.total_a_pagar ?? inv.total ?? 0),
+    status: String(inv.status),
+  }
 }
