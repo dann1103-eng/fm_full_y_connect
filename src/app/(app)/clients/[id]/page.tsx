@@ -419,8 +419,10 @@ export default async function ClientDetailPage({
           <CycleHistory
             cycles={pastCycles as BillingCycle[]}
             clientId={id}
-            supabase={null}
             plansMap={Object.fromEntries((plans ?? []).map((p) => [p.id, p.name]))}
+            isAdmin={isAdmin}
+            isApprover={isApprover}
+            userMap={userMap}
           />
         )}
 
