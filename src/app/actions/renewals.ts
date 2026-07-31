@@ -164,6 +164,18 @@ export async function renewCycle(args: RenewArgs) {
 
   if (archiveErr || clientErr) return { error: 'Error al archivar el ciclo anterior.' }
 
+  // Defensa: archivar cualquier OTRO ciclo 'current' que pudiera existir para
+  // este cliente, más allá de args.cycleId. Si por una carrera de renovaciones
+  // (o un bug previo) ya había más de un ciclo 'current', archivar solo
+  // args.cycleId dejaría al otro huérfano y el INSERT de abajo crearía un
+  // tercer ciclo pisándose con el existente — mismo patrón de duplicados que
+  // createCurrentCycle ya previene. No-op si args.cycleId era el único.
+  await admin
+    .from('billing_cycles')
+    .update({ status: 'archived' })
+    .eq('client_id', args.clientId)
+    .eq('status', 'current')
+
   // Si había un 'scheduled' pre-creado (por el cron de auto-billing o por una
   // renovación previa), la renovación inmediata lo supersede. Lo archivamos para
   // que el cron no lo promueva más adelante con fechas obsoletas (lo que dejaría
