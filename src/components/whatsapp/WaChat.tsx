@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+import { getSessionWindow, formatDuration } from '@/lib/whatsapp/session-window'
 import {
   markConversationRead,
   sendStaffReply,
@@ -49,6 +50,25 @@ export function WaChat({ conversation, initialMessages, clients, linkedClient, l
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Reloj propio: la ventana de 24h se cierra por el paso del tiempo, sin que
+  // llegue ningún mensaje nuevo. Sin esto el aviso se quedaría congelado.
+  // (Date.now() está prohibido por react-hooks/purity — ver CLAUDE.md.)
+  const [nowMs, setNowMs] = useState(() => new Date().getTime())
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(new Date().getTime()), 30_000)
+    return () => clearInterval(t)
+  }, [])
+
+  const lastInboundAt = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i]!.direction === 'inbound') return messages[i]!.created_at
+    }
+    return null
+  }, [messages])
+
+  const session = getSessionWindow(lastInboundAt, nowMs)
+  const canSendFreeText = session.state === 'open' || session.state === 'closing'
 
   // Marca leído al entrar.
   useEffect(() => {
@@ -289,12 +309,23 @@ export function WaChat({ conversation, initialMessages, clients, linkedClient, l
         {messages.length === 0 && (
           <p className="text-center text-sm text-fm-on-surface-variant py-8">Sin mensajes todavía.</p>
         )}
-        {messages.map((m) => (
-          <MessageBubble key={m.id} message={m} />
-        ))}
+        {messages.map((m, i) => {
+          const prev = i > 0 ? messages[i - 1]! : null
+          // Separador de día: sin él, dos mensajes de días distintos se veían
+          // como si hubieran pasado minutos (solo se muestra la hora), que fue
+          // justo lo que ocultó una ventana de 24h ya cerrada.
+          const showDate = !prev || !isSameDay(prev.created_at, m.created_at)
+          return (
+            <Fragment key={m.id}>
+              {showDate && <DateSeparator iso={m.created_at} />}
+              <MessageBubble message={m} />
+            </Fragment>
+          )
+        })}
       </div>
 
       <footer className="border-t border-fm-outline-variant/30 bg-fm-surface px-3 py-3">
+        <SessionWindowNotice session={session} />
         {error && <p className="text-xs text-red-600 mb-2">{error}</p>}
         <div className="flex items-end gap-2">
           <textarea aria-label="Escribe tu respuesta… (Enter para enviar, Shift+Enter salto de línea)"
@@ -307,15 +338,19 @@ export function WaChat({ conversation, initialMessages, clients, linkedClient, l
               }
             }}
             rows={2}
-            placeholder="Escribe tu respuesta… (Enter para enviar, Shift+Enter salto de línea)"
-            className="flex-1 px-3 py-2 text-sm rounded-md bg-fm-surface-container-low border border-fm-outline-variant/40 outline-none focus:border-fm-primary resize-none"
-            disabled={pending}
+            placeholder={
+              canSendFreeText
+                ? 'Escribe tu respuesta… (Enter para enviar, Shift+Enter salto de línea)'
+                : 'WhatsApp no permite enviar texto libre en esta conversación.'
+            }
+            className="flex-1 px-3 py-2 text-sm rounded-md bg-fm-surface-container-low border border-fm-outline-variant/40 outline-none focus:border-fm-primary resize-none disabled:opacity-60 disabled:cursor-not-allowed"
+            disabled={pending || !canSendFreeText}
           />
           <button
             type="button"
             onClick={handleSend}
-            disabled={pending || !body.trim()}
-            className="px-4 py-2 text-sm rounded-md bg-fm-primary text-white disabled:opacity-50"
+            disabled={pending || !body.trim() || !canSendFreeText}
+            className="px-4 py-2 text-sm rounded-md bg-fm-primary text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Enviar
           </button>
@@ -325,6 +360,84 @@ export function WaChat({ conversation, initialMessages, clients, linkedClient, l
         </p>
       </footer>
     </section>
+  )
+}
+
+/** ¿Dos timestamps caen el mismo día en hora local? */
+function isSameDay(a: string, b: string): boolean {
+  const da = new Date(a)
+  const db = new Date(b)
+  return (
+    da.getFullYear() === db.getFullYear() &&
+    da.getMonth() === db.getMonth() &&
+    da.getDate() === db.getDate()
+  )
+}
+
+function DateSeparator({ iso }: { iso: string }) {
+  const d = new Date(iso)
+  const hoy = new Date()
+  const ayer = new Date(hoy.getTime() - 24 * 60 * 60 * 1000)
+  let label: string
+  if (isSameDay(iso, hoy.toISOString())) label = 'Hoy'
+  else if (isSameDay(iso, ayer.toISOString())) label = 'Ayer'
+  else {
+    label = d.toLocaleDateString('es-SV', {
+      weekday: 'long', day: 'numeric', month: 'long',
+      ...(d.getFullYear() !== hoy.getFullYear() ? { year: 'numeric' } : {}),
+    })
+  }
+  return (
+    <div className="flex items-center gap-3 py-2">
+      <div className="flex-1 h-px bg-fm-outline-variant/40" />
+      <span className="text-[11px] uppercase tracking-wide text-fm-on-surface-variant">{label}</span>
+      <div className="flex-1 h-px bg-fm-outline-variant/40" />
+    </div>
+  )
+}
+
+/**
+ * Estado de la ventana de 24h de WhatsApp. Solo aparece cuando hay algo que
+ * decir: si la ventana está holgada no estorba.
+ */
+function SessionWindowNotice({
+  session,
+}: {
+  session: ReturnType<typeof getSessionWindow>
+}) {
+  if (session.state === 'open') return null
+
+  if (session.state === 'closing') {
+    return (
+      <div className="mb-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200 dark:border-amber-800">
+        <span className="font-medium">La ventana de 24 h cierra en {formatDuration(session.msRemaining)}.</span>{' '}
+        Después de eso WhatsApp ya no permite responder con texto libre.
+      </div>
+    )
+  }
+
+  const detalle =
+    session.state === 'never'
+      ? 'Este contacto todavía no te ha escrito.'
+      : `El último mensaje del cliente fue hace más de 24 h${
+          session.closesAt
+            ? ` (la ventana cerró el ${session.closesAt.toLocaleDateString('es-SV', {
+                day: 'numeric', month: 'long',
+              })} a las ${session.closesAt.toLocaleTimeString('es-SV', {
+                hour: '2-digit', minute: '2-digit',
+              })})`
+            : ''
+        }.`
+
+  return (
+    <div className="mb-2 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800 dark:bg-red-950/30 dark:text-red-200 dark:border-red-800">
+      <p className="font-medium">No se puede enviar texto libre en esta conversación.</p>
+      <p className="mt-0.5">
+        {detalle} WhatsApp solo permite responder con texto libre dentro de las 24 h siguientes
+        al último mensaje del cliente; para reabrirla hace falta una plantilla aprobada, o que
+        el cliente vuelva a escribir.
+      </p>
+    </div>
   )
 }
 
