@@ -445,6 +445,7 @@ Las violaciones de FK (RESTRICT) **no producen excepción** — retornan `{ erro
 | 0125 | **Fix RLS de `client-logos`**: la única policy de INSERT (0007) exigía `role='admin'`, pero `LogoUploader` se usa también desde el portal (el propio cliente) y por supervisores → "new row violates row-level security policy". Recrea las policies de forma idempotente: staff interno en cualquier carpeta, cliente solo en `{clientId}/` vía `is_client_of`. |
 | 0126 | **Recordatorio de factura por vencer**: `invoices.due_reminder_sent_at` (marcador de notificación; se escribe ANTES de enviar → at-most-once, para que el watchdog de 0124 no reejecute el handler y duplique el cobro) + `ai_jobs.invoice_id` con índice único parcial contra doble encolado + índice de apoyo al query diario del cron. |
 | 0127 | **Bot envía el PDF de facturas**: habilita la tool `send_invoice_document` (audience `client`) + guía de prompt. Envía como mensaje libre (ventana de 24h abierta), no plantilla. |
+| 0128 | **Aviso de ventana de 24h por cerrar**: `users.notify_wa_window` (bool, default false). Solo quienes lo tienen activo reciben la notificación de conversaciones sin contestar cuya ventana de WhatsApp está por vencer. Seed por nombre (laura/samuel) — **verificar a quién le pegó**. Se activa/desactiva con un `update` sin redeploy. |
 
 ## Tareas asignadas (feature — migración 0117)
 

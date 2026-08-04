@@ -221,6 +221,7 @@ export function useNotifications() {
     if (it.kind === 'invoice_auto') return sum + 1
     if (it.kind === 'cambio_pending') return sum + 1
     if (it.kind === 'wa_handoff') return sum + 1
+    if (it.kind === 'wa_window_closing') return sum + 1
     if (it.kind === 'pending_request') return sum + 1
     if (it.kind === 'task_assigned' || it.kind === 'task_completed') return sum + 1
     return sum + (it.unread_count ?? 0)

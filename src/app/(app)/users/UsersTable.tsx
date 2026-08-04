@@ -508,6 +508,7 @@ function CreateUserModal({ onClose, onCreated }: {
         avatar_url: null,
         default_assignee: false,
         current_session_id: null,
+        notify_wa_window: false,
         can_quote: false,
         can_request_dev: false,
         deactivated_at: null,

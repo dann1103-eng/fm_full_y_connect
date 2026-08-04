@@ -53,6 +53,40 @@ export function getSessionWindow(
   return { state: 'open', closesAt, msRemaining }
 }
 
+/**
+ * Umbrales de aviso, del más holgado al más urgente (ms restantes).
+ * Se avisa desde 12 h antes y se re-avisa al cruzar cada escalón.
+ */
+export const WINDOW_ALERT_THRESHOLDS_MS = [
+  12 * 60 * 60 * 1000,
+  6 * 60 * 60 * 1000,
+  2 * 60 * 60 * 1000,
+  30 * 60 * 1000,
+] as const
+
+/**
+ * Escalón de urgencia en el que cae una ventana, o null si aún falta mucho
+ * (o si ya cerró: ahí ya no hay nada que hacer con texto libre).
+ *
+ * Las notificaciones se derivan en cada refresco, así que el aviso persiste
+ * mientras nadie conteste. El escalón se usa en el id: al pasar de 12 h a 6 h
+ * el id cambia y la alerta vuelve a sonar en vez de quedarse callada.
+ */
+export function windowAlertBucketMs(msRemaining: number): number | null {
+  if (msRemaining <= 0) return null
+  let match: number | null = null
+  for (const t of WINDOW_ALERT_THRESHOLDS_MS) {
+    if (msRemaining <= t) match = t
+  }
+  return match
+}
+
+/** Etiqueta corta del escalón, para el id de la notificación. */
+export function windowAlertBucketLabel(bucketMs: number): string {
+  const min = Math.round(bucketMs / 60_000)
+  return min >= 60 ? `${Math.round(min / 60)}h` : `${min}m`
+}
+
 /** "2 h 15 min", "43 min", "menos de 1 min" — para mostrarle al staff. */
 export function formatDuration(ms: number): string {
   if (ms <= 0) return '0 min'

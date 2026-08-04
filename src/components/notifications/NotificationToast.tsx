@@ -65,6 +65,12 @@ function kindLabel(item: NotificationItem): { title: string; body: string } {
       body: item.wa_display ?? item.wa_reason ?? 'Un cliente pidió hablar con una persona',
     }
   }
+  if (item.kind === 'wa_window_closing') {
+    return {
+      title: `WhatsApp: quedan ${item.wa_window_remaining ?? 'pocas horas'}`,
+      body: `${item.wa_display ?? 'Un contacto'} escribió y nadie ha contestado.`,
+    }
+  }
   return { title: 'Notificación', body: '' }
 }
 

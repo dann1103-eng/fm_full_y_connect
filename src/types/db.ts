@@ -444,6 +444,7 @@ export interface Database {
           current_session_id: string | null
           can_quote: boolean
           can_request_dev: boolean
+          notify_wa_window: boolean
           deactivated_at: string | null
         }
         Insert: {
@@ -456,6 +457,7 @@ export interface Database {
           current_session_id?: string | null
           can_quote?: boolean
           can_request_dev?: boolean
+          notify_wa_window?: boolean
           deactivated_at?: string | null
         }
         Update: {
@@ -467,6 +469,7 @@ export interface Database {
           current_session_id?: string | null
           can_quote?: boolean
           can_request_dev?: boolean
+          notify_wa_window?: boolean
           deactivated_at?: string | null
         }
         Relationships: []
@@ -2330,7 +2333,7 @@ export const PAYMENT_METHOD_LABELS: Record<InvoicePaymentMethod, string> = {
 
 /** Item unificado para el dropdown de notificaciones (TopNav). */
 export interface NotificationItem {
-  kind: 'mention' | 'dm' | 'channel' | 'overdue' | 'calendar' | 'invoice_auto' | 'cambio_pending' | 'task_assigned' | 'task_completed' | 'wa_handoff' | 'pending_request'
+  kind: 'mention' | 'dm' | 'channel' | 'overdue' | 'calendar' | 'invoice_auto' | 'cambio_pending' | 'task_assigned' | 'task_completed' | 'wa_handoff' | 'wa_window_closing' | 'pending_request'
   /** mention.id | conversation.id | requirement.id */
   id: string
   created_at: string
@@ -2382,10 +2385,15 @@ export interface NotificationItem {
   task_title?: string
   /** Quién generó el aviso: el asignador (task_assigned) o el responsable (task_completed). */
   task_actor_name?: string
-  /* Para 'wa_handoff' */
+  /* Para 'wa_handoff' | 'wa_window_closing' */
   wa_conversation_id?: string
   wa_display?: string
   wa_reason?: string
+  /* Para 'wa_window_closing' */
+  /** Tiempo restante ya formateado ("2 h 15 min") al momento de derivar. */
+  wa_window_remaining?: string
+  /** Último mensaje del cliente, recortado, para dar contexto en el aviso. */
+  wa_last_inbound_preview?: string
   /* Para 'pending_request' */
   request_requirement_id?: string
   request_title?: string

@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest'
-import { getSessionWindow, formatDuration, SESSION_WINDOW_MS } from './session-window'
+import {
+  getSessionWindow,
+  formatDuration,
+  windowAlertBucketMs,
+  windowAlertBucketLabel,
+  SESSION_WINDOW_MS,
+} from './session-window'
+
+const H = (n: number) => n * 60 * 60 * 1000
+const MIN = (n: number) => n * 60 * 1000
 
 const AT = (iso: string) => new Date(iso).getTime()
 
@@ -62,5 +71,45 @@ describe('formatDuration', () => {
     expect(formatDuration(30 * 1000)).toBe('menos de 1 min')
     expect(formatDuration(0)).toBe('0 min')
     expect(formatDuration(-5000)).toBe('0 min')
+  })
+})
+
+describe('windowAlertBucketMs', () => {
+  it('no avisa cuando todavía falta más de 12 h', () => {
+    expect(windowAlertBucketMs(H(13))).toBeNull()
+    expect(windowAlertBucketMs(H(23))).toBeNull()
+  })
+
+  it('avisa desde las 12 h y escala al acercarse el cierre', () => {
+    expect(windowAlertBucketMs(H(11))).toBe(H(12))
+    expect(windowAlertBucketMs(H(5))).toBe(H(6))
+    expect(windowAlertBucketMs(H(1))).toBe(H(2))
+    expect(windowAlertBucketMs(MIN(20))).toBe(MIN(30))
+  })
+
+  it('incluye el límite exacto de cada escalón', () => {
+    expect(windowAlertBucketMs(H(12))).toBe(H(12))
+    expect(windowAlertBucketMs(H(6))).toBe(H(6))
+    expect(windowAlertBucketMs(MIN(30))).toBe(MIN(30))
+  })
+
+  it('deja de avisar cuando la ventana ya cerró', () => {
+    // Ya no hay nada que hacer con texto libre: avisar solo sería ruido.
+    expect(windowAlertBucketMs(0)).toBeNull()
+    expect(windowAlertBucketMs(-1000)).toBeNull()
+  })
+
+  it('el escalón cambia al cruzar un umbral, para que la alerta vuelva a sonar', () => {
+    // Es lo que hace que "no pare de joder": el id de la notificación incluye
+    // el escalón, así que al pasar de 12h a 6h se emite una alerta nueva.
+    expect(windowAlertBucketMs(H(7))).not.toBe(windowAlertBucketMs(H(5)))
+  })
+})
+
+describe('windowAlertBucketLabel', () => {
+  it('etiqueta horas y minutos', () => {
+    expect(windowAlertBucketLabel(H(12))).toBe('12h')
+    expect(windowAlertBucketLabel(H(2))).toBe('2h')
+    expect(windowAlertBucketLabel(MIN(30))).toBe('30m')
   })
 })

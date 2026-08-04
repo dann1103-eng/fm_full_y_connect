@@ -4,6 +4,12 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getEffectiveUser } from '@/lib/auth/effective-user'
 import type { NotificationItem } from '@/types/db'
 import { today as todayGMT6 } from '@/lib/domain/dates'
+import {
+  getSessionWindow,
+  windowAlertBucketMs,
+  windowAlertBucketLabel,
+  formatDuration,
+} from '@/lib/whatsapp/session-window'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -577,6 +583,80 @@ export async function GET() {
     }
   }
 
+  /* ── WhatsApp: ventana de 24h por cerrar sin respuesta ──────
+     Dirigido: solo a quienes tienen users.notify_wa_window (migración 0128),
+     no a todo el staff. Fuera de la ventana Meta rechaza el texto libre con
+     131047, así que un mensaje sin contestar que cruza las 24h se vuelve
+     incontestable. La notificación se deriva en cada refresco: persiste
+     mientras nadie responda, y su id incluye el escalón de urgencia para que
+     vuelva a sonar al pasar de 12h → 6h → 2h → 30min. */
+  const waWindowItems: NotificationItem[] = []
+  const nowMs = new Date().getTime()
+  if (isAdminOrSupervisor) {
+    const { data: me } = await supabase
+      .from('users')
+      .select('notify_wa_window')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if ((me as { notify_wa_window?: boolean } | null)?.notify_wa_window) {
+      const waAdmin = createAdminClient()
+      // 25h cubre toda ventana aún viva; lo más viejo ya está cerrado.
+      const since = new Date(nowMs - 25 * 60 * 60 * 1000).toISOString()
+      const { data: recentMsgs } = await waAdmin
+        .from('wa_messages')
+        .select('conversation_id, direction, body, created_at')
+        .gte('created_at', since)
+        .order('created_at', { ascending: true })
+        .limit(3000)
+
+      // Último mensaje por conversación (el orden ascendente hace que gane el último).
+      const lastByConv = new Map<string, { direction: string; body: string | null; created_at: string }>()
+      for (const m of (recentMsgs ?? []) as unknown as Array<{
+        conversation_id: string; direction: string; body: string | null; created_at: string
+      }>) {
+        lastByConv.set(m.conversation_id, m)
+      }
+
+      // Sin contestar = la última palabra es del cliente (ni bot ni staff respondieron).
+      const pendientes = Array.from(lastByConv.entries())
+        .filter(([, m]) => m.direction === 'inbound')
+        .map(([convId, m]) => {
+          const win = getSessionWindow(m.created_at, nowMs)
+          return { convId, m, win, bucket: windowAlertBucketMs(win.msRemaining) }
+        })
+        .filter((x) => x.bucket !== null)
+
+      if (pendientes.length > 0) {
+        const { data: convs } = await waAdmin
+          .from('wa_conversations')
+          .select('id, display_name, phone_e164, client:clients(name)')
+          .in('id', pendientes.map((p) => p.convId))
+        const convById = new Map(
+          ((convs ?? []) as unknown as Array<{
+            id: string; display_name: string | null; phone_e164: string; client: { name: string } | null
+          }>).map((c) => [c.id, c]),
+        )
+
+        for (const p of pendientes) {
+          const c = convById.get(p.convId)
+          waWindowItems.push({
+            kind: 'wa_window_closing',
+            // El escalón va en el id: al cruzar un umbral se emite una alerta
+            // nueva en vez de quedarse callada la ya vista.
+            id: `wa-window-${p.convId}-${windowAlertBucketLabel(p.bucket!)}`,
+            created_at: p.m.created_at,
+            read: false,
+            wa_conversation_id: p.convId,
+            wa_display: c?.client?.name ?? c?.display_name ?? c?.phone_e164 ?? 'Contacto',
+            wa_window_remaining: formatDuration(p.win.msRemaining),
+            wa_last_inbound_preview: (p.m.body ?? '').slice(0, 80),
+          })
+        }
+      }
+    }
+  }
+
   /* ── Solicitudes de contenido pendientes de aprobación (admin/supervisor) ── */
   const pendingRequestItems: NotificationItem[] = []
   if (isAdminOrSupervisor) {
@@ -607,7 +687,7 @@ export async function GET() {
   }
 
   /* ── Merge y sort: vencidos al frente, luego por fecha ─────── */
-  const items = [...overdueItems, ...waHandoffItems, ...cambioPendingItems, ...pendingRequestItems, ...taskItems, ...mentionItems, ...reviewMentionItems, ...invoiceAutoItems, ...calendarItems, ...convItems].sort((a, b) => {
+  const items = [...overdueItems, ...waHandoffItems, ...waWindowItems, ...cambioPendingItems, ...pendingRequestItems, ...taskItems, ...mentionItems, ...reviewMentionItems, ...invoiceAutoItems, ...calendarItems, ...convItems].sort((a, b) => {
     if (a.kind === 'overdue' && b.kind !== 'overdue') return -1
     if (a.kind !== 'overdue' && b.kind === 'overdue') return 1
     return a.created_at < b.created_at ? 1 : -1

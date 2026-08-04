@@ -62,7 +62,7 @@ export function NotificationsDropdown() {
       router.push('/tareas')
       return
     }
-    if (item.kind === 'wa_handoff' && item.wa_conversation_id) {
+    if ((item.kind === 'wa_handoff' || item.kind === 'wa_window_closing') && item.wa_conversation_id) {
       router.push(`/whatsapp/${item.wa_conversation_id}`)
       return
     }
@@ -344,6 +344,39 @@ function NotificationRow({
                 </div>
               )}
               <div className="text-fm-on-surface-variant/50 text-[10px] mt-0.5">{timeAgo}</div>
+            </div>
+          </div>
+        </button>
+        {dismissButton}
+      </div>
+    )
+  }
+
+  if (item.kind === 'wa_window_closing') {
+    return (
+      <div className="relative group">
+        <button
+          type="button"
+          onClick={onClick}
+          className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-red-50 dark:hover:bg-red-400/10 transition-colors border-b border-fm-surface-container-high/60 last:border-b-0 bg-red-50/60 dark:bg-red-400/5 border-l-4 border-l-red-500"
+        >
+          <span className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-400/20 flex items-center justify-center flex-shrink-0">
+            <span className="material-symbols-outlined text-[18px] text-red-600 dark:text-red-400">timer</span>
+          </span>
+          <div className="flex-1 min-w-0 pr-5">
+            <div className="text-xs leading-tight">
+              <span className="font-bold text-red-700 dark:text-red-400 uppercase tracking-wide text-[10px]">
+                Quedan {item.wa_window_remaining ?? 'pocas horas'} para responder
+              </span>
+              <div className="font-semibold text-fm-on-surface mt-0.5 truncate">{item.wa_display}</div>
+              {item.wa_last_inbound_preview && (
+                <div className="text-fm-on-surface-variant text-[11px] mt-0.5 truncate italic">
+                  &ldquo;{item.wa_last_inbound_preview}&rdquo;
+                </div>
+              )}
+              <div className="text-fm-on-surface-variant/70 text-[10px] mt-0.5">
+                Sin contestar · después WhatsApp ya no permite responder
+              </div>
             </div>
           </div>
         </button>
