@@ -11,6 +11,7 @@ import {
   linkConversationToClient,
   unlinkConversationFromClient,
   setActiveBrandForConversation,
+  sendLeadFollowupTemplate,
 } from '@/app/actions/whatsapp'
 import type { WaConversation, WaMessage } from '@/types/db'
 
@@ -157,6 +158,15 @@ export function WaChat({ conversation, initialMessages, clients, linkedClient, l
       } else {
         setBody('')
       }
+    })
+  }
+
+  function handleReopen(topic: string) {
+    setError(null)
+    if (!topic.trim()) return
+    startTransition(async () => {
+      const res = await sendLeadFollowupTemplate(conversation.id, topic)
+      if (!res.ok) setError(res.error)
     })
   }
 
@@ -325,7 +335,11 @@ export function WaChat({ conversation, initialMessages, clients, linkedClient, l
       </div>
 
       <footer className="border-t border-fm-outline-variant/30 bg-fm-surface px-3 py-3">
-        <SessionWindowNotice session={session} />
+        <SessionWindowNotice
+          session={session}
+          onReopen={handleReopen}
+          reopening={pending}
+        />
         {error && <p className="text-xs text-red-600 mb-2">{error}</p>}
         <div className="flex items-end gap-2">
           <textarea aria-label="Escribe tu respuesta… (Enter para enviar, Shift+Enter salto de línea)"
@@ -402,9 +416,14 @@ function DateSeparator({ iso }: { iso: string }) {
  */
 function SessionWindowNotice({
   session,
+  onReopen,
+  reopening,
 }: {
   session: ReturnType<typeof getSessionWindow>
+  onReopen: (topic: string) => void
+  reopening: boolean
 }) {
+  const [topic, setTopic] = useState('')
   if (session.state === 'open') return null
 
   if (session.state === 'closing') {
@@ -434,9 +453,33 @@ function SessionWindowNotice({
       <p className="font-medium">No se puede enviar texto libre en esta conversación.</p>
       <p className="mt-0.5">
         {detalle} WhatsApp solo permite responder con texto libre dentro de las 24 h siguientes
-        al último mensaje del cliente; para reabrirla hace falta una plantilla aprobada, o que
-        el cliente vuelva a escribir.
+        al último mensaje del cliente.
       </p>
+      <div className="mt-2 pt-2 border-t border-red-200 dark:border-red-800/60">
+        <p className="font-medium mb-1">Reabrir con plantilla de seguimiento</p>
+        <p className="mb-1.5 text-red-700/80 dark:text-red-300/80">
+          Le llega un mensaje invitándolo a responder. Si contesta, la ventana se reabre y
+          puedes seguir escribiendo normal.
+        </p>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            maxLength={120}
+            placeholder="¿Sobre qué tema? Ej: grabación de podcast"
+            className="flex-1 px-2 py-1.5 text-xs rounded border border-red-300 dark:border-red-800 bg-white/70 dark:bg-transparent outline-none focus:border-red-500"
+          />
+          <button
+            type="button"
+            onClick={() => onReopen(topic)}
+            disabled={reopening || !topic.trim()}
+            className="px-3 py-1.5 text-xs rounded-md bg-red-600 text-white disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+          >
+            {reopening ? 'Enviando…' : 'Reabrir'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

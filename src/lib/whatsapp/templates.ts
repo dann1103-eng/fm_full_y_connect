@@ -56,6 +56,32 @@ export const WA_TEMPLATES = {
    *  - {{4}} fecha de vencimiento ya formateada
    *  - {{5}} enlace de pago n1co (regenerado antes de enviar)
    */
+  /**
+   * Seguimiento comercial a un LEAD cuya ventana de 24h ya cerró.
+   *
+   * Es la única vía legítima para retomar una conversación con un prospecto que
+   * escribió hace más de 24h: fuera de la ventana Meta rechaza el texto libre
+   * con 131047. Se dispara a mano desde el inbox (botón "Reabrir conversación"),
+   * nunca automáticamente — es una decisión comercial, no del sistema.
+   *
+   * Body aprobado en Meta:
+   *   "Hola {{1}} 👋 Damos seguimiento a tu consulta sobre {{2}}. Seguimos
+   *    disponibles para ayudarte: respóndenos por este medio y retomamos donde
+   *    lo dejamos.
+   *
+   *    Equipo de FM Communication Solutions."
+   *
+   * Variables:
+   *  - {{1}} nombre del contacto
+   *  - {{2}} tema de su consulta, en palabras del staff (ej. "grabación de podcast")
+   */
+  LEAD_FOLLOWUP: {
+    name: 'seguimiento_comercial',
+    language: 'es_MX',
+    category: 'UTILITY' as const,
+    paramKeys: ['contact_name', 'topic'] as const,
+  },
+
   INVOICE_DUE_SOON: {
     name: 'factura_por_vencer',
     language: 'es_MX',

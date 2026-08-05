@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createWaAdminClient as createAdminClient } from '@/lib/whatsapp/db'
 import { sendWhatsappText } from '@/lib/whatsapp/send'
+import { sendWhatsappTemplate } from '@/lib/whatsapp/templates'
 import { toE164 } from '@/lib/whatsapp/normalize'
 import type { WaBotTool, WaBotAudience } from '@/types/db'
 
@@ -149,6 +150,116 @@ export async function sendStaffReply(conversationId: string, body: string): Prom
       last_message_preview: text.slice(0, 140),
       unread_count: 0,
       // El staff respondió → handoff atendido.
+      needs_attention: false,
+      attention_reason: null,
+      attention_at: null,
+    })
+    .eq('id', conversationId)
+
+  revalidatePath(`/whatsapp/${conversationId}`)
+  revalidatePath('/whatsapp')
+  return { ok: true, messageId: insert.data.id }
+}
+
+// ────────────────────────────────────────────────────────────
+// Reabrir una conversación cuya ventana de 24h cerró (plantilla)
+// ────────────────────────────────────────────────────────────
+/**
+ * Envía la plantilla de seguimiento comercial para retomar una conversación
+ * fuera de la ventana de 24h (donde Meta rechaza el texto libre con 131047).
+ *
+ * Se dispara a mano desde el inbox: reabrir una conversación con un prospecto
+ * es una decisión comercial, no algo que deba pasar solo.
+ */
+export async function sendLeadFollowupTemplate(
+  conversationId: string,
+  topic: string,
+): Promise<Result<{ messageId: string }>> {
+  const guard = await requireAgencyUser()
+  if (!guard.ok) return guard
+
+  const tema = topic.trim()
+  if (!tema) return { ok: false, error: 'Escribe sobre qué tema das seguimiento.' }
+  if (tema.length > 120) return { ok: false, error: 'El tema es demasiado largo (máx 120 chars).' }
+
+  const admin = createAdminClient()
+  const conv = await admin
+    .from('wa_conversations')
+    .select('id,phone_e164,display_name,bot_paused')
+    .eq('id', conversationId)
+    .single()
+  if (conv.error || !conv.data) return { ok: false, error: 'Conversación no encontrada' }
+
+  // Nombre del contacto para {{1}}: el del lead si lo capturó el bot, si no el
+  // display_name de WhatsApp.
+  const { data: lead } = await admin
+    .from('wa_leads')
+    .select('contact_name')
+    .eq('conversation_id', conversationId)
+    .maybeSingle()
+  const contactName =
+    (lead as { contact_name?: string | null } | null)?.contact_name ||
+    (conv.data.display_name as string | null) ||
+    'buen día'
+
+  // Igual que sendStaffReply: si un humano retoma, el bot no habla encima.
+  if (!conv.data.bot_paused) {
+    await admin
+      .from('wa_conversations')
+      .update({ bot_paused: true, paused_by: guard.userId, paused_at: new Date().toISOString() })
+      .eq('id', conversationId)
+  }
+
+  const send = await sendWhatsappTemplate({
+    toE164: conv.data.phone_e164 as string,
+    templateKey: 'LEAD_FOLLOWUP',
+    params: { contact_name: contactName, topic: tema },
+  })
+
+  const now = new Date().toISOString()
+  const bodyLog = `[seguimiento comercial] ${contactName} — ${tema}`
+
+  if (!send.ok) {
+    await admin.from('wa_messages').insert({
+      conversation_id: conversationId,
+      direction: 'outbound',
+      msg_type: 'template',
+      body: bodyLog,
+      sent_by: 'staff',
+      staff_user_id: guard.userId,
+      wa_status: 'failed',
+      wa_error_json: send.raw,
+      created_at: now,
+    })
+    return { ok: false, error: `Meta API: ${send.errorText ?? 'falló el envío'}` }
+  }
+
+  const insert = await admin
+    .from('wa_messages')
+    .insert({
+      conversation_id: conversationId,
+      direction: 'outbound',
+      wamid: send.wamid,
+      msg_type: 'template',
+      body: bodyLog,
+      sent_by: 'staff',
+      staff_user_id: guard.userId,
+      wa_status: 'sent',
+      raw_json: send.raw,
+      created_at: now,
+    })
+    .select('id')
+    .single()
+  if (insert.error || !insert.data) {
+    return { ok: false, error: insert.error?.message ?? 'No se pudo registrar el mensaje' }
+  }
+
+  await admin
+    .from('wa_conversations')
+    .update({
+      last_message_at: now,
+      last_message_preview: '📨 Seguimiento comercial',
+      unread_count: 0,
       needs_attention: false,
       attention_reason: null,
       attention_at: null,
