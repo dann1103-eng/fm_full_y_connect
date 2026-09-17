@@ -1,9 +1,9 @@
-import type { BillingCycle, BillingPeriod, ContentMatrixItem, ContentType, MatrixObjective, MatrixStatus, Plan, Requirement, WeeklyDistribution } from '@/types/db'
+import type { BillingCycle, BillingPeriod, ContentMatrixItem, ContentType, MatrixObjective, MatrixStatus, MatrixTopic, Plan, Requirement, WeeklyDistribution } from '@/types/db'
 import { WEEKS_BASE, WEEKS_BIMONTHLY } from '@/types/db'
 import { dominantCycleMonth, computeTotals, weekIndexInCycle } from './requirement'
 import { firstCycleDates, nextCycleDates, currentCycleDates } from './cycles'
 import type { DateString } from './dates'
-import { addDaysString } from './dates'
+import { addDaysString, daysBetween } from './dates'
 import { formatDeadlineDate } from './deadline'
 import { effectiveLimits, applyContentLimitsWithOverride, limitsToRecord, TIPPABLE_CONTENT_TYPES, CONTENT_TYPES } from './plans'
 
@@ -248,4 +248,86 @@ export function proposeDeadline(input: ProposeDeadlineInput): DateString {
 
   const candidate = addDaysString(input.periodStart, (chosen - 1) * 7 + 2)
   return candidate > input.periodEnd ? input.periodEnd : candidate
+}
+
+// ── Estados y validaciones ──────────────────────────────────────────────────
+
+export function canTransition(from: MatrixStatus, to: MatrixStatus, ctx: { hasConvertedItems: boolean }): boolean {
+  if (from === to || from === 'closed') return false
+  if (to === 'closed') return true
+  if (from === 'draft' && to === 'approved') return true
+  if (from === 'approved' && to === 'draft') return !ctx.hasConvertedItems
+  return false
+}
+
+export type ApprovalProblemReason = 'sin_titulo' | 'fecha_fuera_de_periodo'
+export interface ApprovalProblem { itemId: string; reason: ApprovalProblemReason }
+export const APPROVAL_PROBLEM_LABELS: Record<ApprovalProblemReason, string> = {
+  sin_titulo: 'Sin título',
+  fecha_fuera_de_periodo: 'Fecha fuera del período',
+}
+
+export interface PeriodRange { periodStart: DateString; periodEnd: DateString }
+
+function inPeriod(d: DateString, p: PeriodRange): boolean {
+  return d >= p.periodStart && d <= p.periodEnd
+}
+
+export function validateForApproval(
+  items: Pick<ContentMatrixItem, 'id' | 'title' | 'deadline'>[],
+  period: PeriodRange,
+): { ok: boolean; empty: boolean; problems: ApprovalProblem[] } {
+  if (items.length === 0) return { ok: false, empty: true, problems: [] }
+  const problems: ApprovalProblem[] = []
+  for (const it of items) {
+    if (!it.title.trim()) problems.push({ itemId: it.id, reason: 'sin_titulo' })
+    else if (!inPeriod(it.deadline, period)) problems.push({ itemId: it.id, reason: 'fecha_fuera_de_periodo' })
+  }
+  return { ok: problems.length === 0, empty: false, problems }
+}
+
+export type ItemPatch = Partial<Pick<ContentMatrixItem,
+  'content_type' | 'title' | 'topic' | 'objective' | 'copy' | 'script' | 'visual_style' | 'hashtags' | 'cta' | 'deadline' | 'needs_production'>>
+
+export function validateItemPatch(
+  patch: ItemPatch,
+  ctx: PeriodRange & { topics: MatrixTopic[] },
+): { ok: true } | { ok: false; error: string } {
+  if (patch.content_type !== undefined && !MATRIX_CONTENT_TYPES.includes(patch.content_type)) {
+    return { ok: false, error: 'Ese tipo de contenido no se planifica en la matriz.' }
+  }
+  if (patch.deadline !== undefined && !inPeriod(patch.deadline, ctx)) {
+    return { ok: false, error: `La fecha debe estar entre ${formatDeadlineDate(ctx.periodStart)} y ${formatDeadlineDate(ctx.periodEnd)}.` }
+  }
+  if (patch.topic != null && !ctx.topics.some((t) => t.name === patch.topic)) {
+    return { ok: false, error: 'El tema no está en la lista de temas de la matriz.' }
+  }
+  if (patch.objective != null && !MATRIX_OBJECTIVES.includes(patch.objective)) {
+    return { ok: false, error: 'Objetivo inválido.' }
+  }
+  return { ok: true }
+}
+
+export function shiftDeadline(deadline: DateString, from: PeriodRange, to: PeriodRange): DateString {
+  const offset = Math.max(0, daysBetween(from.periodStart, deadline))
+  const candidate = addDaysString(to.periodStart, offset)
+  return candidate > to.periodEnd ? to.periodEnd : candidate
+}
+
+export const MAX_TOPICS = 20
+
+export function sanitizeTopics(raw: MatrixTopic[]): MatrixTopic[] {
+  const seen = new Set<string>()
+  const out: MatrixTopic[] = []
+  for (const t of raw) {
+    const name = (t.name ?? '').trim().slice(0, 60)
+    if (!name) continue
+    const key = name.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    const note = t.note?.trim()
+    out.push(note ? { name, note } : { name })
+    if (out.length >= MAX_TOPICS) break
+  }
+  return out
 }

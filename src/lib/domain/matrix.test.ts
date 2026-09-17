@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeTargetPeriods, matrixTitleFor, periodLabel, resolveMatrixLimits, computeMatrixUsage, usageTone, proposeDeadline, limitsForDistribution } from './matrix'
+import { computeTargetPeriods, matrixTitleFor, periodLabel, resolveMatrixLimits, computeMatrixUsage, usageTone, proposeDeadline, limitsForDistribution, canTransition, validateForApproval, validateItemPatch, shiftDeadline, sanitizeTopics } from './matrix'
 import type { MatrixLimits } from './matrix'
 import type { BillingCycle, Plan, Requirement } from '@/types/db'
 import { buildEffectiveDistribution } from './weekly-distribution'
@@ -209,5 +209,68 @@ describe('limitsForDistribution', () => {
     expect(r.estatico).toBe(10)
     expect(r.short).toBe(10)
     expect(r.historia).toBe(baseML.limits.historia)
+  })
+})
+
+describe('canTransition', () => {
+  const ctx = { hasConvertedItems: false }
+  it('draft → approved, approved → draft, cualquiera → closed', () => {
+    expect(canTransition('draft', 'approved', ctx)).toBe(true)
+    expect(canTransition('approved', 'draft', ctx)).toBe(true)
+    expect(canTransition('draft', 'closed', ctx)).toBe(true)
+    expect(canTransition('approved', 'closed', ctx)).toBe(true)
+  })
+  it('closed es terminal; approved → draft bloqueado con convertidas; mismo estado no', () => {
+    expect(canTransition('closed', 'draft', ctx)).toBe(false)
+    expect(canTransition('approved', 'draft', { hasConvertedItems: true })).toBe(false)
+    expect(canTransition('draft', 'draft', ctx)).toBe(false)
+  })
+})
+
+describe('validateForApproval', () => {
+  const period = { periodStart: '2026-10-15', periodEnd: '2026-11-14' }
+  it('vacía no aprueba', () => {
+    expect(validateForApproval([], period)).toEqual({ ok: false, empty: true, problems: [] })
+  })
+  it('detecta sin título y fecha fuera de período', () => {
+    const r = validateForApproval([
+      { id: 'a', title: '', deadline: '2026-10-20' },
+      { id: 'b', title: 'Ok', deadline: '2026-12-01' },
+      { id: 'c', title: 'Ok', deadline: '2026-10-21' },
+    ], period)
+    expect(r.ok).toBe(false)
+    expect(r.problems).toEqual([
+      { itemId: 'a', reason: 'sin_titulo' },
+      { itemId: 'b', reason: 'fecha_fuera_de_periodo' },
+    ])
+  })
+})
+
+describe('validateItemPatch', () => {
+  const ctx = { periodStart: '2026-10-15', periodEnd: '2026-11-14', topics: [{ name: 'Promo' }] }
+  it('acepta fecha dentro, tema existente, objetivo válido', () => {
+    expect(validateItemPatch({ deadline: '2026-10-15', topic: 'Promo', objective: 'venta' }, ctx)).toEqual({ ok: true })
+    expect(validateItemPatch({ topic: null, objective: null }, ctx)).toEqual({ ok: true })
+  })
+  it('rechaza fecha fuera, tema desconocido, objetivo inválido, tipo no planificable', () => {
+    expect(validateItemPatch({ deadline: '2026-11-15' }, ctx).ok).toBe(false)
+    expect(validateItemPatch({ topic: 'Otro' }, ctx).ok).toBe(false)
+    expect(validateItemPatch({ objective: 'x' as never }, ctx).ok).toBe(false)
+    expect(validateItemPatch({ content_type: 'produccion' }, ctx).ok).toBe(false)
+  })
+})
+
+describe('shiftDeadline', () => {
+  it('mantiene el offset y recorta al final', () => {
+    const from = { periodStart: '2026-10-15', periodEnd: '2026-11-14' }
+    expect(shiftDeadline('2026-10-20', from, { periodStart: '2026-11-15', periodEnd: '2026-12-14' })).toBe('2026-11-20')
+    expect(shiftDeadline('2026-11-10', from, { periodStart: '2026-12-01', periodEnd: '2026-12-14' })).toBe('2026-12-14')
+  })
+})
+
+describe('sanitizeTopics', () => {
+  it('recorta, deduplica sin distinguir mayúsculas y descarta vacíos', () => {
+    expect(sanitizeTopics([{ name: ' Promo ' }, { name: 'promo', note: 'x' }, { name: '' }, { name: 'Carta', note: ' n ' }]))
+      .toEqual([{ name: 'Promo' }, { name: 'Carta', note: 'n' }])
   })
 })
