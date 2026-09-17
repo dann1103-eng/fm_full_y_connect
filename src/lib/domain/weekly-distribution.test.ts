@@ -7,6 +7,7 @@ import {
   buildAccumulateOverride,
 } from './weekly-distribution'
 import type { ContentType, WeeklyDistribution } from '@/types/db'
+import { WEEKS_BIMONTHLY } from '@/types/db'
 
 const EMPTY_LIMITS: Record<ContentType, number> = {
   historia: 0, estatico: 0, video_corto: 0, reel: 0,
@@ -141,5 +142,36 @@ describe('buildAccumulateOverride', () => {
     expect(result.S2?.historia).toBe(4)
     expect(result.S3?.historia).toBe(2)
     expect(result.S4?.historia).toBe(2)
+  })
+})
+
+describe('parámetro weeks (soporte 8 semanas)', () => {
+  it('augmentDistribution con 8 semanas reparte ceil(limit/8) en S1..S8', () => {
+    const limits: Record<ContentType, number> = { ...EMPTY_LIMITS, estatico: 8, reel: 3 }
+    const result = augmentDistribution({}, ['estatico', 'reel'], limits, WEEKS_BIMONTHLY)
+    expect(Object.keys(result)).toEqual([...WEEKS_BIMONTHLY])
+    expect(result.S5).toEqual({ estatico: 1, reel: 1 })
+    expect(result.S8).toEqual({ estatico: 1, reel: 1 })
+  })
+
+  it('augmentDistribution sin weeks mantiene 4 semanas y ceil(limit/4)', () => {
+    const limits: Record<ContentType, number> = { ...EMPTY_LIMITS, estatico: 8 }
+    const result = augmentDistribution({}, ['estatico'], limits)
+    expect(Object.keys(result)).toEqual(['S1', 'S2', 'S3', 'S4'])
+    expect(result.S1).toEqual({ estatico: 2 })
+  })
+
+  it('applyOverride con 8 semanas conserva S5..S8 y aplica el override ahí', () => {
+    const base: WeeklyDistribution = { S1: { estatico: 1 }, S5: { estatico: 1 }, S8: { estatico: 1 } }
+    const result = applyOverride(base, { S8: { estatico: 3 } }, WEEKS_BIMONTHLY)
+    expect(result.S5).toEqual({ estatico: 1 })
+    expect(result.S8).toEqual({ estatico: 3 })
+  })
+
+  it('addRollover con 8 semanas reparte 5 → 1,1,1,1,1,0,0,0', () => {
+    const base: WeeklyDistribution = {}
+    const result = addRollover(base, { estatico: 5 }, WEEKS_BIMONTHLY)
+    expect([result.S1, result.S2, result.S3, result.S4, result.S5, result.S6, result.S7, result.S8]
+      .map((w) => w?.estatico ?? 0)).toEqual([1, 1, 1, 1, 1, 0, 0, 0])
   })
 })
