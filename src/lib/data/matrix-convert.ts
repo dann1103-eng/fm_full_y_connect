@@ -23,11 +23,11 @@ export type ConvertOutcome =
 
 /**
  * Lo ya leído en esta corrida, para no repetir viajes a la base pieza por pieza: el ciclo vigente
- * por cliente (`null` = ese cliente no tiene ciclo vigente, también se cachea) y los requerimientos
- * aprobados por `billing_cycle_id`. Un lote de 80 piezas suele ser de un puñado de clientes.
+ * por cliente y los requerimientos aprobados por `billing_cycle_id`. Un lote de 80 piezas suele
+ * ser de un puñado de clientes. Un cliente sin ciclo vigente NO se cachea (ver abajo).
  */
 export interface CycleRequirementsCache {
-  cycles: Map<string, BillingCycle | null>
+  cycles: Map<string, BillingCycle>
   requirements: Map<string, Requirement[]>
 }
 
@@ -64,18 +64,19 @@ export async function convertMatrixItem(
   if (matrix.status !== 'approved') return { kind: 'skipped', reason: REASON_NOT_APPROVED }
 
   // 2. Ciclo vigente del cliente (decisión de diseño: SIEMPRE el vigente, no el del período)
-  let cycle: BillingCycle | null
   const cachedCycles = opts.cache?.cycles
-  if (cachedCycles?.has(matrix.client_id)) {
-    cycle = cachedCycles.get(matrix.client_id) ?? null
-  } else {
+  let cycle = cachedCycles?.get(matrix.client_id) ?? null
+  if (!cycle) {
     const { data: cycles, error: cycleErr } = await db
       .from('billing_cycles').select('*')
       .eq('client_id', matrix.client_id).eq('status', 'current')
       .order('created_at', { ascending: false }).limit(1)
     if (cycleErr) return { kind: 'skipped', reason: cycleErr.message }
     cycle = (cycles?.[0] as BillingCycle | undefined) ?? null
-    cachedCycles?.set(matrix.client_id, cycle)
+    // Solo se cachea un ciclo real: si una renovación crea el ciclo a mitad de corrida, cachear el
+    // `null` dejaría bloqueadas "sin ciclo vigente" todas las piezas restantes del cliente. Volver
+    // a consultar por un cliente sin ciclo es barato.
+    if (cycle) cachedCycles?.set(matrix.client_id, cycle)
   }
   if (!cycle) return await markBlocked(db, itemId, NO_CYCLE)
 
@@ -143,8 +144,11 @@ export async function convertMatrixItem(
   if (updErr || !updated || updated.length === 0) {
     const rolledBack = await rollbackRequirement(req as Requirement, cycle.id, opts.cache)
     // Si el rollback no pudo borrar, quedó un requerimiento vivo sin pieza: se distingue en el
-    // resumen de la corrida para que alguien lo revise a mano.
-    if (!rolledBack) return { kind: 'skipped', reason: ORPHAN_REQUIREMENT }
+    // resumen de la corrida para que alguien lo revise a mano, conservando la causa original.
+    if (!rolledBack) {
+      console.error('[matrix-convert] requerimiento huérfano', req.id, 'pieza', itemId, updErr?.message ?? REASON_BUSY)
+      return { kind: 'skipped', reason: `${ORPHAN_REQUIREMENT} ${updErr?.message ?? REASON_BUSY}` }
+    }
     return { kind: 'skipped', reason: updErr?.message ?? REASON_BUSY }
   }
 

@@ -105,7 +105,9 @@ export async function POST(request: Request) {
     ok: true, today: t, scanned: rows.length, selected: selected.length,
     converted, blocked, skipped,
     stopped_early: stoppedEarly, remaining,
-    truncated: details.length < selected.length,
+    // Solo `truncated` si se dejaron fuera detalles de piezas ya procesadas; lo que no llegó a
+    // procesarse lo cuentan `stopped_early`/`remaining`.
+    truncated: details.length < processed,
     details,
   })
 }
