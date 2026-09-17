@@ -409,9 +409,10 @@ export async function setMatrixStatus(
 
 /**
  * Borra (service role) el requerimiento de matriz de una matriz ya eliminada, solo si no tiene nada
- * con significado: debe seguir siendo matriz_contenido, en fase `pendiente`, sin pago con crédito, en un
- * ciclo `current` (el de un ciclo ya archivado o pendiente de renovación es historia de facturación y se
- * conserva) y sin filas en time_entries, requirement_messages, review_assets, requirement_cambio_logs ni ai_jobs.
+ * con significado: debe seguir siendo matriz_contenido, no anulado (un anulado es rastro de auditoría), en
+ * fase `pendiente`, sin pago con crédito, en un ciclo `current` (el de un ciclo ya archivado o pendiente de
+ * renovación es historia de facturación y se conserva) y sin filas en time_entries, requirement_messages,
+ * review_assets, requirement_cambio_logs ni ai_jobs.
  * Todas esas tablas referencian `requirements` con ON DELETE CASCADE, así que borrarlo con datos los
  * perdería en silencio. (requirement_mentions y review_comment_mentions también tienen FK propia, pero
  * no existen sin un mensaje o un asset de revisión.) Nunca lanza ni falla la acción: ante cualquier duda
@@ -421,7 +422,7 @@ async function discardMatrixRequirementIfUnused(reqId: string): Promise<void> {
   try {
     const admin = createAdminClient()
     const [req, timeEntries, messages, reviewAssets, cambioLogs, aiJobs] = await Promise.all([
-      admin.from('requirements').select('id, content_type, phase, paid_from_credit_id, billing_cycle_id').eq('id', reqId).maybeSingle(),
+      admin.from('requirements').select('id, content_type, voided, phase, paid_from_credit_id, billing_cycle_id').eq('id', reqId).maybeSingle(),
       admin.from('time_entries').select('id', { count: 'exact', head: true }).eq('requirement_id', reqId),
       admin.from('requirement_messages').select('id', { count: 'exact', head: true }).eq('requirement_id', reqId),
       admin.from('review_assets').select('id', { count: 'exact', head: true }).eq('requirement_id', reqId),
@@ -436,6 +437,7 @@ async function discardMatrixRequirementIfUnused(reqId: string): Promise<void> {
     }
     const r = req.data
     if (!r || r.content_type !== 'matriz_contenido') return
+    if (r.voided) return // anulado: se conserva como rastro de auditoría
     if (r.phase !== 'pendiente' || r.paid_from_credit_id != null) return
     if (checks.some((c) => (c.count ?? 0) > 0)) return
 

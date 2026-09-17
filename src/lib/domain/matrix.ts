@@ -135,11 +135,13 @@ export interface MatrixLimits {
   limits: Record<ContentType, number>
   cycleTotals: Record<ContentType, number>
   /**
-   * Créditos que amplían el cupo. Con ciclo: los que quedan (`qty_remaining`) MÁS los que ya consumieron
-   * requerimientos del ciclo que cuentan en `cycleTotals` — si no, esa pieza contaría como usada sin que su
-   * crédito cuente como cupo. Sin ciclo: solo los que quedan.
+   * Créditos EFECTIVOS para el cálculo (tono, "fuera de plan", tipos activos). Con ciclo: los que quedan
+   * (`qty_remaining`) MÁS los que ya consumieron requerimientos del ciclo que cuentan en `cycleTotals` — si
+   * no, esa pieza contaría como usada sin que su crédito cuente como cupo. Sin ciclo: solo los que quedan.
    */
   credits: Partial<Record<ContentType, number>>
+  /** Créditos aún disponibles (`input.credits` tal cual): lo que se MUESTRA en los chips, nunca para el cálculo. */
+  remainingCredits: Partial<Record<ContentType, number>>
   unifiedPool: number | null
   estimated: boolean
 }
@@ -177,6 +179,7 @@ export function resolveMatrixLimits(input: MatrixLimitsInput): MatrixLimits {
       limits,
       cycleTotals: computeTotals(input.cycleRequirements),
       credits: creditsIncludingConsumed(input.credits, input.cycleRequirements),
+      remainingCredits: input.credits,
       unifiedPool: input.cycle.limits_snapshot_json.unified_content_limit ?? null,
       estimated: false,
     }
@@ -185,6 +188,7 @@ export function resolveMatrixLimits(input: MatrixLimitsInput): MatrixLimits {
     limits: limitsToRecord(input.plan.limits_json),
     cycleTotals: { ...ZERO_TOTALS },
     credits: input.credits,
+    remainingCredits: input.credits,
     unifiedPool: input.plan.unified_content_limit ?? null,
     estimated: true,
   }
@@ -196,13 +200,25 @@ export interface MatrixUsageByType {
   planned: number
   used: number
   limit: number
+  /** Créditos efectivos (restantes + consumidos en el ciclo): para tono y "fuera de plan". */
   credits: number
+  /** Créditos aún disponibles: lo que muestra el chip ("+N créd."). */
+  availableCredits: number
   over: number
+}
+
+export interface MatrixUsagePool {
+  used: number
+  limit: number
+  /** Efectivos (cálculo). */
+  credits: number
+  /** Disponibles (chip). */
+  availableCredits: number
 }
 
 export interface MatrixUsage {
   byType: Record<ContentType, MatrixUsageByType>
-  pool: { used: number; limit: number; credits: number } | null
+  pool: MatrixUsagePool | null
   /** Ids de piezas que exceden el cupo (array, no Set: cruza la frontera server → client). */
   overPlanItemIds: string[]
   /** Tipos que muestran chip y alimentan el selector "Agregar pieza". */
@@ -244,14 +260,19 @@ export function computeMatrixUsage(items: UsageItem[], ml: MatrixLimits): Matrix
     const limit = ml.limits[t] ?? 0
     const credits = ml.credits[t] ?? 0
     const used = (ml.cycleTotals[t] ?? 0) + planned[t]
-    byType[t] = { planned: planned[t], used, limit, credits, over: Math.max(0, used - limit - credits) }
+    byType[t] = {
+      planned: planned[t], used, limit, credits,
+      availableCredits: ml.remainingCredits[t] ?? 0,
+      over: Math.max(0, used - limit - credits),
+    }
   }
 
-  const pool = ml.unifiedPool != null
+  const pool: MatrixUsagePool | null = ml.unifiedPool != null
     ? {
         used: TIPPABLE_CONTENT_TYPES.reduce((s, t) => s + byType[t].used, 0),
         limit: ml.unifiedPool,
         credits: TIPPABLE_CONTENT_TYPES.reduce((s, t) => s + (ml.credits[t] ?? 0), 0),
+        availableCredits: TIPPABLE_CONTENT_TYPES.reduce((s, t) => s + (ml.remainingCredits[t] ?? 0), 0),
       }
     : null
 

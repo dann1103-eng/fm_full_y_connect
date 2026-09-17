@@ -508,8 +508,11 @@ verificadas contra el código. Donde chocan, manda esta sección.
   `consumeContentCreditForRequirement`), solo si ese tipo sigue contando en su consumo. Sin esto, la
   pieza pagada con crédito contaba como usada y su crédito desaparecía del cupo, marcando "fuera de
   plan" de más; también corrige el pool unificado. Sin ciclo, los créditos no cambian.
+  `MatrixLimits.remainingCredits` conserva los créditos aún disponibles, y `computeMatrixUsage` expone por
+  tipo y en el pool `credits` (efectivos: tono, "fuera de plan", tipos activos) y `availableCredits`
+  (disponibles). El chip muestra "+N créd." con los **disponibles**.
 - `MatrixUsage.overPlanItemIds` es `string[]` (no `Set`: cruza la frontera server → client);
-  `MatrixUsage.pool` incluye `credits` y `activeTypes` vive en `MatrixUsage`.
+  `MatrixUsage.pool` incluye `credits` y `availableCredits`, y `activeTypes` vive en `MatrixUsage`.
 - Orden canónico `compareMatrixItems`: `deadline` → `created_at` (numérico) → `id`, igual en servidor y cliente.
 - `proposeDeadline` acepta `today` (no propone semanas ya cerradas ni fechas pasadas) y `sharedTypes`
   (los tippables bajo pool comparten el conteo semanal).
@@ -524,8 +527,8 @@ verificadas contra el código. Donde chocan, manda esta sección.
   `inactive_payment`/`inactive_manual` no (la tabla de casos borde permitía crear y avisar). Se filtra
   en la UI y se revalida en `createMatrix`/`duplicateMatrix`.
 - `deleteMatrix` borra **primero** la matriz en borrador (condicional a `status = 'draft'`; las piezas
-  caen por cascade) y después intenta limpiar el requerimiento vinculado. Lo conserva si tiene
-  cualquier fila dependiente (`time_entries`, `requirement_messages`, `review_assets`,
+  caen por cascade) y después intenta limpiar el requerimiento vinculado. Lo conserva si está anulado
+  (rastro de auditoría), si tiene cualquier fila dependiente (`time_entries`, `requirement_messages`, `review_assets`,
   `requirement_cambio_logs`, `ai_jobs`), dejó la fase `pendiente`, se pagó con crédito, ya no es
   `matriz_contenido` o su ciclo no es `current`.
 - El requerimiento de matriz se inserta con `requested_via = 'staff'`. El vínculo es a prueba de

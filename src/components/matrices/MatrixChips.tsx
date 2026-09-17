@@ -19,8 +19,9 @@ interface Props {
   disabled?: boolean
 }
 
-function Chip({ tone, icon, label, used, limit, credits, onClick, disabled }: {
-  tone: UsageTone; icon: string; label: string; used: number; limit: number; credits: number
+/** `availableCredits`: créditos aún disponibles (se muestran). El tono ya viene calculado con los efectivos. */
+function Chip({ tone, icon, label, used, limit, availableCredits, onClick, disabled }: {
+  tone: UsageTone; icon: string; label: string; used: number; limit: number; availableCredits: number
   onClick?: () => void; disabled?: boolean
 }) {
   const content = (
@@ -28,7 +29,7 @@ function Chip({ tone, icon, label, used, limit, credits, onClick, disabled }: {
       <span className="material-symbols-outlined text-[16px]" aria-hidden="true">{icon}</span>
       <span>{label}</span>
       <span className="tabular-nums font-bold">{used} / {limit}</span>
-      {credits > 0 && <span className="text-[10px] opacity-70">+{credits} créd.</span>}
+      {availableCredits > 0 && <span className="text-[10px] opacity-70">+{availableCredits} créd.</span>}
       {onClick && <span className="material-symbols-outlined text-[14px] opacity-60" aria-hidden="true">add</span>}
     </>
   )
@@ -50,13 +51,13 @@ export function MatrixChips({ usage, estimated, onAdd, disabled }: Props) {
       <div className="flex flex-wrap gap-2">
         {usage.pool && (
           <Chip tone={usageTone(usage.pool.used, usage.pool.limit, usage.pool.credits)} icon="stacks" label="Contenidos"
-            used={usage.pool.used} limit={usage.pool.limit} credits={usage.pool.credits} />
+            used={usage.pool.used} limit={usage.pool.limit} availableCredits={usage.pool.availableCredits} />
         )}
         {singles.map((t) => {
           const u = usage.byType[t]
           return (
             <Chip key={t} tone={usageTone(u.used, u.limit, u.credits)} icon={CONTENT_ICONS[t]} label={CONTENT_TYPE_LABELS[t]}
-              used={u.used} limit={u.limit} credits={u.credits}
+              used={u.used} limit={u.limit} availableCredits={u.availableCredits}
               onClick={onAdd ? () => onAdd(t) : undefined} disabled={disabled} />
           )
         })}

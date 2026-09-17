@@ -112,11 +112,14 @@ describe('resolveMatrixLimits', () => {
     const r = resolveMatrixLimits({ cycle, plan, cycleRequirements, credits })
     expect(r.cycleTotals.reel).toBe(5)
     expect(r.credits.reel).toBe(2)
+    expect(r.remainingCredits).toEqual({ reel: 1 }) // lo que se muestra: créditos aún disponibles
     expect(credits).toEqual({ reel: 1 }) // no muta la entrada
 
     const u = computeMatrixUsage([{ id: 'x', content_type: 'reel', deadline: '2026-10-20', created_at: '2026-09-01T00:00:00Z', status: 'planned' }], r)
     expect(u.overPlanItemIds).toEqual([])
-    expect(u.byType.reel).toMatchObject({ used: 6, limit: 4, credits: 2, over: 0 })
+    // Cálculo con créditos efectivos (2); el chip muestra los disponibles (1).
+    expect(u.byType.reel).toMatchObject({ used: 6, limit: 4, credits: 2, availableCredits: 1, over: 0 })
+    expect(usageTone(u.byType.reel.used, u.byType.reel.limit, u.byType.reel.credits)).toBe('neutral')
   })
 
   it('créditos consumidos: un requerimiento anulado o arrastrado no los devuelve', () => {
@@ -150,14 +153,17 @@ describe('resolveMatrixLimits', () => {
       cycle, plan, credits: {},
       cycleRequirements: [req('estatico'), req('reel'), req('short', { paid_from_credit_id: 'c1' })],
     })
+    expect(r.remainingCredits).toEqual({})
     const u = computeMatrixUsage([], r)
-    expect(u.pool).toEqual({ used: 3, limit: 2, credits: 1 })
+    expect(u.pool).toEqual({ used: 3, limit: 2, credits: 1, availableCredits: 0 })
+    expect(u.byType.short).toMatchObject({ credits: 1, availableCredits: 0 })
   })
 
   it('sin ciclo: los créditos no cambian', () => {
     const credits = { reel: 1 }
     const r = resolveMatrixLimits({ cycle: null, plan, cycleRequirements: [req('reel', { paid_from_credit_id: 'c1' })], credits })
     expect(r.credits).toEqual({ reel: 1 })
+    expect(r.remainingCredits).toEqual({ reel: 1 })
   })
 })
 
@@ -168,7 +174,7 @@ function item(id: string, content_type: UItem['content_type'], deadline: string,
 const baseML: MatrixLimits = {
   limits: { historia: 2, estatico: 2, video_corto: 1, reel: 0, short: 0, produccion: 0, reunion: 0, matriz_contenido: 1 },
   cycleTotals: { historia: 0, estatico: 1, video_corto: 0, reel: 0, short: 0, produccion: 0, reunion: 0, matriz_contenido: 0 },
-  credits: {}, unifiedPool: null, estimated: false,
+  credits: {}, remainingCredits: {}, unifiedPool: null, estimated: false,
 }
 
 describe('computeMatrixUsage', () => {
@@ -201,7 +207,7 @@ describe('computeMatrixUsage', () => {
     }
     const items = [item('1', 'estatico', '2026-10-17'), item('2', 'reel', '2026-10-18'), item('3', 'short', '2026-10-19'), item('4', 'historia', '2026-10-20')]
     const u = computeMatrixUsage(items, ml)
-    expect(u.pool).toEqual({ used: 3, limit: 2, credits: 0 })
+    expect(u.pool).toEqual({ used: 3, limit: 2, credits: 0, availableCredits: 0 })
     expect(u.overPlanItemIds).toEqual(['3', '4'])
     expect(u.activeTypes).toEqual(['historia', 'estatico', 'video_corto', 'reel', 'short'])
   })
