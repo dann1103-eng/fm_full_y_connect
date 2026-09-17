@@ -361,18 +361,20 @@ export function computeMatrixUsage(
   convertedInCycleIds?: readonly string[],
 ): MatrixUsage {
   const inCycle = new Set(convertedInCycleIds ?? [])
-  const counts = (it: UsageItem) => it.status !== 'converted' || !inCycle.has(it.id)
-  // ...usar `counts(it)` donde antes iba `it.status !== 'converted'`, tanto en `planned`
+  // Sin el parámetro, toda `converted` se asume dentro del ciclo (comportamiento del bloque 1).
+  // Con él, la que NO está en la lista se sigue contando como planificada: se convirtió a otro
+  // ciclo y si no, desaparecería de los chips por los dos lados.
+  const counts = (it: UsageItem) =>
+    it.status !== 'converted' ? true : (convertedInCycleIds !== undefined && !inCycle.has(it.id))
+  // Usar `counts(it)` donde antes iba `it.status !== 'converted'`: tanto al sumar `planned`
   // como en el recorrido ordenado que marca `overPlanItemIds`.
 ```
 
-**Ojo:** sin el parámetro, `inCycle` es vacío y `counts` daría `true` para las convertidas, cambiando el comportamiento actual. Para preservarlo, la regla exacta es:
-`const counts = (it) => it.status !== 'converted' ? true : (convertedInCycleIds === undefined ? false : !inCycle.has(it.id))`.
-La prueba "sin el parámetro se comporta como antes" cubre justo esto.
+- [ ] **Step 4: Arreglar los llamadores y las pruebas existentes**
 
-- [ ] **Step 4: Arreglar los llamadores**
-
-`validateForApproval` se llama en `src/app/actions/matrices.ts` (`setMatrixStatus`) y en `src/components/matrices/MatrixEditor.tsx`. Ampliar el `select` de `setMatrixStatus` a `id, title, deadline, status, assigned_to, estimated_time_minutes`. En el editor, los items ya son filas completas.
+1. `setMatrixStatus` (`src/app/actions/matrices.ts`): ampliar el `select` a `id, title, deadline, status, assigned_to, estimated_time_minutes`.
+2. `MatrixEditor.tsx`: ya pasa filas completas, no cambia.
+3. **Pruebas existentes de `validateForApproval`** (`src/lib/domain/matrix.test.ts`, bloque `describe('validateForApproval', …)`): hoy pasan literales `{ id, title, deadline }`. Con la firma nueva **no compilan** (`tsconfig` incluye los tests) y además cambiarían de resultado (una pieza sin `assigned_to` pasaría a reportar `sin_responsable`). Actualizar cada literal añadiendo `status: 'planned'`, `assigned_to: ['u1']` y `estimated_time_minutes: 60`, salvo donde la prueba quiera comprobar justo lo contrario. El resultado esperado de esas pruebas **no** debe cambiar.
 
 - [ ] **Step 5: Correr todo el dominio**
 
@@ -692,7 +694,8 @@ export async function convertItemNow(itemId: string): Promise<ActionResult<{ out
 
   const { data: it } = await ctx.supabase.from('content_matrix_items')
     .select('matrix_id, matrix:content_matrices!inner(client_id)').eq('id', itemId).maybeSingle()
-  const row = it as { matrix_id: string; matrix?: { client_id?: string } } | null
+  // `as unknown as` como el resto del repo para embeds (el cliente tipado no los infiere).
+  const row = it as unknown as { matrix_id: string; matrix?: { client_id?: string } } | null
   if (row?.matrix?.client_id) revalidateMatrix(row.matrix.client_id, row.matrix_id)
   return { ok: true, outcome }
 }
@@ -732,6 +735,10 @@ export async function replanItem(itemId: string): Promise<ActionResult<{ item: C
 ```
 
 Importar `convertMatrixItem` y el tipo `ConvertOutcome` desde `@/lib/data/matrix-convert`.
+
+**Decisión explícita:** `replanItem` **sí** funciona en una matriz cerrada (a diferencia de
+`updateItem`). El caso real es "anulé el requerimiento y quiero dejar la pieza como planificada";
+el barrido ignora las matrices cerradas, así que no se reconvierte sola.
 
 - [ ] **Step 2: `updateItem` — textos sí, los cuatro campos congelados no**
 
@@ -809,6 +816,8 @@ En `MatrixEditorData`:
 ```ts
   /** Piezas `converted` cuyo requerimiento está en el ciclo leído (array: cruza server → client). */
   convertedInCycleIds: string[]
+  /** Piezas convertidas cuyo requerimiento fue anulado o borrado. */
+  linkedVoidedItemIds: string[]
   assignableUsers: Array<{ id: string; full_name: string; default_assignee: boolean }>
 ```
 
@@ -822,6 +831,34 @@ En `loadMatrixEditorData`, tras calcular `items` y `cycleRequirements`:
     .filter((i) => i.status === 'converted' && i.requirement_id && countedIds.has(i.requirement_id))
     .map((i) => i.id)
   const usage = computeMatrixUsage(items, limits, convertedInCycleIds)
+```
+
+Y `linkedVoidedItemIds` (piezas convertidas cuyo requerimiento fue anulado o ya no existe), con una
+query **por ids, sin filtrar por ciclo ni por `approval_status`**: una pieza convertida al ciclo
+anterior —el caso que el propio diseño contempla— no aparece en `cycleRequirements`, y filtrando por
+ahí se marcaría como anulada sin serlo.
+
+```ts
+  const convertedReqIds = items
+    .filter((i) => i.status === 'converted' && i.requirement_id)
+    .map((i) => i.requirement_id as string)
+  let linkedVoidedItemIds: string[] = []
+  if (convertedReqIds.length > 0) {
+    const { data: reqRows, error: reqErr } = await db.from('requirements').select('id, voided').in('id', convertedReqIds)
+    if (reqErr) fail(L, reqErr)
+    const alive = new Map((reqRows ?? []).map((r) => [r.id as string, r.voided as boolean]))
+    linkedVoidedItemIds = items
+      .filter((i) => i.status === 'converted' && i.requirement_id && (alive.get(i.requirement_id) ?? true))
+      .map((i) => i.id)   // `?? true`: si el requerimiento ya no existe, cuenta como anulado
+  }
+```
+
+Ambos campos van en `MatrixEditorData`:
+
+```ts
+  convertedInCycleIds: string[]
+  /** Piezas convertidas cuyo requerimiento fue anulado o borrado: el editor ofrece replanificar. */
+  linkedVoidedItemIds: string[]
 ```
 
 Y una query más en el `Promise.all` inicial:
@@ -896,6 +933,9 @@ Leer el archivo completo antes de tocarlo. Cambios:
 )}
 ```
 
+Colocar este bloque **después** del párrafo `id="matrix-item-deadline-hint"` (tiene `-mt-2` y se
+apoya en el grid anterior; meter campos en medio lo descuadra).
+
 `estHours`/`estMins` son estado local inicializado desde `item.estimated_time_minutes` (el cuerpo ya se monta con `key={item.id}`, así que no hace falta efecto de sincronización). `commitEstimate` calcula `h*60+m` y llama `onPatch({ estimated_time_minutes: total > 0 ? total : null })` solo si cambió.
 
 4. `MatrixEditor` pasa `assignableUsers={data.assignableUsers}` y ajusta `readOnly` como en el punto 2.
@@ -935,13 +975,14 @@ Por fila (escritorio y tarjeta móvil):
 
 - [ ] **Step 2: Cabecera**
 
-En `MatrixHeader`: campo numérico "Anticipación (días)" con `min=0 max=30`, que guarda en `onBlur` vía `onLeadDays(n)` (nuevo prop) → `updateMatrix({ lead_days })`; deshabilitado si la matriz está cerrada. Al lado, contadores derivados de `items`: "N por convertir · N bloqueadas" (planificadas y bloqueadas).
+En `MatrixHeader`: campo numérico "Anticipación (días)" con `min=0 max=30`, que guarda en `onBlur` vía `onLeadDays(n)` (nuevo prop) → `updateMatrix({ lead_days })`; deshabilitado si la matriz está cerrada. Al lado, contadores "N por convertir · N bloqueadas". `MatrixHeader` **no recibe `items` hoy**: pasarle los dos contadores ya calculados desde `MatrixEditor` (props `plannedCount` y `blockedCount`) en lugar de la lista completa.
 
 - [ ] **Step 3: Cableado en `MatrixEditor`**
 
 - `onConvertNow`: llama `convertItemNow`, y según `outcome.kind` actualiza el item en el estado (recargando la pieza con `updateItem`-style no aplica: la acción no devuelve la fila, así que lo más simple es `router.refresh()` **solo aquí**, que es una acción estructural, o volver a pedir la fila). Elegir una y comentar por qué.
 - `onReplan`: llama `replanItem` y aplica `r.item`.
-- `linkedVoidedItemIds`: nuevo campo del loader (Task 7 lo dejó fuera) — añadirlo ahí: piezas `converted` cuyo `requirement_id` está en los requerimientos del ciclo **con `voided = true`**, más las que apuntan a un requerimiento inexistente. Si eso obliga a una query extra, hacerla en el loader y documentarlo.
+- `linkedVoidedItemIds`: ya viene del loader (Task 7). El editor lo mantiene en estado y lo quita de la lista cuando `replanItem` devuelve la pieza replanificada.
+- **`computeMatrixUsage` en el cliente**: `MatrixEditor` recalcula el uso con `useMemo(() => computeMatrixUsage(items, data.limits), [items, data.limits])`. Hay que pasarle también `data.convertedInCycleIds` y añadirlo a las dependencias; si no, el chip del servidor y el del cliente divergen en cuanto se edita algo.
 
 - [ ] **Step 4: Verificar**
 
@@ -953,6 +994,57 @@ Expected: sin errores.
 ```bash
 git add src/components/matrices src/lib/data/matrices.ts src/lib/domain/matrix.ts
 git commit -m "feat(matrices): estado de conversion en la tabla y anticipacion en la cabecera" -m "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+```
+
+---
+
+### Task 9B: Avance de conversión en la lista `/matrices`
+
+**Files:**
+- Modify: `src/lib/data/matrices.ts` (`loadMatricesList`)
+- Modify: `src/components/matrices/MatricesTable.tsx`
+
+- [ ] **Step 1: Desglose por estado en el loader**
+
+`loadMatricesList` hoy devuelve `item_count` y `capacity` por matriz. Añadir a `MatrixListRow`
+`converted_count: number` y `blocked_count: number`. El embed actual cuenta filas
+(`items:content_matrix_items(count)`); para contar por estado, la forma simple y con precedente es
+leer los estados de las piezas de las matrices listadas en una sola query y agregar en JS:
+
+```ts
+  const ids = rows.map((r) => r.id)
+  const byMatrix = new Map<string, { converted: number; blocked: number }>()
+  if (ids.length > 0) {
+    const { data: statuses, error } = await db.from('content_matrix_items')
+      .select('matrix_id, status').in('matrix_id', ids)
+    if (error) fail(L, error)
+    for (const s of (statuses ?? []) as Array<{ matrix_id: string; status: MatrixItemStatus }>) {
+      const acc = byMatrix.get(s.matrix_id) ?? { converted: 0, blocked: 0 }
+      if (s.status === 'converted') acc.converted++
+      else if (s.status === 'blocked') acc.blocked++
+      byMatrix.set(s.matrix_id, acc)
+    }
+  }
+```
+
+(Con el tope de 1000 matrices de la lista y ~15 piezas por matriz, es una query acotada.)
+
+- [ ] **Step 2: Columna y distintivo**
+
+En `MatricesTable`, columna "Convertidas" con `converted_count / item_count` y, si
+`blocked_count > 0`, un distintivo rojo "N bloqueada(s)" junto al estado. Mantener el resto de la
+tabla como está.
+
+- [ ] **Step 3: Verificar**
+
+Run: `npx tsc --noEmit -p tsconfig.json`, `npx eslint src/lib/data/matrices.ts src/components/matrices` y `npm run build`
+Expected: sin errores.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add src/lib/data/matrices.ts src/components/matrices/MatricesTable.tsx
+git commit -m "feat(matrices): avance de conversion en la lista de matrices" -m "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -1001,6 +1093,7 @@ git commit -m "feat(matrices): brief de la matriz en la ficha del requerimiento"
 - Modify: `src/app/api/notifications/route.ts`
 - Modify: `src/types/db.ts`
 - Modify: `src/components/layout/NotificationsDropdown.tsx`
+- Modify: `src/hooks/useNotifications.ts` (o donde viva `unreadCount`; localizarlo con grep)
 
 - [ ] **Step 1: Tipos**
 
@@ -1021,9 +1114,11 @@ const { data: blockedItems } = await supabase
 
 Agrupar por `matrix_id` y emitir un item por matriz con `read: false`, `created_at` = el `updated_at` más reciente del grupo, e `id: \`matrix-blocked-${matrixId}\``.
 
-- [ ] **Step 3: Render**
+- [ ] **Step 3: Render y contador**
 
-En `NotificationsDropdown`, añadir el caso `matrix_blocked`: icono `grid_view`, texto "N pieza(s) bloqueada(s) · {cliente}" con el título de la matriz debajo, y clic → `/matrices/{matrix_id}`. Seguir el patrón exacto de `cambio_pending`. Verificar si `useNotifications.ts` necesita conocer el kind para el conteo.
+1. En `NotificationsDropdown`, añadir el caso `matrix_blocked`: icono `grid_view`, texto "N pieza(s) bloqueada(s) · {cliente}" con el título de la matriz debajo, y clic → `/matrices/{matrix_id}`. Seguir el patrón exacto de `cambio_pending`.
+2. En `useNotifications.ts`, `unreadCount` suma por `kind` con ramas explícitas: **añadir la rama `matrix_blocked`** (cuenta 1 por item, como `cambio_pending`). Sin eso el aviso sale en la lista pero no suma en la campana.
+3. En `route.ts`, acordarse de **añadir `matrixBlockedItems` al array final de merge** (junto a `overdueItems`, `cambioPendingItems`, etc.).
 
 - [ ] **Step 4: Verificar**
 
