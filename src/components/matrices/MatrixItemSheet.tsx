@@ -27,7 +27,10 @@ interface Props {
   onPatch: (patch: ItemPatch) => void
 }
 
-const inputCls = 'w-full rounded-xl border border-fm-surface-container-high bg-fm-background px-3 py-2 text-sm text-fm-on-surface disabled:opacity-60'
+const inputBase = 'w-full rounded-xl border bg-fm-background px-3 py-2 text-sm text-fm-on-surface disabled:opacity-60'
+// Un solo color de borde por clase (sin depender del orden de la hoja de estilos para que gane el de error).
+const inputCls = `${inputBase} border-fm-surface-container-high`
+const inputErrorCls = `${inputBase} border-fm-error/60`
 const labelCls = 'block text-[11px] uppercase tracking-wider text-fm-on-surface-variant mb-1'
 
 /**
@@ -97,18 +100,24 @@ function ItemSheet({ item, topics, period, readOnly, error, failedDrafts, onClos
 
   const text = (key: ItemTextKey, label: string, rows?: number, placeholder?: string) => {
     const id = `matrix-item-${key}`
+    const failed = failedDrafts?.[key]
     const common = {
       id,
       value: shownText(key),
       disabled: readOnly,
       placeholder,
       maxLength: MATRIX_TEXT_LIMITS[key],
+      'aria-invalid': failed !== undefined || undefined,
+      // Con texto fallido pendiente, enfocar lo carga como borrador: al salir del campo (o al cerrar) se reintenta.
+      onFocus: () => { if (failed !== undefined) setDrafts((d) => (d[key] === undefined ? { ...d, [key]: failed } : d)) },
       onBlur: () => commitText(key),
-      className: `${inputCls}${failedDrafts?.[key] !== undefined && drafts[key] === undefined ? ' border-fm-error/60' : ''}`,
+      className: failed !== undefined ? inputErrorCls : inputCls,
     }
     return (
       <div>
-        <label htmlFor={id} className={labelCls}>{label}</label>
+        <label htmlFor={id} className={labelCls}>
+          {label}{failed !== undefined && <span className="ml-1 normal-case tracking-normal text-fm-error">· sin guardar</span>}
+        </label>
         {rows ? (
           <textarea rows={rows} {...common} onChange={(e) => setDrafts((d) => ({ ...d, [key]: e.target.value }))} />
         ) : (

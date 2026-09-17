@@ -50,11 +50,16 @@ export function MatrixTopicsBar({ topics, onChange, usageCount, disabled, notes,
           disabled={disabled}
           maxLength={MATRIX_TEXT_LIMITS.notes}
           onChange={(e) => setDraftNotes(e.target.value)}
+          // Con texto fallido pendiente, enfocar lo carga como borrador: al salir del campo se reintenta.
+          onFocus={() => { if (draftNotes === null && failedNotes !== undefined) setDraftNotes(failedNotes) }}
           onBlur={commitNotes}
+          aria-invalid={failedNotes !== undefined || undefined}
           rows={3}
           aria-label="Enfoque del mes"
           placeholder="Qué quiere comunicar el cliente este mes, apuntes de la reunión…"
-          className="w-full rounded-xl border border-fm-surface-container-high bg-fm-background px-3 py-2 text-sm text-fm-on-surface disabled:opacity-60"
+          className={`w-full rounded-xl border bg-fm-background px-3 py-2 text-sm text-fm-on-surface disabled:opacity-60 ${
+            failedNotes !== undefined ? 'border-fm-error/60' : 'border-fm-surface-container-high'
+          }`}
         />
       )}
     </section>

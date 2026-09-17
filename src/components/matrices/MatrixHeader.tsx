@@ -11,12 +11,12 @@ import {
 import { MatrixChips } from './MatrixChips'
 import { StatusBadge } from './StatusBadge'
 
-export type SaveState = 'saving' | 'saved' | 'error'
+export type SaveState = 'saving' | 'saved' | 'unsaved'
 
-const SAVE_LABELS: Record<SaveState, string> = {
-  saving: 'Guardando…',
-  saved: 'Guardado',
-  error: 'Error al guardar',
+function saveLabel(state: SaveState, unsavedCount: number): string {
+  if (state === 'saving') return 'Guardando…'
+  if (state === 'unsaved') return `${unsavedCount} cambio${unsavedCount !== 1 ? 's' : ''} sin guardar`
+  return 'Guardado'
 }
 
 interface Props {
@@ -26,6 +26,8 @@ interface Props {
   usage: MatrixUsage
   estimated: boolean
   saveState: SaveState
+  /** Campos de texto cuyo guardado falló y siguen pendientes. */
+  unsavedCount: number
   /** Hay una acción estructural en curso (estado, borrar, vínculo, duplicar): evita el doble clic. */
   busy: boolean
   /** Hay una pieza agregándose: los chips no crean otra mientras tanto. */
@@ -76,8 +78,8 @@ export function MatrixHeader(p: Props) {
             <Link href={`/clients/${p.client.id}`} className="text-sm font-semibold text-fm-on-surface hover:underline">{p.client.name}</Link>
             <span className="text-xs text-fm-on-surface-variant">· {p.periodLabel}</span>
             <StatusBadge status={p.matrix.status} />
-            <span role="status" className={`text-[11px] ml-auto ${p.saveState === 'error' ? 'text-fm-error font-semibold' : 'text-fm-on-surface-variant'}`}>
-              {SAVE_LABELS[p.saveState]}
+            <span role="status" className={`text-[11px] ml-auto ${p.saveState === 'unsaved' ? 'text-fm-error font-semibold' : 'text-fm-on-surface-variant'}`}>
+              {saveLabel(p.saveState, p.unsavedCount)}
             </span>
           </div>
           <input
@@ -85,9 +87,14 @@ export function MatrixHeader(p: Props) {
             disabled={readOnly}
             maxLength={MATRIX_TEXT_LIMITS.title}
             onChange={(e) => setDraftTitle(e.target.value)}
+            // Con texto fallido pendiente, enfocar lo carga como borrador: al salir del campo se reintenta.
+            onFocus={() => { if (draftTitle === null && p.failedTitle !== undefined) setDraftTitle(p.failedTitle) }}
             onBlur={commitTitle}
+            aria-invalid={p.failedTitle !== undefined || undefined}
             onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
-            className="mt-1 w-full bg-transparent text-lg sm:text-xl font-bold text-fm-on-surface outline-none border-b border-transparent focus:border-fm-primary disabled:opacity-100"
+            className={`mt-1 w-full bg-transparent text-lg sm:text-xl font-bold text-fm-on-surface outline-none border-b disabled:opacity-100 ${
+              p.failedTitle !== undefined ? 'border-fm-error/60' : 'border-transparent focus:border-fm-primary'
+            }`}
             aria-label="Título de la matriz"
           />
         </div>

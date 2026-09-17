@@ -74,7 +74,6 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
   const [linked, setLinked] = useState(data.linkedRequirement)
   const [linkError, setLinkError] = useState<string | null>(null)
   const [saving, setSaving] = useState(0)
-  const [lastFieldSaveFailed, setLastFieldSaveFailed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState<EditorError | null>(null)
@@ -118,7 +117,27 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
   )
   const selected = useMemo(() => items.find((i) => i.id === selectedId) ?? null, [items, selectedId])
   const readOnly = matrix.status === 'closed'
-  const saveState: SaveState = saving > 0 ? 'saving' : lastFieldSaveFailed ? 'error' : 'saved'
+  // "Sin guardar" se deriva de los textos fallidos que siguen pendientes, no del resultado del último guardado:
+  // un guardado exitoso de otro campo no debe esconder que hay texto sin guardar.
+  const unsavedItemIds = useMemo(() => Object.keys(failedItemDrafts), [failedItemDrafts])
+  const unsavedCount = useMemo(
+    () => Object.values(failedItemDrafts).reduce((n, d) => n + Object.keys(d).length, 0) + Object.keys(failedMatrixDrafts).length,
+    [failedItemDrafts, failedMatrixDrafts],
+  )
+  const hasUnsaved = unsavedCount > 0
+  const hasUnsavedMatrixText = Object.keys(failedMatrixDrafts).length > 0
+  const saveState: SaveState = saving > 0 ? 'saving' : hasUnsaved ? 'unsaved' : 'saved'
+
+  // Recargar o cerrar la pestaña con texto sin guardar: aviso genérico del navegador.
+  useEffect(() => {
+    if (!hasUnsaved) return
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = '' // navegadores que aún no respetan preventDefault
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [hasUnsaved])
 
   // ── Infraestructura de llamadas ──
 
@@ -170,11 +189,9 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
 
   function fieldSaveFailed(message: string, fields: string[]) {
     setError({ message, fields })
-    setLastFieldSaveFailed(true)
   }
 
   function fieldSaveSucceeded(fields: string[]) {
-    setLastFieldSaveFailed(false)
     setError((e) => (e && e.fields.length > 0 && e.fields.every((f) => fields.includes(f)) ? null : e))
   }
 
@@ -359,6 +376,7 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
         usage={usage}
         estimated={data.limits.estimated}
         saveState={saveState}
+        unsavedCount={unsavedCount}
         busy={busy}
         adding={adding}
         linked={linked}
@@ -375,6 +393,18 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
 
       {error && (
         <p role="alert" className="text-xs text-fm-error bg-fm-error/5 rounded-xl px-3 py-2 border border-fm-error/20">{error.message}</p>
+      )}
+
+      {/* Independiente de `error` (que una acción puede limpiar): sigue visible mientras quede texto sin guardar. */}
+      {hasUnsaved && (
+        <div role="status" className="flex items-start gap-2 text-xs rounded-xl px-3 py-2 border border-amber-300/60 bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">edit_off</span>
+          <span>
+            Hay cambios sin guardar.
+            {unsavedItemIds.length > 0 && ' Abre la pieza marcada y sal del campo para reintentar.'}
+            {hasUnsavedMatrixText && ' Entra al título o al enfoque del mes y sal del campo para reintentar.'}
+          </span>
+        </div>
       )}
 
       <MatrixTopicsBar
@@ -394,6 +424,7 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
         selectedId={selectedId}
         readOnly={readOnly}
         adding={adding}
+        unsavedIds={unsavedItemIds}
         onSelect={setSelectedId}
         onAdd={(t) => void onAdd(t)}
         onDuplicate={(id) => void onDuplicateItem(id)}

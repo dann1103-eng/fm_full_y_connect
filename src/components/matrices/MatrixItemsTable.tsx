@@ -38,14 +38,17 @@ interface Props {
   readOnly: boolean
   /** Hay una pieza agregándose o duplicándose: no se ofrece crear otra hasta que termine. */
   adding: boolean
+  /** Piezas con texto cuyo guardado falló y sigue pendiente. */
+  unsavedIds: string[]
   onSelect: (id: string) => void
   onAdd: (type: ContentType) => void
   onDuplicate: (id: string) => void
   onDelete: (id: string) => void
 }
 
-export function MatrixItemsTable({ items, usage, problems, selectedId, readOnly, adding, onSelect, onAdd, onDuplicate, onDelete }: Props) {
+export function MatrixItemsTable({ items, usage, problems, selectedId, readOnly, adding, unsavedIds, onSelect, onAdd, onDuplicate, onDelete }: Props) {
   const over = new Set(usage.overPlanItemIds)
+  const unsaved = new Set(unsavedIds)
   const problemById = new Map<string, ApprovalProblemReason>(problems.map((p) => [p.itemId, p.reason]))
   const inactive = MATRIX_CONTENT_TYPES.filter((t) => !usage.activeTypes.includes(t))
 
@@ -103,6 +106,7 @@ export function MatrixItemsTable({ items, usage, problems, selectedId, readOnly,
         {it.needs_production && (
           <span role="img" aria-label="Necesita producción" title="Necesita producción" className="material-symbols-outlined text-[16px] text-fm-primary">videocam</span>
         )}
+        {unsaved.has(it.id) && <span className="rounded-full bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200 px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap">Sin guardar</span>}
         {over.has(it.id) && <span className="rounded-full bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-200 px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap">Fuera de plan</span>}
         {problem && <span className="rounded-full bg-fm-error/10 text-fm-error px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap">{APPROVAL_PROBLEM_LABELS[problem]}</span>}
       </span>
