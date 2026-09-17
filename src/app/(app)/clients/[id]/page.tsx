@@ -25,6 +25,8 @@ import { RescueOrphansButton } from '@/components/clients/RescueOrphansButton'
 import { listClientUsers } from '@/app/actions/clientUsers'
 import { listClientCredits } from '@/app/actions/credits'
 import { ClientCreditsCard } from '@/components/clients/ClientCreditsCard'
+import { loadClientMatrices } from '@/lib/data/matrices'
+import { ClientMatricesCard } from '@/components/clients/ClientMatricesCard'
 
 export const dynamic = 'force-dynamic'
 
@@ -262,6 +264,14 @@ export default async function ClientDetailPage({
   const reqs = (requirements ?? []) as Requirement[]
   const totals = computeTotals(reqs)
   const credits = await listClientCredits(id)
+  let clientMatrices: Awaited<ReturnType<typeof loadClientMatrices>> | null = null
+  if (canCreate) {
+    try {
+      clientMatrices = await loadClientMatrices(supabase, client, cycle)
+    } catch (e) {
+      console.error('[ClientDetailPage] loadClientMatrices error:', e)
+    }
+  }
   const baseLimits = cycle
     ? effectiveLimits(cycle.limits_snapshot_json, cycle.rollover_from_previous_json)
     : null
@@ -367,6 +377,11 @@ export default async function ClientDetailPage({
               </Link>
             )}
           </div>
+        )}
+
+        {/* 1b — Matrices de contenido (admin/supervisor) */}
+        {clientMatrices && (
+          <ClientMatricesCard client={client} periods={clientMatrices.periods} matrices={clientMatrices.matrices} />
         )}
 
         {/* 2 — Pipeline del ciclo actual */}
