@@ -1,5 +1,6 @@
 import { WEEKS_BASE } from '@/types/db'
-import type { ContentType, WeekKey, WeeklyDistribution } from '@/types/db'
+import type { ContentType, PlanLimits, WeekKey, WeeklyDistribution } from '@/types/db'
+import { rolloverToContentType } from './plans'
 
 const WEEKS: ReadonlyArray<WeekKey> = WEEKS_BASE
 
@@ -128,4 +129,27 @@ export function buildAccumulateOverride(
   }
 
   return result
+}
+
+export interface EffectiveDistributionInput {
+  clientDistribution: WeeklyDistribution | null | undefined
+  planDistribution: WeeklyDistribution | null | undefined
+  pipelineTypes: ContentType[]
+  /** Límites ya con content_limits_override_json aplicado. */
+  limits: Record<ContentType, number>
+  cycleOverride?: WeeklyDistribution | null
+  rollover?: Partial<PlanLimits> | null
+  weeks?: ReadonlyArray<WeekKey>
+}
+
+/**
+ * Cadena completa: default (cliente → plan) → augment → override del ciclo → rollover.
+ * Es la misma secuencia que usaba inline RequirementPanel; centralizada para reuso.
+ */
+export function buildEffectiveDistribution(input: EffectiveDistributionInput): WeeklyDistribution {
+  const weeks = input.weeks ?? WEEKS
+  const base = input.clientDistribution ?? input.planDistribution ?? {}
+  const augmented = augmentDistribution(base, input.pipelineTypes, input.limits, weeks)
+  const overridden = applyOverride(augmented, input.cycleOverride ?? null, weeks)
+  return addRollover(overridden, rolloverToContentType(input.rollover), weeks)
 }

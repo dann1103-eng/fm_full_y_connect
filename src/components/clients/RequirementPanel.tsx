@@ -4,10 +4,9 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import type { ClientWithPlan, BillingCycle, CambiosPackage, ExtraContentItem, Requirement, RequirementCambioLog, ContentType } from '@/types/db'
-import { CONTENT_TYPES, CONTENT_TYPE_LABELS, limitsToRecord, applyUnifiedPool, unifiedPoolUsage, TIPPABLE_CONTENT_TYPES, rolloverToContentType } from '@/lib/domain/plans'
+import type { ClientWithPlan, BillingCycle, CambiosPackage, ExtraContentItem, Requirement, RequirementCambioLog, ContentType, WeeklyDistribution } from '@/types/db'
+import { CONTENT_TYPES, CONTENT_TYPE_LABELS, limitsToRecord, applyUnifiedPool, unifiedPoolUsage, TIPPABLE_CONTENT_TYPES } from '@/lib/domain/plans'
 import {
-  resolveDistribution,
   computeWeeklyBreakdownWithCascade,
   dominantCycleMonth,
   isWeekUnlocked,
@@ -16,7 +15,7 @@ import {
   maxWeeksForPeriod,
   type WeekIndex,
 } from '@/lib/domain/requirement'
-import { augmentDistribution, applyOverride, addRollover } from '@/lib/domain/weekly-distribution'
+import { buildEffectiveDistribution } from '@/lib/domain/weekly-distribution'
 import { CONTENT_ICONS } from '@/lib/domain/content-icons'
 import { socialUrl, type SocialNetwork } from '@/lib/domain/social'
 import { RequirementModal } from './RequirementModal'
@@ -242,25 +241,20 @@ export function RequirementPanel({
   )
   const currentWeek = Math.min(Math.floor(daysSinceStart / 7), 3)
 
-  // Pipeline de distribución semanal (4 pasos):
-  //   1. default (plan o override del cliente)
-  //   2. augment (rellena tipos con ceil(limit/4)) — usa los límites ya con content override
-  //   3. applyOverride (override semanal explícito por ciclo)
-  //   4. addRollover (reparte el rollover equitativamente)
+  // Pipeline de distribución semanal (default cliente/plan → augment → override de ciclo →
+  // rollover), centralizado en `buildEffectiveDistribution` (usa límites ya con content override).
   const contentOverrideJson = cycle.content_limits_override_json as Partial<Record<ContentType, number>> | null
   const limitsForDist: Record<ContentType, number> = contentOverrideJson
     ? { ...limits, ...contentOverrideJson }
     : limits
-  const baseDist = resolveDistribution(
-    (client as { weekly_distribution_json?: import('@/types/db').WeeklyDistribution | null }).weekly_distribution_json,
-    client.plan?.default_weekly_distribution_json,
-  ) ?? {}
-  const augmentedDist = augmentDistribution(baseDist, pipelineTypes, limitsForDist)
-  const overriddenDist = applyOverride(
-    augmentedDist,
-    (cycle as { weekly_distribution_override_json?: import('@/types/db').WeeklyDistribution | null }).weekly_distribution_override_json,
-  )
-  const effectiveDist = addRollover(overriddenDist, rolloverToContentType(cycle.rollover_from_previous_json))
+  const effectiveDist = buildEffectiveDistribution({
+    clientDistribution: (client as { weekly_distribution_json?: WeeklyDistribution | null }).weekly_distribution_json,
+    planDistribution: client.plan?.default_weekly_distribution_json,
+    pipelineTypes,
+    limits: limitsForDist,
+    cycleOverride: (cycle as { weekly_distribution_override_json?: WeeklyDistribution | null }).weekly_distribution_override_json,
+    rollover: cycle.rollover_from_previous_json,
+  })
   const maxWeek = maxWeeksForPeriod(client.billing_period)
   const weekBreakdown = computeWeeklyBreakdownWithCascade(requirements, effectiveDist, currentWeek, maxWeek)
 
