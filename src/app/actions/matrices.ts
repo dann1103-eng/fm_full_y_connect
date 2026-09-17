@@ -15,6 +15,7 @@ import {
   type ActionErr, type ActionResult, type LinkResult, type ApprovalProblem, type ItemPatch,
 } from '@/lib/domain/matrix'
 import { loadMatrixEditorData, loadTargetPeriodsForClient, sharedTypesFor, type TargetPeriodsForClient } from '@/lib/data/matrices'
+import { convertMatrixItem, type ConvertOutcome } from '@/lib/data/matrix-convert'
 import type { ContentMatrix, ContentMatrixItem, ContentType, Database, MatrixStatus, MatrixTopic, Requirement } from '@/types/db'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -533,8 +534,18 @@ export async function addItem(matrixId: string, contentType: ContentType, deadli
   const v = validateItemPatch({ deadline: chosen }, { ...data.period, topics: data.matrix.topics_json })
   if (!v.ok) return { ok: false, error: v.error }
 
+  // Responsables por defecto, igual que RequirementModal (sin clientes ni el bot). Si la lectura
+  // falla, la pieza nace sin responsable: es un campo editable, no vale la pena abortar el alta.
+  const { data: defaults, error: defaultsError } = await ctx.supabase.from('users').select('id')
+    .eq('default_assignee', true).not('role', 'in', '(client,agent)')
+  if (defaultsError) console.error('[matrices] no se pudieron leer los responsables por defecto', defaultsError.message)
+  const assignedTo = (defaults ?? []).map((u) => u.id)
+
   const { data: item, error } = await ctx.supabase.from('content_matrix_items')
-    .insert({ matrix_id: matrixId, content_type: contentType, deadline: chosen })
+    .insert({
+      matrix_id: matrixId, content_type: contentType, deadline: chosen,
+      assigned_to: assignedTo.length > 0 ? assignedTo : null,
+    })
     .select('*').single()
   if (error || !item) return { ok: false, error: dbError(error, 'No se pudo agregar la pieza.') }
   revalidateMatrix(data.matrix.client_id, matrixId)
@@ -564,7 +575,15 @@ export async function updateItem(itemId: string, patch: ItemPatch): Promise<Acti
 
   const { data: existing } = await supabase.from('content_matrix_items').select('id, matrix_id, status').eq('id', itemId).single()
   if (!existing) return { ok: false, error: 'Pieza no encontrada.' }
-  if (existing.status === 'converted') return { ok: false, error: 'La pieza ya se convirtió en requerimiento; edítala desde el pipeline.' }
+  // Ya convertida: los textos siguen editables (son el brief que se ve en la ficha del requerimiento);
+  // lo que ya viajó al requerimiento se edita allá, no aquí.
+  if (existing.status === 'converted') {
+    const frozen = (['content_type', 'deadline', 'assigned_to', 'estimated_time_minutes'] as const)
+      .filter((k) => (patch as Record<string, unknown>)[k] !== undefined)
+    if (frozen.length > 0) {
+      return { ok: false, error: 'La pieza ya se convirtió: el tipo, la fecha, el responsable y el estimado se editan en el requerimiento.' }
+    }
+  }
   const m = await loadMatrixForItemWrite(ctx, existing.matrix_id)
   if ('error' in m) return { ok: false, error: m.error }
 
@@ -578,6 +597,9 @@ export async function updateItem(itemId: string, patch: ItemPatch): Promise<Acti
   if (patch.needs_production !== undefined) update.needs_production = patch.needs_production
   if (patch.objective !== undefined) update.objective = patch.objective
   if (patch.topic !== undefined) update.topic = cleanText(patch.topic)
+  // Lista vacía = sin responsable: se guarda `null` para que la base tenga una sola forma de "vacío".
+  if (patch.assigned_to !== undefined) update.assigned_to = patch.assigned_to && patch.assigned_to.length > 0 ? patch.assigned_to : null
+  if (patch.estimated_time_minutes !== undefined) update.estimated_time_minutes = patch.estimated_time_minutes
 
   const { data: item, error } = await supabase.from('content_matrix_items').update(update).eq('id', itemId).select('*').single()
   if (error || !item) return { ok: false, error: dbError(error, 'No se pudo guardar la pieza.') }
@@ -599,6 +621,7 @@ export async function duplicateItem(itemId: string): Promise<ActionResult<{ item
     matrix_id: src.matrix_id, content_type: src.content_type, title: src.title, topic: src.topic,
     objective: src.objective, copy: src.copy, script: src.script, visual_style: src.visual_style,
     hashtags: src.hashtags, cta: src.cta, deadline: src.deadline, needs_production: src.needs_production,
+    assigned_to: src.assigned_to, estimated_time_minutes: src.estimated_time_minutes,
   }).select('*').single()
   if (error || !item) return { ok: false, error: dbError(error, 'No se pudo duplicar la pieza.') }
   revalidateMatrix(m.matrix.client_id, m.matrix.id)
@@ -674,6 +697,8 @@ export async function duplicateMatrix(sourceId: string, target: { periodStart: s
     matrix_id: created.id, content_type: it.content_type, title: it.title, topic: it.topic, objective: it.objective,
     copy: it.copy, script: it.script, visual_style: it.visual_style, hashtags: it.hashtags, cta: it.cta,
     deadline: shiftDeadline(it.deadline, from, target), needs_production: it.needs_production,
+    // Sin estos dos, la copia — el caso de uso principal — no se podría aprobar sin rellenarlos a mano.
+    assigned_to: it.assigned_to, estimated_time_minutes: it.estimated_time_minutes,
   }))
   if (items.length > 0) {
     const { error: itemsError } = await supabase.from('content_matrix_items').insert(items)
@@ -687,4 +712,70 @@ export async function duplicateMatrix(sourceId: string, target: { periodStart: s
   const link = await linkMatrixRequirement(ctx, created.id)
   revalidateMatrix(src.client_id, created.id)
   return { ok: true, id: created.id, link }
+}
+
+// ── Conversión (bloque 2) ────────────────────────────────────────────────────
+
+/**
+ * "Convertir ahora": registra el requerimiento de una pieza sin esperar al barrido diario.
+ * Acepta piezas `planned` y `blocked`; devuelve el resultado tal cual para que el editor
+ * muestre el motivo si vuelve a bloquearse.
+ */
+export async function convertItemNow(itemId: string): Promise<ActionResult<{ outcome: ConvertOutcome }>> {
+  const ctx = await requireManager()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+
+  // Con el cliente autenticado a propósito: el trigger de pago debe aplicar igual que en un
+  // registro manual. El rollback interno usa el admin client (ver matrix-convert.ts).
+  const outcome = await convertMatrixItem(ctx.supabase, itemId, { registeredByUserId: ctx.userId })
+
+  const { data: it } = await ctx.supabase.from('content_matrix_items')
+    .select('matrix_id, matrix:content_matrices!inner(client_id)').eq('id', itemId).maybeSingle()
+  // `as unknown as` como el resto del repo para embeds (el cliente tipado no los infiere).
+  const row = it as unknown as { matrix_id: string; matrix?: { client_id?: string } } | null
+  if (row?.matrix?.client_id) revalidateMatrix(row.matrix.client_id, row.matrix_id)
+  return { ok: true, outcome }
+}
+
+/**
+ * "Volver a planificar": devuelve una pieza convertida a `planned`. No borra ni anula el
+ * requerimiento — eso se hace antes en el pipeline. Funciona también en una matriz cerrada (a
+ * diferencia de `updateItem`): el caso real es "anulé el requerimiento y quiero dejar la pieza
+ * como planificada", y el barrido ignora las matrices cerradas, así que no se reconvierte sola.
+ */
+export async function replanItem(itemId: string): Promise<ActionResult<{ item: ContentMatrixItem }>> {
+  const ctx = await requireManager()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const { supabase } = ctx
+
+  const { data: existing, error: readErr } = await supabase.from('content_matrix_items')
+    .select('id, matrix_id, status, requirement_id').eq('id', itemId).maybeSingle()
+  if (readErr) return { ok: false, error: dbError(readErr, 'No se pudo leer la pieza.') }
+  if (!existing) return { ok: false, error: 'Pieza no encontrada.' }
+  if (existing.status !== 'converted') return { ok: false, error: 'La pieza no está convertida.' }
+
+  // Guarda imprescindible: sin ella, el barrido de mañana crearía un SEGUNDO requerimiento para
+  // la misma pieza (el índice único no lo ataja porque el id nuevo es distinto).
+  if (existing.requirement_id) {
+    const { data: req, error: reqErr } = await supabase.from('requirements')
+      .select('id, voided').eq('id', existing.requirement_id).maybeSingle()
+    if (reqErr) return { ok: false, error: dbError(reqErr, 'No se pudo leer el requerimiento.') }
+    if (req && !req.voided) {
+      return { ok: false, error: 'El requerimiento sigue activo: anúlalo primero en el pipeline.' }
+    }
+  }
+
+  const { data: rows, error } = await supabase.from('content_matrix_items')
+    .update({ status: 'planned', requirement_id: null, converted_at: null, blocked_reason: null })
+    .eq('id', itemId).eq('status', 'converted').select('*')
+  if (error) return { ok: false, error: dbError(error, 'No se pudo volver a planificar.') }
+  const item = rows?.[0]
+  if (!item) return { ok: false, error: 'La pieza cambió; recarga la página.' }
+
+  // Matriz cerrada incluida: `loadMatrixForItemWrite` la rechaza, así que aquí se lee directo y
+  // la revalidación es best-effort (la acción ya surtió efecto).
+  const { data: m } = await supabase.from('content_matrices')
+    .select('id, client_id').eq('id', existing.matrix_id).maybeSingle()
+  if (m) revalidateMatrix(m.client_id, m.id)
+  return { ok: true, item: item as ContentMatrixItem }
 }

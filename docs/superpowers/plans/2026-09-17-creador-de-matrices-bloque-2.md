@@ -677,7 +677,7 @@ git commit -m "feat(matrices): barrido diario que convierte piezas en requerimie
 - Modify: `src/lib/domain/matrix.ts` (ItemPatch + validación)
 - Test: `src/lib/domain/matrix.test.ts`
 
-- [ ] **Step 1: `convertItemNow` y `replanItem`**
+- [x] **Step 1: `convertItemNow` y `replanItem`**
 
 Al final de `src/app/actions/matrices.ts`, respetando `requireManager` y el estilo del archivo:
 
@@ -740,7 +740,7 @@ Importar `convertMatrixItem` y el tipo `ConvertOutcome` desde `@/lib/data/matrix
 `updateItem`). El caso real es "anulé el requerimiento y quiero dejar la pieza como planificada";
 el barrido ignora las matrices cerradas, así que no se reconvierte sola.
 
-- [ ] **Step 2: `updateItem` — textos sí, los cuatro campos congelados no**
+- [x] **Step 2: `updateItem` — textos sí, los cuatro campos congelados no**
 
 Sustituir el rechazo global actual (`if (existing.status === 'converted') return …`) por:
 
@@ -754,7 +754,7 @@ Sustituir el rechazo global actual (`if (existing.status === 'converted') return
   }
 ```
 
-- [ ] **Step 3: `ItemPatch` y validación de los campos nuevos (con pruebas)**
+- [x] **Step 3: `ItemPatch` y validación de los campos nuevos (con pruebas)**
 
 En `src/lib/domain/matrix.ts`, `ItemPatch` suma `'assigned_to' | 'estimated_time_minutes'`. En `validateItemPatch`:
 
@@ -776,7 +776,7 @@ Pruebas (primero, viéndolas fallar): `assigned_to: 'u1'` inválido, `assigned_t
 
 En `updateItem`, copiar ambos al objeto `update` cuando vengan definidos.
 
-- [ ] **Step 4: `addItem`, duplicados y `setMatrixStatus`**
+- [x] **Step 4: `addItem`, duplicados y `setMatrixStatus`**
 
 - `addItem`: antes del insert, leer los responsables por defecto y guardarlos.
 
@@ -790,12 +790,12 @@ e incluir `assigned_to: assignedTo.length > 0 ? assignedTo : null` en el insert.
 - `duplicateItem` y `duplicateMatrix`: añadir `assigned_to` y `estimated_time_minutes` a las columnas que copian.
 - `setMatrixStatus`: el select debe traer `id, title, deadline, status, assigned_to, estimated_time_minutes` (si ya se hizo en la Task 3, verificarlo).
 
-- [ ] **Step 5: Verificar**
+- [x] **Step 5: Verificar**
 
 Run: `npx tsc --noEmit -p tsconfig.json`, `npx eslint src/app/actions/matrices.ts src/lib/domain/matrix.ts` y `npx vitest run src/lib/domain/matrix.test.ts`
 Expected: sin errores; pruebas en verde.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/app/actions/matrices.ts src/lib/domain/matrix.ts src/lib/domain/matrix.test.ts

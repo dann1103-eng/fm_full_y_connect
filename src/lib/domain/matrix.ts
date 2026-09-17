@@ -430,7 +430,11 @@ export function validateForApproval(
 }
 
 export type ItemPatch = Partial<Pick<ContentMatrixItem,
-  'content_type' | 'title' | 'topic' | 'objective' | 'copy' | 'script' | 'visual_style' | 'hashtags' | 'cta' | 'deadline' | 'needs_production'>>
+  'content_type' | 'title' | 'topic' | 'objective' | 'copy' | 'script' | 'visual_style' | 'hashtags' | 'cta' | 'deadline' | 'needs_production'
+  | 'assigned_to' | 'estimated_time_minutes'>>
+
+/** Tope del tiempo estimado por pieza: 7 dias en minutos (mismo criterio que el pipeline). */
+export const MATRIX_ESTIMATE_MAX_MINUTES = 10080
 
 export function validateItemPatch(
   patch: ItemPatch,
@@ -450,6 +454,18 @@ export function validateItemPatch(
   }
   if (patch.objective != null && !MATRIX_OBJECTIVES.includes(patch.objective)) {
     return { ok: false, error: 'Objetivo inválido.' }
+  }
+  // `null` limpia el campo; un array vacío también es válido (pieza sin responsable todavía).
+  if (patch.assigned_to !== undefined && patch.assigned_to !== null) {
+    if (!Array.isArray(patch.assigned_to) || patch.assigned_to.some((v) => typeof v !== 'string')) {
+      return { ok: false, error: 'Responsable inválido.' }
+    }
+  }
+  if (patch.estimated_time_minutes !== undefined && patch.estimated_time_minutes !== null) {
+    const n = patch.estimated_time_minutes
+    if (!Number.isInteger(n) || n < 1 || n > MATRIX_ESTIMATE_MAX_MINUTES) {
+      return { ok: false, error: 'El tiempo estimado debe estar entre 1 minuto y 7 días.' }
+    }
   }
   return { ok: true }
 }

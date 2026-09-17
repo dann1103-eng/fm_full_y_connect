@@ -417,6 +417,22 @@ describe('validateItemPatch', () => {
     expect(validateItemPatch({ deadline: '2026-02-30' }, ctx).ok).toBe(false)
     expect(validateItemPatch({ deadline: 'abc' }, ctx).ok).toBe(false)
   })
+  it('responsable: acepta null y arrays de strings, rechaza lo demas', () => {
+    expect(validateItemPatch({ assigned_to: null }, ctx)).toEqual({ ok: true })
+    expect(validateItemPatch({ assigned_to: [] }, ctx)).toEqual({ ok: true })
+    expect(validateItemPatch({ assigned_to: ['u1'] }, ctx)).toEqual({ ok: true })
+    expect(validateItemPatch({ assigned_to: 'u1' as never }, ctx).ok).toBe(false)
+    expect(validateItemPatch({ assigned_to: [1] as never }, ctx).ok).toBe(false)
+  })
+  it('estimado: entero entre 1 y 10080, o null', () => {
+    expect(validateItemPatch({ estimated_time_minutes: null }, ctx)).toEqual({ ok: true })
+    expect(validateItemPatch({ estimated_time_minutes: 60 }, ctx)).toEqual({ ok: true })
+    expect(validateItemPatch({ estimated_time_minutes: 10080 }, ctx)).toEqual({ ok: true })
+    expect(validateItemPatch({ estimated_time_minutes: 0 }, ctx).ok).toBe(false)
+    expect(validateItemPatch({ estimated_time_minutes: 10081 }, ctx).ok).toBe(false)
+    expect(validateItemPatch({ estimated_time_minutes: 1.5 }, ctx).ok).toBe(false)
+    expect(validateItemPatch({ estimated_time_minutes: '60' as never }, ctx).ok).toBe(false)
+  })
 })
 
 describe('shiftDeadline', () => {
