@@ -1291,6 +1291,8 @@ export interface Database {
           blocked_reason: string | null
           /** Reservado (bloque 2): momento de la conversión a requerimiento. */
           converted_at: string | null
+          assigned_to: string[] | null
+          estimated_time_minutes: number | null
           created_at: string
           updated_at: string
         }
@@ -1312,6 +1314,8 @@ export interface Database {
           requirement_id?: string | null
           blocked_reason?: string | null
           converted_at?: string | null
+          assigned_to?: string[] | null
+          estimated_time_minutes?: number | null
         }
         Update: {
           content_type?: ContentType
@@ -1329,6 +1333,8 @@ export interface Database {
           requirement_id?: string | null
           blocked_reason?: string | null
           converted_at?: string | null
+          assigned_to?: string[] | null
+          estimated_time_minutes?: number | null
         }
         Relationships: [
           {
