@@ -6,24 +6,26 @@ import type { ContentMatrixItem, ContentType, MatrixObjective, MatrixTopic } fro
 import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import { formatDeadlineDate } from '@/lib/domain/deadline'
 import {
-  isIsoDate, MATRIX_CONTENT_TYPES, MATRIX_OBJECTIVES, MATRIX_OBJECTIVE_LABELS, type ItemPatch,
+  isIsoDate, MATRIX_CONTENT_TYPES, MATRIX_OBJECTIVES, MATRIX_OBJECTIVE_LABELS, MATRIX_TEXT_LIMITS, type ItemPatch,
 } from '@/lib/domain/matrix'
+
+export type ItemTextKey = 'title' | 'copy' | 'script' | 'visual_style' | 'hashtags' | 'cta'
+export const ITEM_TEXT_KEYS: readonly ItemTextKey[] = ['title', 'copy', 'script', 'visual_style', 'hashtags', 'cta']
+/** Texto que el usuario intentó guardar y falló, por campo. */
+export type FailedItemDrafts = Partial<Record<ItemTextKey, string>>
 
 interface Props {
   item: ContentMatrixItem | null
   topics: MatrixTopic[]
   period: { periodStart: string; periodEnd: string; label: string }
   readOnly: boolean
-  /** Último error del editor: se repite dentro del panel porque en móvil lo tapa por completo. */
+  /** Error del último guardado de esta pieza (se repite aquí porque en móvil el panel tapa la página). */
   error: string | null
+  /** Textos cuyo guardado falló: se muestran en vez del valor confirmado para no perderlos. */
+  failedDrafts: FailedItemDrafts | undefined
   onClose: () => void
   onPatch: (patch: ItemPatch) => void
 }
-
-type TextKey = 'title' | 'copy' | 'script' | 'visual_style' | 'hashtags' | 'cta'
-const TEXT_KEYS: TextKey[] = ['title', 'copy', 'script', 'visual_style', 'hashtags', 'cta']
-
-type Drafts = Partial<Record<TextKey | 'deadline', string>>
 
 const inputCls = 'w-full rounded-xl border border-fm-surface-container-high bg-fm-background px-3 py-2 text-sm text-fm-on-surface disabled:opacity-60'
 const labelCls = 'block text-[11px] uppercase tracking-wider text-fm-on-surface-variant mb-1'
@@ -37,75 +39,80 @@ export function MatrixItemSheet({ item, ...rest }: Props) {
   return <ItemSheet key={item.id} item={item} {...rest} />
 }
 
+type Drafts = Partial<Record<ItemTextKey | 'deadline', string>>
+
 function withoutKeys(d: Drafts, keys: readonly (keyof Drafts)[]): Drafts {
   const next = { ...d }
   for (const k of keys) delete next[k]
   return next
 }
 
-function ItemSheet({ item, topics, period, readOnly, error, onClose, onPatch }: Omit<Props, 'item'> & { item: ContentMatrixItem }) {
-  // Borradores solo de los campos que se están editando. Al perder foco se guardan y se descartan: el valor
-  // mostrado vuelve a salir de `item`, así el guardado optimista se ve al instante y un error (que revierte
-  // `item`) también.
+function ItemSheet({ item, topics, period, readOnly, error, failedDrafts, onClose, onPatch }: Omit<Props, 'item'> & { item: ContentMatrixItem }) {
+  // Borradores solo de los campos que se están editando. Al perder foco se guardan y se descartan; lo mostrado
+  // sale entonces del texto fallido (si el último guardado de ese campo falló) o de `item` (optimista o confirmado).
   const [drafts, setDrafts] = useState<Drafts>({})
   const [dateError, setDateError] = useState<string | null>(null)
 
   const rangeLabel = `${formatDeadlineDate(period.periodStart)} y ${formatDeadlineDate(period.periodEnd)}`
-  const savedText = (key: TextKey): string => (key === 'title' ? item.title : item[key] ?? '')
-  const shownText = (key: TextKey): string => drafts[key] ?? savedText(key)
+  const savedText = (key: ItemTextKey): string => (key === 'title' ? item.title : item[key] ?? '')
+  const shownText = (key: ItemTextKey): string => drafts[key] ?? failedDrafts?.[key] ?? savedText(key)
+  const validDeadline = (d: string) => isIsoDate(d) && d >= period.periodStart && d <= period.periodEnd
 
-  function pendingTextPatch(keys: readonly TextKey[]): ItemPatch {
+  /** Patch con los borradores de texto que cambiaron (o cuyo guardado anterior falló: se reintenta). */
+  function pendingTextPatch(keys: readonly ItemTextKey[]): ItemPatch {
     const patch: ItemPatch = {}
     for (const k of keys) {
       const v = drafts[k]
-      if (v !== undefined && v.trim() !== savedText(k).trim()) patch[k] = v
+      if (v === undefined) continue
+      if (v.trim() !== savedText(k).trim() || failedDrafts?.[k] !== undefined) patch[k] = v
     }
     return patch
   }
 
-  function commitText(key: TextKey) {
+  function commitText(key: ItemTextKey) {
     const patch = pendingTextPatch([key])
     setDrafts((d) => withoutKeys(d, [key]))
     if (Object.keys(patch).length > 0) onPatch(patch)
   }
 
-  function onDateChange(value: string) {
-    setDateError(null)
-    // El selector nativo (y el tecleo completo) produce fechas válidas: se guardan al momento. Un valor a
-    // medio teclear o fuera del período queda en borrador hasta perder foco.
-    if (isIsoDate(value) && value >= period.periodStart && value <= period.periodEnd) {
-      setDrafts((d) => withoutKeys(d, ['deadline']))
-      if (value !== item.deadline) onPatch({ deadline: value })
-    } else {
-      setDrafts((d) => ({ ...d, deadline: value }))
-    }
-  }
-
-  function onDateBlur() {
-    if (drafts.deadline === undefined) return
+  // La fecha se guarda al perder foco (como los textos): así teclearla dígito a dígito no dispara guardados
+  // intermedios. Un valor incompleto o fuera del período se descarta con el rango válido a la vista.
+  function commitDeadline() {
+    const v = drafts.deadline
+    if (v === undefined) return
     setDrafts((d) => withoutKeys(d, ['deadline']))
-    setDateError(`La fecha debe estar entre ${rangeLabel}.`)
+    if (!validDeadline(v)) { setDateError(`La fecha debe estar entre ${rangeLabel}.`); return }
+    if (v !== item.deadline) onPatch({ deadline: v })
   }
 
   /** Cerrar con Escape o clic fuera no dispara el blur del campo activo: se guarda lo pendiente aquí. */
   function close() {
-    const patch = pendingTextPatch(TEXT_KEYS)
+    const patch = pendingTextPatch(ITEM_TEXT_KEYS)
+    if (drafts.deadline !== undefined && validDeadline(drafts.deadline) && drafts.deadline !== item.deadline) {
+      patch.deadline = drafts.deadline
+    }
     if (Object.keys(patch).length > 0) onPatch(patch)
     onClose()
   }
 
-  const text = (key: TextKey, label: string, rows?: number, placeholder?: string) => {
+  const text = (key: ItemTextKey, label: string, rows?: number, placeholder?: string) => {
     const id = `matrix-item-${key}`
+    const common = {
+      id,
+      value: shownText(key),
+      disabled: readOnly,
+      placeholder,
+      maxLength: MATRIX_TEXT_LIMITS[key],
+      onBlur: () => commitText(key),
+      className: `${inputCls}${failedDrafts?.[key] !== undefined && drafts[key] === undefined ? ' border-fm-error/60' : ''}`,
+    }
     return (
       <div>
         <label htmlFor={id} className={labelCls}>{label}</label>
         {rows ? (
-          <textarea id={id} rows={rows} value={shownText(key)} disabled={readOnly} placeholder={placeholder}
-            onChange={(e) => setDrafts((d) => ({ ...d, [key]: e.target.value }))} onBlur={() => commitText(key)} className={inputCls} />
+          <textarea rows={rows} {...common} onChange={(e) => setDrafts((d) => ({ ...d, [key]: e.target.value }))} />
         ) : (
-          <input id={id} value={shownText(key)} disabled={readOnly} placeholder={placeholder}
-            maxLength={key === 'title' ? 200 : undefined}
-            onChange={(e) => setDrafts((d) => ({ ...d, [key]: e.target.value }))} onBlur={() => commitText(key)} className={inputCls} />
+          <input {...common} onChange={(e) => setDrafts((d) => ({ ...d, [key]: e.target.value }))} />
         )}
       </div>
     )
@@ -138,7 +145,9 @@ function ItemSheet({ item, topics, period, readOnly, error, onClose, onPatch }: 
               <label htmlFor="matrix-item-deadline" className={labelCls}>Entrega</label>
               <input id="matrix-item-deadline" type="date" value={drafts.deadline ?? item.deadline}
                 min={period.periodStart} max={period.periodEnd} disabled={readOnly} className={inputCls}
-                onChange={(e) => onDateChange(e.target.value)} onBlur={onDateBlur} />
+                aria-describedby="matrix-item-deadline-hint"
+                onChange={(e) => { setDateError(null); const v = e.target.value; setDrafts((d) => ({ ...d, deadline: v })) }}
+                onBlur={commitDeadline} />
             </div>
             <div>
               <label htmlFor="matrix-item-topic" className={labelCls}>Tema</label>
@@ -157,13 +166,13 @@ function ItemSheet({ item, topics, period, readOnly, error, onClose, onPatch }: 
               </select>
             </div>
           </div>
-          <p className={`-mt-2 text-[11px] ${dateError ? 'text-fm-error' : 'text-fm-on-surface-variant'}`}>
+          <p id="matrix-item-deadline-hint" className={`-mt-2 text-[11px] ${dateError ? 'text-fm-error' : 'text-fm-on-surface-variant'}`}>
             {dateError ?? `Entrega entre ${rangeLabel}.`}
           </p>
 
           {text('title', 'Título', undefined, 'Ej. Llegó el pumpkin latte')}
           {text('copy', 'Copy', 4, 'Texto de la publicación')}
-          {text('script', 'Guión', 6, 'Escenas, locución, textos en pantalla…')}
+          {text('script', 'Guion', 6, 'Escenas, locución, textos en pantalla…')}
           {text('visual_style', 'Estilo visual', 2, 'Paleta, referencias, tono de imagen')}
           {text('hashtags', 'Hashtags', undefined, '#marca #tema')}
           {text('cta', 'Llamado a la acción', undefined, 'Ej. Ven a probarlo esta semana')}

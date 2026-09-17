@@ -27,7 +27,7 @@ export function MatricesPageClient({ rows, missing, clients }: Props) {
         <button type="button" onClick={() => setDialog({ open: true })}
           className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: 'linear-gradient(135deg, #00675c 0%, #5bf4de 100%)' }}>
-          <span className="material-symbols-outlined text-[18px]">add_circle</span>
+          <span className="material-symbols-outlined text-[18px]" aria-hidden="true">add_circle</span>
           Nueva matriz
         </button>
       </div>

@@ -4,9 +4,20 @@ import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import type { ContentMatrix, ContentType, MatrixStatus, Requirement } from '@/types/db'
-import { APPROVAL_PROBLEM_LABELS, type ApprovalProblem, type ApprovalProblemReason, type MatrixUsage } from '@/lib/domain/matrix'
+import {
+  APPROVAL_PROBLEM_LABELS, MATRIX_TEXT_LIMITS,
+  type ApprovalProblem, type ApprovalProblemReason, type MatrixUsage,
+} from '@/lib/domain/matrix'
 import { MatrixChips } from './MatrixChips'
-import { StatusBadge } from './MatricesTable'
+import { StatusBadge } from './StatusBadge'
+
+export type SaveState = 'saving' | 'saved' | 'error'
+
+const SAVE_LABELS: Record<SaveState, string> = {
+  saving: 'Guardando…',
+  saved: 'Guardado',
+  error: 'Error al guardar',
+}
 
 interface Props {
   matrix: ContentMatrix
@@ -14,13 +25,17 @@ interface Props {
   periodLabel: string
   usage: MatrixUsage
   estimated: boolean
-  saving: boolean
-  /** Hay una acción estructural en curso (estado, borrar, reintentar vínculo): evita el doble clic. */
+  saveState: SaveState
+  /** Hay una acción estructural en curso (estado, borrar, vínculo, duplicar): evita el doble clic. */
   busy: boolean
+  /** Hay una pieza agregándose: los chips no crean otra mientras tanto. */
+  adding: boolean
   linked: Pick<Requirement, 'id' | 'title' | 'phase'> | null
   linkError: string | null
   /** Problemas vigentes tras un intento fallido de aprobar (vacío si no hay que mostrarlos). */
   problems: ApprovalProblem[]
+  /** Título cuyo último guardado falló: se sigue mostrando para no perderlo. */
+  failedTitle?: string
   onTitle: (title: string) => void
   onAdd: (type: ContentType) => void
   onStatus: (to: MatrixStatus) => void
@@ -36,8 +51,8 @@ function problemsSummary(problems: ApprovalProblem[]): string {
 }
 
 export function MatrixHeader(p: Props) {
-  // Borrador del título solo mientras se edita: al perder foco se guarda y se descarta, así el título
-  // mostrado vuelve a salir de `matrix` (un error del servidor lo revierte y se ve).
+  // Borrador del título solo mientras se edita: al perder foco se guarda y se descarta. Lo mostrado sale
+  // después de `failedTitle` (si el guardado falló) o de `matrix.title` (confirmado u optimista).
   const [draftTitle, setDraftTitle] = useState<string | null>(null)
   const readOnly = p.matrix.status === 'closed'
   const btn = 'px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors disabled:opacity-50'
@@ -46,29 +61,29 @@ export function MatrixHeader(p: Props) {
     if (draftTitle === null) return
     const t = draftTitle.trim()
     setDraftTitle(null)
-    if (t && t !== p.matrix.title) p.onTitle(t)
+    // Vacío: se descarta (el título es obligatorio). Con un fallo previo se reintenta aunque coincida.
+    if (t && (t !== p.matrix.title || p.failedTitle !== undefined)) p.onTitle(t)
   }
 
   return (
     <section className="glass-panel rounded-2xl p-4 sm:p-5 space-y-4">
       <div className="flex items-start gap-3">
-        <Link href="/matrices" className="hidden sm:inline-flex text-fm-on-surface-variant hover:text-fm-primary mt-2" aria-label="Volver a matrices">
-          <span className="material-symbols-outlined">arrow_back</span>
-        </Link>
         {p.client.logo_url
           ? <Image src={p.client.logo_url} alt="" width={40} height={40} unoptimized className="h-10 w-10 flex-shrink-0 rounded-full object-cover" />
-          : <span className="h-10 w-10 flex-shrink-0 rounded-full bg-fm-primary/15 text-fm-primary font-bold flex items-center justify-center">{p.client.name.slice(0, 1).toUpperCase()}</span>}
+          : <span aria-hidden="true" className="h-10 w-10 flex-shrink-0 rounded-full bg-fm-primary/15 text-fm-primary font-bold flex items-center justify-center">{p.client.name.slice(0, 1).toUpperCase()}</span>}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-x-2 gap-y-1 flex-wrap">
             <Link href={`/clients/${p.client.id}`} className="text-sm font-semibold text-fm-on-surface hover:underline">{p.client.name}</Link>
             <span className="text-xs text-fm-on-surface-variant">· {p.periodLabel}</span>
             <StatusBadge status={p.matrix.status} />
-            <span className="text-[11px] text-fm-on-surface-variant ml-auto" aria-live="polite">{p.saving ? 'Guardando…' : 'Guardado'}</span>
+            <span role="status" className={`text-[11px] ml-auto ${p.saveState === 'error' ? 'text-fm-error font-semibold' : 'text-fm-on-surface-variant'}`}>
+              {SAVE_LABELS[p.saveState]}
+            </span>
           </div>
           <input
-            value={draftTitle ?? p.matrix.title}
+            value={draftTitle ?? p.failedTitle ?? p.matrix.title}
             disabled={readOnly}
-            maxLength={200}
+            maxLength={MATRIX_TEXT_LIMITS.title}
             onChange={(e) => setDraftTitle(e.target.value)}
             onBlur={commitTitle}
             onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
@@ -78,11 +93,11 @@ export function MatrixHeader(p: Props) {
         </div>
       </div>
 
-      <MatrixChips usage={p.usage} estimated={p.estimated} onAdd={readOnly ? undefined : p.onAdd} />
+      <MatrixChips usage={p.usage} estimated={p.estimated} onAdd={readOnly ? undefined : p.onAdd} disabled={p.adding} />
 
       {!p.matrix.matrix_requirement_id && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-300/60 bg-amber-50 dark:bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
-          <span className="material-symbols-outlined text-[16px]">warning</span>
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">warning</span>
           <span className="min-w-0 flex-1">No se registró el requerimiento de matriz en el ciclo vigente{p.linkError ? `: ${p.linkError}` : '.'}</span>
           {!readOnly && (
             <button type="button" onClick={p.onRetryLink} disabled={p.busy} className="font-semibold underline disabled:opacity-50">Reintentar</button>
@@ -113,9 +128,10 @@ export function MatrixHeader(p: Props) {
         {!readOnly && (
           <button type="button" disabled={p.busy}
             onClick={() => { if (confirm('¿Cerrar la matriz? Quedará en solo lectura.')) p.onStatus('closed') }}
-            className={`${btn} border-fm-outline-variant text-fm-on-surface hover:bg-fm-surface-container-low`}>Cerrar</button>
+            className={`${btn} border-fm-outline-variant text-fm-on-surface hover:bg-fm-surface-container-low`}>Cerrar matriz</button>
         )}
-        <button type="button" onClick={p.onDuplicate} className={`${btn} border-fm-outline-variant text-fm-on-surface hover:bg-fm-surface-container-low`}>Duplicar</button>
+        <button type="button" onClick={p.onDuplicate} disabled={p.busy}
+          className={`${btn} border-fm-outline-variant text-fm-on-surface hover:bg-fm-surface-container-low`}>Duplicar</button>
         {p.matrix.status === 'draft' && (
           <button type="button" onClick={p.onDelete} disabled={p.busy}
             className={`${btn} border-fm-error/40 text-fm-error hover:bg-fm-error/5 ml-auto`}>Eliminar</button>

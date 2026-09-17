@@ -3,18 +3,14 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import Link from 'next/link'
 import type { Client, MatrixStatus } from '@/types/db'
 import { ClientSearchSelect } from '@/components/ui/ClientSearchSelect'
 import type { MatrixListRow } from '@/lib/data/matrices'
 import { MATRIX_STATUS_LABELS } from '@/lib/domain/matrix'
 import { APP_TZ } from '@/lib/domain/dates'
 import { formatDeadlineDate } from '@/lib/domain/deadline'
-
-const STATUS_CLASS: Record<MatrixStatus, string> = {
-  draft: 'bg-fm-surface-container-high text-fm-on-surface-variant',
-  approved: 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-200',
-  closed: 'bg-gray-200 text-gray-600 dark:bg-gray-500/20 dark:text-gray-300',
-}
+import { StatusBadge } from './StatusBadge'
 
 const STATUSES = Object.keys(MATRIX_STATUS_LABELS) as MatrixStatus[]
 
@@ -22,10 +18,6 @@ const MONTHS_ES = [
   'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
   'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
 ]
-
-export function StatusBadge({ status }: { status: MatrixStatus }) {
-  return <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap ${STATUS_CLASS[status]}`}>{MATRIX_STATUS_LABELS[status]}</span>
-}
 
 function monthKey(d: string) { return d.slice(0, 7) }
 
@@ -110,6 +102,8 @@ export function MatricesTable({ rows, clients }: Props) {
             </thead>
             <tbody>
               {filtered.map((r) => (
+                // El clic en la fila es un atajo de ratón; el enlace del nombre es el acceso por teclado
+                // (y permite abrir en otra pestaña).
                 <tr key={r.id} onClick={() => router.push(`/matrices/${r.id}`)}
                   className="border-b border-fm-surface-container-high/60 hover:bg-fm-surface-container-low cursor-pointer">
                   <td className="py-2.5 pr-3">
@@ -118,7 +112,10 @@ export function MatricesTable({ rows, clients }: Props) {
                         ? <Image src={r.client.logo_url} alt="" width={24} height={24} unoptimized className="h-6 w-6 flex-shrink-0 rounded-full object-cover" />
                         : <span className="h-6 w-6 flex-shrink-0 rounded-full bg-fm-primary/15 text-fm-primary text-[10px] font-bold flex items-center justify-center">{r.client.name.slice(0, 1).toUpperCase()}</span>}
                       <div className="min-w-0">
-                        <p className="font-medium text-fm-on-surface truncate">{r.client.name}</p>
+                        <Link href={`/matrices/${r.id}`} onClick={(e) => e.stopPropagation()}
+                          className="block font-medium text-fm-on-surface truncate hover:underline focus-visible:underline">
+                          {r.client.name}
+                        </Link>
                         <p className="text-[11px] text-fm-on-surface-variant truncate">{r.title}</p>
                       </div>
                     </div>

@@ -16,7 +16,7 @@ export function MissingMatricesPanel({ missing, onCreate }: Props) {
   return (
     <section className="glass-panel rounded-2xl p-4 sm:p-5 space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="material-symbols-outlined text-fm-primary">event_upcoming</span>
+        <span className="material-symbols-outlined text-fm-primary" aria-hidden="true">event_upcoming</span>
         <h2 className="text-sm font-semibold text-fm-on-surface">Sin matriz para el próximo ciclo</h2>
         <span className="text-xs text-fm-on-surface-variant">
           {missing.length} cliente{missing.length !== 1 && 's'}
@@ -33,7 +33,7 @@ export function MissingMatricesPanel({ missing, onCreate }: Props) {
               <p className="text-sm font-medium text-fm-on-surface truncate">{m.clientName}</p>
               <p className="text-[11px] text-fm-on-surface-variant truncate">{m.label}</p>
             </div>
-            <button type="button" onClick={() => onCreate(m)}
+            <button type="button" onClick={() => onCreate(m)} aria-label={`Crear matriz para ${m.clientName}`}
               className="text-xs font-semibold text-fm-primary hover:underline whitespace-nowrap">Crear</button>
           </div>
         ))}

@@ -2,95 +2,53 @@
 
 import { useState } from 'react'
 import type { MatrixTopic } from '@/types/db'
-import { MAX_TOPICS, sanitizeTopics } from '@/lib/domain/matrix'
+import { MATRIX_TEXT_LIMITS } from '@/lib/domain/matrix'
+import { TopicsInput } from './TopicsInput'
 
-interface TopicsInputProps {
+interface Props {
   topics: MatrixTopic[]
   onChange: (topics: MatrixTopic[]) => void
   /** Devuelve cuántas piezas usan el tema; si > 0 se pide confirmación antes de quitarlo. */
-  usageCount?: (name: string) => number
-  disabled?: boolean
-}
-
-export function TopicsInput({ topics, onChange, usageCount, disabled }: TopicsInputProps) {
-  const [draft, setDraft] = useState('')
-
-  function add() {
-    const next = sanitizeTopics([...topics, { name: draft }])
-    if (next.length !== topics.length) onChange(next)
-    setDraft('')
-  }
-
-  function remove(name: string) {
-    const n = usageCount?.(name) ?? 0
-    if (n > 0 && !confirm(`${n} pieza${n !== 1 ? 's usan' : ' usa'} este tema. Se les quitará. ¿Continuar?`)) return
-    onChange(topics.filter((t) => t.name !== name))
-  }
-
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      {topics.map((t) => (
-        <span key={t.name} title={t.note}
-          className="inline-flex items-center gap-1 rounded-lg bg-fm-primary/10 text-fm-primary px-2.5 py-1 text-xs font-medium">
-          {t.name}
-          {!disabled && (
-            <button type="button" onClick={() => remove(t.name)} aria-label={`Quitar ${t.name}`}
-              className="material-symbols-outlined text-[14px] hover:text-fm-error">close</button>
-          )}
-        </span>
-      ))}
-      {disabled && topics.length === 0 && (
-        <span className="text-xs text-fm-on-surface-variant">Sin temas</span>
-      )}
-      {!disabled && topics.length < MAX_TOPICS && (
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
-          onBlur={() => { if (draft.trim()) add() }}
-          placeholder={topics.length === 0 ? 'Tema del mes + Enter' : '+ tema'}
-          aria-label="Agregar tema"
-          className="min-w-[9rem] flex-1 bg-transparent border-b border-dashed border-fm-outline-variant px-1 py-1 text-xs text-fm-on-surface outline-none focus:border-fm-primary"
-        />
-      )}
-    </div>
-  )
-}
-
-interface BarProps extends TopicsInputProps {
+  usageCount: (name: string) => number
+  disabled: boolean
   notes: string | null
+  /** Texto de notas cuyo último guardado falló: se sigue mostrando para no perderlo. */
+  failedNotes?: string
   onNotesChange: (notes: string | null) => void
 }
 
-export function MatrixTopicsBar({ notes, onNotesChange, ...inputProps }: BarProps) {
-  const [notesOpen, setNotesOpen] = useState(!!notes)
-  // Borrador solo mientras se edita; al perder foco se guarda y se descarta, así el texto mostrado
-  // vuelve a salir de `notes` (y un error del servidor, que la revierte, se refleja).
+export function MatrixTopicsBar({ topics, onChange, usageCount, disabled, notes, failedNotes, onNotesChange }: Props) {
+  const [notesOpen, setNotesOpen] = useState(!!notes || failedNotes !== undefined)
+  // Borrador solo mientras se edita; al perder foco se guarda y se descarta. Lo mostrado sale después de
+  // `failedNotes` (si el guardado falló) o de `notes` (confirmado u optimista).
   const [draftNotes, setDraftNotes] = useState<string | null>(null)
 
   function commitNotes() {
     if (draftNotes === null) return
     const next = draftNotes.trim() || null
     setDraftNotes(null)
-    if (next !== (notes ?? null)) onNotesChange(next)
+    // Con un fallo previo se reintenta aunque coincida con lo guardado: así se limpia el estado de error.
+    if (next !== (notes ?? null) || failedNotes !== undefined) onNotesChange(next)
   }
 
   return (
     <section className="glass-panel rounded-2xl p-4 space-y-3">
       <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
-        <span className="order-1 text-[11px] uppercase tracking-wider text-fm-on-surface-variant pt-1.5 whitespace-nowrap">Temas del mes</span>
-        <div className="order-3 sm:order-2 basis-full sm:basis-0 sm:flex-1 min-w-0">
-          <TopicsInput {...inputProps} />
+        <span id="matrix-topics-label" className="order-1 text-[11px] uppercase tracking-wider text-fm-on-surface-variant pt-1.5 whitespace-nowrap">Temas del mes</span>
+        <div role="group" aria-labelledby="matrix-topics-label" className="order-3 sm:order-2 basis-full sm:basis-0 sm:flex-1 min-w-0">
+          <TopicsInput topics={topics} onChange={onChange} usageCount={usageCount} disabled={disabled} />
         </div>
-        <button type="button" onClick={() => setNotesOpen((v) => !v)}
+        <button type="button" onClick={() => setNotesOpen((v) => !v)} aria-expanded={notesOpen} aria-controls="matrix-notes"
           className="order-2 sm:order-3 ml-auto sm:ml-0 text-[11px] text-fm-primary hover:underline whitespace-nowrap pt-1.5">
           {notesOpen ? 'Ocultar enfoque' : 'Enfoque del mes'}
         </button>
       </div>
       {notesOpen && (
         <textarea
-          value={draftNotes ?? notes ?? ''}
-          disabled={inputProps.disabled}
+          id="matrix-notes"
+          value={draftNotes ?? failedNotes ?? notes ?? ''}
+          disabled={disabled}
+          maxLength={MATRIX_TEXT_LIMITS.notes}
           onChange={(e) => setDraftNotes(e.target.value)}
           onBlur={commitNotes}
           rows={3}

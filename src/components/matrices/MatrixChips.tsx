@@ -25,11 +25,11 @@ function Chip({ tone, icon, label, used, limit, credits, onClick, disabled }: {
 }) {
   const content = (
     <>
-      <span className="material-symbols-outlined text-[16px]">{icon}</span>
+      <span className="material-symbols-outlined text-[16px]" aria-hidden="true">{icon}</span>
       <span>{label}</span>
       <span className="tabular-nums font-bold">{used} / {limit}</span>
       {credits > 0 && <span className="text-[10px] opacity-70">+{credits} créd.</span>}
-      {onClick && <span className="material-symbols-outlined text-[14px] opacity-60">add</span>}
+      {onClick && <span className="material-symbols-outlined text-[14px] opacity-60" aria-hidden="true">add</span>}
     </>
   )
   const cls = `inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${TONE_CLASS[tone]}`
@@ -61,9 +61,9 @@ export function MatrixChips({ usage, estimated, onAdd, disabled }: Props) {
           )
         })}
         {usage.pool && onAdd && poolTypes.map((t) => (
-          <button key={t} type="button" onClick={() => onAdd(t)} disabled={disabled}
+          <button key={t} type="button" onClick={() => onAdd(t)} disabled={disabled} title={`Agregar ${CONTENT_TYPE_LABELS[t].toLowerCase()}`}
             className="inline-flex items-center gap-1 rounded-full border border-dashed border-fm-outline-variant px-2.5 py-1 text-[11px] text-fm-on-surface-variant hover:bg-fm-surface-container-low disabled:opacity-50">
-            <span className="material-symbols-outlined text-[14px]">{CONTENT_ICONS[t]}</span>+ {CONTENT_TYPE_LABELS[t]}
+            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">{CONTENT_ICONS[t]}</span>+ {CONTENT_TYPE_LABELS[t]}
           </button>
         ))}
       </div>

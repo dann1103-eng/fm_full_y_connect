@@ -8,11 +8,15 @@ import { MatrixEditor } from '@/components/matrices/MatrixEditor'
 
 export const dynamic = 'force-dynamic'
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export default async function MatrixPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const ctx = await getEffectiveUser()
   if (!ctx) redirect('/login')
   if (!canManageMatrices(ctx.appUser.role)) redirect('/dashboard')
+  // Un id que no es UUID haría fallar la consulta (error de sintaxis de uuid en Postgres) y el loader lanzaría.
+  if (!UUID_RE.test(id)) redirect('/matrices')
 
   const supabase = await createClient()
   const data = await loadMatrixEditorData(supabase, id)

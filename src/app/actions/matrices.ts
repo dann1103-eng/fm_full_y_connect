@@ -11,7 +11,7 @@ import { insertInitialPhaseLog } from '@/lib/domain/pipeline'
 import { today, addDaysString } from '@/lib/domain/dates'
 import {
   canTransition, isIsoDate, matrixTitleFor, pickCycleForPeriod, sanitizeTopics, validateForApproval, validateItemPatch,
-  proposeDeadline, shiftDeadline, MATRIX_CONTENT_TYPES,
+  proposeDeadline, shiftDeadline, MATRIX_CONTENT_TYPES, MATRIX_TEXT_LIMITS,
   type ActionErr, type ActionResult, type LinkResult, type ApprovalProblem, type ItemPatch,
 } from '@/lib/domain/matrix'
 import { loadMatrixEditorData, loadTargetPeriodsForClient, sharedTypesFor, type TargetPeriodsForClient } from '@/lib/data/matrices'
@@ -26,16 +26,16 @@ const INVALID_DATA = 'Datos inválidos.'
 const LOAD_ERROR = 'No se pudieron cargar los datos. Intenta de nuevo.'
 const INVALID_PERIOD = 'Período inválido para este cliente.'
 
-const TITLE_MAX = 200
-const NOTES_MAX = 5000
+const TITLE_MAX = MATRIX_TEXT_LIMITS.title
+const NOTES_MAX = MATRIX_TEXT_LIMITS.notes
 
 /** Campos de texto libre de una pieza: tope de longitud y mensaje (etiquetas del editor). */
 const ITEM_TEXT_FIELDS = [
-  { key: 'copy', max: 5000, tooLong: 'El copy es demasiado largo.' },
-  { key: 'script', max: 10000, tooLong: 'El guión es demasiado largo.' },
-  { key: 'visual_style', max: 2000, tooLong: 'El estilo visual es demasiado largo.' },
-  { key: 'hashtags', max: 2000, tooLong: 'Los hashtags son demasiado largos.' },
-  { key: 'cta', max: 2000, tooLong: 'El llamado a la acción es demasiado largo.' },
+  { key: 'copy', max: MATRIX_TEXT_LIMITS.copy, tooLong: 'El copy es demasiado largo.' },
+  { key: 'script', max: MATRIX_TEXT_LIMITS.script, tooLong: 'El guion es demasiado largo.' },
+  { key: 'visual_style', max: MATRIX_TEXT_LIMITS.visual_style, tooLong: 'El estilo visual es demasiado largo.' },
+  { key: 'hashtags', max: MATRIX_TEXT_LIMITS.hashtags, tooLong: 'Los hashtags son demasiado largos.' },
+  { key: 'cta', max: MATRIX_TEXT_LIMITS.cta, tooLong: 'El llamado a la acción es demasiado largo.' },
 ] as const
 
 /**

@@ -386,6 +386,20 @@ export function shiftDeadline(deadline: DateString, from: PeriodRange, to: Perio
   return candidate > to.periodEnd ? to.periodEnd : candidate
 }
 
+/**
+ * Topes de longitud (caracteres, tras recortar espacios) de los campos de texto libre. Los usan las server
+ * actions para validar y la UI como `maxLength`, así un texto nunca se escribe más largo de lo que se guarda.
+ */
+export const MATRIX_TEXT_LIMITS = {
+  title: 200,
+  notes: 5000,
+  copy: 5000,
+  script: 10000,
+  visual_style: 2000,
+  hashtags: 2000,
+  cta: 2000,
+} as const
+
 export const MAX_TOPICS = 20
 
 /** Recorta un string a lo sumo `max` code points (no UTF-16 units) — evita partir un emoji a la mitad. */
