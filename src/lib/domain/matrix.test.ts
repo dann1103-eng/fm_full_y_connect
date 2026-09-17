@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { computeTargetPeriods, matrixTitleFor, periodLabel, resolveMatrixLimits } from './matrix'
+import { computeTargetPeriods, matrixTitleFor, periodLabel, resolveMatrixLimits, computeMatrixUsage, usageTone } from './matrix'
+import type { MatrixLimits } from './matrix'
 import type { BillingCycle, Plan, Requirement } from '@/types/db'
 
 describe('computeTargetPeriods', () => {
@@ -94,5 +95,67 @@ describe('resolveMatrixLimits', () => {
     const noCycle = resolveMatrixLimits({ cycle: null, plan: poolPlan, cycleRequirements: [], credits: {} })
     expect(noCycle.unifiedPool).toBe(10)
     expect(noCycle.limits.estatico).toBe(0)
+  })
+})
+
+type UItem = { id: string; content_type: Requirement['content_type']; deadline: string; created_at: string; status: 'planned' | 'converted' | 'blocked' }
+function item(id: string, content_type: UItem['content_type'], deadline: string, status: UItem['status'] = 'planned'): UItem {
+  return { id, content_type, deadline, created_at: `2026-09-01T00:00:${id.padStart(2, '0')}Z`, status }
+}
+const baseML: MatrixLimits = {
+  limits: { historia: 2, estatico: 2, video_corto: 1, reel: 0, short: 0, produccion: 0, reunion: 0, matriz_contenido: 1 },
+  cycleTotals: { historia: 0, estatico: 1, video_corto: 0, reel: 0, short: 0, produccion: 0, reunion: 0, matriz_contenido: 0 },
+  credits: {}, unifiedPool: null, estimated: false,
+}
+
+describe('computeMatrixUsage', () => {
+  it('marca fuera de plan en orden de fecha, contando lo ya consumido en el ciclo', () => {
+    const items = [item('1', 'estatico', '2026-10-20'), item('2', 'estatico', '2026-10-17'), item('3', 'estatico', '2026-10-25')]
+    const u = computeMatrixUsage(items, baseML)
+    expect(u.overPlanItemIds).toEqual(['1', '3'])
+    expect(u.byType.estatico).toMatchObject({ planned: 3, used: 4, limit: 2, over: 2 })
+  })
+
+  it('los créditos amplían el cupo', () => {
+    const items = [item('1', 'estatico', '2026-10-17'), item('2', 'estatico', '2026-10-18')]
+    const u = computeMatrixUsage(items, { ...baseML, credits: { estatico: 1 } })
+    expect(u.overPlanItemIds).toEqual([])
+  })
+
+  it('excluye piezas convertidas del conteo planificado', () => {
+    const items = [item('1', 'estatico', '2026-10-17', 'converted'), item('2', 'estatico', '2026-10-18')]
+    const u = computeMatrixUsage(items, baseML)
+    expect(u.byType.estatico.planned).toBe(1)
+    expect(u.overPlanItemIds).toEqual([])
+  })
+
+  it('pool unificado: contador compartido; historia fuera del pool con límite 0', () => {
+    const ml: MatrixLimits = {
+      ...baseML,
+      limits: { ...baseML.limits, historia: 0, estatico: 0, video_corto: 0, reel: 0, short: 0 },
+      cycleTotals: { ...baseML.cycleTotals, estatico: 0 },
+      unifiedPool: 2,
+    }
+    const items = [item('1', 'estatico', '2026-10-17'), item('2', 'reel', '2026-10-18'), item('3', 'short', '2026-10-19'), item('4', 'historia', '2026-10-20')]
+    const u = computeMatrixUsage(items, ml)
+    expect(u.pool).toEqual({ used: 3, limit: 2, credits: 0 })
+    expect(u.overPlanItemIds).toEqual(['3', '4'])
+    expect(u.activeTypes).toEqual(['historia', 'estatico', 'video_corto', 'reel', 'short'])
+  })
+
+  it('tipos activos: limit > 0 || credits > 0 || planned > 0', () => {
+    const u = computeMatrixUsage([item('1', 'short', '2026-10-17')], { ...baseML, credits: { reel: 1 } })
+    expect(u.activeTypes).toEqual(['historia', 'estatico', 'video_corto', 'reel', 'short'])
+    const u2 = computeMatrixUsage([], baseML)
+    expect(u2.activeTypes).toEqual(['historia', 'estatico', 'video_corto'])
+  })
+})
+
+describe('usageTone', () => {
+  it('verde al llenar, rojo al pasarse contando créditos, neutro en el resto', () => {
+    expect(usageTone(2, 2, 0)).toBe('full')
+    expect(usageTone(3, 2, 0)).toBe('over')
+    expect(usageTone(3, 2, 1)).toBe('neutral')
+    expect(usageTone(1, 2, 0)).toBe('neutral')
   })
 })

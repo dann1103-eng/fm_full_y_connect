@@ -1,9 +1,9 @@
-import type { BillingCycle, BillingPeriod, ContentType, MatrixObjective, MatrixStatus, Plan, Requirement } from '@/types/db'
+import type { BillingCycle, BillingPeriod, ContentMatrixItem, ContentType, MatrixObjective, MatrixStatus, Plan, Requirement } from '@/types/db'
 import { dominantCycleMonth, computeTotals } from './requirement'
 import { firstCycleDates, nextCycleDates, currentCycleDates } from './cycles'
 import type { DateString } from './dates'
 import { formatDeadlineDate } from './deadline'
-import { effectiveLimits, applyContentLimitsWithOverride, limitsToRecord } from './plans'
+import { effectiveLimits, applyContentLimitsWithOverride, limitsToRecord, TIPPABLE_CONTENT_TYPES, CONTENT_TYPES } from './plans'
 
 // ── Constantes ──────────────────────────────────────────────────────────────
 
@@ -118,4 +118,85 @@ export function resolveMatrixLimits(input: MatrixLimitsInput): MatrixLimits {
     unifiedPool: input.plan.unified_content_limit ?? null,
     estimated: true,
   }
+}
+
+// ── Uso y marca fuera de plan ───────────────────────────────────────────────
+
+export interface MatrixUsageByType {
+  planned: number
+  used: number
+  limit: number
+  credits: number
+  over: number
+}
+
+export interface MatrixUsage {
+  byType: Record<ContentType, MatrixUsageByType>
+  pool: { used: number; limit: number; credits: number } | null
+  /** Ids de piezas que exceden el cupo (array, no Set: cruza la frontera server → client). */
+  overPlanItemIds: string[]
+  /** Tipos que muestran chip y alimentan el selector "Agregar pieza". */
+  activeTypes: ContentType[]
+}
+
+export type UsageItem = Pick<ContentMatrixItem, 'id' | 'content_type' | 'deadline' | 'created_at' | 'status'>
+
+export type UsageTone = 'neutral' | 'full' | 'over'
+
+export function usageTone(used: number, limit: number, credits: number): UsageTone {
+  if (used > limit + credits) return 'over'
+  if (used === limit) return 'full'
+  return 'neutral'
+}
+
+function isPoolType(t: ContentType): boolean {
+  return (TIPPABLE_CONTENT_TYPES as ContentType[]).includes(t)
+}
+
+export function computeMatrixUsage(items: UsageItem[], ml: MatrixLimits): MatrixUsage {
+  const planned: Record<ContentType, number> = { ...ZERO_TOTALS }
+  for (const it of items) if (it.status !== 'converted') planned[it.content_type] += 1
+
+  const byType = {} as Record<ContentType, MatrixUsageByType>
+  for (const t of CONTENT_TYPES) {
+    const limit = ml.limits[t] ?? 0
+    const credits = ml.credits[t] ?? 0
+    const used = (ml.cycleTotals[t] ?? 0) + planned[t]
+    byType[t] = { planned: planned[t], used, limit, credits, over: Math.max(0, used - limit - credits) }
+  }
+
+  const pool = ml.unifiedPool != null
+    ? {
+        used: TIPPABLE_CONTENT_TYPES.reduce((s, t) => s + byType[t].used, 0),
+        limit: ml.unifiedPool,
+        credits: TIPPABLE_CONTENT_TYPES.reduce((s, t) => s + (ml.credits[t] ?? 0), 0),
+      }
+    : null
+
+  const sorted = items
+    .filter((i) => i.status !== 'converted')
+    .slice()
+    .sort((a, b) => a.deadline.localeCompare(b.deadline) || a.created_at.localeCompare(b.created_at))
+
+  const counters: Record<ContentType, number> = { ...ml.cycleTotals }
+  let poolCounter = pool ? TIPPABLE_CONTENT_TYPES.reduce((s, t) => s + (ml.cycleTotals[t] ?? 0), 0) : 0
+  const overPlanItemIds: string[] = []
+  for (const it of sorted) {
+    const t = it.content_type
+    if (pool && isPoolType(t)) {
+      poolCounter += 1
+      if (poolCounter > pool.limit + pool.credits) overPlanItemIds.push(it.id)
+    } else {
+      counters[t] = (counters[t] ?? 0) + 1
+      if (counters[t] > (ml.limits[t] ?? 0) + (ml.credits[t] ?? 0)) overPlanItemIds.push(it.id)
+    }
+  }
+
+  const activeTypes = MATRIX_CONTENT_TYPES.filter((t) => {
+    if (pool && isPoolType(t)) return true
+    const u = byType[t]
+    return u.limit > 0 || u.credits > 0 || u.planned > 0
+  })
+
+  return { byType, pool, overPlanItemIds, activeTypes }
 }
