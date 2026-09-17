@@ -1,0 +1,32 @@
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { getEffectiveUser } from '@/lib/auth/effective-user'
+import { canManageMatrices } from '@/lib/domain/permissions'
+import { TopNav } from '@/components/layout/TopNav'
+import { loadMatrixEditorData } from '@/lib/data/matrices'
+import { MatrixEditor } from '@/components/matrices/MatrixEditor'
+
+export const dynamic = 'force-dynamic'
+
+export default async function MatrixPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const ctx = await getEffectiveUser()
+  if (!ctx) redirect('/login')
+  if (!canManageMatrices(ctx.appUser.role)) redirect('/dashboard')
+
+  const supabase = await createClient()
+  const data = await loadMatrixEditorData(supabase, id)
+  // Redirige en vez de 404: tras borrar la matriz, la revalidación re-renderiza esta página y no debe
+  // mostrar un "no encontrado" antes de que el editor navegue a la lista.
+  if (!data) redirect('/matrices')
+
+  return (
+    <div className="flex flex-col min-h-full">
+      <TopNav title={data.matrix.title || 'Matriz'} backHref="/matrices" />
+      <div className="flex-1 p-3 sm:p-6 max-w-6xl mx-auto w-full">
+        {/* key: al navegar a otra matriz (p. ej. tras duplicar) el estado local arranca de cero. */}
+        <MatrixEditor key={data.matrix.id} data={data} />
+      </div>
+    </div>
+  )
+}
