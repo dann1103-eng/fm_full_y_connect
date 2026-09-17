@@ -5,7 +5,18 @@
 --
 -- Campos reservados para bloques posteriores (no se usan aún):
 --   content_matrices.lead_days, content_matrix_items.status ('converted'|'blocked'),
---   content_matrix_items.requirement_id, índice content_matrix_items_planned_idx.
+--   content_matrix_items.requirement_id, índice content_matrix_items_planned_idx,
+--   content_matrix_items.blocked_reason y content_matrix_items.converted_at (bloque 2: motivo por el
+--   que una pieza no se pudo convertir y momento de la conversión a requerimiento).
+--
+-- Vínculos a requirements: índices ÚNICOS parciales (content_matrices_matrix_requirement_uq,
+-- content_matrix_items_requirement_uq) → a lo sumo una matriz por requerimiento de matriz y una pieza
+-- por requerimiento convertido.
+--
+-- Topes de longitud (checks *_len_chk): mismos valores que MATRIX_TEXT_LIMITS en src/lib/domain/matrix.ts
+-- (topic: 60, el tope de sanitizeTopics). Postgres char_length cuenta code points y la app mide la
+-- longitud UTF-16 (.length, >= code points), así que el check de la base nunca es más estricto que la app:
+-- solo ataja escrituras que se salten las server actions.
 
 begin;
 
@@ -35,14 +46,17 @@ create table if not exists public.content_matrices (
   updated_at            timestamptz not null default now(),
   constraint content_matrices_period_chk check (period_end > period_start),
   constraint content_matrices_client_period_uq unique (client_id, period_start),
-  constraint content_matrices_topics_array_chk check (jsonb_typeof(topics_json) = 'array')
+  constraint content_matrices_topics_array_chk check (jsonb_typeof(topics_json) = 'array'),
+  constraint content_matrices_title_len_chk check (char_length(title) <= 200),
+  constraint content_matrices_notes_len_chk check (notes is null or char_length(notes) <= 5000)
 );
 
 -- El índice único content_matrices_client_period_uq (client_id, period_start) ya cubre
 -- las búsquedas por cliente ordenadas por period_start desc (backward scan del btree).
 create index if not exists content_matrices_status_idx
   on public.content_matrices (status, period_start desc);
-create index if not exists content_matrices_matrix_requirement_idx
+-- Único: un requerimiento de matriz pertenece a lo sumo a una matriz.
+create unique index if not exists content_matrices_matrix_requirement_uq
   on public.content_matrices (matrix_requirement_id)
   where matrix_requirement_id is not null;
 
@@ -65,8 +79,17 @@ create table if not exists public.content_matrix_items (
   status           text not null default 'planned'
                    check (status in ('planned','converted','blocked')),
   requirement_id   uuid references public.requirements(id) on delete set null,
+  blocked_reason   text,        -- reservado (bloque 2)
+  converted_at     timestamptz, -- reservado (bloque 2)
   created_at       timestamptz not null default now(),
-  updated_at       timestamptz not null default now()
+  updated_at       timestamptz not null default now(),
+  constraint content_matrix_items_title_len_chk        check (char_length(title) <= 200),
+  constraint content_matrix_items_topic_len_chk        check (topic is null or char_length(topic) <= 60),
+  constraint content_matrix_items_copy_len_chk         check (copy is null or char_length(copy) <= 5000),
+  constraint content_matrix_items_script_len_chk       check (script is null or char_length(script) <= 10000),
+  constraint content_matrix_items_visual_style_len_chk check (visual_style is null or char_length(visual_style) <= 2000),
+  constraint content_matrix_items_hashtags_len_chk     check (hashtags is null or char_length(hashtags) <= 2000),
+  constraint content_matrix_items_cta_len_chk          check (cta is null or char_length(cta) <= 2000)
 );
 
 create index if not exists content_matrix_items_matrix_idx
@@ -74,7 +97,8 @@ create index if not exists content_matrix_items_matrix_idx
 create index if not exists content_matrix_items_planned_idx
   on public.content_matrix_items (deadline)
   where status = 'planned';
-create index if not exists content_matrix_items_requirement_idx
+-- Único: un requerimiento convertido sale de a lo sumo una pieza.
+create unique index if not exists content_matrix_items_requirement_uq
   on public.content_matrix_items (requirement_id)
   where requirement_id is not null;
 

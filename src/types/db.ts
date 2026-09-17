@@ -46,6 +46,9 @@ export type Priority = 'baja' | 'media' | 'alta'
 
 export type RequirementApprovalStatus = 'approved' | 'pending' | 'rejected'
 
+/** Canal por el que se solicitó un requerimiento (0114: `not null default 'portal'`). */
+export type RequirementRequestedVia = 'portal' | 'whatsapp_bot' | 'staff' | 'unknown'
+
 export type CreditKind =
   | 'cambios'
   | 'content_estatico'
@@ -854,6 +857,7 @@ export interface Database {
           rejected_by_user_id: string | null
           client_request_attachments_json: ClientRequestAttachment[] | null
           client_request_links_json: ClientRequestLink[] | null
+          requested_via: RequirementRequestedVia
         }
         Insert: {
           id?: string
@@ -890,6 +894,7 @@ export interface Database {
           rejected_by_user_id?: string | null
           client_request_attachments_json?: ClientRequestAttachment[] | null
           client_request_links_json?: ClientRequestLink[] | null
+          requested_via?: RequirementRequestedVia
         }
         Update: {
           billing_cycle_id?: string
@@ -924,6 +929,7 @@ export interface Database {
           rejected_by_user_id?: string | null
           client_request_attachments_json?: ClientRequestAttachment[] | null
           client_request_links_json?: ClientRequestLink[] | null
+          requested_via?: RequirementRequestedVia
         }
         Relationships: [
           {
@@ -1281,6 +1287,10 @@ export interface Database {
           needs_production: boolean
           status: MatrixItemStatus
           requirement_id: string | null
+          /** Reservado (bloque 2): motivo por el que la pieza no se pudo convertir. */
+          blocked_reason: string | null
+          /** Reservado (bloque 2): momento de la conversión a requerimiento. */
+          converted_at: string | null
           created_at: string
           updated_at: string
         }
@@ -1300,6 +1310,8 @@ export interface Database {
           needs_production?: boolean
           status?: MatrixItemStatus
           requirement_id?: string | null
+          blocked_reason?: string | null
+          converted_at?: string | null
         }
         Update: {
           content_type?: ContentType
@@ -1315,6 +1327,8 @@ export interface Database {
           needs_production?: boolean
           status?: MatrixItemStatus
           requirement_id?: string | null
+          blocked_reason?: string | null
+          converted_at?: string | null
         }
         Relationships: [
           {

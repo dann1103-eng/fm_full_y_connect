@@ -155,8 +155,8 @@ async function discardUnlinkedRequirement(reqId: string): Promise<void> {
 
 /**
  * Registra el requerimiento de tipo matriz_contenido en el ciclo vigente y lo vincula.
- * Usa el cliente AUTENTICADO para que el trigger de pago aplique como a un registro manual.
- * (`requirements.requested_via` no está en el tipo Insert de src/types/db.ts, así que no se setea.)
+ * Usa el cliente AUTENTICADO para que el trigger de pago aplique como a un registro manual, y lo marca
+ * `requested_via='staff'` (lo registra el equipo, no el portal).
  */
 async function linkMatrixRequirement(ctx: Ctx, matrixId: string): Promise<LinkResult> {
   const { supabase, userId } = ctx
@@ -196,6 +196,7 @@ async function linkMatrixRequirement(ctx: Ctx, matrixId: string): Promise<LinkRe
     approval_status: 'approved',
     includes_story: false,
     deadline,
+    requested_via: 'staff',
   }).select('id').single()
   if (error || !req) return { ok: false, error: error?.message ?? 'No se pudo registrar el requerimiento de matriz.' }
 
