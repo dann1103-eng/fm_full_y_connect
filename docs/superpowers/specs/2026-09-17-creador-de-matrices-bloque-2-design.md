@@ -211,13 +211,12 @@ Pasos, en orden:
    | `deadline` | el de la pieza (puede quedar vencido si la matriz se aprobó tarde: se ve rojo en el pipeline, que es lo correcto) |
    | `assigned_to` | el de la pieza |
    | `estimated_time_minutes` | el de la pieza |
-   | `registered_by_user_id` | `matrix.approved_by ?? matrix.created_by` |
    | `priority` | `'media'` |
    | `over_limit` | del paso 3 |
    | `approval_status` | `'approved'` |
    | `includes_story` | `false` |
    | `requested_via` | `'staff'` |
-   | `registered_by_user_id` (resuelto) | `opts.registeredByUserId ?? matrix.approved_by ?? matrix.created_by` |
+   | `registered_by_user_id` | `opts.registeredByUserId ?? matrix.approved_by ?? matrix.created_by` |
    | `notes` | `null` — el brief se lee en vivo de la pieza |
 
    El insert pide la fila de vuelta (`.select('*').single()`) para poder meterla en el caché de
