@@ -82,6 +82,10 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
   const [dupOpen, setDupOpen] = useState(false)
   const [failedItemDrafts, setFailedItemDrafts] = useState<Record<string, FailedItemDrafts>>({})
   const [failedMatrixDrafts, setFailedMatrixDrafts] = useState<FailedMatrixDrafts>({})
+  // Cambia al descartar borradores fallidos (o al cerrar la matriz): se usa como `key` de los componentes
+  // que guardan su propio borrador local (título, notas, hoja de la pieza) para forzar su remonte y que
+  // vuelvan a mostrar el valor confirmado en vez de un borrador ya descartado que siguieran mostrando.
+  const [draftResetToken, setDraftResetToken] = useState(0)
 
   // Últimas filas confirmadas por el servidor: se actualizan con cada respuesta exitosa y al agregar/duplicar.
   const confirmedMatrix = useRef<ContentMatrix>(data.matrix)
@@ -257,6 +261,21 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
     confirmedMatrix.current = r.matrix
     setShowProblems(false)
     setMatrix((m) => ({ ...m, ...pickKeys(r.matrix, STATUS_FIELDS) }))
+    // Cerrada: los campos quedan de solo lectura, así que un reintento ya no es posible. Se limpian los
+    // borradores fallidos que quedaran pendientes para no mostrar "cambios sin guardar" imposibles de resolver.
+    if (to === 'closed') {
+      setFailedItemDrafts({})
+      setFailedMatrixDrafts({})
+      setDraftResetToken((t) => t + 1)
+    }
+  }
+
+  /** Botón de la franja "cambios sin guardar": descarta todo el texto pendiente tras confirmar. */
+  function discardUnsavedChanges() {
+    if (!confirm('¿Descartar los cambios que no se pudieron guardar?')) return
+    setFailedItemDrafts({})
+    setFailedMatrixDrafts({})
+    setDraftResetToken((t) => t + 1)
   }
 
   async function onRetryLink() {
@@ -370,6 +389,7 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
   return (
     <div className="space-y-4">
       <MatrixHeader
+        key={draftResetToken}
         matrix={matrix}
         client={{ id: data.client.id, name: data.client.name, logo_url: data.client.logo_url }}
         periodLabel={data.period.label}
@@ -399,15 +419,19 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
       {hasUnsaved && (
         <div role="status" className="flex items-start gap-2 text-xs rounded-xl px-3 py-2 border border-amber-300/60 bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">
           <span className="material-symbols-outlined text-[16px]" aria-hidden="true">edit_off</span>
-          <span>
+          <span className="flex-1">
             Hay cambios sin guardar.
             {unsavedItemIds.length > 0 && ' Abre la pieza marcada y sal del campo para reintentar.'}
             {hasUnsavedMatrixText && ' Entra al título o al enfoque del mes y sal del campo para reintentar.'}
           </span>
+          <button type="button" onClick={discardUnsavedChanges} className="font-semibold underline whitespace-nowrap flex-shrink-0">
+            Descartar cambios sin guardar
+          </button>
         </div>
       )}
 
       <MatrixTopicsBar
+        key={draftResetToken}
         topics={matrix.topics_json}
         onChange={(topics) => void onTopics(topics)}
         usageCount={topicUsage}
@@ -432,6 +456,7 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
       />
 
       <MatrixItemSheet
+        key={draftResetToken}
         item={selected}
         topics={matrix.topics_json}
         period={data.period}
