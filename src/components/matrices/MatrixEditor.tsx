@@ -468,7 +468,11 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
         item={selected}
         topics={matrix.topics_json}
         period={data.period}
-        readOnly={readOnly || selected?.status === 'converted'}
+        assignableUsers={data.assignableUsers}
+        // `readOnly` = matriz cerrada, y nada más. Una pieza convertida congela por su cuenta los cinco
+        // campos que se copiaron al requerimiento (los mismos que rechaza `updateItem`) y deja el resto
+        // del brief editable, que es justo lo que el requerimiento lee de la pieza.
+        readOnly={readOnly}
         error={sheetError}
         failedDrafts={selected ? failedItemDrafts[selected.id] : undefined}
         onClose={() => setSelectedId(null)}

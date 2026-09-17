@@ -6,7 +6,8 @@ import type { ContentMatrixItem, ContentType, MatrixObjective, MatrixTopic } fro
 import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import { formatDeadlineDate } from '@/lib/domain/deadline'
 import {
-  isIsoDate, MATRIX_CONTENT_TYPES, MATRIX_OBJECTIVES, MATRIX_OBJECTIVE_LABELS, MATRIX_TEXT_LIMITS, type ItemPatch,
+  isIsoDate, MATRIX_CONTENT_TYPES, MATRIX_ESTIMATE_MAX_MINUTES, MATRIX_MAX_ASSIGNEES, MATRIX_OBJECTIVES,
+  MATRIX_OBJECTIVE_LABELS, MATRIX_TEXT_LIMITS, type ItemPatch,
 } from '@/lib/domain/matrix'
 
 export type ItemTextKey = 'title' | 'copy' | 'script' | 'visual_style' | 'hashtags' | 'cta'
@@ -14,10 +15,16 @@ export const ITEM_TEXT_KEYS: readonly ItemTextKey[] = ['title', 'copy', 'script'
 /** Texto que el usuario intentó guardar y falló, por campo. */
 export type FailedItemDrafts = Partial<Record<ItemTextKey, string>>
 
+/** Tope de horas del estimado, derivado del tope en minutos (7 días → 168 h). */
+const EST_MAX_HOURS = Math.floor(MATRIX_ESTIMATE_MAX_MINUTES / 60)
+
 interface Props {
   item: ContentMatrixItem | null
   topics: MatrixTopic[]
   period: { periodStart: string; periodEnd: string; label: string }
+  /** Usuarios internos que se pueden asignar a la pieza. */
+  assignableUsers: Array<{ id: string; full_name: string }>
+  /** Matriz cerrada: todo queda de solo lectura. (Una pieza convertida congela solo algunos campos.) */
   readOnly: boolean
   /** Error del último guardado de esta pieza (se repite aquí porque en móvil el panel tapa la página). */
   error: string | null
@@ -50,16 +57,30 @@ function withoutKeys(d: Drafts, keys: readonly (keyof Drafts)[]): Drafts {
   return next
 }
 
-function ItemSheet({ item, topics, period, readOnly, error, failedDrafts, onClose, onPatch }: Omit<Props, 'item'> & { item: ContentMatrixItem }) {
+function ItemSheet({ item, topics, period, assignableUsers, readOnly, error, failedDrafts, onClose, onPatch }: Omit<Props, 'item'> & { item: ContentMatrixItem }) {
   // Borradores solo de los campos que se están editando. Al perder foco se guardan y se descartan; lo mostrado
   // sale entonces del texto fallido (si el último guardado de ese campo falló) o de `item` (optimista o confirmado).
   const [drafts, setDrafts] = useState<Drafts>({})
   const [dateError, setDateError] = useState<string | null>(null)
+  // Estimado en horas + minutos. El cuerpo se monta con `key={item.id}`, así que basta inicializarlo aquí.
+  const [estHours, setEstHours] = useState(() => splitEstimate(item.estimated_time_minutes).hours)
+  const [estMins, setEstMins] = useState(() => splitEstimate(item.estimated_time_minutes).mins)
+
+  // Bloqueo por campo: una matriz cerrada congela todo; una pieza ya convertida congela SOLO lo que se
+  // copió al requerimiento (título, tipo, fecha, responsable y estimado — `updateItem` rechaza esos cinco),
+  // porque editarlo aquí dejaría la tarjeta del pipeline divergida sin que nada lo indique. El resto del
+  // brief (tema, objetivo, copy, guion, estilo visual, hashtags, CTA) lo lee el requerimiento de la pieza,
+  // así que sigue editable.
+  const converted = item.status === 'converted'
+  const frozen = readOnly || converted
 
   const rangeLabel = `${formatDeadlineDate(period.periodStart)} y ${formatDeadlineDate(period.periodEnd)}`
   const savedText = (key: ItemTextKey): string => (key === 'title' ? item.title : item[key] ?? '')
   const shownText = (key: ItemTextKey): string => drafts[key] ?? failedDrafts?.[key] ?? savedText(key)
   const validDeadline = (d: string) => isIsoDate(d) && d >= period.periodStart && d <= period.periodEnd
+
+  const assigned = item.assigned_to ?? []
+  const atAssigneeCap = assigned.length >= MATRIX_MAX_ASSIGNEES
 
   /** Patch con los borradores de texto que cambiaron (o cuyo guardado anterior falló: se reintenta). */
   function pendingTextPatch(keys: readonly ItemTextKey[]): ItemPatch {
@@ -88,6 +109,24 @@ function ItemSheet({ item, topics, period, readOnly, error, failedDrafts, onClos
     if (v !== item.deadline) onPatch({ deadline: v })
   }
 
+  /** Horas + minutos → minutos totales. Se recorta a los topes y lo recortado vuelve a los inputs. */
+  function commitEstimate() {
+    const h = clampInt(estHours, 0, EST_MAX_HOURS)
+    const m = clampInt(estMins, 0, 59)
+    const total = Math.min(h * 60 + m, MATRIX_ESTIMATE_MAX_MINUTES)
+    const value = total > 0 ? total : null
+    const shown = splitEstimate(value)
+    setEstHours(shown.hours)
+    setEstMins(shown.mins)
+    if (value !== (item.estimated_time_minutes ?? null)) onPatch({ estimated_time_minutes: value })
+  }
+
+  function toggleAssignee(userId: string) {
+    const next = assigned.includes(userId) ? assigned.filter((id) => id !== userId) : [...assigned, userId]
+    if (next.length > MATRIX_MAX_ASSIGNEES) return
+    onPatch({ assigned_to: next })
+  }
+
   /** Cerrar con Escape o clic fuera no dispara el blur del campo activo: se guarda lo pendiente aquí. */
   function close() {
     const patch = pendingTextPatch(ITEM_TEXT_KEYS)
@@ -104,7 +143,8 @@ function ItemSheet({ item, topics, period, readOnly, error, failedDrafts, onClos
     const common = {
       id,
       value: shownText(key),
-      disabled: readOnly,
+      // El título es lo único de este bloque que además se congela al convertir (se copió al requerimiento).
+      disabled: key === 'title' ? frozen : readOnly,
       placeholder,
       maxLength: MATRIX_TEXT_LIMITS[key],
       'aria-invalid': failed !== undefined || undefined,
@@ -133,7 +173,7 @@ function ItemSheet({ item, topics, period, readOnly, error, failedDrafts, onClos
         <SheetHeader className="px-5 pt-5 pb-3 pr-12 border-b border-fm-outline-variant/10">
           <SheetTitle className="text-base font-semibold text-fm-on-surface truncate">{item.title || 'Pieza sin título'}</SheetTitle>
           <SheetDescription className="text-[11px] text-fm-on-surface-variant">
-            Período {period.label}{readOnly ? ' · solo lectura' : ''}
+            Período {period.label}{readOnly ? ' · solo lectura' : converted ? ' · convertida' : ''}
           </SheetDescription>
         </SheetHeader>
 
@@ -145,7 +185,7 @@ function ItemSheet({ item, topics, period, readOnly, error, failedDrafts, onClos
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor="matrix-item-type" className={labelCls}>Tipo</label>
-              <select id="matrix-item-type" value={item.content_type} disabled={readOnly} className={inputCls}
+              <select id="matrix-item-type" value={item.content_type} disabled={frozen} className={inputCls}
                 onChange={(e) => onPatch({ content_type: e.target.value as ContentType })}>
                 {MATRIX_CONTENT_TYPES.map((t) => <option key={t} value={t}>{CONTENT_TYPE_LABELS[t]}</option>)}
               </select>
@@ -153,7 +193,7 @@ function ItemSheet({ item, topics, period, readOnly, error, failedDrafts, onClos
             <div>
               <label htmlFor="matrix-item-deadline" className={labelCls}>Entrega</label>
               <input id="matrix-item-deadline" type="date" value={drafts.deadline ?? item.deadline}
-                min={period.periodStart} max={period.periodEnd} disabled={readOnly} className={inputCls}
+                min={period.periodStart} max={period.periodEnd} disabled={frozen} className={inputCls}
                 aria-describedby="matrix-item-deadline-hint"
                 onChange={(e) => { setDateError(null); const v = e.target.value; setDrafts((d) => ({ ...d, deadline: v })) }}
                 onBlur={commitDeadline} />
@@ -175,9 +215,48 @@ function ItemSheet({ item, topics, period, readOnly, error, failedDrafts, onClos
               </select>
             </div>
           </div>
+          {/* -mt-2: este párrafo se apoya en el grid de arriba. No insertar campos entre ambos. */}
           <p id="matrix-item-deadline-hint" className={`-mt-2 text-[11px] ${dateError ? 'text-fm-error' : 'text-fm-on-surface-variant'}`}>
             {dateError ?? `Entrega entre ${rangeLabel}.`}
           </p>
+
+          <div>
+            <span className={labelCls}>Responsable *</span>
+            <div className="bg-fm-background border border-fm-surface-container-high rounded-xl px-3 py-2 space-y-1.5 max-h-32 overflow-y-auto">
+              {assignableUsers.length === 0 ? (
+                <p className="text-[11px] text-fm-on-surface-variant">No hay usuarios asignables.</p>
+              ) : assignableUsers.map((u) => {
+                const checked = assigned.includes(u.id)
+                return (
+                  <label key={u.id} className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={checked} disabled={frozen || (!checked && atAssigneeCap)}
+                      className="rounded accent-fm-primary"
+                      onChange={() => toggleAssignee(u.id)} />
+                    <span className="text-sm text-fm-on-surface">{u.full_name}</span>
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="matrix-item-est-h" className={labelCls}>Horas *</label>
+              <input id="matrix-item-est-h" type="number" min="0" max={EST_MAX_HOURS} value={estHours} disabled={frozen} className={inputCls}
+                onChange={(e) => setEstHours(e.target.value)} onBlur={commitEstimate} />
+            </div>
+            <div>
+              <label htmlFor="matrix-item-est-m" className={labelCls}>Minutos *</label>
+              <input id="matrix-item-est-m" type="number" min="0" max="59" value={estMins} disabled={frozen} className={inputCls}
+                onChange={(e) => setEstMins(e.target.value)} onBlur={commitEstimate} />
+            </div>
+          </div>
+
+          {converted && (
+            <p className="text-[11px] text-fm-on-surface-variant">
+              Ya convertida: el título, el tipo, la fecha, el responsable y el estimado se editan en el requerimiento.
+            </p>
+          )}
 
           {text('title', 'Título', undefined, 'Ej. Llegó el pumpkin latte')}
           {text('copy', 'Copy', 4, 'Texto de la publicación')}
@@ -195,4 +274,17 @@ function ItemSheet({ item, topics, period, readOnly, error, failedDrafts, onClos
       </SheetContent>
     </Sheet>
   )
+}
+
+/** Minutos totales → texto de los dos inputs. `null`/0 → ambos vacíos (nada escrito todavía). */
+function splitEstimate(total: number | null): { hours: string; mins: string } {
+  if (!total || total <= 0) return { hours: '', mins: '' }
+  return { hours: String(Math.floor(total / 60)), mins: String(total % 60) }
+}
+
+/** Texto de un input numérico → entero dentro del rango (vacío o basura → `min`). */
+function clampInt(raw: string, min: number, max: number): number {
+  const n = Math.floor(Number(raw))
+  if (!Number.isFinite(n)) return min
+  return Math.min(max, Math.max(min, n))
 }

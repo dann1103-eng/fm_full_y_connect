@@ -889,7 +889,7 @@ git commit -m "feat(matrices): loader expone piezas convertidas del ciclo y usua
 - Modify: `src/components/matrices/MatrixItemSheet.tsx`
 - Modify: `src/components/matrices/MatrixEditor.tsx`
 
-- [ ] **Step 1: Props nuevas y bloqueo por campo**
+- [x] **Step 1: Props nuevas y bloqueo por campo**
 
 Leer el archivo completo antes de tocarlo. Cambios:
 
@@ -940,12 +940,12 @@ apoya en el grid anterior; meter campos en medio lo descuadra).
 
 4. `MatrixEditor` pasa `assignableUsers={data.assignableUsers}` y ajusta `readOnly` como en el punto 2.
 
-- [ ] **Step 2: Verificar**
+- [x] **Step 2: Verificar**
 
 Run: `npx tsc --noEmit -p tsconfig.json` y `npx eslint src/components/matrices`
 Expected: sin errores.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/components/matrices/MatrixItemSheet.tsx src/components/matrices/MatrixEditor.tsx
