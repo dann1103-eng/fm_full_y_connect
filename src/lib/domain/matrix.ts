@@ -318,7 +318,7 @@ function inPeriod(d: DateString, p: PeriodRange): boolean {
  * `parseDate` (date-fns `parseISO`) devuelve `Invalid Date` para días fuera de rango — `formatDate` lanzaría
  * `RangeError` sobre esa fecha, así que se descarta antes de reformatear.
  */
-function isIsoDate(d: string): boolean {
+export function isIsoDate(d: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return false
   const parsed = parseDate(d)
   return !Number.isNaN(parsed.getTime()) && formatDate(parsed) === d
@@ -378,9 +378,11 @@ function truncateCodePoints(s: string, max: number): string {
 /**
  * Sanitiza temas venidos de un formulario o jsonb (input no confiable): descarta entradas que no son
  * objetos, cuyo `name` no es un string, o que quedan vacías tras recortar; ignora un `note` que no sea
- * string. Trata `raw` como `unknown[]` internamente aunque la firma declare `MatrixTopic[]`.
+ * string. Trata `raw` como `unknown[]` internamente aunque la firma declare `MatrixTopic[]`; si `raw` ni
+ * siquiera es un array (p. ej. `null` desde el navegador), devuelve `[]`.
  */
 export function sanitizeTopics(raw: MatrixTopic[]): MatrixTopic[] {
+  if (!Array.isArray(raw)) return []
   const seen = new Set<string>()
   const out: MatrixTopic[] = []
   for (const entry of raw as unknown[]) {
@@ -399,3 +401,13 @@ export function sanitizeTopics(raw: MatrixTopic[]): MatrixTopic[] {
   }
   return out
 }
+
+// ── Tipos de resultado para server actions (viven aquí porque un archivo
+//    'use server' solo debe exportar funciones async) ─────────────────────────
+
+export type ActionErr = { ok: false; error: string }
+export type ActionResult<T = object> = ({ ok: true } & T) | ActionErr
+
+export type LinkResult =
+  | { ok: true; requirementId: string }
+  | { ok: false; error: string }

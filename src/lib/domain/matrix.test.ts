@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeTargetPeriods, matrixTitleFor, periodLabel, resolveMatrixLimits, computeMatrixUsage, usageTone, proposeDeadline, limitsForDistribution, canTransition, validateForApproval, validateItemPatch, shiftDeadline, sanitizeTopics, compareMatrixItems } from './matrix'
+import { computeTargetPeriods, matrixTitleFor, periodLabel, resolveMatrixLimits, computeMatrixUsage, usageTone, proposeDeadline, limitsForDistribution, canTransition, validateForApproval, validateItemPatch, shiftDeadline, sanitizeTopics, compareMatrixItems, isIsoDate } from './matrix'
 import type { MatrixLimits } from './matrix'
 import type { BillingCycle, MatrixTopic, Plan, Requirement } from '@/types/db'
 import { buildEffectiveDistribution } from './weekly-distribution'
@@ -332,5 +332,26 @@ describe('sanitizeTopics', () => {
   it('limita a 20 temas', () => {
     const raw = Array.from({ length: 25 }, (_, i) => ({ name: `Tema ${i}` }))
     expect(sanitizeTopics(raw)).toHaveLength(20)
+  })
+
+  it('devuelve [] si el input no es un array (null, undefined, objeto)', () => {
+    expect(sanitizeTopics(null as unknown as MatrixTopic[])).toEqual([])
+    expect(sanitizeTopics(undefined as unknown as MatrixTopic[])).toEqual([])
+    expect(sanitizeTopics({ name: 'x' } as unknown as MatrixTopic[])).toEqual([])
+  })
+})
+
+describe('isIsoDate', () => {
+  it('acepta fechas YYYY-MM-DD existentes en el calendario', () => {
+    expect(isIsoDate('2026-10-15')).toBe(true)
+    expect(isIsoDate('2028-02-29')).toBe(true)
+  })
+  it('rechaza formatos incorrectos y fechas inexistentes', () => {
+    expect(isIsoDate('2026-10-2')).toBe(false)
+    expect(isIsoDate('2026-02-30')).toBe(false)
+    expect(isIsoDate('2027-02-29')).toBe(false)
+    expect(isIsoDate('abc')).toBe(false)
+    expect(isIsoDate('')).toBe(false)
+    expect(isIsoDate('2026-10-15T00:00:00Z')).toBe(false)
   })
 })
