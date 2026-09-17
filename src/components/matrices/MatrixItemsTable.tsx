@@ -1,11 +1,13 @@
 'use client'
 
-import type { ContentMatrixItem, ContentType } from '@/types/db'
+import Link from 'next/link'
+import type { ContentMatrix, ContentMatrixItem, ContentType, MatrixItemStatus } from '@/types/db'
 import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import { CONTENT_ICONS } from '@/lib/domain/content-icons'
 import { formatDeadlineBadge } from '@/lib/domain/deadline'
 import {
-  APPROVAL_PROBLEM_LABELS, MATRIX_CONTENT_TYPES, MATRIX_OBJECTIVE_LABELS,
+  APPROVAL_PROBLEM_LABELS, convertsBeforePeriodStart, MATRIX_CONTENT_TYPES, MATRIX_ITEM_STATUS_LABELS,
+  MATRIX_OBJECTIVE_LABELS,
   type ApprovalProblem, type ApprovalProblemReason, type MatrixUsage,
 } from '@/lib/domain/matrix'
 import {
@@ -21,6 +23,19 @@ const TYPE_CLASS: Partial<Record<ContentType, string>> = {
   short: 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200',
 }
 
+const ITEM_STATUS_CLASS: Record<MatrixItemStatus, string> = {
+  planned: 'bg-fm-surface-container-high text-fm-on-surface-variant',
+  converted: 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-200',
+  blocked: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-200',
+}
+
+/** Motivo de bloqueo recortado para la tabla; el texto completo va en el `title`. */
+const REASON_MAX = 80
+
+function shortReason(reason: string): string {
+  return reason.length > REASON_MAX ? `${reason.slice(0, REASON_MAX - 1)}…` : reason
+}
+
 export function TypeBadge({ type }: { type: ContentType }) {
   return (
     <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold whitespace-nowrap ${TYPE_CLASS[type] ?? 'bg-fm-surface-container-high text-fm-on-surface'}`}>
@@ -30,8 +45,18 @@ export function TypeBadge({ type }: { type: ContentType }) {
   )
 }
 
+function ItemStatusBadge({ status }: { status: MatrixItemStatus }) {
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap ${ITEM_STATUS_CLASS[status]}`}>
+      {MATRIX_ITEM_STATUS_LABELS[status]}
+    </span>
+  )
+}
+
 interface Props {
   items: ContentMatrixItem[]
+  /** La matriz: `lead_days` + `period_start` deciden el aviso de ciclo por pieza. */
+  matrix: ContentMatrix
   usage: MatrixUsage
   problems: ApprovalProblem[]
   selectedId: string | null
@@ -40,15 +65,25 @@ interface Props {
   adding: boolean
   /** Piezas con texto cuyo guardado falló y sigue pendiente. */
   unsavedIds: string[]
+  /** Piezas convertidas cuyo requerimiento fue anulado o borrado: se ofrece replanificar. */
+  linkedVoidedItemIds: string[]
+  /** Pieza con una conversión o replanificación en curso: sus botones quedan bloqueados. */
+  busyItemId: string | null
   onSelect: (id: string) => void
   onAdd: (type: ContentType) => void
   onDuplicate: (id: string) => void
   onDelete: (id: string) => void
+  onConvertNow: (id: string) => void
+  onReplan: (id: string) => void
 }
 
-export function MatrixItemsTable({ items, usage, problems, selectedId, readOnly, adding, unsavedIds, onSelect, onAdd, onDuplicate, onDelete }: Props) {
+export function MatrixItemsTable({
+  items, matrix, usage, problems, selectedId, readOnly, adding, unsavedIds, linkedVoidedItemIds, busyItemId,
+  onSelect, onAdd, onDuplicate, onDelete, onConvertNow, onReplan,
+}: Props) {
   const over = new Set(usage.overPlanItemIds)
   const unsaved = new Set(unsavedIds)
+  const voided = new Set(linkedVoidedItemIds)
   const problemById = new Map<string, ApprovalProblemReason>(problems.map((p) => [p.itemId, p.reason]))
   const inactive = MATRIX_CONTENT_TYPES.filter((t) => !usage.activeTypes.includes(t))
 
@@ -106,9 +141,56 @@ export function MatrixItemsTable({ items, usage, problems, selectedId, readOnly,
         {it.needs_production && (
           <span role="img" aria-label="Necesita producción" title="Necesita producción" className="material-symbols-outlined text-[16px] text-fm-primary">videocam</span>
         )}
+        {convertsBeforePeriodStart(it, matrix) && (
+          <span role="img" aria-label="Se convertirá antes de que inicie el período"
+            title="Se convertirá antes de que inicie el período: consumirá el cupo del ciclo anterior."
+            className="material-symbols-outlined text-[16px] text-amber-600 dark:text-amber-300">schedule</span>
+        )}
         {unsaved.has(it.id) && <span className="rounded-full bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200 px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap">Sin guardar</span>}
-        {over.has(it.id) && <span className="rounded-full bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-200 px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap">Fuera de plan</span>}
+        {/* En una pieza convertida el aviso de cupo ya no se puede accionar (el requerimiento existe): se omite. */}
+        {over.has(it.id) && it.status !== 'converted' && <span className="rounded-full bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-200 px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap">Fuera de plan</span>}
         {problem && <span className="rounded-full bg-fm-error/10 text-fm-error px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap">{APPROVAL_PROBLEM_LABELS[problem]}</span>}
+      </span>
+    )
+  }
+
+  const linkCls = 'text-[11px] font-semibold text-fm-primary underline whitespace-nowrap'
+  const actionCls = 'text-[11px] font-semibold text-fm-primary underline whitespace-nowrap disabled:opacity-50 disabled:no-underline'
+
+  /** Estado de conversión: distintivo + lo accionable (enlace, motivo, botones). */
+  const conversion = (it: ContentMatrixItem) => {
+    const busy = busyItemId === it.id
+    const isVoided = it.status === 'converted' && voided.has(it.id)
+    return (
+      <span className="flex flex-col items-start gap-0.5">
+        <span className="flex flex-wrap items-center gap-1.5">
+          <ItemStatusBadge status={it.status} />
+          {it.status === 'converted' && it.requirement_id && !isVoided && (
+            <Link href={`/pipeline?req=${it.requirement_id}`} onClick={(e) => e.stopPropagation()} className={linkCls}>
+              Ver requerimiento
+            </Link>
+          )}
+          {it.status === 'blocked' && !readOnly && (
+            <button type="button" disabled={busy} className={actionCls}
+              onClick={(e) => { e.stopPropagation(); onConvertNow(it.id) }}>
+              {busy ? 'Convirtiendo…' : 'Convertir ahora'}
+            </button>
+          )}
+        </span>
+        {it.status === 'blocked' && it.blocked_reason && (
+          <span title={it.blocked_reason} className="block max-w-[16rem] truncate text-[11px] text-fm-error">
+            {shortReason(it.blocked_reason)}
+          </span>
+        )}
+        {isVoided && (
+          <span className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] text-amber-700 dark:text-amber-300">Requerimiento anulado</span>
+            <button type="button" disabled={busy} className={actionCls}
+              onClick={(e) => { e.stopPropagation(); onReplan(it.id) }}>
+              {busy ? 'Replanificando…' : 'Volver a planificar (se convertirá de nuevo)'}
+            </button>
+          </span>
+        )}
       </span>
     )
   }
@@ -138,6 +220,7 @@ export function MatrixItemsTable({ items, usage, problems, selectedId, readOnly,
                   <th className="py-2 pr-3">Tema</th>
                   <th className="py-2 pr-3">Título</th>
                   <th className="py-2 pr-3 hidden lg:table-cell">Objetivo</th>
+                  <th className="py-2 pr-3">Estado</th>
                   <th className="py-2 pr-3"><span className="sr-only">Avisos</span></th>
                   <th className="py-2"><span className="sr-only">Acciones</span></th>
                 </tr>
@@ -160,6 +243,7 @@ export function MatrixItemsTable({ items, usage, problems, selectedId, readOnly,
                       </button>
                     </td>
                     <td className="py-2.5 pr-3 hidden lg:table-cell text-fm-on-surface-variant">{it.objective ? MATRIX_OBJECTIVE_LABELS[it.objective] : '—'}</td>
+                    <td className="py-2.5 pr-3">{conversion(it)}</td>
                     <td className="py-2.5 pr-3">{flags(it)}</td>
                     <td className="py-2.5 text-right whitespace-nowrap">{rowActions(it)}</td>
                   </tr>
@@ -176,17 +260,21 @@ export function MatrixItemsTable({ items, usage, problems, selectedId, readOnly,
                   problemById.has(it.id) ? 'border-fm-error/40 bg-fm-error/5'
                     : selectedId === it.id ? 'border-fm-primary bg-fm-primary/5' : 'border-fm-surface-container-high'
                 }`}>
-                <button type="button" onClick={() => onSelect(it.id)} className="min-w-0 flex-1 text-left p-3 space-y-1.5">
-                  <span className="flex items-center gap-2">
-                    <span className="text-xs tabular-nums text-fm-on-surface-variant">{formatDeadlineBadge(it.deadline)}</span>
-                    <TypeBadge type={it.content_type} />
-                  </span>
-                  <span className="block text-sm text-fm-on-surface">{it.title || untitled}</span>
-                  <span className="flex items-center justify-between gap-2 text-[11px] text-fm-on-surface-variant">
-                    <span className="min-w-0 truncate">{it.topic ?? '—'}{it.objective ? ` · ${MATRIX_OBJECTIVE_LABELS[it.objective]}` : ''}</span>
-                    {flags(it)}
-                  </span>
-                </button>
+                <div className="min-w-0 flex-1 p-3 space-y-1.5">
+                  <button type="button" onClick={() => onSelect(it.id)} className="block w-full text-left space-y-1.5">
+                    <span className="flex items-center gap-2">
+                      <span className="text-xs tabular-nums text-fm-on-surface-variant">{formatDeadlineBadge(it.deadline)}</span>
+                      <TypeBadge type={it.content_type} />
+                    </span>
+                    <span className="block text-sm text-fm-on-surface">{it.title || untitled}</span>
+                    <span className="flex items-center justify-between gap-2 text-[11px] text-fm-on-surface-variant">
+                      <span className="min-w-0 truncate">{it.topic ?? '—'}{it.objective ? ` · ${MATRIX_OBJECTIVE_LABELS[it.objective]}` : ''}</span>
+                      {flags(it)}
+                    </span>
+                  </button>
+                  {/* Fuera del botón: enlace y botones de conversión no pueden anidarse dentro de otro botón. */}
+                  {conversion(it)}
+                </div>
                 {!readOnly && <span className="pt-2 pr-2">{rowActions(it)}</span>}
               </div>
             ))}

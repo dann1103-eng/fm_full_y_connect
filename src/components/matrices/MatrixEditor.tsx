@@ -9,7 +9,7 @@ import {
   type ActionErr, type ItemPatch, type TargetPeriod,
 } from '@/lib/domain/matrix'
 import {
-  addItem, deleteItem, deleteMatrix, duplicateItem, duplicateMatrix,
+  addItem, convertItemNow, deleteItem, deleteMatrix, duplicateItem, duplicateMatrix, replanItem,
   retryMatrixRequirementLink, setMatrixStatus, updateItem, updateMatrix,
 } from '@/app/actions/matrices'
 import { MatrixHeader, type SaveState } from './MatrixHeader'
@@ -79,6 +79,10 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
   const [error, setError] = useState<EditorError | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showProblems, setShowProblems] = useState(false)
+  // Piezas convertidas cuyo requerimiento está anulado: sale del loader y se actualiza al replanificar.
+  const [voidedItemIds, setVoidedItemIds] = useState<string[]>(data.linkedVoidedItemIds)
+  // Pieza con "Convertir ahora" o "Volver a planificar" en curso: evita el doble clic.
+  const [busyItemId, setBusyItemId] = useState<string | null>(null)
   const [dupOpen, setDupOpen] = useState(false)
   const [failedItemDrafts, setFailedItemDrafts] = useState<Record<string, FailedItemDrafts>>({})
   const [failedMatrixDrafts, setFailedMatrixDrafts] = useState<FailedMatrixDrafts>({})
@@ -108,8 +112,16 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
     return () => { cancelled = true }
   }, [matrixId])
 
-  const usage = useMemo(() => computeMatrixUsage(items, data.limits), [items, data.limits])
+  // `convertedInCycleIds` es imprescindible: sin él toda pieza `converted` se descontaría de los chips
+  // (el servidor la cuenta vía `cycleTotals`, el cliente no) y el chip del servidor y el del cliente
+  // divergirían en cuanto se editara cualquier cosa.
+  const usage = useMemo(
+    () => computeMatrixUsage(items, data.limits, data.convertedInCycleIds),
+    [items, data.limits, data.convertedInCycleIds],
+  )
   const sortedItems = useMemo(() => [...items].sort(compareMatrixItems), [items])
+  const plannedCount = useMemo(() => items.filter((i) => i.status === 'planned').length, [items])
+  const blockedCount = useMemo(() => items.filter((i) => i.status === 'blocked').length, [items])
   // Tras un intento fallido de aprobar, los problemas se recalculan en vivo: se apagan al corregir cada pieza.
   const problems = useMemo(
     () => (showProblems ? validateForApproval(items, data.period).problems : []),
@@ -390,6 +402,64 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
     setFailedItemDrafts((fd) => withoutItemDrafts(fd, itemId, ITEM_TEXT_KEYS))
   }
 
+  // ── Conversión ──
+
+  /** Aplica a una pieza los campos que la conversión cambió, en estado y en la versión confirmada. */
+  function applyItemFields(itemId: string, fields: Partial<ContentMatrixItem>) {
+    const confirmed = confirmedItems.current.get(itemId)
+    if (confirmed) confirmedItems.current.set(itemId, { ...confirmed, ...fields })
+    setItems((list) => list.map((i) => (i.id === itemId ? { ...i, ...fields } : i)))
+  }
+
+  /**
+   * "Convertir ahora": registra el requerimiento de una pieza bloqueada sin esperar al barrido diario.
+   *
+   * La acción devuelve el resultado, no la fila, así que el estado local se actualiza con lo que trae ese
+   * resultado (suficiente: el id del requerimiento o el motivo del bloqueo). Además se pide un
+   * `router.refresh()` —lo único del editor que lo hace, y solo aquí: esto es una acción estructural, no un
+   * guardado por campo— para que los datos derivados del servidor (cupo consumido por el requerimiento
+   * nuevo, `convertedInCycleIds`, `linkedVoidedItemIds`) se vuelvan a pedir y la siguiente navegación no
+   * parta de una página cacheada vieja.
+   */
+  async function onConvertNow(itemId: string) {
+    if (busyItemId) return
+    setBusyItemId(itemId)
+    const r = await runAction(() => convertItemNow(itemId))
+    setBusyItemId(null)
+    if (!r.ok) { setError({ message: r.error, fields: [] }); return }
+
+    const outcome = r.outcome
+    if (outcome.kind === 'converted') {
+      applyItemFields(itemId, {
+        status: 'converted', requirement_id: outcome.requirementId,
+        blocked_reason: null, converted_at: new Date().toISOString(),
+      })
+      setVoidedItemIds((ids) => ids.filter((id) => id !== itemId))
+      router.refresh()
+      return
+    }
+    if (outcome.kind === 'blocked') {
+      applyItemFields(itemId, { status: 'blocked', blocked_reason: outcome.reason })
+      setError({ message: `No se pudo convertir: ${outcome.reason}`, fields: [] })
+      router.refresh()
+      return
+    }
+    // `skipped`: la pieza no se tocó (otro proceso ganó, matriz sin aprobar o fallo transitorio).
+    setError({ message: `No se convirtió: ${outcome.reason}`, fields: [] })
+  }
+
+  /** "Volver a planificar": la acción sí devuelve la fila, así que se aplica tal cual. */
+  async function onReplan(itemId: string) {
+    if (busyItemId) return
+    setBusyItemId(itemId)
+    const r = await runAction(() => replanItem(itemId))
+    setBusyItemId(null)
+    if (!r.ok) { setError({ message: r.error, fields: [] }); return }
+    confirmedItems.current.set(r.item.id, r.item)
+    setItems((list) => list.map((i) => (i.id === r.item.id ? r.item : i)))
+    setVoidedItemIds((ids) => ids.filter((id) => id !== itemId))
+  }
+
   const topicUsage = (name: string) => items.filter((i) => i.topic === name).length
   const sheetError = selected && error && error.fields.some((f) => f.startsWith(`item:${selected.id}:`)) ? error.message : null
 
@@ -409,7 +479,10 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
         linkError={linkError}
         problems={problems}
         failedTitle={failedMatrixDrafts.title}
+        plannedCount={plannedCount}
+        blockedCount={blockedCount}
         onTitle={(title) => void patchMatrix({ title }, { title }, { title })}
+        onLeadDays={(lead_days) => void patchMatrix({ lead_days }, { lead_days })}
         onAdd={(t) => void onAdd(t)}
         onStatus={(to) => void onStatus(to)}
         onDuplicate={() => setDupOpen(true)}
@@ -452,16 +525,21 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
 
       <MatrixItemsTable
         items={sortedItems}
+        matrix={matrix}
         usage={usage}
         problems={problems}
         selectedId={selectedId}
         readOnly={readOnly}
         adding={adding}
         unsavedIds={unsavedItemIds}
+        linkedVoidedItemIds={voidedItemIds}
+        busyItemId={busyItemId}
         onSelect={setSelectedId}
         onAdd={(t) => void onAdd(t)}
         onDuplicate={(id) => void onDuplicateItem(id)}
         onDelete={(id) => void onDeleteItem(id)}
+        onConvertNow={(id) => void onConvertNow(id)}
+        onReplan={(id) => void onReplan(id)}
       />
 
       <MatrixItemSheet

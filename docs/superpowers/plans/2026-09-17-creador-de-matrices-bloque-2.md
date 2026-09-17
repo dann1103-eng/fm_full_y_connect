@@ -961,7 +961,7 @@ git commit -m "feat(matrices): responsable y tiempo estimado por pieza en el pan
 - Modify: `src/components/matrices/MatrixHeader.tsx`
 - Modify: `src/components/matrices/MatrixEditor.tsx`
 
-- [ ] **Step 1: Estado y acciones en la tabla**
+- [x] **Step 1: Estado y acciones en la tabla**
 
 Leer el componente antes. Añadir a `Props`: `matrix: ContentMatrix`, `linkedVoidedItemIds: string[]` (piezas convertidas cuyo requerimiento está anulado), `busyItemId: string | null`, `onConvertNow: (id: string) => void`, `onReplan: (id: string) => void`.
 
@@ -973,23 +973,23 @@ Por fila (escritorio y tarjeta móvil):
 - Si está en `linkedVoidedItemIds`: aviso "Requerimiento anulado" y botón "Volver a planificar (se convertirá de nuevo)".
 - Aviso de ciclo: si `convertsBeforePeriodStart(item, matrix)`, un icono o texto discreto con `title="Se convertirá antes de que inicie el período: consumirá el cupo del ciclo anterior."`.
 
-- [ ] **Step 2: Cabecera**
+- [x] **Step 2: Cabecera**
 
 En `MatrixHeader`: campo numérico "Anticipación (días)" con `min=0 max=30`, que guarda en `onBlur` vía `onLeadDays(n)` (nuevo prop) → `updateMatrix({ lead_days })`; deshabilitado si la matriz está cerrada. Al lado, contadores "N por convertir · N bloqueadas". `MatrixHeader` **no recibe `items` hoy**: pasarle los dos contadores ya calculados desde `MatrixEditor` (props `plannedCount` y `blockedCount`) en lugar de la lista completa.
 
-- [ ] **Step 3: Cableado en `MatrixEditor`**
+- [x] **Step 3: Cableado en `MatrixEditor`**
 
 - `onConvertNow`: llama `convertItemNow`, y según `outcome.kind` actualiza el item en el estado (recargando la pieza con `updateItem`-style no aplica: la acción no devuelve la fila, así que lo más simple es `router.refresh()` **solo aquí**, que es una acción estructural, o volver a pedir la fila). Elegir una y comentar por qué.
 - `onReplan`: llama `replanItem` y aplica `r.item`.
 - `linkedVoidedItemIds`: ya viene del loader (Task 7). El editor lo mantiene en estado y lo quita de la lista cuando `replanItem` devuelve la pieza replanificada.
 - **`computeMatrixUsage` en el cliente**: `MatrixEditor` recalcula el uso con `useMemo(() => computeMatrixUsage(items, data.limits), [items, data.limits])`. Hay que pasarle también `data.convertedInCycleIds` y añadirlo a las dependencias; si no, el chip del servidor y el del cliente divergen en cuanto se edita algo.
 
-- [ ] **Step 4: Verificar**
+- [x] **Step 4: Verificar**
 
 Run: `npx tsc --noEmit -p tsconfig.json`, `npx eslint src/components/matrices` y `npm run build`
 Expected: sin errores.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/components/matrices src/lib/data/matrices.ts src/lib/domain/matrix.ts

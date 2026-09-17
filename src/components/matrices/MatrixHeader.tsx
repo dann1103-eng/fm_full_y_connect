@@ -14,6 +14,9 @@ import { StatusBadge } from './StatusBadge'
 
 export type SaveState = 'saving' | 'saved' | 'unsaved'
 
+/** Tope de anticipación (mismo que valida `updateMatrix`). */
+const LEAD_DAYS_MAX = 30
+
 function saveLabel(state: SaveState, unsavedCount: number): string {
   if (state === 'saving') return 'Guardando…'
   if (state === 'unsaved') return `${unsavedCount} cambio${unsavedCount !== 1 ? 's' : ''} sin guardar`
@@ -39,7 +42,12 @@ interface Props {
   problems: ApprovalProblem[]
   /** Título cuyo último guardado falló: se sigue mostrando para no perderlo. */
   failedTitle?: string
+  /** Piezas aún por convertir (`planned`). Se recibe ya contado: la cabecera no ve la lista de piezas. */
+  plannedCount: number
+  /** Piezas `blocked`. Idem. */
+  blockedCount: number
   onTitle: (title: string) => void
+  onLeadDays: (days: number) => void
   onAdd: (type: ContentType) => void
   onStatus: (to: MatrixStatus) => void
   onDuplicate: () => void
@@ -57,6 +65,8 @@ export function MatrixHeader(p: Props) {
   // Borrador del título solo mientras se edita: al perder foco se guarda y se descarta. Lo mostrado sale
   // después de `failedTitle` (si el guardado falló) o de `matrix.title` (confirmado u optimista).
   const [draftTitle, setDraftTitle] = useState<string | null>(null)
+  // Igual que el título: borrador solo mientras se edita la anticipación, se guarda al perder foco.
+  const [draftLeadDays, setDraftLeadDays] = useState<string | null>(null)
   const readOnly = p.matrix.status === 'closed'
   // Vínculo a un requerimiento anulado: cuenta como sin vínculo (el reintento registra uno nuevo).
   const linkVoided = !!p.matrix.matrix_requirement_id && p.linked?.voided === true
@@ -68,6 +78,16 @@ export function MatrixHeader(p: Props) {
     setDraftTitle(null)
     // Vacío: se descarta (el título es obligatorio). Con un fallo previo se reintenta aunque coincida.
     if (t && (t !== p.matrix.title || p.failedTitle !== undefined)) p.onTitle(t)
+  }
+
+  /** Anticipación: se recorta a 0–30 (el servidor rechaza fuera de rango) y solo se guarda si cambió. */
+  function commitLeadDays() {
+    if (draftLeadDays === null) return
+    const raw = Math.floor(Number(draftLeadDays))
+    setDraftLeadDays(null)
+    if (!Number.isFinite(raw)) return
+    const days = Math.min(LEAD_DAYS_MAX, Math.max(0, raw))
+    if (days !== p.matrix.lead_days) p.onLeadDays(days)
   }
 
   return (
@@ -104,6 +124,31 @@ export function MatrixHeader(p: Props) {
       </div>
 
       <MatrixChips usage={p.usage} estimated={p.estimated} onAdd={readOnly ? undefined : p.onAdd} disabled={p.adding} />
+
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <label htmlFor="matrix-lead-days" className="text-[11px] uppercase tracking-wider text-fm-on-surface-variant">
+          Anticipación (días)
+        </label>
+        <input
+          id="matrix-lead-days"
+          type="number"
+          min={0}
+          max={LEAD_DAYS_MAX}
+          value={draftLeadDays ?? String(p.matrix.lead_days)}
+          disabled={readOnly}
+          onChange={(e) => setDraftLeadDays(e.target.value)}
+          onBlur={commitLeadDays}
+          onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+          aria-describedby="matrix-lead-days-hint"
+          className="w-20 rounded-xl border border-fm-surface-container-high bg-fm-background px-3 py-1.5 text-sm text-fm-on-surface disabled:opacity-60"
+        />
+        <span id="matrix-lead-days-hint" className="text-[11px] text-fm-on-surface-variant">
+          Cada pieza se convierte en requerimiento esos días antes de su entrega.
+        </span>
+        <span className="text-[11px] text-fm-on-surface-variant ml-auto whitespace-nowrap">
+          {p.plannedCount} por convertir · <span className={p.blockedCount > 0 ? 'text-fm-error font-semibold' : undefined}>{p.blockedCount} bloqueada{p.blockedCount !== 1 && 's'}</span>
+        </span>
+      </div>
 
       {(!p.matrix.matrix_requirement_id || linkVoided) && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-300/60 bg-amber-50 dark:bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">

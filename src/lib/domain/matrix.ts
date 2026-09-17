@@ -22,6 +22,11 @@ export const MATRIX_STATUS_LABELS: Record<MatrixStatus, string> = {
   draft: 'Borrador', approved: 'Aprobada', closed: 'Cerrada',
 }
 
+/** Estado de conversión de una pieza (distintivo de la tabla del editor). */
+export const MATRIX_ITEM_STATUS_LABELS: Record<MatrixItemStatus, string> = {
+  planned: 'Planificada', converted: 'Convertida', blocked: 'Bloqueada',
+}
+
 /** Estados de cliente para los que se puede crear una matriz (diálogo y acciones de servidor). */
 export const MATRIX_CREATABLE_CLIENT_STATUSES: ClientStatus[] = ['active', 'paused', 'overdue']
 
