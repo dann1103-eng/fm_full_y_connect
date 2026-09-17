@@ -210,26 +210,35 @@ function planCapacity(plan: Pick<Plan, 'limits_json' | 'unified_content_limit'> 
 }
 
 /** Matrices por lote en la consulta de estados: acota el largo de la URL del `in(...)`. */
-const STATUS_MATRIX_CHUNK = 200
+const STATUS_MATRIX_CHUNK = 100
 /**
- * Filas por página. PostgREST corta en `db-max-rows` (1000 en Supabase) sin devolver error, así que hay
- * que paginar; el tamaño se iguala a ese tope para que una página llena signifique "puede haber más".
+ * Filas pedidas por página. PostgREST corta en `db-max-rows` sin devolver error, pero el avance no
+ * depende de ese tope: se avanza por las filas que de verdad llegaron (ver countItemStatuses).
  */
 const STATUS_PAGE_SIZE = 1000
+/**
+ * Tope duro de páginas por lote (100 matrices × 1000 filas = 100 000 piezas). Solo es una red de
+ * seguridad: si se alcanza, algo va muy mal y es preferible cortar a girar indefinidamente.
+ */
+const STATUS_MAX_PAGES = 100
 
 export interface MatrixItemStatusCounts { converted: number; blocked: number }
 
 /**
- * Piezas `converted`/`blocked` por matriz. Se pide por lotes de matrices y, dentro de cada lote, por
- * páginas hasta que una vuelve más corta que el tamaño de página: con 1000 matrices y ~15 piezas cada
- * una son ~15 000 filas, muy por encima del tope silencioso de PostgREST, y una sola consulta
- * devolvería conteos por debajo de lo real sin error alguno.
+ * Piezas `converted`/`blocked` por matriz. Con 1000 matrices y ~15 piezas cada una son ~15 000 filas:
+ * ni caben en una sola consulta (PostgREST las recorta en silencio) ni sus ids caben cómodos en una
+ * sola URL, así que se pide por lotes de matrices y, dentro de cada lote, por páginas.
+ *
+ * El paginado NO asume cuál es el tope del servidor: avanza por el largo real de cada página y para
+ * cuando una vuelve vacía. Cortar en "página más corta que la pedida" daría conteos por debajo de lo
+ * real —otra vez y también en silencio— en cuanto `db-max-rows` fuera menor que `STATUS_PAGE_SIZE`.
  */
 async function countItemStatuses(db: Db, matrixIds: string[]): Promise<Map<string, MatrixItemStatusCounts>> {
   const byMatrix = new Map<string, MatrixItemStatusCounts>()
   for (let i = 0; i < matrixIds.length; i += STATUS_MATRIX_CHUNK) {
     const chunk = matrixIds.slice(i, i + STATUS_MATRIX_CHUNK)
-    for (let from = 0; ; from += STATUS_PAGE_SIZE) {
+    let from = 0
+    for (let page = 0; page < STATUS_MAX_PAGES; page++) {
       const { data, error } = await db
         .from('content_matrix_items').select('matrix_id, status')
         .in('matrix_id', chunk)
@@ -237,14 +246,16 @@ async function countItemStatuses(db: Db, matrixIds: string[]): Promise<Map<strin
         .order('id', { ascending: true })
         .range(from, from + STATUS_PAGE_SIZE - 1)
       if (error) fail('loadMatricesList', error)
-      const page = (data ?? []) as Array<{ matrix_id: string; status: MatrixItemStatus }>
-      for (const s of page) {
+      const rows = (data ?? []) as Array<{ matrix_id: string; status: MatrixItemStatus }>
+      // Página vacía = no queda nada por leer en este lote. (También corta si la primera viene vacía.)
+      if (rows.length === 0) break
+      for (const s of rows) {
         const acc = byMatrix.get(s.matrix_id) ?? { converted: 0, blocked: 0 }
         if (s.status === 'converted') acc.converted++
         else if (s.status === 'blocked') acc.blocked++
         byMatrix.set(s.matrix_id, acc)
       }
-      if (page.length < STATUS_PAGE_SIZE) break
+      from += rows.length
     }
   }
   return byMatrix
