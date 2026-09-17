@@ -1,6 +1,6 @@
 # Creador de matrices · Bloque 2: conversión automática a requerimientos — Diseño
 
-**Fecha:** 2026-09-17 · **Revisión:** 2 (tras revisión de spec: rollback con cliente de servicio, pool unificado en `over_limit`, filtro de matrices aprobadas en el barrido, guarda de `voided` al replanificar, regla exacta del aviso de ciclo, duplicado copia responsable/estimado)
+**Fecha:** 2026-09-17 · **Revisión:** 3 (tras 2 rondas de revisión: rollback con cliente de servicio, pool unificado en `over_limit`, filtro de matrices aprobadas en el barrido, guarda de `voided` al replanificar, regla exacta del aviso de ciclo, duplicado copia responsable/estimado; filtro approval_status en el cupo, convertedInCycleIds como array opcional)
 **Estado:** Aprobado en diseño — pendiente de plan de implementación
 
 ## Contexto
@@ -152,7 +152,11 @@ acción manual (cliente autenticado), porque el trigger de pago vive en la base 
 export type ConvertOutcome =
   | { kind: 'converted'; requirementId: string }
   | { kind: 'blocked'; reason: string }
-  | { kind: 'skipped'; reason: string }   // ya no está `planned`/`blocked`: otro proceso ganó
+  // `skipped` cubre tres casos y `reason` debe distinguirlos, porque el editor reacciona distinto:
+  //   'La pieza ya no está disponible para convertir.' (otro proceso ganó → recargar)
+  //   'La matriz no está aprobada.'                    (aprobar primero)
+  //   '<mensaje técnico>'                              (fallo transitorio → reintentar)
+  | { kind: 'skipped'; reason: string }
 
 export async function convertMatrixItem(
   db: Db,            // cliente que inserta: admin en el cron, autenticado en la acción manual
@@ -187,6 +191,10 @@ Pasos, en orden:
 3. **Fuera de cupo**: misma cadena que usan todos los caminos de registro —
    `effectiveLimits(snapshot, rollover)` → `applyContentLimitsWithOverride(override del ciclo)` →
    **`applyUnifiedPool(limits, snapshot, totals)`** — contra `computeTotals(requirements del ciclo)`.
+   Los requerimientos del ciclo se leen **con `.eq('approval_status', 'approved')`**, como hacen
+   `loadMatrixEditorData` y `linkMatrixRequirement`: `computeTotals` no filtra por estado de
+   aprobación, así que sin ese filtro las solicitudes `pending` del portal contarían como cupo
+   consumido y piezas que caben nacerían marcadas fuera de cupo.
    El paso del pool es obligatorio: sin él, en un plan con pool unificado los límites por tipo de los
    tippables valen 0 en el snapshot y **toda** pieza nacería `over_limit: true`.
    Si `totals[content_type] >= limits[content_type]` → `over_limit: true`.
@@ -209,14 +217,20 @@ Pasos, en orden:
    | `approval_status` | `'approved'` |
    | `includes_story` | `false` |
    | `requested_via` | `'staff'` |
+   | `registered_by_user_id` (resuelto) | `opts.registeredByUserId ?? matrix.approved_by ?? matrix.created_by` |
    | `notes` | `null` — el brief se lee en vivo de la pieza |
+
+   El insert pide la fila de vuelta (`.select('*').single()`) para poder meterla en el caché de
+   cupo de la corrida.
 
 5. **Log inicial de fase** con `insertInitialPhaseLog` (fase `pendiente`), igual que el registro manual.
 6. **Marcar la pieza** con un update condicional:
    `update … set status='converted', requirement_id, converted_at=now(), blocked_reason=null
    where id = :id and status in ('planned','blocked')`, pidiendo la fila de vuelta.
    Si vuelven **0 filas** (otro proceso ganó), **deshacer con el cliente admin**: borrar el
-   requerimiento recién creado (sus `requirement_phase_logs` caen por cascade) y devolver `skipped`.
+   requerimiento recién creado (sus `requirement_phase_logs` caen por cascade), **sacarlo del caché
+   de cupo** de la corrida y devolver `skipped`. Sin lo último, la siguiente pieza del mismo cliente
+   contaría un requerimiento que ya no existe.
 7. **Si el insert del paso 4 falla** → `blocked`, guardando `error.message` tal cual (los mensajes
    del trigger `requirements_check_week_payment_trg` ya vienen en español: "Cliente X suspendido
    por falta de pago", "No se puede registrar requerimientos en la semana 3 sin el pago
@@ -243,11 +257,15 @@ pieza por un problema transitorio. El barrido cuenta esos casos aparte y los dej
   las piezas viejas de matrices en borrador abandonadas o cerradas se acumulan en la cabeza del
   ranking y, pasadas 300, el cron dejaría de encontrar piezas convertibles sin dar error.
   Sobre esas filas se aplica `selectItemsToConvert` con el `lead_days` real de cada matriz.
+  Si PostgREST rechazara el filtro sobre el embed aliaseado (`matrix.status`), la alternativa
+  equivalente es embeber sin alias (`content_matrices!inner(...)` + `.eq('content_matrices.status', 'approved')`),
+  que es la forma con precedente en este repo (`src/lib/ai/tools.ts`).
 - Procesa **secuencialmente**, tope **80 conversiones por corrida** (cada conversión son 4–6
   viajes a la base; en paralelo se pisarían los cálculos de cupo del mismo ciclo, y con 200 el lote
   no cabe en los 60 s de `maxDuration`). Los requerimientos de cada ciclo se leen **una vez por
-  corrida** y se cachean por `billing_cycle_id`, actualizando el caché con cada requerimiento
-  insertado para que el cálculo de cupo de la pieza siguiente del mismo cliente sea correcto.
+  corrida** (siempre con `.eq('approval_status', 'approved')`) y se cachean por `billing_cycle_id`,
+  añadiendo al caché cada requerimiento insertado — y quitándolo si hubo rollback — para que el
+  cálculo de cupo de la pieza siguiente del mismo cliente sea correcto.
   Lo que no entra en una corrida entra al día siguiente.
 - Responde `{ ok, today, scanned, converted, blocked, skipped, details }` y loguea un resumen.
   `details` se limita a los primeros 50 para no inflar el log.
@@ -265,7 +283,7 @@ En `src/app/actions/matrices.ts` (mismo `requireManager` que el resto del bloque
 | `replanItem(itemId)` | "Volver a planificar": `status='planned'`, `requirement_id=null`, `converted_at=null`, `blocked_reason=null`, condicionado a `status='converted'`. **No borra ni anula el requerimiento.** Antes de escribir **relee el requerimiento vinculado y exige que no exista o esté `voided`**; si sigue vivo devuelve "El requerimiento sigue activo: anúlalo primero en el pipeline." Sin esa guarda, el barrido de la mañana siguiente crearía un **segundo** requerimiento para la misma pieza (el índice único no lo ataja, porque el id nuevo es distinto). **Replanificar implica reconversión automática**: la pieza vuelve a `planned` con su fecha original, que por definición ya está dentro de la ventana, así que el próximo barrido la convierte de nuevo. Es lo buscado (la anulación fue un descarte del requerimiento, no de la pieza) y el botón lo dice: "Volver a planificar (se convertirá de nuevo)" |
 | `updateMatrix` (existente) | Acepta `lead_days` (ya validado 0–30 en el bloque 1) |
 | `updateItem` (existente) | Cambia: hoy rechaza piezas `converted`. Pasa a permitir los campos de texto (`topic`, `objective`, `copy`, `script`, `visual_style`, `hashtags`, `cta`) y a rechazar `content_type`, `deadline`, `assigned_to`, `estimated_time_minutes` en piezas `converted`, con mensaje explícito |
-| `addItem` (existente) | Pre-selecciona en `assigned_to` los usuarios con `users.default_assignee = true`, igual que `RequirementModal`. `estimated_time_minutes` nace vacío |
+| `addItem` (existente) | Pre-selecciona en `assigned_to` los usuarios con `users.default_assignee = true`, **excluyendo roles `client` y `agent`**, igual que `RequirementModal`. `estimated_time_minutes` nace vacío |
 | `deleteItem` (existente) | Sigue rechazando `converted` (hay que volver a planificar primero) |
 | `duplicateItem` y `duplicateMatrix` (existentes) | **Copian `assigned_to` y `estimated_time_minutes`.** Ambos arman el insert con columnas explícitas: sin este cambio, duplicar una matriz al período siguiente — su caso de uso principal — produciría una matriz que no se puede aprobar hasta rellenar dos campos por pieza a mano. Las piezas duplicadas nacen `planned`, sin `requirement_id`, `converted_at` ni `blocked_reason` (ya es así) |
 
@@ -317,9 +335,19 @@ aprobar, así que no rompe nada existente.
   planificado a las `converted` porque asume que ya están dentro de `cycleTotals`, y
   `loadMatrixEditorData` solo lee los requerimientos del ciclo del período de la matriz. Una pieza
   convertida al ciclo anterior desaparecería de los dos lados. Para evitarlo, el loader calcula
-  `convertedInCycleIds` (piezas cuyo `requirement_id` aparece entre los requerimientos del ciclo
-  leído) y `computeMatrixUsage` recibe ese conjunto: las `converted` que **no** están en él se
-  siguen contando como planificadas, así el chip nunca subestima el consumo del mes.
+  `convertedInCycleIds` y `computeMatrixUsage` lo recibe como **tercer parámetro opcional**: las
+  `converted` que **no** están en él se siguen contando como planificadas, así el chip nunca
+  subestima el consumo del mes. Tres precisiones de implementación:
+  - Es **`string[]`, no un `Set`**: `MatrixEditorData` viaja del server component al editor cliente
+    y un `Set` no sobrevive la serialización (por eso el bloque 1 dejó `overPlanItemIds` como array).
+  - Se construye **solo con los requerimientos que cuentan en `computeTotals`** (`!voided && !carried_over`,
+    ya filtrados por `approval_status='approved'`). Si no, una pieza convertida a su propio ciclo
+    cuyo requerimiento luego se anuló saldría del conteo planificado y tampoco sumaría en
+    `cycleTotals`: desaparecería del chip, que es justo lo que este mecanismo evita.
+  - El parámetro es opcional porque `computeMatrixUsage` tiene 6 llamadas hoy (4 en pruebas), y
+    **el editor lo recalcula también en cliente** (`MatrixEditor.tsx`, `useMemo`): hay que pasarle
+    `data.convertedInCycleIds` ahí también, con la dependencia correspondiente, o el número
+    cambiaría solo tras la primera edición local.
 - **Ficha del requerimiento** (`PhaseSheet`): sección "Brief de la matriz" — tema, objetivo, copy,
   guion, estilo visual, hashtags, CTA — leída de la pieza vinculada (`content_matrix_items` por
   `requirement_id`), con enlace a la matriz. Solo admin y supervisor la ven, porque la RLS de
