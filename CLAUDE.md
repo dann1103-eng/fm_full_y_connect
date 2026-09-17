@@ -372,7 +372,7 @@ Las violaciones de FK (RESTRICT) **no producen excepción** — retornan `{ erro
 - **EasyPanel:** descartado — el contenedor app está detenido. La VPS de Hostinger se mantiene apagada / o eventualmente para borrar.
 - **Vercel Observability Plus:** desactivado (excluido el proyecto) para evitar el cargo grande por Observability Events. Logs siguen en `vercel logs` y panel Functions.
 
-## Migraciones aplicadas (0001–0128)
+## Migraciones aplicadas (0001–0129)
 | # | Contenido |
 |---|-----------|
 | 0001–0006 | Schema inicial, pipeline base, reuniones, campos de clientes |
@@ -446,13 +446,9 @@ Las violaciones de FK (RESTRICT) **no producen excepción** — retornan `{ erro
 | 0126 | **Recordatorio de factura por vencer**: `invoices.due_reminder_sent_at` (marcador de notificación; se escribe ANTES de enviar → at-most-once, para que el watchdog de 0124 no reejecute el handler y duplique el cobro) + `ai_jobs.invoice_id` con índice único parcial contra doble encolado + índice de apoyo al query diario del cron. |
 | 0127 | **Bot envía el PDF de facturas**: habilita la tool `send_invoice_document` (audience `client`) + guía de prompt. Envía como mensaje libre (ventana de 24h abierta), no plantilla. |
 | 0128 | **Aviso de ventana de 24h por cerrar**: `users.notify_wa_window` (bool, default false). Solo quienes lo tienen activo reciben la notificación de conversaciones sin contestar cuya ventana de WhatsApp está por vencer. Seed por nombre (laura/samuel) — **verificar a quién le pegó**. Se activa/desactiva con un `update` sin redeploy. |
-
-### Pendiente de aplicar
-| # | Contenido |
-|---|-----------|
 | 0129 | **Creador de matrices (bloque 1)**: `content_matrices` (una por cliente + `period_start`, `unique(client_id, period_start)`, estados `draft`/`approved`/`closed`, `topics_json` con `check (jsonb_typeof(topics_json)='array')`, `lead_days`, `matrix_requirement_id`) y `content_matrix_items` (piezas: tipo, título, tema, objetivo, copy, guión, estilo visual, hashtags, CTA, deadline, `needs_production`; `status`/`requirement_id`/`blocked_reason`/`converted_at` reservados para el bloque 2). Índices **únicos** parciales en el vínculo al requerimiento (`content_matrices_matrix_requirement_uq`, `content_matrix_items_requirement_uq`: una matriz por requerimiento de matriz, una pieza por requerimiento) e índice parcial en piezas `planned`. Checks de longitud `*_len_chk` con los topes de `MATRIX_TEXT_LIMITS` (tema 60). `set local lock_timeout='5s'` antes de los `create table`. RLS: una sola policy `for all` por tabla para `role in ('admin','supervisor')` (equivale a las 4 policies separadas). |
 
-**Aplicar la migración 0129 manualmente en el Supabase Dashboard antes de desplegar esta rama** (quitar esta nota al aplicarla). El código de matrices (loaders, acciones, UI) ya está en la rama pero asume que `content_matrices`/`content_matrix_items` existen: sin la migración, esos loaders lanzan. La tarjeta del perfil (`ClientMatricesCard`) está guardada con un `.catch()` sobre la promesa de `loadClientMatrices` (en `clients/[id]/page.tsx`) y simplemente no aparece; `/matrices` y `/matrices/[id]` NO tienen ese resguardo — muestran el error boundary de `src/app/(app)/error.tsx`.
+> La rama asume que `content_matrices`/`content_matrix_items` existen. En un entorno donde 0129 no esté aplicada, `/matrices` y `/matrices/[id]` muestran el error boundary de `src/app/(app)/error.tsx`; la tarjeta del perfil (`ClientMatricesCard`) está guardada con un `.catch()` sobre `loadClientMatrices` en `clients/[id]/page.tsx` y simplemente no aparece.
 
 ## Tareas asignadas (feature — migración 0117)
 
@@ -566,7 +562,7 @@ Registry tipado `WA_TEMPLATES`. Cada entry declara `name` + `language` (debe coi
 
 ## Matrices de contenido (bloque 1 — 2026-09)
 
-Planificación mensual por cliente: temas del mes + piezas (tipo, título, tema, objetivo, copy, guión, estilo visual, hashtags, CTA, deadline) agrupadas en una matriz por período objetivo. Migración `0129_content_matrices.sql` — **pendiente de aplicar** (ver sección "Pendiente de aplicar" en la tabla de migraciones arriba).
+Planificación mensual por cliente: temas del mes + piezas (tipo, título, tema, objetivo, copy, guión, estilo visual, hashtags, CTA, deadline) agrupadas en una matriz por período objetivo. Migración `0129_content_matrices.sql` — **aplicada el 2026-09-17**.
 
 - Spec: `docs/superpowers/specs/2026-09-16-creador-de-matrices-bloque-1-design.md` (ver su sección final "Desviaciones implementadas" y "Pendiente para bloques 2–3": manda sobre el texto original). Plan: `docs/superpowers/plans/2026-09-16-creador-de-matrices-bloque-1.md`.
 - **Dominio puro** `src/lib/domain/matrix.ts`: `computeTargetPeriods` (ciclo vigente + N-1 siguientes), `resolveMatrixLimits` (cupos desde el ciclo o, sin ciclo, estimados desde el plan; con ciclo, `credits` = créditos restantes **más** los ya consumidos por requerimientos del ciclo que cuentan en `computeTotals` — 1 unidad del `content_type` por requerimiento con `paid_from_credit_id`, no anulado ni arrastrado — porque esos requerimientos ya suman en `cycleTotals` y sin devolver su crédito marcarían "fuera de plan" de más, también bajo pool; `remainingCredits` guarda los créditos aún disponibles tal cual), `computeMatrixUsage` (uso por tipo + pool unificado + piezas fuera de plan, orden canónico via `compareMatrixItems`; por tipo y en el pool expone `credits` — efectivos: tono, "fuera de plan", tipos activos — y `availableCredits` — disponibles: lo que muestra el chip "+N créd." de `MatrixChips`; nunca usar uno por el otro), `proposeDeadline` (primera semana con presupuesto libre; recibe `today` para no proponer semanas ya cerradas ni una fecha pasada), `pickCycleForPeriod` (desempate entre ciclos que comparten `period_start`), `MATRIX_TEXT_LIMITS` (topes de caracteres por campo, usados a la vez como `maxLength` en la UI, como validación en las acciones y en los checks `*_len_chk` de 0129 — `char_length` cuenta code points y la app `.length` UTF-16, así que la base nunca es más estricta; si se cambia un tope, cambiarlo en los tres lados), `validateForApproval`/`validateItemPatch` (piezas sin título o fuera del período, tipos/temas/objetivos válidos).
