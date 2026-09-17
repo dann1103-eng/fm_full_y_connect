@@ -49,3 +49,6 @@ supabase/.temp/
 
 # Scratch local de las skills de brainstorming (PIDs, HTML temporal).
 .superpowers/
+
+# Worktrees locales de git (ramas de feature aisladas).
+.worktrees/
