@@ -25,6 +25,8 @@ import { RescueOrphansButton } from '@/components/clients/RescueOrphansButton'
 import { listClientUsers } from '@/app/actions/clientUsers'
 import { listClientCredits } from '@/app/actions/credits'
 import { ClientCreditsCard } from '@/components/clients/ClientCreditsCard'
+import { loadClientMatrices } from '@/lib/data/matrices'
+import { ClientMatricesCard } from '@/components/clients/ClientMatricesCard'
 
 export const dynamic = 'force-dynamic'
 
@@ -261,7 +263,18 @@ export default async function ClientDetailPage({
   const cycle = currentCycle as BillingCycle | null
   const reqs = (requirements ?? []) as Requirement[]
   const totals = computeTotals(reqs)
-  const credits = await listClientCredits(id)
+  // En paralelo: son consultas independientes. loadClientMatrices puede lanzar si la migración 0129 no
+  // está aplicada — se atrapa en la propia promesa (no con try/catch secuencial) para no bloquear credits.
+  const clientMatricesPromise: Promise<Awaited<ReturnType<typeof loadClientMatrices>> | null> = canCreate
+    ? loadClientMatrices(supabase, client, cycle).catch((e: unknown) => {
+        console.error('[ClientDetailPage] loadClientMatrices error:', e)
+        return null
+      })
+    : Promise.resolve(null)
+  const [credits, clientMatrices] = await Promise.all([
+    listClientCredits(id),
+    clientMatricesPromise,
+  ])
   const baseLimits = cycle
     ? effectiveLimits(cycle.limits_snapshot_json, cycle.rollover_from_previous_json)
     : null
@@ -367,6 +380,11 @@ export default async function ClientDetailPage({
               </Link>
             )}
           </div>
+        )}
+
+        {/* 1b — Matrices de contenido (admin/supervisor) */}
+        {clientMatrices && (
+          <ClientMatricesCard client={client} periods={clientMatrices.periods} matrices={clientMatrices.matrices} />
         )}
 
         {/* 2 — Pipeline del ciclo actual */}

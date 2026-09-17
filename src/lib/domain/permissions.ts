@@ -4,6 +4,7 @@ export const canCreateClient      = (role: UserRole | null | undefined) => role 
 export const canEditClient        = (role: UserRole | null | undefined) => role === 'admin' || role === 'supervisor'
 export const canDeleteClient      = (role: UserRole | null | undefined) => role === 'admin'
 export const canCreateRequirement = (role: UserRole | null | undefined) => role === 'admin' || role === 'supervisor'
+export const canManageMatrices    = (role: UserRole | null | undefined) => role === 'admin' || role === 'supervisor'
 export const canAssignRequirements= (role: UserRole | null | undefined) => role === 'admin' || role === 'supervisor'
 export const canViewReports       = (role: UserRole | null | undefined) => role === 'admin' || role === 'supervisor'
 export const canViewRenewals      = (role: UserRole | null | undefined) => role === 'admin'

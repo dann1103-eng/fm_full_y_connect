@@ -41,6 +41,16 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    href: '/matrices',
+    label: 'Matrices',
+    allowedRoles: ['admin', 'supervisor'],
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"/>
+      </svg>
+    ),
+  },
+  {
     href: '/inbox',
     label: 'Equipo',
     icon: (

@@ -479,3 +479,91 @@ móvil con hoja inferior. `npm run lint` y `npm run build` limpios antes de comm
 - Conversión a requerimientos, barrido diario, cierre automático (bloque 2).
 - Generación con IA, perfil de marca, etiqueta de producción propuesta (bloque 3).
 - Portal del cliente (ver o aprobar matriz), exportar a PDF o Excel, agrupar piezas en una producción, tiempo real en el editor, acceso de operadores, red social / referencias / historia / responsable por pieza.
+
+## Desviaciones implementadas (2026-09-17)
+
+Diferencias entre el texto de este diseño y lo que quedó en la rama `feat/creador-matrices-bloque-1`,
+verificadas contra el código. Donde chocan, manda esta sección.
+
+**Migración `0129`**
+
+- Índices del vínculo a requerimientos **únicos** parciales: `content_matrices_matrix_requirement_uq`
+  (a lo sumo una matriz por requerimiento de matriz) y `content_matrix_items_requirement_uq` (a lo
+  sumo una pieza por requerimiento convertido).
+- Columnas reservadas para el bloque 2 en `content_matrix_items`: `blocked_reason text` y
+  `converted_at timestamptz` (nulas, sin uso en este bloque).
+- Checks de longitud `*_len_chk` con los mismos topes que `MATRIX_TEXT_LIMITS`: título 200, notas y
+  copy 5000, guion 10000, estilo visual / hashtags / CTA 2000, tema 60 (tope de `sanitizeTopics`).
+  `char_length` cuenta code points y la app mide `.length` (UTF-16), así que la base nunca es más
+  estricta que la app.
+- Además: `check (jsonb_typeof(topics_json) = 'array')`, `set local lock_timeout = '5s'`, sin
+  `content_matrices_client_idx` (lo cubre el único `(client_id, period_start)`) y una sola policy
+  `for all` por tabla en vez de cuatro (misma condición admin/supervisor).
+
+**Dominio (`matrix.ts`)**
+
+- `resolveMatrixLimits` con ciclo: `credits` = créditos restantes **más** los consumidos por
+  requerimientos del ciclo que cuentan en `computeTotals` (no anulados, no arrastrados, con
+  `paid_from_credit_id`): 1 unidad del `content_type` del requerimiento (lo que consume
+  `consumeContentCreditForRequirement`), solo si ese tipo sigue contando en su consumo. Sin esto, la
+  pieza pagada con crédito contaba como usada y su crédito desaparecía del cupo, marcando "fuera de
+  plan" de más; también corrige el pool unificado. Sin ciclo, los créditos no cambian.
+  `MatrixLimits.remainingCredits` conserva los créditos aún disponibles, y `computeMatrixUsage` expone por
+  tipo y en el pool `credits` (efectivos: tono, "fuera de plan", tipos activos) y `availableCredits`
+  (disponibles). El chip muestra "+N créd." con los **disponibles**.
+- `MatrixUsage.overPlanItemIds` es `string[]` (no `Set`: cruza la frontera server → client);
+  `MatrixUsage.pool` incluye `credits` y `availableCredits`, y `activeTypes` vive en `MatrixUsage`.
+- Orden canónico `compareMatrixItems`: `deadline` → `created_at` (numérico) → `id`, igual en servidor y cliente.
+- `proposeDeadline` acepta `today` (no propone semanas ya cerradas ni fechas pasadas) y `sharedTypes`
+  (los tippables bajo pool comparten el conteo semanal).
+- `pickCycleForPeriod`: si varios ciclos comparten `period_start`, gana current > pending_renewal >
+  scheduled > archived y, a igual estado, el `created_at` más reciente.
+- `MATRIX_TEXT_LIMITS` se aplica en tres capas: `maxLength` en la UI, validación en las server
+  actions y checks en la base.
+
+**Server actions**
+
+- Solo clientes `active`/`paused`/`overdue` reciben una matriz nueva (`canCreateMatrixForClient`); los
+  `inactive_payment`/`inactive_manual` no (la tabla de casos borde permitía crear y avisar). Se filtra
+  en la UI y se revalida en `createMatrix`/`duplicateMatrix`.
+- `deleteMatrix` borra **primero** la matriz en borrador (condicional a `status = 'draft'`; las piezas
+  caen por cascade) y después intenta limpiar el requerimiento vinculado. Lo conserva si está anulado
+  (rastro de auditoría), si tiene cualquier fila dependiente (`time_entries`, `requirement_messages`, `review_assets`,
+  `requirement_cambio_logs`, `ai_jobs`), dejó la fase `pendiente`, se pagó con crédito, ya no es
+  `matriz_contenido` o su ciclo no es `current`.
+- El requerimiento de matriz se inserta con `requested_via = 'staff'`. El vínculo es a prueba de
+  carrera (`update … is('matrix_requirement_id', null)`) y borra el requerimiento propio si pierde.
+- Vínculo anulado: si el requerimiento vinculado está anulado (o ya no existe), `linkMatrixRequirement`
+  suelta el vínculo con un update condicional y registra uno nuevo. El editor muestra "El requerimiento
+  de matriz vinculado fue anulado." con "Reintentar" (salvo matriz cerrada). `retryMatrixRequirementLink`
+  rechaza matrices cerradas.
+- Quitar temas suelta las piezas por `id`, no con `.in('topic', …)` (postgrest-js no escapa comillas).
+- Los guardados por campo (`updateItem`, y `updateMatrix` salvo el título) no llaman `revalidatePath`:
+  en Next 16 re-renderiza la página actual completa.
+
+**UI**
+
+- El editor nunca llama `router.refresh()` (la spec lo pedía tras acciones estructurales): estado local
+  inicializado desde props, aplica la fila que devuelve cada acción.
+- Un guardado de texto fallido conserva lo escrito ("· sin guardar"), con franja "Hay cambios sin
+  guardar" + "Descartar cambios sin guardar" y aviso `beforeunload`.
+- El motivo de un vínculo fallido al crear o duplicar llega al editor por `sessionStorage`
+  (`matrixLinkError.ts`), no "en memoria de la última acción".
+- `/matrices` lista matrices con `period_start` de los últimos 365 días (tope 1000 filas, con aviso si
+  se trunca).
+- `/matrices/[id]` redirige a `/matrices` si el id no es un UUID o la matriz no existe.
+
+### Pendiente para bloques 2–3
+
+- RPC atómica de insertar matriz + vincular requerimiento: hoy son dos viajes, así que una matriz puede
+  quedar sin vínculo y se reintenta a mano.
+- La matriz se cruza con su ciclo y los períodos se validan por `period_start` **exacto**: una renovación
+  anclada a la fecha de hoy o un cambio de `billing_period` desalinean los períodos (cupos estimados,
+  período inválido).
+- Relleno oportunista de `content_matrices.billing_cycle_id` no implementado (nada depende de la
+  columna todavía).
+- El editor no se resincroniza desde el servidor; la conversión (bloque 2) y la IA (bloque 3) van a
+  necesitar refresco o realtime.
+- Ciclos quincenales usan la distribución de 4 semanas sobre ~14 días: las semanas 3–4 caen después de
+  `period_end` y las fechas propuestas se amontonan al final del período.
+- Quitar temas no es atómico: soltar las piezas y guardar `topics_json` son dos escrituras.

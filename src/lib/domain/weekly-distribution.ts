@@ -1,18 +1,23 @@
-import type { ContentType, WeekKey, WeeklyDistribution } from '@/types/db'
+import { WEEKS_BASE } from '@/types/db'
+import type { ContentType, PlanLimits, WeekKey, WeeklyDistribution } from '@/types/db'
+import { rolloverToContentType } from './plans'
 
-const WEEKS: WeekKey[] = ['S1', 'S2', 'S3', 'S4']
+const WEEKS: ReadonlyArray<WeekKey> = WEEKS_BASE
 
 /**
- * Rellena tipos que la distribución base no cubre, usando `ceil(limit/4)` como fallback.
+ * Rellena tipos que la distribución base no cubre, usando `ceil(limit/weeks.length)` como fallback.
  * Sólo considera los `pipelineTypes` (por ejemplo: se excluye 'reunion' si no está activa).
+ * `weeks` por defecto son las 4 semanas de un ciclo mensual/quincenal; pasar `WEEKS_BIMONTHLY`
+ * para ciclos bimestrales de 8 semanas.
  */
 export function augmentDistribution(
   baseDist: WeeklyDistribution,
   pipelineTypes: ContentType[],
   limits: Record<ContentType, number>,
+  weeks: ReadonlyArray<WeekKey> = WEEKS,
 ): WeeklyDistribution {
   const result: WeeklyDistribution = {}
-  for (const w of WEEKS) {
+  for (const w of weeks) {
     result[w] = {}
     for (const type of pipelineTypes) {
       const explicit = baseDist[w]?.[type]
@@ -20,7 +25,7 @@ export function augmentDistribution(
         // Respect explicit 0 — means "no allocation this week for this type"
         if (explicit > 0) result[w]![type] = explicit
       } else {
-        const fallback = Math.ceil(limits[type] / 4)
+        const fallback = Math.ceil(limits[type] / weeks.length)
         if (fallback > 0) result[w]![type] = fallback
       }
     }
@@ -33,15 +38,16 @@ export function augmentDistribution(
  * en el override mantienen sus valores originales. Null/undefined = no override.
  *
  * Formato del override: mismo que `WeeklyDistribution` pero puede ser parcial
- * (sólo los tipos que el admin ajustó).
+ * (sólo los tipos que el admin ajustó). `weeks` define qué semanas se recorren.
  */
 export function applyOverride(
   dist: WeeklyDistribution,
   override: WeeklyDistribution | null | undefined,
+  weeks: ReadonlyArray<WeekKey> = WEEKS,
 ): WeeklyDistribution {
   if (!override) return dist
   const result: WeeklyDistribution = {}
-  for (const w of WEEKS) {
+  for (const w of weeks) {
     const base = dist[w] ?? {}
     const over = override[w] ?? {}
     result[w] = { ...base, ...over }
@@ -50,26 +56,29 @@ export function applyOverride(
 }
 
 /**
- * Distribuye el rollover equitativamente entre las 4 semanas. El residuo se asigna
- * a las semanas tempranas (S1, S2, ...), de modo que 3 piezas → 1,1,1,0 y 5 → 2,1,1,1.
+ * Distribuye el rollover equitativamente entre las semanas. El residuo se asigna
+ * a las semanas tempranas (S1, S2, ...), de modo que 3 piezas → 1,1,1,0 y 5 → 2,1,1,1
+ * (con las 4 semanas por defecto; con 8 semanas 5 → 1,1,1,1,1,0,0,0).
  */
 export function addRollover(
   dist: WeeklyDistribution,
   rollover: Partial<Record<ContentType, number>>,
+  weeks: ReadonlyArray<WeekKey> = WEEKS,
 ): WeeklyDistribution {
+  const n = weeks.length
   const result: WeeklyDistribution = {}
-  for (const w of WEEKS) result[w] = { ...(dist[w] ?? {}) }
+  for (const w of weeks) result[w] = { ...(dist[w] ?? {}) }
 
   for (const [type, rawAmount] of Object.entries(rollover) as [ContentType, number][]) {
     const amount = Math.max(0, Math.floor(rawAmount ?? 0))
     if (amount === 0) continue
-    const base = Math.floor(amount / 4)
-    const residue = amount % 4
-    for (let i = 0; i < 4; i++) {
+    const base = Math.floor(amount / n)
+    const residue = amount % n
+    for (let i = 0; i < n; i++) {
       const add = base + (i < residue ? 1 : 0)
       if (add === 0) continue
-      const cur = result[WEEKS[i]]![type] ?? 0
-      result[WEEKS[i]]![type] = cur + add
+      const cur = result[weeks[i]]![type] ?? 0
+      result[weeks[i]]![type] = cur + add
     }
   }
 
@@ -120,4 +129,27 @@ export function buildAccumulateOverride(
   }
 
   return result
+}
+
+export interface EffectiveDistributionInput {
+  clientDistribution: WeeklyDistribution | null | undefined
+  planDistribution: WeeklyDistribution | null | undefined
+  pipelineTypes: ContentType[]
+  /** Límites ya con content_limits_override_json aplicado. */
+  limits: Record<ContentType, number>
+  cycleOverride?: WeeklyDistribution | null
+  rollover?: Partial<PlanLimits> | null
+  weeks?: ReadonlyArray<WeekKey>
+}
+
+/**
+ * Cadena completa: default (cliente → plan) → augment → override del ciclo → rollover.
+ * Es la misma secuencia que usaba inline RequirementPanel; centralizada para reuso.
+ */
+export function buildEffectiveDistribution(input: EffectiveDistributionInput): WeeklyDistribution {
+  const weeks = input.weeks ?? WEEKS
+  const base = input.clientDistribution ?? input.planDistribution ?? {}
+  const augmented = augmentDistribution(base, input.pipelineTypes, input.limits, weeks)
+  const overridden = applyOverride(augmented, input.cycleOverride ?? null, weeks)
+  return addRollover(overridden, rolloverToContentType(input.rollover), weeks)
 }
