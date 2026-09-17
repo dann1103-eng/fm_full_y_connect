@@ -96,6 +96,7 @@ export function MatricesTable({ rows, clients }: Props) {
                 <th className="py-2 pr-3">Período</th>
                 <th className="py-2 pr-3">Estado</th>
                 <th className="py-2 pr-3">Piezas</th>
+                <th className="py-2 pr-3">Convertidas</th>
                 <th className="py-2 pr-3 hidden md:table-cell">Última edición</th>
                 <th className="py-2 pr-3 hidden md:table-cell">Aprobada por</th>
               </tr>
@@ -121,8 +122,18 @@ export function MatricesTable({ rows, clients }: Props) {
                     </div>
                   </td>
                   <td className="py-2.5 pr-3 whitespace-nowrap text-fm-on-surface">{r.label}</td>
-                  <td className="py-2.5 pr-3"><StatusBadge status={r.status} /></td>
+                  <td className="py-2.5 pr-3">
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      <StatusBadge status={r.status} />
+                      {r.blocked_count > 0 && (
+                        <span className="rounded-full bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-200 px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap">
+                          {r.blocked_count} bloqueada{r.blocked_count !== 1 && 's'}
+                        </span>
+                      )}
+                    </span>
+                  </td>
                   <td className="py-2.5 pr-3 tabular-nums text-fm-on-surface whitespace-nowrap">{r.item_count} / {r.capacity}</td>
+                  <td className="py-2.5 pr-3 tabular-nums text-fm-on-surface-variant whitespace-nowrap">{r.converted_count} / {r.item_count}</td>
                   <td className="py-2.5 pr-3 hidden md:table-cell text-fm-on-surface-variant whitespace-nowrap">{shortLocalDate(r.updated_at)}</td>
                   <td className="py-2.5 pr-3 hidden md:table-cell text-fm-on-surface-variant">{r.approved_by_name ?? '—'}</td>
                 </tr>

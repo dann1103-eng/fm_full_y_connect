@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
-  BillingCycle, Client, ContentMatrix, ContentMatrixItem, Database, MatrixStatus, Plan, Requirement, WeeklyDistribution,
+  BillingCycle, Client, ContentMatrix, ContentMatrixItem, Database, MatrixItemStatus, MatrixStatus, Plan, Requirement, WeeklyDistribution,
 } from '@/types/db'
 import { weeksForBillingPeriod } from '@/types/db'
 import { getAvailableContentCredits } from '@/lib/domain/credits'
@@ -179,6 +179,10 @@ export interface MatrixListRow {
   client: { id: string; name: string; logo_url: string | null }
   item_count: number
   capacity: number
+  /** Piezas ya convertidas en requerimiento. */
+  converted_count: number
+  /** Piezas que el barrido no pudo convertir. */
+  blocked_count: number
 }
 
 export interface MatricesList {
@@ -220,6 +224,24 @@ export async function loadMatricesList(db: Db, opts: { since?: DateString } = {}
     .limit(MATRICES_LIST_LIMIT)
   if (error) fail('loadMatricesList', error)
   const raw = (data ?? []) as unknown as RawListRow[]
+
+  // El embed `items:content_matrix_items(count)` solo sabe contar filas: para el desglose por estado se
+  // leen los estados de las piezas de las matrices listadas en una sola consulta y se agregan en JS
+  // (con el tope de 1000 matrices y ~15 piezas por matriz es una consulta acotada).
+  const ids = raw.map((r) => r.id)
+  const byMatrix = new Map<string, { converted: number; blocked: number }>()
+  if (ids.length > 0) {
+    const { data: statuses, error: statusError } = await db
+      .from('content_matrix_items').select('matrix_id, status').in('matrix_id', ids)
+    if (statusError) fail('loadMatricesList', statusError)
+    for (const s of (statuses ?? []) as Array<{ matrix_id: string; status: MatrixItemStatus }>) {
+      const acc = byMatrix.get(s.matrix_id) ?? { converted: 0, blocked: 0 }
+      if (s.status === 'converted') acc.converted++
+      else if (s.status === 'blocked') acc.blocked++
+      byMatrix.set(s.matrix_id, acc)
+    }
+  }
+
   const rows = raw
     .filter((r) => r.client)
     .map((r) => ({
@@ -229,6 +251,8 @@ export async function loadMatricesList(db: Db, opts: { since?: DateString } = {}
       client: { id: r.client!.id, name: r.client!.name, logo_url: r.client!.logo_url },
       item_count: r.items?.[0]?.count ?? 0,
       capacity: planCapacity(r.client!.plan),
+      converted_count: byMatrix.get(r.id)?.converted ?? 0,
+      blocked_count: byMatrix.get(r.id)?.blocked ?? 0,
     }))
   return { rows, truncated: raw.length === MATRICES_LIST_LIMIT, since }
 }

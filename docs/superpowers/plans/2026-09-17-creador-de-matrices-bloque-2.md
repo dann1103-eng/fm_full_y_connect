@@ -1004,7 +1004,7 @@ git commit -m "feat(matrices): estado de conversion en la tabla y anticipacion e
 - Modify: `src/lib/data/matrices.ts` (`loadMatricesList`)
 - Modify: `src/components/matrices/MatricesTable.tsx`
 
-- [ ] **Step 1: Desglose por estado en el loader**
+- [x] **Step 1: Desglose por estado en el loader**
 
 `loadMatricesList` hoy devuelve `item_count` y `capacity` por matriz. Añadir a `MatrixListRow`
 `converted_count: number` y `blocked_count: number`. El embed actual cuenta filas
@@ -1029,18 +1029,18 @@ leer los estados de las piezas de las matrices listadas en una sola query y agre
 
 (Con el tope de 1000 matrices de la lista y ~15 piezas por matriz, es una query acotada.)
 
-- [ ] **Step 2: Columna y distintivo**
+- [x] **Step 2: Columna y distintivo**
 
 En `MatricesTable`, columna "Convertidas" con `converted_count / item_count` y, si
 `blocked_count > 0`, un distintivo rojo "N bloqueada(s)" junto al estado. Mantener el resto de la
 tabla como está.
 
-- [ ] **Step 3: Verificar**
+- [x] **Step 3: Verificar**
 
 Run: `npx tsc --noEmit -p tsconfig.json`, `npx eslint src/lib/data/matrices.ts src/components/matrices` y `npm run build`
 Expected: sin errores.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/lib/data/matrices.ts src/components/matrices/MatricesTable.tsx
