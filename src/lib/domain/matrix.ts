@@ -1,8 +1,9 @@
-import type { BillingPeriod, ContentType, MatrixObjective, MatrixStatus } from '@/types/db'
-import { dominantCycleMonth } from './requirement'
+import type { BillingCycle, BillingPeriod, ContentType, MatrixObjective, MatrixStatus, Plan, Requirement } from '@/types/db'
+import { dominantCycleMonth, computeTotals } from './requirement'
 import { firstCycleDates, nextCycleDates, currentCycleDates } from './cycles'
 import type { DateString } from './dates'
 import { formatDeadlineDate } from './deadline'
+import { effectiveLimits, applyContentLimitsWithOverride, limitsToRecord } from './plans'
 
 // ── Constantes ──────────────────────────────────────────────────────────────
 
@@ -72,4 +73,49 @@ export function computeTargetPeriods(input: TargetPeriodsInput): TargetPeriod[] 
     cur = nextCycleDates(cur.periodEnd, opts)
   }
   return out
+}
+
+const ZERO_TOTALS: Record<ContentType, number> = {
+  historia: 0, estatico: 0, video_corto: 0, reel: 0, short: 0, produccion: 0, reunion: 0, matriz_contenido: 0,
+}
+
+// ── Cupos ───────────────────────────────────────────────────────────────────
+
+export interface MatrixLimitsInput {
+  cycle: BillingCycle | null
+  plan: Plan
+  cycleRequirements: Requirement[]
+  credits: Partial<Record<ContentType, number>>
+}
+
+export interface MatrixLimits {
+  limits: Record<ContentType, number>
+  cycleTotals: Record<ContentType, number>
+  credits: Partial<Record<ContentType, number>>
+  unifiedPool: number | null
+  estimated: boolean
+}
+
+export function resolveMatrixLimits(input: MatrixLimitsInput): MatrixLimits {
+  if (input.cycle) {
+    const base = effectiveLimits(input.cycle.limits_snapshot_json, input.cycle.rollover_from_previous_json)
+    const limits = applyContentLimitsWithOverride(
+      base,
+      (input.cycle.content_limits_override_json ?? null) as Record<string, number> | null,
+    )
+    return {
+      limits,
+      cycleTotals: computeTotals(input.cycleRequirements),
+      credits: input.credits,
+      unifiedPool: input.cycle.limits_snapshot_json.unified_content_limit ?? null,
+      estimated: false,
+    }
+  }
+  return {
+    limits: limitsToRecord(input.plan.limits_json),
+    cycleTotals: { ...ZERO_TOTALS },
+    credits: input.credits,
+    unifiedPool: input.plan.unified_content_limit ?? null,
+    estimated: true,
+  }
 }
