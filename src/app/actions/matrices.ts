@@ -10,11 +10,12 @@ import { computeTotals } from '@/lib/domain/requirement'
 import { insertInitialPhaseLog } from '@/lib/domain/pipeline'
 import { today, addDaysString } from '@/lib/domain/dates'
 import {
-  canTransition, isIsoDate, matrixTitleFor, sanitizeTopics, validateForApproval,
-  type ActionErr, type ActionResult, type LinkResult, type ApprovalProblem,
+  canTransition, isIsoDate, matrixTitleFor, sanitizeTopics, validateForApproval, validateItemPatch,
+  proposeDeadline, shiftDeadline, MATRIX_CONTENT_TYPES,
+  type ActionErr, type ActionResult, type LinkResult, type ApprovalProblem, type ItemPatch,
 } from '@/lib/domain/matrix'
-import { loadTargetPeriodsForClient, type TargetPeriodsForClient } from '@/lib/data/matrices'
-import type { ContentMatrix, ContentMatrixItem, Database, MatrixStatus, MatrixTopic, Requirement } from '@/types/db'
+import { loadMatrixEditorData, loadTargetPeriodsForClient, sharedTypesFor, type TargetPeriodsForClient } from '@/lib/data/matrices'
+import type { ContentMatrix, ContentMatrixItem, ContentType, Database, MatrixStatus, MatrixTopic, Requirement } from '@/types/db'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -344,4 +345,186 @@ export async function deleteMatrix(matrixId: string): Promise<ActionResult> {
 
   revalidateMatrix(m.client_id, matrixId)
   return { ok: true }
+}
+
+// ── Piezas ───────────────────────────────────────────────────────────────────
+
+type MatrixForItemWrite = Pick<ContentMatrix, 'id' | 'client_id' | 'status' | 'period_start' | 'period_end' | 'topics_json'>
+
+// Tipo de retorno explícito: inferido, TS normaliza la unión a `{ error?: undefined; matrix }` y
+// `'error' in m` deja de estrechar `m.error` a string.
+async function loadMatrixForItemWrite(ctx: Ctx, matrixId: string): Promise<{ matrix: MatrixForItemWrite } | { error: string }> {
+  const { data } = await ctx.supabase.from('content_matrices')
+    .select('id, client_id, status, period_start, period_end, topics_json').eq('id', matrixId).single()
+  if (!data) return { error: 'Matriz no encontrada.' }
+  if (data.status === 'closed') return { error: 'La matriz está cerrada.' }
+  return { matrix: data }
+}
+
+function cleanText(v: string | null | undefined): string | null {
+  const s = v?.trim()
+  return s ? s : null
+}
+
+export async function addItem(matrixId: string, contentType: ContentType, deadline?: string): Promise<ActionResult<{ item: ContentMatrixItem }>> {
+  const ctx = await requireManager()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  if (!MATRIX_CONTENT_TYPES.includes(contentType)) return { ok: false, error: 'Ese tipo no se planifica en la matriz.' }
+
+  const data = await loadMatrixEditorData(ctx.supabase, matrixId)
+  if (!data) return { ok: false, error: 'Matriz no encontrada.' }
+  if (data.matrix.status === 'closed') return { ok: false, error: 'La matriz está cerrada.' }
+
+  const chosen = deadline ?? proposeDeadline({
+    contentType,
+    items: data.items,
+    distribution: data.distribution,
+    periodStart: data.period.periodStart,
+    periodEnd: data.period.periodEnd,
+    maxWeek: data.maxWeek,
+    sharedTypes: sharedTypesFor(data.limits),
+    today: today(),
+  })
+  const v = validateItemPatch({ deadline: chosen }, { ...data.period, topics: data.matrix.topics_json })
+  if (!v.ok) return { ok: false, error: v.error }
+
+  const { data: item, error } = await ctx.supabase.from('content_matrix_items')
+    .insert({ matrix_id: matrixId, content_type: contentType, deadline: chosen })
+    .select('*').single()
+  if (error || !item) return { ok: false, error: dbError(error, 'No se pudo agregar la pieza.') }
+  revalidateMatrix(data.matrix.client_id, matrixId)
+  return { ok: true, item: item as ContentMatrixItem }
+}
+
+export async function updateItem(itemId: string, patch: ItemPatch): Promise<ActionResult<{ item: ContentMatrixItem }>> {
+  const ctx = await requireManager()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const { supabase } = ctx
+
+  const { data: existing } = await supabase.from('content_matrix_items').select('id, matrix_id, status').eq('id', itemId).single()
+  if (!existing) return { ok: false, error: 'Pieza no encontrada.' }
+  if (existing.status === 'converted') return { ok: false, error: 'La pieza ya se convirtió en requerimiento; edítala desde el pipeline.' }
+  const m = await loadMatrixForItemWrite(ctx, existing.matrix_id)
+  if ('error' in m) return { ok: false, error: m.error }
+
+  const v = validateItemPatch(patch, { periodStart: m.matrix.period_start, periodEnd: m.matrix.period_end, topics: m.matrix.topics_json })
+  if (!v.ok) return { ok: false, error: v.error }
+
+  const update: ItemPatch = {}
+  if (patch.content_type !== undefined) update.content_type = patch.content_type
+  if (patch.title !== undefined) update.title = patch.title.trim()
+  if (patch.deadline !== undefined) update.deadline = patch.deadline
+  if (patch.needs_production !== undefined) update.needs_production = patch.needs_production
+  if (patch.objective !== undefined) update.objective = patch.objective
+  if (patch.topic !== undefined) update.topic = cleanText(patch.topic)
+  for (const k of ['copy', 'script', 'visual_style', 'hashtags', 'cta'] as const) {
+    if (patch[k] !== undefined) update[k] = cleanText(patch[k])
+  }
+
+  const { data: item, error } = await supabase.from('content_matrix_items').update(update).eq('id', itemId).select('*').single()
+  if (error || !item) return { ok: false, error: dbError(error, 'No se pudo guardar la pieza.') }
+  revalidateMatrix(m.matrix.client_id, m.matrix.id)
+  return { ok: true, item: item as ContentMatrixItem }
+}
+
+export async function duplicateItem(itemId: string): Promise<ActionResult<{ item: ContentMatrixItem }>> {
+  const ctx = await requireManager()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const { supabase } = ctx
+
+  const { data: src } = await supabase.from('content_matrix_items').select('*').eq('id', itemId).single()
+  if (!src) return { ok: false, error: 'Pieza no encontrada.' }
+  const m = await loadMatrixForItemWrite(ctx, src.matrix_id)
+  if ('error' in m) return { ok: false, error: m.error }
+
+  const { data: item, error } = await supabase.from('content_matrix_items').insert({
+    matrix_id: src.matrix_id, content_type: src.content_type, title: src.title, topic: src.topic,
+    objective: src.objective, copy: src.copy, script: src.script, visual_style: src.visual_style,
+    hashtags: src.hashtags, cta: src.cta, deadline: src.deadline, needs_production: src.needs_production,
+  }).select('*').single()
+  if (error || !item) return { ok: false, error: dbError(error, 'No se pudo duplicar la pieza.') }
+  revalidateMatrix(m.matrix.client_id, m.matrix.id)
+  return { ok: true, item: item as ContentMatrixItem }
+}
+
+export async function deleteItem(itemId: string): Promise<ActionResult> {
+  const ctx = await requireManager()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const { supabase } = ctx
+
+  const { data: existing } = await supabase.from('content_matrix_items').select('id, matrix_id, status').eq('id', itemId).single()
+  if (!existing) return { ok: false, error: 'Pieza no encontrada.' }
+  if (existing.status === 'converted') return { ok: false, error: 'La pieza ya se convirtió en requerimiento.' }
+  const m = await loadMatrixForItemWrite(ctx, existing.matrix_id)
+  if ('error' in m) return { ok: false, error: m.error }
+
+  const { error } = await supabase.from('content_matrix_items').delete().eq('id', itemId)
+  if (error) return { ok: false, error: dbError(error, 'No se pudo eliminar la pieza.') }
+  revalidateMatrix(m.matrix.client_id, m.matrix.id)
+  return { ok: true }
+}
+
+// ── Duplicar matriz ──────────────────────────────────────────────────────────
+
+export async function duplicateMatrix(sourceId: string, target: { periodStart: string; periodEnd: string }): Promise<ActionResult<{ id: string; link: LinkResult }>> {
+  const ctx = await requireManager()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const { supabase, userId } = ctx
+
+  if (!isIsoDate(target.periodStart) || !isIsoDate(target.periodEnd)) {
+    return { ok: false, error: 'Período inválido para este cliente.' }
+  }
+
+  const [{ data: src }, { data: srcItems, error: srcItemsError }] = await Promise.all([
+    supabase.from('content_matrices').select('*').eq('id', sourceId).single(),
+    supabase.from('content_matrix_items').select('*').eq('matrix_id', sourceId),
+  ])
+  if (!src) return { ok: false, error: 'Matriz no encontrada.' }
+  // Sin esto, un fallo de lectura crearía en silencio una copia sin piezas.
+  if (srcItemsError) return { ok: false, error: dbError(srcItemsError, 'No se pudieron leer las piezas de la matriz.') }
+  // La unicidad es (client_id, period_start): el mismo inicio es el mismo período.
+  if (target.periodStart === src.period_start) {
+    return { ok: false, error: 'Elige un período distinto al de la matriz original.' }
+  }
+  const periodError = await validateTargetPeriod(ctx, src.client_id, target)
+  if (periodError) return { ok: false, error: periodError }
+
+  const { data: existing } = await supabase.from('content_matrices').select('id')
+    .eq('client_id', src.client_id).eq('period_start', target.periodStart).maybeSingle()
+  if (existing) return { ok: false, error: 'Ya existe una matriz para ese período.' }
+
+  const { data: cycleRows } = await supabase.from('billing_cycles').select('id')
+    .eq('client_id', src.client_id).eq('period_start', target.periodStart).in('status', ['current', 'scheduled']).limit(1)
+
+  const { data: created, error } = await supabase.from('content_matrices').insert({
+    client_id: src.client_id,
+    period_start: target.periodStart,
+    period_end: target.periodEnd,
+    billing_cycle_id: cycleRows?.[0]?.id ?? null,
+    title: matrixTitleFor(target.periodStart, target.periodEnd),
+    topics_json: src.topics_json,
+    notes: src.notes,
+    lead_days: src.lead_days,
+    created_by: userId,
+  }).select('id').single()
+  if (error || !created) return { ok: false, error: dbError(error, 'No se pudo duplicar la matriz.') }
+
+  const from = { periodStart: src.period_start, periodEnd: src.period_end }
+  const items = ((srcItems ?? []) as ContentMatrixItem[]).map((it) => ({
+    matrix_id: created.id, content_type: it.content_type, title: it.title, topic: it.topic, objective: it.objective,
+    copy: it.copy, script: it.script, visual_style: it.visual_style, hashtags: it.hashtags, cta: it.cta,
+    deadline: shiftDeadline(it.deadline, from, target), needs_production: it.needs_production,
+  }))
+  if (items.length > 0) {
+    const { error: itemsError } = await supabase.from('content_matrix_items').insert(items)
+    if (itemsError) {
+      const { error: rollbackError } = await supabase.from('content_matrices').delete().eq('id', created.id)
+      if (rollbackError) console.error('[duplicateMatrix] no se pudo revertir la matriz creada', created.id, rollbackError.message)
+      return { ok: false, error: dbError(itemsError, 'No se pudieron copiar las piezas de la matriz.') }
+    }
+  }
+
+  const link = await linkMatrixRequirement(ctx, created.id)
+  revalidateMatrix(src.client_id, created.id)
+  return { ok: true, id: created.id, link }
 }
