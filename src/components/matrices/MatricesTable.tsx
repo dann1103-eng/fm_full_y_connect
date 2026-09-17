@@ -3,7 +3,8 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import type { MatrixStatus } from '@/types/db'
+import type { Client, MatrixStatus } from '@/types/db'
+import { ClientSearchSelect } from '@/components/ui/ClientSearchSelect'
 import type { MatrixListRow } from '@/lib/data/matrices'
 import { MATRIX_STATUS_LABELS } from '@/lib/domain/matrix'
 import { APP_TZ } from '@/lib/domain/dates'
@@ -40,24 +41,30 @@ function shortLocalDate(iso: string) {
   return formatDeadlineDate(day)
 }
 
-export function MatricesTable({ rows }: { rows: MatrixListRow[] }) {
+interface Props {
+  rows: MatrixListRow[]
+  /** Clientes completos (ordenados por nombre); el filtro ofrece solo los que aparecen en `rows`. */
+  clients: Client[]
+}
+
+export function MatricesTable({ rows, clients }: Props) {
   const router = useRouter()
   const [status, setStatus] = useState<'' | MatrixStatus>('')
   const [clientId, setClientId] = useState('')
   const [month, setMonth] = useState('')
 
-  const clients = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const r of rows) map.set(r.client.id, r.client.name)
-    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], 'es'))
-  }, [rows])
+  const filterClients = useMemo(() => {
+    const ids = new Set(rows.map((r) => r.client.id))
+    return clients.filter((c) => ids.has(c.id))
+  }, [rows, clients])
   const months = useMemo(() => [...new Set(rows.map((r) => monthKey(r.period_start)))].sort().reverse(), [rows])
 
   const filtered = useMemo(() => rows.filter((r) =>
     (!status || r.status === status) && (!clientId || r.client.id === clientId) && (!month || monthKey(r.period_start) === month),
   ), [rows, status, clientId, month])
 
-  const selectCls = 'rounded-xl border border-fm-surface-container-high bg-fm-background px-3 py-1.5 text-sm text-fm-on-surface max-w-full'
+  // py-2: misma altura que el botón de ClientSearchSelect.
+  const selectCls = 'rounded-xl border border-fm-surface-container-high bg-fm-background px-3 py-2 text-sm text-fm-on-surface max-w-full'
 
   return (
     <section className="glass-panel rounded-2xl p-4 sm:p-5 space-y-4">
@@ -66,10 +73,17 @@ export function MatricesTable({ rows }: { rows: MatrixListRow[] }) {
           <option value="">Todos los estados</option>
           {STATUSES.map((s) => <option key={s} value={s}>{MATRIX_STATUS_LABELS[s]}</option>)}
         </select>
-        <select value={clientId} onChange={(e) => setClientId(e.target.value)} className={selectCls} aria-label="Filtrar por cliente">
-          <option value="">Todos los clientes</option>
-          {clients.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-        </select>
+        <div className="flex items-center gap-1 w-full sm:w-64">
+          <div className="flex-1 min-w-0">
+            <ClientSearchSelect clients={filterClients} value={clientId} onChange={setClientId} placeholder="Todos los clientes" />
+          </div>
+          {clientId && (
+            <button type="button" onClick={() => setClientId('')} aria-label="Quitar filtro de cliente" title="Quitar filtro de cliente"
+              className="material-symbols-outlined text-[18px] p-1.5 rounded-lg text-fm-on-surface-variant hover:bg-fm-surface-container-low hover:text-fm-on-surface flex-shrink-0">
+              close
+            </button>
+          )}
+        </div>
         <select value={month} onChange={(e) => setMonth(e.target.value)} className={selectCls} aria-label="Filtrar por mes de inicio">
           <option value="">Todos los meses</option>
           {months.map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}

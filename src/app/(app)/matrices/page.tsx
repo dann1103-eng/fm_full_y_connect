@@ -24,7 +24,9 @@ export default async function MatricesPage() {
   const [list, missing, clientsRes] = await Promise.all([
     loadMatricesList(supabase),
     loadMissingMatrices(supabase),
-    supabase.from('clients').select('*').in('status', ['active', 'paused', 'overdue']).order('name'),
+    // Todos los clientes: el filtro de la tabla debe poder elegir cualquiera con matrices (también inactivos).
+    // El diálogo de creación recibe solo los operativos (ver MatricesPageClient).
+    supabase.from('clients').select('*').order('name'),
   ])
   // Igual que los loaders: un error de consulta muestra el error boundary, no un diálogo sin clientes.
   if (clientsRes.error) throw new Error(`MatricesPage clients: ${clientsRes.error.message}`)

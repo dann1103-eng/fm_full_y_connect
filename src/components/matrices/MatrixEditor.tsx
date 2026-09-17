@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { ContentMatrix, ContentMatrixItem, ContentType, MatrixStatus, MatrixTopic } from '@/types/db'
 import type { MatrixEditorData } from '@/lib/data/matrices'
@@ -17,6 +17,7 @@ import { MatrixHeader } from './MatrixHeader'
 import { MatrixTopicsBar } from './MatrixTopicsBar'
 import { MatrixItemsTable } from './MatrixItemsTable'
 import { MatrixItemSheet } from './MatrixItemSheet'
+import { forgetLinkError, readLinkError, rememberLinkError } from './matrixLinkError'
 
 type MatrixPatch = Parameters<typeof updateMatrix>[1]
 
@@ -48,6 +49,24 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
   const [dupOpen, setDupOpen] = useState(false)
   const [dupPeriods, setDupPeriods] = useState<{ periods: TargetPeriod[]; existing: Record<string, string> } | null>(null)
   const [dupError, setDupError] = useState<string | null>(null)
+
+  // Motivo real del vínculo fallido al crear o duplicar (lo guardó quien navegó hasta aquí). Se lee después
+  // de montar y no en un inicializador de useState: el servidor no tiene sessionStorage, así que leerlo en
+  // el render haría que la franja del HTML del servidor (sin motivo) y la de la hidratación no coincidieran.
+  // El setState va en un microtask (patrón del repo, ver TopNav) y la llave se borra ahí mismo, no antes:
+  // con StrictMode el efecto corre dos veces y la primera ejecución se cancela sin consumir la llave.
+  const matrixId = data.matrix.id
+  useEffect(() => {
+    const stored = readLinkError(matrixId)
+    if (stored === null) return
+    let cancelled = false
+    Promise.resolve().then(() => {
+      if (cancelled) return
+      forgetLinkError(matrixId)
+      setLinkError((current) => current ?? stored)
+    })
+    return () => { cancelled = true }
+  }, [matrixId])
 
   const usage = useMemo(() => computeMatrixUsage(items, data.limits), [items, data.limits])
   const sortedItems = useMemo(() => [...items].sort(compareMatrixItems), [items])
@@ -156,6 +175,7 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
     setDupError(null)
     const r = await runBusy(() => duplicateMatrix(matrix.id, { periodStart: p.periodStart, periodEnd: p.periodEnd }))
     if (!r.ok) { setDupError(r.error); return }
+    if (!r.link.ok) rememberLinkError(r.id, r.link.error)
     setDupOpen(false)
     router.push(`/matrices/${r.id}`)
   }

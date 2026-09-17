@@ -12,6 +12,7 @@ import type { Client, MatrixTopic } from '@/types/db'
 import { matrixTitleFor, type TargetPeriod } from '@/lib/domain/matrix'
 import { createMatrix, listTargetPeriods } from '@/app/actions/matrices'
 import { TopicsInput } from './MatrixTopicsBar'
+import { rememberLinkError } from './matrixLinkError'
 
 interface Props {
   open: boolean
@@ -108,6 +109,8 @@ function NewMatrixForm({ clients, initialClientId, initialPeriodStart, lockClien
           title: effectiveTitle, topics, notes: notes.trim() || null,
         })
         if (!r.ok) { setError(r.error); return }
+        // La matriz existe aunque el vínculo haya fallado: el editor muestra este motivo en su franja.
+        if (!r.link.ok) rememberLinkError(r.id, r.link.error)
         onClose()
         router.push(`/matrices/${r.id}`)
       } catch (e) {
