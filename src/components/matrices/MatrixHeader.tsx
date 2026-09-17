@@ -83,10 +83,15 @@ export function MatrixHeader(p: Props) {
   /** Anticipación: se recorta a 0–30 (el servidor rechaza fuera de rango) y solo se guarda si cambió. */
   function commitLeadDays() {
     if (draftLeadDays === null) return
-    const raw = Math.floor(Number(draftLeadDays))
+    const raw = draftLeadDays.trim()
     setDraftLeadDays(null)
-    if (!Number.isFinite(raw)) return
-    const days = Math.min(LEAD_DAYS_MAX, Math.max(0, raw))
+    // Vacío: se descarta, como el título. Un `type="number"` reporta '' tanto al borrarlo como al teclear
+    // una letra, y `Number('')` es 0: sin esta guarda, vaciar el campo guardaría `lead_days = 0` y todas
+    // las piezas se convertirían el mismo día de su entrega.
+    if (raw === '') return
+    const n = Math.floor(Number(raw))
+    if (!Number.isFinite(n)) return
+    const days = Math.min(LEAD_DAYS_MAX, Math.max(0, n))
     if (days !== p.matrix.lead_days) p.onLeadDays(days)
   }
 

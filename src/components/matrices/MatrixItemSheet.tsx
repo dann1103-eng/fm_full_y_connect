@@ -49,7 +49,8 @@ export function MatrixItemSheet({ item, ...rest }: Props) {
   return <ItemSheet key={item.id} item={item} {...rest} />
 }
 
-type Drafts = Partial<Record<ItemTextKey | 'deadline', string>>
+/** Campos con borrador local mientras se editan (textos, fecha y las dos mitades del estimado). */
+type Drafts = Partial<Record<ItemTextKey | 'deadline' | 'estHours' | 'estMins', string>>
 
 function withoutKeys(d: Drafts, keys: readonly (keyof Drafts)[]): Drafts {
   const next = { ...d }
@@ -62,9 +63,6 @@ function ItemSheet({ item, topics, period, assignableUsers, readOnly, error, fai
   // sale entonces del texto fallido (si el último guardado de ese campo falló) o de `item` (optimista o confirmado).
   const [drafts, setDrafts] = useState<Drafts>({})
   const [dateError, setDateError] = useState<string | null>(null)
-  // Estimado en horas + minutos. El cuerpo se monta con `key={item.id}`, así que basta inicializarlo aquí.
-  const [estHours, setEstHours] = useState(() => splitEstimate(item.estimated_time_minutes).hours)
-  const [estMins, setEstMins] = useState(() => splitEstimate(item.estimated_time_minutes).mins)
 
   // Bloqueo por campo: una matriz cerrada congela todo; una pieza ya convertida congela SOLO lo que se
   // copió al requerimiento (título, tipo, fecha, responsable y estimado — `updateItem` rechaza esos cinco),
@@ -81,6 +79,13 @@ function ItemSheet({ item, topics, period, assignableUsers, readOnly, error, fai
 
   const assigned = item.assigned_to ?? []
   const atAssigneeCap = assigned.length >= MATRIX_MAX_ASSIGNEES
+
+  // El estimado se lleva en `drafts` como la fecha (y no en un estado aparte): si el guardado falla y el
+  // editor revierte `item`, al soltar el borrador los inputs vuelven a mostrar el valor confirmado en vez
+  // de quedarse enseñando un número que no se guardó.
+  const savedEstimate = splitEstimate(item.estimated_time_minutes)
+  const shownEstHours = drafts.estHours ?? savedEstimate.hours
+  const shownEstMins = drafts.estMins ?? savedEstimate.mins
 
   /** Patch con los borradores de texto que cambiaron (o cuyo guardado anterior falló: se reintenta). */
   function pendingTextPatch(keys: readonly ItemTextKey[]): ItemPatch {
@@ -109,16 +114,24 @@ function ItemSheet({ item, topics, period, assignableUsers, readOnly, error, fai
     if (v !== item.deadline) onPatch({ deadline: v })
   }
 
-  /** Horas + minutos → minutos totales. Se recorta a los topes y lo recortado vuelve a los inputs. */
-  function commitEstimate() {
-    const h = clampInt(estHours, 0, EST_MAX_HOURS)
-    const m = clampInt(estMins, 0, 59)
+  /**
+   * Horas + minutos → minutos totales (recortados a los topes). `undefined` si no hay borrador del
+   * estimado o si el total coincide con lo ya guardado; `null` si el usuario lo dejó en blanco.
+   */
+  function pendingEstimate(): number | null | undefined {
+    if (drafts.estHours === undefined && drafts.estMins === undefined) return undefined
+    const h = clampInt(shownEstHours, 0, EST_MAX_HOURS)
+    const m = clampInt(shownEstMins, 0, 59)
     const total = Math.min(h * 60 + m, MATRIX_ESTIMATE_MAX_MINUTES)
     const value = total > 0 ? total : null
-    const shown = splitEstimate(value)
-    setEstHours(shown.hours)
-    setEstMins(shown.mins)
-    if (value !== (item.estimated_time_minutes ?? null)) onPatch({ estimated_time_minutes: value })
+    return value === (item.estimated_time_minutes ?? null) ? undefined : value
+  }
+
+  function commitEstimate() {
+    const value = pendingEstimate()
+    setDrafts((d) => withoutKeys(d, ['estHours', 'estMins']))
+    // `null` es un valor válido (borrar el estimado): solo `undefined` significa "nada que guardar".
+    if (value !== undefined) onPatch({ estimated_time_minutes: value })
   }
 
   function toggleAssignee(userId: string) {
@@ -133,6 +146,8 @@ function ItemSheet({ item, topics, period, assignableUsers, readOnly, error, fai
     if (drafts.deadline !== undefined && validDeadline(drafts.deadline) && drafts.deadline !== item.deadline) {
       patch.deadline = drafts.deadline
     }
+    const estimate = pendingEstimate()
+    if (estimate !== undefined) patch.estimated_time_minutes = estimate
     if (Object.keys(patch).length > 0) onPatch(patch)
     onClose()
   }
@@ -221,8 +236,11 @@ function ItemSheet({ item, topics, period, assignableUsers, readOnly, error, fai
           </p>
 
           <div>
-            <span className={labelCls}>Responsable *</span>
-            <div className="bg-fm-background border border-fm-surface-container-high rounded-xl px-3 py-2 space-y-1.5 max-h-32 overflow-y-auto">
+            <span id="matrix-item-assignees-label" className={labelCls}>Responsable *</span>
+            {/* Grupo con nombre: sin él, un lector de pantalla anuncia cada casilla suelta, sin decir de qué lista es. */}
+            <div role="group" aria-labelledby="matrix-item-assignees-label"
+              aria-describedby={atAssigneeCap ? 'matrix-item-assignees-cap' : undefined}
+              className="bg-fm-background border border-fm-surface-container-high rounded-xl px-3 py-2 space-y-1.5 max-h-32 overflow-y-auto">
               {assignableUsers.length === 0 ? (
                 <p className="text-[11px] text-fm-on-surface-variant">No hay usuarios asignables.</p>
               ) : assignableUsers.map((u) => {
@@ -237,18 +255,23 @@ function ItemSheet({ item, topics, period, assignableUsers, readOnly, error, fai
                 )
               })}
             </div>
+            {atAssigneeCap && (
+              <p id="matrix-item-assignees-cap" className="mt-1 text-[11px] text-fm-on-surface-variant">
+                Máximo {MATRIX_MAX_ASSIGNEES} responsables por pieza: quita uno para poder agregar otro.
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor="matrix-item-est-h" className={labelCls}>Horas *</label>
-              <input id="matrix-item-est-h" type="number" min="0" max={EST_MAX_HOURS} value={estHours} disabled={frozen} className={inputCls}
-                onChange={(e) => setEstHours(e.target.value)} onBlur={commitEstimate} />
+              <input id="matrix-item-est-h" type="number" min="0" max={EST_MAX_HOURS} value={shownEstHours} disabled={frozen} className={inputCls}
+                onChange={(e) => { const v = e.target.value; setDrafts((d) => ({ ...d, estHours: v })) }} onBlur={commitEstimate} />
             </div>
             <div>
               <label htmlFor="matrix-item-est-m" className={labelCls}>Minutos *</label>
-              <input id="matrix-item-est-m" type="number" min="0" max="59" value={estMins} disabled={frozen} className={inputCls}
-                onChange={(e) => setEstMins(e.target.value)} onBlur={commitEstimate} />
+              <input id="matrix-item-est-m" type="number" min="0" max="59" value={shownEstMins} disabled={frozen} className={inputCls}
+                onChange={(e) => { const v = e.target.value; setDrafts((d) => ({ ...d, estMins: v })) }} onBlur={commitEstimate} />
             </div>
           </div>
 

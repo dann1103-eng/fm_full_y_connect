@@ -414,12 +414,11 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
   /**
    * "Convertir ahora": registra el requerimiento de una pieza bloqueada sin esperar al barrido diario.
    *
-   * La acción devuelve el resultado, no la fila, así que el estado local se actualiza con lo que trae ese
-   * resultado (suficiente: el id del requerimiento o el motivo del bloqueo). Además se pide un
-   * `router.refresh()` —lo único del editor que lo hace, y solo aquí: esto es una acción estructural, no un
-   * guardado por campo— para que los datos derivados del servidor (cupo consumido por el requerimiento
-   * nuevo, `convertedInCycleIds`, `linkedVoidedItemIds`) se vuelvan a pedir y la siguiente navegación no
-   * parta de una página cacheada vieja.
+   * La acción no devuelve la fila, así que el estado local se actualiza con lo que trae el resultado (basta:
+   * el id del requerimiento o el motivo del bloqueo). Sin `router.refresh()` a propósito, igual que
+   * `addItem`/`deleteItem`/`replanItem`: `convertItemNow` ya llama a `revalidateMatrix`, que en esta versión
+   * de Next 16 re-renderiza la página; y como el estado local nunca se resincroniza desde las props, un
+   * refresh extra sería una segunda vuelta al servidor que no actualiza ni `items` ni `voidedItemIds`.
    */
   async function onConvertNow(itemId: string) {
     if (busyItemId) return
@@ -435,17 +434,20 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
         blocked_reason: null, converted_at: new Date().toISOString(),
       })
       setVoidedItemIds((ids) => ids.filter((id) => id !== itemId))
-      router.refresh()
+      // El título queda congelado al convertir: un borrador fallido suyo ya no se puede reintentar (el
+      // campo está deshabilitado) y dejaría la franja de "cambios sin guardar" pidiendo algo imposible.
+      // Se descarta solo ese, como al cerrar la matriz; el resto del brief sigue editable y reintentable.
+      setFailedItemDrafts((fd) => withoutItemDrafts(fd, itemId, ['title']))
       return
     }
     if (outcome.kind === 'blocked') {
       applyItemFields(itemId, { status: 'blocked', blocked_reason: outcome.reason })
       setError({ message: `No se pudo convertir: ${outcome.reason}`, fields: [] })
-      router.refresh()
       return
     }
-    // `skipped`: la pieza no se tocó (otro proceso ganó, matriz sin aprobar o fallo transitorio).
-    setError({ message: `No se convirtió: ${outcome.reason}`, fields: [] })
+    // `skipped`: la pieza no se tocó (otro proceso ganó, matriz sin aprobar o fallo transitorio). La fila
+    // que se ve puede haber quedado vieja, así que se pide recargar.
+    setError({ message: `No se convirtió: ${outcome.reason} Recarga la página.`, fields: [] })
   }
 
   /** "Volver a planificar": la acción sí devuelve la fila, así que se aplica tal cual. */

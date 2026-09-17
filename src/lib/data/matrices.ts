@@ -209,6 +209,47 @@ function planCapacity(plan: Pick<Plan, 'limits_json' | 'unified_content_limit'> 
   return MATRIX_CONTENT_TYPES.reduce((s, t) => s + (rec[t] ?? 0), 0)
 }
 
+/** Matrices por lote en la consulta de estados: acota el largo de la URL del `in(...)`. */
+const STATUS_MATRIX_CHUNK = 200
+/**
+ * Filas por página. PostgREST corta en `db-max-rows` (1000 en Supabase) sin devolver error, así que hay
+ * que paginar; el tamaño se iguala a ese tope para que una página llena signifique "puede haber más".
+ */
+const STATUS_PAGE_SIZE = 1000
+
+export interface MatrixItemStatusCounts { converted: number; blocked: number }
+
+/**
+ * Piezas `converted`/`blocked` por matriz. Se pide por lotes de matrices y, dentro de cada lote, por
+ * páginas hasta que una vuelve más corta que el tamaño de página: con 1000 matrices y ~15 piezas cada
+ * una son ~15 000 filas, muy por encima del tope silencioso de PostgREST, y una sola consulta
+ * devolvería conteos por debajo de lo real sin error alguno.
+ */
+async function countItemStatuses(db: Db, matrixIds: string[]): Promise<Map<string, MatrixItemStatusCounts>> {
+  const byMatrix = new Map<string, MatrixItemStatusCounts>()
+  for (let i = 0; i < matrixIds.length; i += STATUS_MATRIX_CHUNK) {
+    const chunk = matrixIds.slice(i, i + STATUS_MATRIX_CHUNK)
+    for (let from = 0; ; from += STATUS_PAGE_SIZE) {
+      const { data, error } = await db
+        .from('content_matrix_items').select('matrix_id, status')
+        .in('matrix_id', chunk)
+        // Orden estable: sin él, dos páginas pueden repetir u omitir filas.
+        .order('id', { ascending: true })
+        .range(from, from + STATUS_PAGE_SIZE - 1)
+      if (error) fail('loadMatricesList', error)
+      const page = (data ?? []) as Array<{ matrix_id: string; status: MatrixItemStatus }>
+      for (const s of page) {
+        const acc = byMatrix.get(s.matrix_id) ?? { converted: 0, blocked: 0 }
+        if (s.status === 'converted') acc.converted++
+        else if (s.status === 'blocked') acc.blocked++
+        byMatrix.set(s.matrix_id, acc)
+      }
+      if (page.length < STATUS_PAGE_SIZE) break
+    }
+  }
+  return byMatrix
+}
+
 /** Matrices con period_start en los últimos 12 meses (por defecto), más recientes primero. */
 export async function loadMatricesList(db: Db, opts: { since?: DateString } = {}): Promise<MatricesList> {
   const since = opts.since ?? addDaysString(today(), -365)
@@ -225,22 +266,10 @@ export async function loadMatricesList(db: Db, opts: { since?: DateString } = {}
   if (error) fail('loadMatricesList', error)
   const raw = (data ?? []) as unknown as RawListRow[]
 
-  // El embed `items:content_matrix_items(count)` solo sabe contar filas: para el desglose por estado se
-  // leen los estados de las piezas de las matrices listadas en una sola consulta y se agregan en JS
-  // (con el tope de 1000 matrices y ~15 piezas por matriz es una consulta acotada).
-  const ids = raw.map((r) => r.id)
-  const byMatrix = new Map<string, { converted: number; blocked: number }>()
-  if (ids.length > 0) {
-    const { data: statuses, error: statusError } = await db
-      .from('content_matrix_items').select('matrix_id, status').in('matrix_id', ids)
-    if (statusError) fail('loadMatricesList', statusError)
-    for (const s of (statuses ?? []) as Array<{ matrix_id: string; status: MatrixItemStatus }>) {
-      const acc = byMatrix.get(s.matrix_id) ?? { converted: 0, blocked: 0 }
-      if (s.status === 'converted') acc.converted++
-      else if (s.status === 'blocked') acc.blocked++
-      byMatrix.set(s.matrix_id, acc)
-    }
-  }
+  // El embed `items:content_matrix_items(count)` solo sabe contar filas: el desglose por estado se lee
+  // aparte y se agrega en JS (ver countItemStatuses: por lotes y paginado, porque con el tope de 1000
+  // matrices ni la URL ni el `db-max-rows` de PostgREST aguantan una sola consulta).
+  const byMatrix = await countItemStatuses(db, raw.map((r) => r.id))
 
   const rows = raw
     .filter((r) => r.client)

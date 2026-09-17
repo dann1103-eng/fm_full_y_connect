@@ -141,7 +141,8 @@ export function MatrixItemsTable({
         {it.needs_production && (
           <span role="img" aria-label="Necesita producción" title="Necesita producción" className="material-symbols-outlined text-[16px] text-fm-primary">videocam</span>
         )}
-        {convertsBeforePeriodStart(it, matrix) && (
+        {/* En una convertida ya no aplica: el aviso está en futuro y la conversión ya ocurrió. */}
+        {it.status !== 'converted' && convertsBeforePeriodStart(it, matrix) && (
           <span role="img" aria-label="Se convertirá antes de que inicie el período"
             title="Se convertirá antes de que inicie el período: consumirá el cupo del ciclo anterior."
             className="material-symbols-outlined text-[16px] text-amber-600 dark:text-amber-300">schedule</span>
@@ -157,6 +158,11 @@ export function MatrixItemsTable({
   const linkCls = 'text-[11px] font-semibold text-fm-primary underline whitespace-nowrap'
   const actionCls = 'text-[11px] font-semibold text-fm-primary underline whitespace-nowrap disabled:opacity-50 disabled:no-underline'
 
+  // Hay una conversión o replanificación en curso (la de esta fila o la de otra): se deshabilitan TODAS
+  // las acciones de conversión. `MatrixEditor` ignora un segundo clic mientras corre la primera, y un
+  // botón que no hace nada al pulsarlo confunde más que uno deshabilitado.
+  const anyBusy = busyItemId !== null
+
   /** Estado de conversión: distintivo + lo accionable (enlace, motivo, botones). */
   const conversion = (it: ContentMatrixItem) => {
     const busy = busyItemId === it.id
@@ -171,21 +177,23 @@ export function MatrixItemsTable({
             </Link>
           )}
           {it.status === 'blocked' && !readOnly && (
-            <button type="button" disabled={busy} className={actionCls}
+            <button type="button" disabled={anyBusy} className={actionCls}
               onClick={(e) => { e.stopPropagation(); onConvertNow(it.id) }}>
               {busy ? 'Convirtiendo…' : 'Convertir ahora'}
             </button>
           )}
         </span>
         {it.status === 'blocked' && it.blocked_reason && (
-          <span title={it.blocked_reason} className="block max-w-[16rem] truncate text-[11px] text-fm-error">
-            {shortReason(it.blocked_reason)}
+          // El `title` solo lo ve el ratón: el texto completo se repite oculto para lectores de pantalla.
+          <span className="block max-w-[16rem] text-[11px] text-fm-error">
+            <span aria-hidden="true" title={it.blocked_reason} className="block truncate">{shortReason(it.blocked_reason)}</span>
+            <span className="sr-only">Motivo del bloqueo: {it.blocked_reason}</span>
           </span>
         )}
         {isVoided && (
           <span className="flex flex-wrap items-center gap-1.5">
             <span className="text-[11px] text-amber-700 dark:text-amber-300">Requerimiento anulado</span>
-            <button type="button" disabled={busy} className={actionCls}
+            <button type="button" disabled={anyBusy} className={actionCls}
               onClick={(e) => { e.stopPropagation(); onReplan(it.id) }}>
               {busy ? 'Replanificando…' : 'Volver a planificar (se convertirá de nuevo)'}
             </button>
