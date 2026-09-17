@@ -397,7 +397,7 @@ git commit -m "feat(matrices): aprobación exige responsable y estimado; conteo 
 
 Sin pruebas unitarias (toca la base). Se verifica con `tsc`, lint y el recorrido manual de la Task 12.
 
-- [ ] **Step 1: Escribir el módulo**
+- [x] **Step 1: Escribir el módulo**
 
 Leer antes `src/lib/data/matrices.ts` (helpers `Db`, `fail`, `loadCurrentCycle`) y `src/app/actions/matrices.ts` (`linkMatrixRequirement`, `discardUnlinkedRequirement`) para copiar el estilo.
 
@@ -535,12 +535,12 @@ async function rollbackRequirement(reqId: string, cycleId: string, cache?: Cycle
 }
 ```
 
-- [ ] **Step 2: Verificar**
+- [x] **Step 2: Verificar**
 
 Run: `npx tsc --noEmit -p tsconfig.json` y `npx eslint src/lib/data/matrix-convert.ts`
 Expected: 0 errores. Si `requested_via` o `estimated_time_minutes` dieran error de tipos, revisar `src/types/db.ts` (ambos existen desde el bloque 1 y la migración 0114).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/lib/data/matrix-convert.ts
@@ -555,7 +555,7 @@ git commit -m "feat(matrices): nucleo de conversion de pieza a requerimiento" -m
 - Create: `src/app/api/matrices/convert/route.ts`
 - Modify: `vercel.json`
 
-- [ ] **Step 1: La ruta**
+- [x] **Step 1: La ruta**
 
 Copiar la estructura de `src/app/api/billing/due-reminders/route.ts` (leerla primero: auth, `runtime`, `GET` delegando en `POST`).
 
@@ -643,7 +643,7 @@ export async function GET(request: Request) {
 
 **Si el filtro sobre el embed aliaseado fallara** (PostgREST devuelve error de columna), usar la forma sin alias: `content_matrices!inner(id, status, lead_days)` y `.eq('content_matrices.status', 'approved')`, que es la que ya usa `src/lib/ai/tools.ts`.
 
-- [ ] **Step 2: Cron en `vercel.json`**
+- [x] **Step 2: Cron en `vercel.json`**
 
 Añadir al array `crons` (dejando los dos existentes intactos):
 
@@ -656,12 +656,12 @@ Añadir al array `crons` (dejando los dos existentes intactos):
 
 12:00 UTC son las 6:00 AM en El Salvador, antes de que entre el equipo.
 
-- [ ] **Step 3: Verificar**
+- [x] **Step 3: Verificar**
 
 Run: `npx tsc --noEmit -p tsconfig.json`, `npx eslint "src/app/api/matrices/convert/route.ts"` y `node -e "JSON.parse(require('fs').readFileSync('vercel.json','utf8'))"`
 Expected: sin errores.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add "src/app/api/matrices/convert/route.ts" vercel.json
