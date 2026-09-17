@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import type { ContentMatrix, ContentType, MatrixStatus, Requirement } from '@/types/db'
+import type { ContentMatrix, ContentType, MatrixStatus } from '@/types/db'
+import type { LinkedMatrixRequirement } from '@/lib/data/matrices'
 import {
   APPROVAL_PROBLEM_LABELS, MATRIX_TEXT_LIMITS,
   type ApprovalProblem, type ApprovalProblemReason, type MatrixUsage,
@@ -32,7 +33,7 @@ interface Props {
   busy: boolean
   /** Hay una pieza agregándose: los chips no crean otra mientras tanto. */
   adding: boolean
-  linked: Pick<Requirement, 'id' | 'title' | 'phase'> | null
+  linked: LinkedMatrixRequirement | null
   linkError: string | null
   /** Problemas vigentes tras un intento fallido de aprobar (vacío si no hay que mostrarlos). */
   problems: ApprovalProblem[]
@@ -57,6 +58,8 @@ export function MatrixHeader(p: Props) {
   // después de `failedTitle` (si el guardado falló) o de `matrix.title` (confirmado u optimista).
   const [draftTitle, setDraftTitle] = useState<string | null>(null)
   const readOnly = p.matrix.status === 'closed'
+  // Vínculo a un requerimiento anulado: cuenta como sin vínculo (el reintento registra uno nuevo).
+  const linkVoided = !!p.matrix.matrix_requirement_id && p.linked?.voided === true
   const btn = 'px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors disabled:opacity-50'
 
   function commitTitle() {
@@ -102,16 +105,20 @@ export function MatrixHeader(p: Props) {
 
       <MatrixChips usage={p.usage} estimated={p.estimated} onAdd={readOnly ? undefined : p.onAdd} disabled={p.adding} />
 
-      {!p.matrix.matrix_requirement_id && (
+      {(!p.matrix.matrix_requirement_id || linkVoided) && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-300/60 bg-amber-50 dark:bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
           <span className="material-symbols-outlined text-[16px]" aria-hidden="true">warning</span>
-          <span className="min-w-0 flex-1">No se registró el requerimiento de matriz en el ciclo vigente{p.linkError ? `: ${p.linkError}` : '.'}</span>
+          <span className="min-w-0 flex-1">
+            {linkVoided
+              ? `El requerimiento de matriz vinculado fue anulado.${p.linkError ? ` No se pudo registrar uno nuevo: ${p.linkError}` : ''}`
+              : `No se registró el requerimiento de matriz en el ciclo vigente${p.linkError ? `: ${p.linkError}` : '.'}`}
+          </span>
           {!readOnly && (
             <button type="button" onClick={p.onRetryLink} disabled={p.busy} className="font-semibold underline disabled:opacity-50">Reintentar</button>
           )}
         </div>
       )}
-      {p.linked && (
+      {p.linked && !linkVoided && (
         <p className="text-[11px] text-fm-on-surface-variant">
           Requerimiento de matriz vinculado: <span className="font-medium text-fm-on-surface">{p.linked.title || 'Matriz de contenido'}</span>
         </p>

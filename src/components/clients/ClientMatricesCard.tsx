@@ -25,7 +25,7 @@ export function ClientMatricesCard({ client, periods, matrices }: Props) {
         <Link href="/matrices" className="ml-auto text-xs font-semibold text-fm-primary hover:underline">Ver todas</Link>
       </div>
       {!creatable && (
-        <p className="text-xs text-fm-error">Cliente suspendido: no se pueden crear matrices.</p>
+        <p className="text-xs text-fm-error">Cliente inactivo o suspendido: no se pueden crear matrices.</p>
       )}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {periods.map((p) => {

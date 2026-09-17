@@ -163,7 +163,20 @@ async function linkMatrixRequirement(ctx: Ctx, matrixId: string): Promise<LinkRe
   const { data: m } = await supabase.from('content_matrices')
     .select('id, client_id, title, period_start, matrix_requirement_id').eq('id', matrixId).single()
   if (!m) return { ok: false, error: 'Matriz no encontrada.' }
-  if (m.matrix_requirement_id) return { ok: true, requirementId: m.matrix_requirement_id }
+  if (m.matrix_requirement_id) {
+    const linkedId = m.matrix_requirement_id
+    const { data: linkedReq, error: linkedError } = await supabase.from('requirements')
+      .select('id, voided').eq('id', linkedId).maybeSingle()
+    if (linkedError) return { ok: false, error: 'No se pudo verificar el requerimiento de matriz vinculado. Intenta de nuevo.' }
+    if (linkedReq && !linkedReq.voided) return { ok: true, requirementId: linkedId }
+    // Anulado (o ya no existe): se suelta el vínculo y se registra uno nuevo. Condicional a que siga apuntando
+    // a ese requerimiento: si otro reintento ya lo reemplazó, el update no toca nada y el vínculo a prueba de
+    // carrera de abajo devuelve el que quedó.
+    const { error: unlinkError } = await supabase.from('content_matrices')
+      .update({ matrix_requirement_id: null })
+      .eq('id', matrixId).eq('matrix_requirement_id', linkedId)
+    if (unlinkError) return { ok: false, error: unlinkError.message || 'No se pudo soltar el requerimiento de matriz anulado.' }
+  }
 
   const QUOTA_ERROR = 'No se pudo verificar el cupo de matriz. Intenta de nuevo.'
   const { data: cycleRows, error: cycleError } = await supabase.from('billing_cycles').select('*')
@@ -282,9 +295,13 @@ export async function createMatrix(input: {
 export async function retryMatrixRequirementLink(matrixId: string): Promise<ActionResult<{ link: LinkResult }>> {
   const ctx = await requireManager()
   if ('error' in ctx) return { ok: false, error: ctx.error }
+  const { data: m, error: readError } = await ctx.supabase.from('content_matrices')
+    .select('client_id, status').eq('id', matrixId).maybeSingle()
+  if (readError) return { ok: false, error: dbError(readError, 'No se pudo leer la matriz.') }
+  if (!m) return { ok: false, error: 'Matriz no encontrada.' }
+  if (m.status === 'closed') return { ok: false, error: 'La matriz está cerrada.' }
   const link = await linkMatrixRequirement(ctx, matrixId)
-  const { data: m } = await ctx.supabase.from('content_matrices').select('client_id').eq('id', matrixId).single()
-  if (m) revalidateMatrix(m.client_id, matrixId)
+  revalidateMatrix(m.client_id, matrixId)
   return { ok: true, link }
 }
 
@@ -324,10 +341,19 @@ export async function updateMatrix(matrixId: string, patch: {
     const kept = new Set(topics.map((t) => t.name))
     const removed = (current.topics_json as MatrixTopic[]).map((t) => t.name).filter((n) => !kept.has(n))
     if (removed.length > 0) {
-      // Primero se sueltan las piezas de los temas quitados: si falla, no se cambió nada.
-      const { error: topicError } = await supabase.from('content_matrix_items')
-        .update({ topic: null }).eq('matrix_id', matrixId).in('topic', removed)
-      if (topicError) return { ok: false, error: dbError(topicError, 'No se pudieron actualizar los temas de las piezas.') }
+      // Primero se sueltan las piezas de los temas quitados: si falla, no se cambió nada. Se filtra por id y
+      // no con `.in('topic', removed)`: postgrest-js no escapa las comillas dentro de los valores de `in`, así
+      // que un tema con `"` rompería el filtro.
+      const removedSet = new Set(removed)
+      const { data: topicRows, error: topicReadError } = await supabase.from('content_matrix_items')
+        .select('id, topic').eq('matrix_id', matrixId)
+      if (topicReadError) return { ok: false, error: dbError(topicReadError, 'No se pudieron leer los temas de las piezas.') }
+      const ids = (topicRows ?? []).filter((r) => r.topic != null && removedSet.has(r.topic)).map((r) => r.id)
+      if (ids.length > 0) {
+        const { error: topicError } = await supabase.from('content_matrix_items')
+          .update({ topic: null }).eq('matrix_id', matrixId).in('id', ids)
+        if (topicError) return { ok: false, error: dbError(topicError, 'No se pudieron actualizar los temas de las piezas.') }
+      }
     }
   }
 
@@ -383,8 +409,9 @@ export async function setMatrixStatus(
 
 /**
  * Borra (service role) el requerimiento de matriz de una matriz ya eliminada, solo si no tiene nada
- * con significado: debe seguir siendo matriz_contenido, en fase `pendiente`, sin pago con crédito y sin
- * filas en time_entries, requirement_messages, review_assets, requirement_cambio_logs ni ai_jobs.
+ * con significado: debe seguir siendo matriz_contenido, en fase `pendiente`, sin pago con crédito, en un
+ * ciclo `current` (el de un ciclo ya archivado o pendiente de renovación es historia de facturación y se
+ * conserva) y sin filas en time_entries, requirement_messages, review_assets, requirement_cambio_logs ni ai_jobs.
  * Todas esas tablas referencian `requirements` con ON DELETE CASCADE, así que borrarlo con datos los
  * perdería en silencio. (requirement_mentions y review_comment_mentions también tienen FK propia, pero
  * no existen sin un mensaje o un asset de revisión.) Nunca lanza ni falla la acción: ante cualquier duda
@@ -394,7 +421,7 @@ async function discardMatrixRequirementIfUnused(reqId: string): Promise<void> {
   try {
     const admin = createAdminClient()
     const [req, timeEntries, messages, reviewAssets, cambioLogs, aiJobs] = await Promise.all([
-      admin.from('requirements').select('id, content_type, phase, paid_from_credit_id').eq('id', reqId).maybeSingle(),
+      admin.from('requirements').select('id, content_type, phase, paid_from_credit_id, billing_cycle_id').eq('id', reqId).maybeSingle(),
       admin.from('time_entries').select('id', { count: 'exact', head: true }).eq('requirement_id', reqId),
       admin.from('requirement_messages').select('id', { count: 'exact', head: true }).eq('requirement_id', reqId),
       admin.from('review_assets').select('id', { count: 'exact', head: true }).eq('requirement_id', reqId),
@@ -411,6 +438,14 @@ async function discardMatrixRequirementIfUnused(reqId: string): Promise<void> {
     if (!r || r.content_type !== 'matriz_contenido') return
     if (r.phase !== 'pendiente' || r.paid_from_credit_id != null) return
     if (checks.some((c) => (c.count ?? 0) > 0)) return
+
+    const { data: cycle, error: cycleError } = await admin.from('billing_cycles')
+      .select('status').eq('id', r.billing_cycle_id).maybeSingle()
+    if (cycleError) {
+      console.error('[deleteMatrix] no se pudo leer el ciclo del requerimiento vinculado; se conserva', reqId, cycleError.message)
+      return
+    }
+    if (cycle?.status !== 'current') return
 
     // Orden obligatorio del proyecto: requirement_phase_logs → requirements
     const { error: e1 } = await admin.from('requirement_phase_logs').delete().eq('requirement_id', reqId)

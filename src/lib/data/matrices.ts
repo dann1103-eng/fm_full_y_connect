@@ -51,8 +51,11 @@ export interface MatrixEditorData {
   distribution: WeeklyDistribution
   maxWeek: 4 | 8
   period: { periodStart: string; periodEnd: string; label: string }
-  linkedRequirement: Pick<Requirement, 'id' | 'title' | 'phase'> | null
+  /** Requerimiento de matriz vinculado. `voided: true` → fue anulado: el editor ofrece registrar uno nuevo. */
+  linkedRequirement: LinkedMatrixRequirement | null
 }
+
+export type LinkedMatrixRequirement = Pick<Requirement, 'id' | 'title' | 'phase' | 'voided'>
 
 export async function loadMatrixEditorData(db: Db, matrixId: string): Promise<MatrixEditorData | null> {
   const L = 'loadMatrixEditorData'
@@ -70,7 +73,7 @@ export async function loadMatrixEditorData(db: Db, matrixId: string): Promise<Ma
     db.from('billing_cycles').select('*').eq('client_id', matrix.client_id).eq('period_start', matrix.period_start),
     getAvailableContentCredits(db, matrix.client_id),
     matrix.matrix_requirement_id
-      ? db.from('requirements').select('id, title, phase').eq('id', matrix.matrix_requirement_id).maybeSingle()
+      ? db.from('requirements').select('id, title, phase, voided').eq('id', matrix.matrix_requirement_id).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
   ])
   if (itemsRes.error) fail(L, itemsRes.error)
@@ -107,7 +110,7 @@ export async function loadMatrixEditorData(db: Db, matrixId: string): Promise<Ma
   return {
     matrix, items, client, cycle, limits, usage, distribution, maxWeek,
     period: { periodStart: matrix.period_start, periodEnd: matrix.period_end, label: periodLabel(matrix.period_start, matrix.period_end) },
-    linkedRequirement: (linkedRes.data as Pick<Requirement, 'id' | 'title' | 'phase'> | null) ?? null,
+    linkedRequirement: (linkedRes.data as LinkedMatrixRequirement | null) ?? null,
   }
 }
 

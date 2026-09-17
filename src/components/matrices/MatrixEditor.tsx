@@ -292,7 +292,7 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
     if (link.ok) {
       confirmedMatrix.current = { ...confirmedMatrix.current, matrix_requirement_id: link.requirementId }
       setMatrix((m) => ({ ...m, matrix_requirement_id: link.requirementId }))
-      setLinked({ id: link.requirementId, title: matrix.title, phase: 'pendiente' })
+      setLinked({ id: link.requirementId, title: matrix.title, phase: 'pendiente', voided: false })
       setLinkError(null)
     } else {
       setLinkError(link.error)
