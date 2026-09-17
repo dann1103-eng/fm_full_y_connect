@@ -433,8 +433,16 @@ export type ItemPatch = Partial<Pick<ContentMatrixItem,
   'content_type' | 'title' | 'topic' | 'objective' | 'copy' | 'script' | 'visual_style' | 'hashtags' | 'cta' | 'deadline' | 'needs_production'
   | 'assigned_to' | 'estimated_time_minutes'>>
 
-/** Tope del tiempo estimado por pieza: 7 dias en minutos (mismo criterio que el pipeline). */
+/**
+ * Tope del tiempo estimado por pieza: 7 días en minutos. El pipeline no impone ninguno; la matriz
+ * es más estricta a propósito (un estimado mayor a una semana es casi siempre un error de tecleo).
+ */
 export const MATRIX_ESTIMATE_MAX_MINUTES = 10080
+
+/** Tope de responsables por pieza (mismo orden de magnitud que el equipo interno). */
+export const MATRIX_MAX_ASSIGNEES = 20
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export function validateItemPatch(
   patch: ItemPatch,
@@ -456,8 +464,11 @@ export function validateItemPatch(
     return { ok: false, error: 'Objetivo inválido.' }
   }
   // `null` limpia el campo; un array vacío también es válido (pieza sin responsable todavía).
+  // Se exige forma de UUID: un id cualquiera llega a Postgres y el usuario acaba viendo el
+  // "invalid input syntax for type uuid" crudo en vez de un mensaje en español.
   if (patch.assigned_to !== undefined && patch.assigned_to !== null) {
-    if (!Array.isArray(patch.assigned_to) || patch.assigned_to.some((v) => typeof v !== 'string')) {
+    const a = patch.assigned_to
+    if (!Array.isArray(a) || a.length > MATRIX_MAX_ASSIGNEES || a.some((v) => typeof v !== 'string' || !UUID_RE.test(v))) {
       return { ok: false, error: 'Responsable inválido.' }
     }
   }

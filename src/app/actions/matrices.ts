@@ -536,8 +536,11 @@ export async function addItem(matrixId: string, contentType: ContentType, deadli
 
   // Responsables por defecto, igual que RequirementModal (sin clientes ni el bot). Si la lectura
   // falla, la pieza nace sin responsable: es un campo editable, no vale la pena abortar el alta.
+  // `deactivated_at is null`: `deleteUser` desactiva sin limpiar `default_assignee` y el usuario
+  // desaparece de /users, así que el flag ya no se puede apagar; sin este filtro cada pieza nueva
+  // nacería asignada a alguien dado de baja y ese id acabaría copiado en el requerimiento real.
   const { data: defaults, error: defaultsError } = await ctx.supabase.from('users').select('id')
-    .eq('default_assignee', true).not('role', 'in', '(client,agent)')
+    .eq('default_assignee', true).not('role', 'in', '(client,agent)').is('deactivated_at', null)
   if (defaultsError) console.error('[matrices] no se pudieron leer los responsables por defecto', defaultsError.message)
   const assignedTo = (defaults ?? []).map((u) => u.id)
 
@@ -575,13 +578,15 @@ export async function updateItem(itemId: string, patch: ItemPatch): Promise<Acti
 
   const { data: existing } = await supabase.from('content_matrix_items').select('id, matrix_id, status').eq('id', itemId).single()
   if (!existing) return { ok: false, error: 'Pieza no encontrada.' }
-  // Ya convertida: los textos siguen editables (son el brief que se ve en la ficha del requerimiento);
-  // lo que ya viajó al requerimiento se edita allá, no aquí.
+  // Ya convertida: solo siguen editables los textos del brief (tema, objetivo, copy, guion, estilo
+  // visual, hashtags, CTA), que el requerimiento lee de la pieza. Lo que se COPIÓ al requerimiento al
+  // convertir se edita allá: renombrar aquí dejaría la tarjeta del pipeline con el título viejo y nada
+  // indicaría que divergieron.
   if (existing.status === 'converted') {
-    const frozen = (['content_type', 'deadline', 'assigned_to', 'estimated_time_minutes'] as const)
+    const frozen = (['title', 'content_type', 'deadline', 'assigned_to', 'estimated_time_minutes'] as const)
       .filter((k) => (patch as Record<string, unknown>)[k] !== undefined)
     if (frozen.length > 0) {
-      return { ok: false, error: 'La pieza ya se convirtió: el tipo, la fecha, el responsable y el estimado se editan en el requerimiento.' }
+      return { ok: false, error: 'La pieza ya se convirtió: el título, el tipo, la fecha, el responsable y el estimado se editan en el requerimiento.' }
     }
   }
   const m = await loadMatrixForItemWrite(ctx, existing.matrix_id)

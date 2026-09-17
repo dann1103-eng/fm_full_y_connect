@@ -87,8 +87,10 @@ export async function loadMatrixEditorData(db: Db, matrixId: string): Promise<Ma
     matrix.matrix_requirement_id
       ? db.from('requirements').select('id, title, phase, voided').eq('id', matrix.matrix_requirement_id).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
-    // Mismo query que clients/[id] y pipeline: usuarios internos, sin clientes ni el bot.
-    db.from('users').select('id, full_name, default_assignee').not('role', 'in', '(client,agent)').order('full_name'),
+    // Usuarios internos, sin clientes ni el bot, y sin los dados de baja: `deleteUser` desactiva
+    // pero no limpia `default_assignee`, y un desactivado ya no se puede editar desde /users.
+    db.from('users').select('id, full_name, default_assignee')
+      .not('role', 'in', '(client,agent)').is('deactivated_at', null).order('full_name'),
   ])
   if (itemsRes.error) fail(L, itemsRes.error)
   if (clientRes.error) fail(L, clientRes.error)
@@ -129,10 +131,11 @@ export async function loadMatrixEditorData(db: Db, matrixId: string): Promise<Ma
   if (convertedReqIds.length > 0) {
     const { data: reqRows, error: reqErr } = await db.from('requirements').select('id, voided').in('id', convertedReqIds)
     if (reqErr) fail(L, reqErr)
-    const alive = new Map((reqRows ?? []).map((r) => [r.id as string, r.voided as boolean]))
+    const voidedById = new Map((reqRows ?? []).map((r) => [r.id as string, r.voided as boolean]))
     linkedVoidedItemIds = items
-      .filter((i) => i.status === 'converted' && i.requirement_id && (alive.get(i.requirement_id) ?? true))
-      .map((i) => i.id)   // `?? true`: si el requerimiento ya no existe, cuenta como anulado
+      // `?? true`: requerimiento inexistente = anulado.
+      .filter((i) => i.status === 'converted' && i.requirement_id && (voidedById.get(i.requirement_id) ?? true))
+      .map((i) => i.id)
   }
   const maxWeek = maxWeeksForPeriod(client.billing_period)
   const distribution = buildEffectiveDistribution({

@@ -417,12 +417,20 @@ describe('validateItemPatch', () => {
     expect(validateItemPatch({ deadline: '2026-02-30' }, ctx).ok).toBe(false)
     expect(validateItemPatch({ deadline: 'abc' }, ctx).ok).toBe(false)
   })
-  it('responsable: acepta null y arrays de strings, rechaza lo demas', () => {
+  const uuid = (n: number) => `0000000${n}-0000-4000-8000-000000000000`.slice(-36)
+  it('responsable: acepta null y arrays de uuids, rechaza lo demas', () => {
     expect(validateItemPatch({ assigned_to: null }, ctx)).toEqual({ ok: true })
     expect(validateItemPatch({ assigned_to: [] }, ctx)).toEqual({ ok: true })
-    expect(validateItemPatch({ assigned_to: ['u1'] }, ctx)).toEqual({ ok: true })
-    expect(validateItemPatch({ assigned_to: 'u1' as never }, ctx).ok).toBe(false)
+    expect(validateItemPatch({ assigned_to: [uuid(1)] }, ctx)).toEqual({ ok: true })
+    expect(validateItemPatch({ assigned_to: uuid(1) as never }, ctx).ok).toBe(false)
     expect(validateItemPatch({ assigned_to: [1] as never }, ctx).ok).toBe(false)
+  })
+  it('responsable: rechaza ids que no son uuid y listas demasiado largas', () => {
+    // Sin esto el id llega a Postgres y el usuario ve su "invalid input syntax for type uuid".
+    expect(validateItemPatch({ assigned_to: ['u1'] }, ctx)).toEqual({ ok: false, error: 'Responsable inválido.' })
+    const many = Array.from({ length: 21 }, (_, i) => uuid(i))
+    expect(validateItemPatch({ assigned_to: many }, ctx)).toEqual({ ok: false, error: 'Responsable inválido.' })
+    expect(validateItemPatch({ assigned_to: many.slice(0, 20) }, ctx)).toEqual({ ok: true })
   })
   it('estimado: entero entre 1 y 10080, o null', () => {
     expect(validateItemPatch({ estimated_time_minutes: null }, ctx)).toEqual({ ok: true })
