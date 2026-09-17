@@ -1,9 +1,9 @@
 import type { BillingCycle, BillingPeriod, ContentMatrixItem, ContentType, MatrixObjective, MatrixStatus, MatrixTopic, Plan, Requirement, WeeklyDistribution } from '@/types/db'
 import { WEEKS_BASE, WEEKS_BIMONTHLY } from '@/types/db'
-import { dominantCycleMonth, computeTotals, weekIndexInCycle } from './requirement'
+import { computeTotals, weekIndexInCycle } from './requirement'
 import { firstCycleDates, nextCycleDates, currentCycleDates } from './cycles'
 import type { DateString } from './dates'
-import { addDaysString, daysBetween } from './dates'
+import { addDaysString, daysBetween, formatDate, parseDate } from './dates'
 import { formatDeadlineDate } from './deadline'
 import { effectiveLimits, applyContentLimitsWithOverride, limitsToRecord, TIPPABLE_CONTENT_TYPES, CONTENT_TYPES } from './plans'
 
@@ -49,10 +49,27 @@ export function periodLabel(periodStart: DateString, periodEnd: DateString): str
   return `${formatDeadlineDate(periodStart)} al ${formatDeadlineDate(periodEnd)} ${periodEnd.slice(0, 4)}`
 }
 
-/** "Matriz octubre 2026" — mes con más días dentro del período. */
+/**
+ * "Matriz octubre 2026" — mes con más días dentro del período.
+ * Cuenta días por string (`YYYY-MM-DD`, `addDaysString`) en vez de `Date` + getters locales:
+ * eso evita que el resultado dependa de la zona horaria del proceso (ver dominantCycleMonth,
+ * que sí mezcla `new Date(iso)` en UTC con getters locales y por eso corre el día en UTC-6).
+ */
 export function matrixTitleFor(periodStart: DateString, periodEnd: DateString): string {
-  const { year, month } = dominantCycleMonth(periodStart, periodEnd)
-  return `Matriz ${MONTHS_ES[month]} ${year}`
+  const counts = new Map<string, number>()
+  let d = periodStart
+  while (d < periodEnd) {
+    const key = d.slice(0, 7) // "YYYY-MM"
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+    d = addDaysString(d, 1)
+  }
+  let bestKey = periodStart.slice(0, 7)
+  let bestCount = 0
+  for (const [key, count] of counts) {
+    if (count > bestCount) { bestCount = count; bestKey = key }
+  }
+  const [yearStr, monthStr] = bestKey.split('-')
+  return `Matriz ${MONTHS_ES[Number(monthStr) - 1]} ${yearStr}`
 }
 
 /**
@@ -147,12 +164,24 @@ export type UsageTone = 'neutral' | 'full' | 'over'
 
 export function usageTone(used: number, limit: number, credits: number): UsageTone {
   if (used > limit + credits) return 'over'
-  if (used === limit) return 'full'
+  if (limit > 0 && used === limit) return 'full'
   return 'neutral'
 }
 
 function isPoolType(t: ContentType): boolean {
   return (TIPPABLE_CONTENT_TYPES as ContentType[]).includes(t)
+}
+
+/** Orden canónico de piezas: fecha de entrega, creación, id (estable entre server y cliente). */
+export function compareMatrixItems(
+  a: Pick<ContentMatrixItem, 'deadline' | 'created_at' | 'id'>,
+  b: Pick<ContentMatrixItem, 'deadline' | 'created_at' | 'id'>,
+): number {
+  if (a.deadline !== b.deadline) return a.deadline < b.deadline ? -1 : 1
+  const ta = new Date(a.created_at).getTime()
+  const tb = new Date(b.created_at).getTime()
+  if (ta !== tb && !Number.isNaN(ta) && !Number.isNaN(tb)) return ta - tb
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
 }
 
 export function computeMatrixUsage(items: UsageItem[], ml: MatrixLimits): MatrixUsage {
@@ -177,8 +206,7 @@ export function computeMatrixUsage(items: UsageItem[], ml: MatrixLimits): Matrix
 
   const sorted = items
     .filter((i) => i.status !== 'converted')
-    .slice()
-    .sort((a, b) => a.deadline.localeCompare(b.deadline) || a.created_at.localeCompare(b.created_at))
+    .sort(compareMatrixItems)
 
   const counters: Record<ContentType, number> = { ...ml.cycleTotals }
   let poolCounter = pool ? TIPPABLE_CONTENT_TYPES.reduce((s, t) => s + (ml.cycleTotals[t] ?? 0), 0) : 0
@@ -224,8 +252,15 @@ export interface ProposeDeadlineInput {
   periodStart: DateString
   periodEnd: DateString
   maxWeek: 4 | 8
-  /** Tipos que comparten presupuesto semanal (pool). Si incluye contentType, `used` los cuenta todos. */
+  /**
+   * Tipos que comparten presupuesto semanal (pool). Si incluye contentType, `used` los cuenta todos,
+   * pero el presupuesto (`budget`) se sigue leyendo por `contentType` — asume que ese presupuesto viene
+   * del fallback automático por tipo (`limitsForDistribution`, que le asigna el pool completo a cada
+   * tippable). Una distribución explícita por tipo cargada por el cliente bajo un pool es aproximada.
+   */
   sharedTypes?: ContentType[]
+  /** Fecha actual — si se pasa, evita proponer semanas ya cerradas o una fecha ya pasada dentro del ciclo. */
+  today?: DateString
 }
 
 export function proposeDeadline(input: ProposeDeadlineInput): DateString {
@@ -242,11 +277,16 @@ export function proposeDeadline(input: ProposeDeadlineInput): DateString {
 
   let chosen: number = input.maxWeek
   for (let w = 1; w <= input.maxWeek; w++) {
+    const weekStart = addDaysString(input.periodStart, (w - 1) * 7)
+    const weekEnd = w === input.maxWeek ? input.periodEnd : addDaysString(weekStart, 6)
+    if (input.today && weekEnd < input.today) continue
     const budget = input.distribution[weeks[w - 1]]?.[input.contentType] ?? 0
     if ((usedByWeek.get(w) ?? 0) < budget) { chosen = w; break }
   }
 
-  const candidate = addDaysString(input.periodStart, (chosen - 1) * 7 + 2)
+  const chosenWeekStart = addDaysString(input.periodStart, (chosen - 1) * 7)
+  let candidate = addDaysString(chosenWeekStart, 2)
+  if (input.today && candidate < input.today) candidate = input.today
   return candidate > input.periodEnd ? input.periodEnd : candidate
 }
 
@@ -273,6 +313,17 @@ function inPeriod(d: DateString, p: PeriodRange): boolean {
   return d >= p.periodStart && d <= p.periodEnd
 }
 
+/**
+ * Valida formato `YYYY-MM-DD` Y que la fecha exista en el calendario (rechaza '2026-02-30', 'abc', '2026-10-2').
+ * `parseDate` (date-fns `parseISO`) devuelve `Invalid Date` para días fuera de rango — `formatDate` lanzaría
+ * `RangeError` sobre esa fecha, así que se descarta antes de reformatear.
+ */
+function isIsoDate(d: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return false
+  const parsed = parseDate(d)
+  return !Number.isNaN(parsed.getTime()) && formatDate(parsed) === d
+}
+
 export function validateForApproval(
   items: Pick<ContentMatrixItem, 'id' | 'title' | 'deadline'>[],
   period: PeriodRange,
@@ -296,6 +347,9 @@ export function validateItemPatch(
   if (patch.content_type !== undefined && !MATRIX_CONTENT_TYPES.includes(patch.content_type)) {
     return { ok: false, error: 'Ese tipo de contenido no se planifica en la matriz.' }
   }
+  if (patch.deadline !== undefined && !isIsoDate(patch.deadline)) {
+    return { ok: false, error: 'Fecha inválida.' }
+  }
   if (patch.deadline !== undefined && !inPeriod(patch.deadline, ctx)) {
     return { ok: false, error: `La fecha debe estar entre ${formatDeadlineDate(ctx.periodStart)} y ${formatDeadlineDate(ctx.periodEnd)}.` }
   }
@@ -316,16 +370,30 @@ export function shiftDeadline(deadline: DateString, from: PeriodRange, to: Perio
 
 export const MAX_TOPICS = 20
 
+/** Recorta un string a lo sumo `max` code points (no UTF-16 units) — evita partir un emoji a la mitad. */
+function truncateCodePoints(s: string, max: number): string {
+  return Array.from(s).slice(0, max).join('')
+}
+
+/**
+ * Sanitiza temas venidos de un formulario o jsonb (input no confiable): descarta entradas que no son
+ * objetos, cuyo `name` no es un string, o que quedan vacías tras recortar; ignora un `note` que no sea
+ * string. Trata `raw` como `unknown[]` internamente aunque la firma declare `MatrixTopic[]`.
+ */
 export function sanitizeTopics(raw: MatrixTopic[]): MatrixTopic[] {
   const seen = new Set<string>()
   const out: MatrixTopic[] = []
-  for (const t of raw) {
-    const name = (t.name ?? '').trim().slice(0, 60)
+  for (const entry of raw as unknown[]) {
+    if (typeof entry !== 'object' || entry === null) continue
+    const rawName = (entry as { name?: unknown }).name
+    if (typeof rawName !== 'string') continue
+    const name = truncateCodePoints(rawName.trim(), 60).trim()
     if (!name) continue
     const key = name.toLowerCase()
     if (seen.has(key)) continue
     seen.add(key)
-    const note = t.note?.trim()
+    const rawNote = (entry as { note?: unknown }).note
+    const note = typeof rawNote === 'string' ? truncateCodePoints(rawNote.trim(), 200).trim() : ''
     out.push(note ? { name, note } : { name })
     if (out.length >= MAX_TOPICS) break
   }

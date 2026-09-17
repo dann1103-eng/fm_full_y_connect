@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { computeTargetPeriods, matrixTitleFor, periodLabel, resolveMatrixLimits, computeMatrixUsage, usageTone, proposeDeadline, limitsForDistribution, canTransition, validateForApproval, validateItemPatch, shiftDeadline, sanitizeTopics } from './matrix'
+import { computeTargetPeriods, matrixTitleFor, periodLabel, resolveMatrixLimits, computeMatrixUsage, usageTone, proposeDeadline, limitsForDistribution, canTransition, validateForApproval, validateItemPatch, shiftDeadline, sanitizeTopics, compareMatrixItems } from './matrix'
 import type { MatrixLimits } from './matrix'
-import type { BillingCycle, Plan, Requirement } from '@/types/db'
+import type { BillingCycle, MatrixTopic, Plan, Requirement } from '@/types/db'
 import { buildEffectiveDistribution } from './weekly-distribution'
 import { WEEKS_BIMONTHLY } from '@/types/db'
 
@@ -56,11 +56,14 @@ describe('periodLabel / matrixTitleFor', () => {
     expect(matrixTitleFor('2026-10-15', '2026-11-14')).toBe('Matriz octubre 2026')
     expect(matrixTitleFor('2026-10-20', '2026-11-19')).toBe('Matriz noviembre 2026')
   })
+  it('título es independiente de la zona horaria del proceso', () => {
+    expect(matrixTitleFor('2026-01-18', '2026-02-17')).toBe('Matriz febrero 2026')
+  })
 })
 
 const PLAN_LIMITS = { historias: 4, estaticos: 4, videos_cortos: 2, reels: 2, shorts: 4, producciones: 1, reuniones: 1, matrices_contenido: 1 }
 const plan = { id: 'p1', limits_json: PLAN_LIMITS, unified_content_limit: null } as unknown as Plan
-const poolPlan = { id: 'p2', limits_json: { ...PLAN_LIMITS, historia: 0, estaticos: 0, videos_cortos: 0, reels: 0, shorts: 0 }, unified_content_limit: 10 } as unknown as Plan
+const poolPlan = { id: 'p2', limits_json: { ...PLAN_LIMITS, historias: 0, estaticos: 0, videos_cortos: 0, reels: 0, shorts: 0 }, unified_content_limit: 10 } as unknown as Plan
 
 function cycleWith(extra: Partial<BillingCycle>): BillingCycle {
   return {
@@ -151,6 +154,24 @@ describe('computeMatrixUsage', () => {
     const u2 = computeMatrixUsage([], baseML)
     expect(u2.activeTypes).toEqual(['historia', 'estatico', 'video_corto'])
   })
+
+  it('rompe empates (misma fecha, misma creación) por id, de forma estable ante el orden de entrada', () => {
+    const sameDeadline = '2026-10-20'
+    const sameCreated = '2026-09-01T00:00:00Z'
+    const a = { id: 'a', content_type: 'estatico' as const, deadline: sameDeadline, created_at: sameCreated, status: 'planned' as const }
+    const b = { id: 'b', content_type: 'estatico' as const, deadline: sameDeadline, created_at: sameCreated, status: 'planned' as const }
+    expect(computeMatrixUsage([b, a], baseML).overPlanItemIds).toEqual(['b'])
+    expect(computeMatrixUsage([a, b], baseML).overPlanItemIds).toEqual(['b'])
+  })
+})
+
+describe('compareMatrixItems', () => {
+  it('ordena por deadline, luego created_at numérico (no localeCompare), luego id', () => {
+    const a = { deadline: '2026-09-01T10:00:07+00:00', created_at: '2026-09-01T10:00:07+00:00', id: 'a' }
+    const b = { deadline: '2026-09-01T10:00:07+00:00', created_at: '2026-09-01T10:00:07.1+00:00', id: 'b' }
+    expect(compareMatrixItems(a, b)).toBeLessThan(0)
+    expect(compareMatrixItems(b, a)).toBeGreaterThan(0)
+  })
 })
 
 describe('usageTone', () => {
@@ -159,6 +180,9 @@ describe('usageTone', () => {
     expect(usageTone(3, 2, 0)).toBe('over')
     expect(usageTone(3, 2, 1)).toBe('neutral')
     expect(usageTone(1, 2, 0)).toBe('neutral')
+  })
+  it('con límite 0, used===limit no cuenta como lleno', () => {
+    expect(usageTone(0, 0, 2)).toBe('neutral')
   })
 })
 
@@ -197,6 +221,22 @@ describe('proposeDeadline', () => {
     const items = ['2026-09-02', '2026-09-09', '2026-09-16', '2026-09-23'].map((deadline) => ({ content_type: 'estatico' as const, deadline }))
     const r = proposeDeadline({ contentType: 'estatico', items, distribution: d, periodStart: '2026-09-01', periodEnd: '2026-10-30', maxWeek: 8 })
     expect(r).toBe('2026-10-01')
+  })
+
+  describe('con `today`: no propone fechas pasadas', () => {
+    const withToday = { S1: { estatico: 1 }, S2: { estatico: 1 }, S3: { estatico: 1 }, S4: { estatico: 1 } }
+    it('salta semanas ya cerradas y usa +2 días de la primera con hueco vigente', () => {
+      const r = proposeDeadline({ contentType: 'estatico', items: [], distribution: withToday, ...period, today: '2026-10-30' })
+      expect(r).toBe('2026-10-31')
+    })
+    it('si la candidata natural quedó en el pasado, usa hoy', () => {
+      const r = proposeDeadline({ contentType: 'estatico', items: [], distribution: withToday, ...period, today: '2026-11-02' })
+      expect(r).toBe('2026-11-02')
+    })
+    it('si todas las semanas ya cerraron, usa hoy acotado al fin del período', () => {
+      const r = proposeDeadline({ contentType: 'estatico', items: [], distribution: withToday, ...period, today: '2026-11-20' })
+      expect(r).toBe('2026-11-14')
+    })
   })
 })
 
@@ -258,6 +298,11 @@ describe('validateItemPatch', () => {
     expect(validateItemPatch({ objective: 'x' as never }, ctx).ok).toBe(false)
     expect(validateItemPatch({ content_type: 'produccion' }, ctx).ok).toBe(false)
   })
+  it('rechaza fechas mal formadas o inexistentes en el calendario', () => {
+    expect(validateItemPatch({ deadline: '2026-10-2' }, ctx).ok).toBe(false)
+    expect(validateItemPatch({ deadline: '2026-02-30' }, ctx).ok).toBe(false)
+    expect(validateItemPatch({ deadline: 'abc' }, ctx).ok).toBe(false)
+  })
 })
 
 describe('shiftDeadline', () => {
@@ -272,5 +317,20 @@ describe('sanitizeTopics', () => {
   it('recorta, deduplica sin distinguir mayúsculas y descarta vacíos', () => {
     expect(sanitizeTopics([{ name: ' Promo ' }, { name: 'promo', note: 'x' }, { name: '' }, { name: 'Carta', note: ' n ' }]))
       .toEqual([{ name: 'Promo' }, { name: 'Carta', note: 'n' }])
+  })
+
+  it('ignora entradas malformadas (name no-string, elementos null) en vez de lanzar', () => {
+    const raw = [{ name: 42 }, null, { name: 'Ok', note: 5 }] as unknown as MatrixTopic[]
+    expect(sanitizeTopics(raw)).toEqual([{ name: 'Ok' }])
+  })
+
+  it('recorta por code points, sin partir un emoji a la mitad', () => {
+    const name = 'a'.repeat(59) + '😀' + 'b'
+    expect(sanitizeTopics([{ name }])).toEqual([{ name: 'a'.repeat(59) + '😀' }])
+  })
+
+  it('limita a 20 temas', () => {
+    const raw = Array.from({ length: 25 }, (_, i) => ({ name: `Tema ${i}` }))
+    expect(sanitizeTopics(raw)).toHaveLength(20)
   })
 })
