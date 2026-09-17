@@ -1,6 +1,6 @@
 import type { BillingCycle, BillingPeriod, ClientStatus, ContentMatrixItem, ContentType, CycleStatus,MatrixObjective, MatrixStatus, MatrixTopic, Plan, Requirement, WeeklyDistribution } from '@/types/db'
-import { WEEKS_BASE, WEEKS_BIMONTHLY } from '@/types/db'
-import { computeTotals, weekIndexInCycle } from './requirement'
+import { CONTENT_TYPE_TO_CREDIT_KIND, CREDIT_KIND_TO_CONTENT_TYPE, WEEKS_BASE, WEEKS_BIMONTHLY } from '@/types/db'
+import { computeTotals, consumptionOf, weekIndexInCycle } from './requirement'
 import { firstCycleDates, nextCycleDates, currentCycleDates } from './cycles'
 import type { DateString } from './dates'
 import { addDaysString, daysBetween, formatDate, parseDate } from './dates'
@@ -134,9 +134,36 @@ export interface MatrixLimitsInput {
 export interface MatrixLimits {
   limits: Record<ContentType, number>
   cycleTotals: Record<ContentType, number>
+  /**
+   * Créditos que amplían el cupo. Con ciclo: los que quedan (`qty_remaining`) MÁS los que ya consumieron
+   * requerimientos del ciclo que cuentan en `cycleTotals` — si no, esa pieza contaría como usada sin que su
+   * crédito cuente como cupo. Sin ciclo: solo los que quedan.
+   */
   credits: Partial<Record<ContentType, number>>
   unifiedPool: number | null
   estimated: boolean
+}
+
+/**
+ * Suma a los créditos restantes los consumidos por requerimientos del ciclo que cuentan en `computeTotals`
+ * (no anulados, no arrastrados, con `paid_from_credit_id`). `consumeContentCreditForRequirement` consume
+ * exactamente 1 unidad del crédito del `content_type` del requerimiento (`CONTENT_TYPE_TO_CREDIT_KIND`), así que
+ * se devuelve 1 unidad de ese tipo, y solo si el requerimiento sigue contando ese tipo en su consumo (un override
+ * a 0 lo saca de `cycleTotals`, y devolver su crédito inflaría el cupo). No muta `credits`.
+ */
+function creditsIncludingConsumed(
+  credits: Partial<Record<ContentType, number>>,
+  requirements: Requirement[],
+): Partial<Record<ContentType, number>> {
+  const out: Partial<Record<ContentType, number>> = { ...credits }
+  for (const r of requirements) {
+    if (r.voided || r.carried_over || !r.paid_from_credit_id) continue
+    const kind = CONTENT_TYPE_TO_CREDIT_KIND[r.content_type]
+    const type = kind ? CREDIT_KIND_TO_CONTENT_TYPE[kind] : undefined
+    if (!type || !((consumptionOf(r)[type] ?? 0) > 0)) continue
+    out[type] = (out[type] ?? 0) + 1
+  }
+  return out
 }
 
 export function resolveMatrixLimits(input: MatrixLimitsInput): MatrixLimits {
@@ -149,7 +176,7 @@ export function resolveMatrixLimits(input: MatrixLimitsInput): MatrixLimits {
     return {
       limits,
       cycleTotals: computeTotals(input.cycleRequirements),
-      credits: input.credits,
+      credits: creditsIncludingConsumed(input.credits, input.cycleRequirements),
       unifiedPool: input.cycle.limits_snapshot_json.unified_content_limit ?? null,
       estimated: false,
     }

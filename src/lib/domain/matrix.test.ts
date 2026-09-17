@@ -101,6 +101,64 @@ describe('resolveMatrixLimits', () => {
     expect(noCycle.unifiedPool).toBe(10)
     expect(noCycle.limits.estatico).toBe(0)
   })
+
+  it('créditos consumidos en el ciclo vuelven al cupo: el requerimiento pagado con crédito ya cuenta en cycleTotals', () => {
+    const cycle = cycleWith({ content_limits_override_json: { reel: 4 } })
+    const credits = { reel: 1 }
+    const cycleRequirements = [
+      req('reel'), req('reel'), req('reel'), req('reel'),
+      req('reel', { paid_from_credit_id: 'credit-1' }),
+    ]
+    const r = resolveMatrixLimits({ cycle, plan, cycleRequirements, credits })
+    expect(r.cycleTotals.reel).toBe(5)
+    expect(r.credits.reel).toBe(2)
+    expect(credits).toEqual({ reel: 1 }) // no muta la entrada
+
+    const u = computeMatrixUsage([{ id: 'x', content_type: 'reel', deadline: '2026-10-20', created_at: '2026-09-01T00:00:00Z', status: 'planned' }], r)
+    expect(u.overPlanItemIds).toEqual([])
+    expect(u.byType.reel).toMatchObject({ used: 6, limit: 4, credits: 2, over: 0 })
+  })
+
+  it('créditos consumidos: un requerimiento anulado o arrastrado no los devuelve', () => {
+    const cycle = cycleWith({ content_limits_override_json: { reel: 4 } })
+    const r = resolveMatrixLimits({
+      cycle, plan, credits: { reel: 1 },
+      cycleRequirements: [
+        req('reel', { paid_from_credit_id: 'credit-1', voided: true }),
+        req('reel', { paid_from_credit_id: 'credit-2', carried_over: true }),
+      ],
+    })
+    expect(r.credits.reel).toBe(1)
+  })
+
+  it('créditos consumidos: sin override que anule su tipo; un tipo sin crédito asociado no suma', () => {
+    const cycle = cycleWith({})
+    const r = resolveMatrixLimits({
+      cycle, plan, credits: {},
+      cycleRequirements: [
+        req('estatico', { paid_from_credit_id: 'c1', consumption_overrides_json: { estatico: 0, historia: 1 } }),
+        req('historia', { paid_from_credit_id: 'c2' }),
+        req('short', { paid_from_credit_id: 'c3', includes_story: true }),
+      ],
+    })
+    expect(r.credits).toEqual({ short: 1 })
+  })
+
+  it('créditos consumidos bajo pool unificado amplían los créditos del pool', () => {
+    const cycle = cycleWith({ limits_snapshot_json: { ...PLAN_LIMITS, historias: 0, estaticos: 0, videos_cortos: 0, reels: 0, shorts: 0, unified_content_limit: 2 } })
+    const r = resolveMatrixLimits({
+      cycle, plan, credits: {},
+      cycleRequirements: [req('estatico'), req('reel'), req('short', { paid_from_credit_id: 'c1' })],
+    })
+    const u = computeMatrixUsage([], r)
+    expect(u.pool).toEqual({ used: 3, limit: 2, credits: 1 })
+  })
+
+  it('sin ciclo: los créditos no cambian', () => {
+    const credits = { reel: 1 }
+    const r = resolveMatrixLimits({ cycle: null, plan, cycleRequirements: [req('reel', { paid_from_credit_id: 'c1' })], credits })
+    expect(r.credits).toEqual({ reel: 1 })
+  })
 })
 
 type UItem = { id: string; content_type: Requirement['content_type']; deadline: string; created_at: string; status: 'planned' | 'converted' | 'blocked' }
