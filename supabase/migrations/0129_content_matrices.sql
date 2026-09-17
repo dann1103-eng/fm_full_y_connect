@@ -9,6 +9,10 @@
 
 begin;
 
+-- Los FK de estas tablas (clients/billing_cycles/requirements/users) toman locks breves;
+-- preferimos fallar rápido a encolar los writes de la app si una sesión retiene un row lock.
+set local lock_timeout = '5s';
+
 -- ── 1. content_matrices ──────────────────────────────────────────────────────
 create table if not exists public.content_matrices (
   id                    uuid primary key default gen_random_uuid(),
@@ -30,13 +34,17 @@ create table if not exists public.content_matrices (
   created_at            timestamptz not null default now(),
   updated_at            timestamptz not null default now(),
   constraint content_matrices_period_chk check (period_end > period_start),
-  constraint content_matrices_client_period_uq unique (client_id, period_start)
+  constraint content_matrices_client_period_uq unique (client_id, period_start),
+  constraint content_matrices_topics_array_chk check (jsonb_typeof(topics_json) = 'array')
 );
 
-create index if not exists content_matrices_client_idx
-  on public.content_matrices (client_id, period_start desc);
+-- El índice único content_matrices_client_period_uq (client_id, period_start) ya cubre
+-- las búsquedas por cliente ordenadas por period_start desc (backward scan del btree).
 create index if not exists content_matrices_status_idx
   on public.content_matrices (status, period_start desc);
+create index if not exists content_matrices_matrix_requirement_idx
+  on public.content_matrices (matrix_requirement_id)
+  where matrix_requirement_id is not null;
 
 -- ── 2. content_matrix_items ──────────────────────────────────────────────────
 create table if not exists public.content_matrix_items (
@@ -66,6 +74,9 @@ create index if not exists content_matrix_items_matrix_idx
 create index if not exists content_matrix_items_planned_idx
   on public.content_matrix_items (deadline)
   where status = 'planned';
+create index if not exists content_matrix_items_requirement_idx
+  on public.content_matrix_items (requirement_id)
+  where requirement_id is not null;
 
 -- ── 3. updated_at (reusa public.update_updated_at() de 0001_init.sql) ────────
 drop trigger if exists content_matrices_updated_at on public.content_matrices;
@@ -82,6 +93,9 @@ create trigger content_matrix_items_updated_at
 alter table public.content_matrices      enable row level security;
 alter table public.content_matrix_items  enable row level security;
 
+-- Una sola policy 'for all' por tabla equivale a policies separadas de select/insert/
+-- update/delete con la misma condición admin/supervisor (la spec lista las cuatro);
+-- el job service-role del bloque 2 bypassa RLS igual.
 drop policy if exists "content_matrices_manage" on public.content_matrices;
 create policy "content_matrices_manage"
   on public.content_matrices for all
