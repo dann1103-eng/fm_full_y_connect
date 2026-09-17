@@ -388,6 +388,16 @@ describe('computeMatrixUsage con convertedInCycleIds', () => {
     const items = [item('1', 'estatico', '2026-10-17', 'converted')]
     expect(computeMatrixUsage(items, baseML).byType.estatico.planned).toBe(0)
   })
+  it('una convertida fuera del ciclo también ocupa lugar en el marcado fuera de plan', () => {
+    const items = [
+      item('1', 'estatico', '2026-10-17', 'converted'),
+      item('2', 'estatico', '2026-10-18', 'converted'),
+      item('3', 'estatico', '2026-10-19', 'converted'),
+    ]
+    const u = computeMatrixUsage(items, baseML, ['1'])
+    expect(u.byType.estatico).toMatchObject({ planned: 2, used: 3, over: 1 })
+    expect(u.overPlanItemIds).toEqual(['3'])
+  })
 })
 
 describe('validateItemPatch', () => {
@@ -509,7 +519,7 @@ describe('canCreateMatrixForClient', () => {
 
 const approvedMatrix: ConvertibleMatrix = { id: 'm1', status: 'approved', lead_days: 7 }
 
-function citem(id: string, deadline: string, status: ConvertibleItem['status'] = 'planned', matrix_id = 'm1'): ConvertibleItem & { created_at: string } {
+function citem(id: string, deadline: string, status: ConvertibleItem['status'] = 'planned', matrix_id = 'm1'): ConvertibleItem {
   return { id, matrix_id, deadline, status, created_at: `2026-10-01T00:00:${id.padStart(2, '0')}Z` }
 }
 
@@ -564,6 +574,13 @@ describe('selectItemsToConvert', () => {
     const items = [citem('1', '2026-10-11'), citem('2', '2026-10-12'), citem('3', '2026-10-13')]
     expect(selectItemsToConvert(items, matrices, today, 2).map((i) => i.id)).toEqual(['1', '2'])
   })
+  it('con la misma fecha de entrega, desempata por fecha de creación (la más antigua primero)', () => {
+    const items: ConvertibleItem[] = [
+      { id: 'b', matrix_id: 'm1', deadline: '2026-10-12', status: 'planned', created_at: '2026-09-01T00:00:00Z' },
+      { id: 'a', matrix_id: 'm1', deadline: '2026-10-12', status: 'planned', created_at: '2026-09-01T00:00:05Z' },
+    ]
+    expect(selectItemsToConvert(items, matrices, today).map((i) => i.id)).toEqual(['b', 'a'])
+  })
 })
 
 describe('convertsBeforePeriodStart', () => {
@@ -573,5 +590,8 @@ describe('convertsBeforePeriodStart', () => {
   it('no avisa a mitad de período ni con lead_days 0', () => {
     expect(convertsBeforePeriodStart({ deadline: '2026-10-30' }, { period_start: '2026-10-15', lead_days: 7 })).toBe(false)
     expect(convertsBeforePeriodStart({ deadline: '2026-10-15' }, { period_start: '2026-10-15', lead_days: 0 })).toBe(false)
+  })
+  it('no avisa justo en el borde (deadline = period_start + lead_days)', () => {
+    expect(convertsBeforePeriodStart({ deadline: '2026-10-22' }, { period_start: '2026-10-15', lead_days: 7 })).toBe(false)
   })
 })

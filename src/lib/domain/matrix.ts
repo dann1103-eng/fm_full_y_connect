@@ -518,6 +518,7 @@ export interface ConvertibleItem {
   matrix_id: string
   deadline: DateString
   status: MatrixItemStatus
+  created_at: string
 }
 
 export interface ConvertibleMatrix {
@@ -538,7 +539,7 @@ export function shouldConvert(
 }
 
 /** Piezas elegibles, las más urgentes primero. `limit` recorta el lote. */
-export function selectItemsToConvert<T extends ConvertibleItem & { created_at: string }>(
+export function selectItemsToConvert<T extends ConvertibleItem>(
   items: T[],
   matrices: Map<string, ConvertibleMatrix>,
   today: DateString,
@@ -549,7 +550,7 @@ export function selectItemsToConvert<T extends ConvertibleItem & { created_at: s
     return m ? shouldConvert(it, m, today) : false
   })
   eligible.sort(compareMatrixItems)
-  return limit === undefined ? eligible : eligible.slice(0, limit)
+  return limit === undefined ? eligible : eligible.slice(0, Math.max(0, limit))
 }
 
 /**

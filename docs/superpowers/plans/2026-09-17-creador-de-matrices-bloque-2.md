@@ -51,7 +51,7 @@
 - Create: `supabase/migrations/0130_matrix_items_assignment.sql`
 - Modify: `src/types/db.ts`
 
-- [ ] **Step 1: Crear la migración**
+- [x] **Step 1: Crear la migración**
 
 Contenido exacto (idempotente, una transacción, `lock_timeout` como 0129):
 
@@ -87,16 +87,16 @@ commit;
 
 **No la apliques.** El usuario la corre a mano en el Dashboard.
 
-- [ ] **Step 2: Tipos**
+- [x] **Step 2: Tipos**
 
 En `src/types/db.ts`, bloque `content_matrix_items`: añadir a `Row` `assigned_to: string[] | null` y `estimated_time_minutes: number | null`; a `Insert` y `Update` los mismos con `?`.
 
-- [ ] **Step 3: Verificar tipos**
+- [x] **Step 3: Verificar tipos**
 
 Run: `npx tsc --noEmit -p tsconfig.json`
 Expected: 0 errores.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add supabase/migrations/0130_matrix_items_assignment.sql src/types/db.ts
@@ -111,7 +111,7 @@ git commit -m "feat(matrices): migración 0130 — responsable y tiempo estimado
 - Modify: `src/lib/domain/matrix.ts`
 - Test: `src/lib/domain/matrix.test.ts`
 
-- [ ] **Step 1: Escribir las pruebas que fallan**
+- [x] **Step 1: Escribir las pruebas que fallan**
 
 Añadir al final de `matrix.test.ts` (imports arriba del archivo):
 
@@ -189,12 +189,12 @@ describe('convertsBeforePeriodStart', () => {
 })
 ```
 
-- [ ] **Step 2: Correr y ver fallar**
+- [x] **Step 2: Correr y ver fallar**
 
 Run: `npx vitest run src/lib/domain/matrix.test.ts`
 Expected: FAIL (`shouldConvert is not a function`, etc.).
 
-- [ ] **Step 3: Implementar**
+- [x] **Step 3: Implementar**
 
 Añadir a `src/lib/domain/matrix.ts` (sección nueva al final, antes de los tipos de `ActionResult`):
 
@@ -257,12 +257,12 @@ export function convertsBeforePeriodStart(
 
 Importar `MatrixItemStatus` y `ContentMatrix` en el bloque de tipos si aún no están.
 
-- [ ] **Step 4: Correr las pruebas**
+- [x] **Step 4: Correr las pruebas**
 
 Run: `npx vitest run src/lib/domain/matrix.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/domain/matrix.ts src/lib/domain/matrix.test.ts
@@ -277,7 +277,7 @@ git commit -m "feat(matrices): dominio de selección de piezas convertibles" -m 
 - Modify: `src/lib/domain/matrix.ts`
 - Test: `src/lib/domain/matrix.test.ts`
 
-- [ ] **Step 1: Pruebas que fallan**
+- [x] **Step 1: Pruebas que fallan**
 
 ```ts
 describe('validateForApproval con responsable y estimado', () => {
@@ -321,12 +321,12 @@ describe('computeMatrixUsage con convertedInCycleIds', () => {
 
 (`item(...)` y `baseML` ya existen en el archivo desde el bloque 1.)
 
-- [ ] **Step 2: Correr y ver fallar**
+- [x] **Step 2: Correr y ver fallar**
 
 Run: `npx vitest run src/lib/domain/matrix.test.ts`
 Expected: FAIL.
 
-- [ ] **Step 3: Implementar**
+- [x] **Step 3: Implementar**
 
 1. `ApprovalProblemReason` gana `'sin_responsable' | 'sin_estimado'`; `APPROVAL_PROBLEM_LABELS` gana `sin_responsable: 'Sin responsable'` y `sin_estimado: 'Sin tiempo estimado'`.
 2. `validateForApproval` cambia de firma y de cuerpo:
@@ -370,18 +370,18 @@ export function computeMatrixUsage(
   // como en el recorrido ordenado que marca `overPlanItemIds`.
 ```
 
-- [ ] **Step 4: Arreglar los llamadores y las pruebas existentes**
+- [x] **Step 4: Arreglar los llamadores y las pruebas existentes**
 
 1. `setMatrixStatus` (`src/app/actions/matrices.ts`): ampliar el `select` a `id, title, deadline, status, assigned_to, estimated_time_minutes`.
 2. `MatrixEditor.tsx`: ya pasa filas completas, no cambia.
 3. **Pruebas existentes de `validateForApproval`** (`src/lib/domain/matrix.test.ts`, bloque `describe('validateForApproval', …)`): hoy pasan literales `{ id, title, deadline }`. Con la firma nueva **no compilan** (`tsconfig` incluye los tests) y además cambiarían de resultado (una pieza sin `assigned_to` pasaría a reportar `sin_responsable`). Actualizar cada literal añadiendo `status: 'planned'`, `assigned_to: ['u1']` y `estimated_time_minutes: 60`, salvo donde la prueba quiera comprobar justo lo contrario. El resultado esperado de esas pruebas **no** debe cambiar.
 
-- [ ] **Step 5: Correr todo el dominio**
+- [x] **Step 5: Correr todo el dominio**
 
 Run: `npx vitest run src/lib/domain` · `npx tsc --noEmit -p tsconfig.json`
 Expected: solo la falla conocida de `cycles.test.ts`; 0 errores de tipos.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/lib/domain/matrix.ts src/lib/domain/matrix.test.ts src/app/actions/matrices.ts src/components/matrices/MatrixEditor.tsx
