@@ -1,4 +1,4 @@
-import type { BillingCycle, BillingPeriod, ContentMatrixItem, ContentType, MatrixObjective, MatrixStatus, MatrixTopic, Plan, Requirement, WeeklyDistribution } from '@/types/db'
+import type { BillingCycle, BillingPeriod, ContentMatrixItem, ContentType, CycleStatus,MatrixObjective, MatrixStatus, MatrixTopic, Plan, Requirement, WeeklyDistribution } from '@/types/db'
 import { WEEKS_BASE, WEEKS_BIMONTHLY } from '@/types/db'
 import { computeTotals, weekIndexInCycle } from './requirement'
 import { firstCycleDates, nextCycleDates, currentCycleDates } from './cycles'
@@ -92,6 +92,23 @@ export function computeTargetPeriods(input: TargetPeriodsInput): TargetPeriod[] 
     cur = nextCycleDates(cur.periodEnd, opts)
   }
   return out
+}
+
+const CYCLE_STATUS_RANK: Record<CycleStatus, number> = { current: 0, pending_renewal: 1, scheduled: 2, archived: 3 }
+
+/**
+ * Cuando varios billing_cycles comparten `period_start`, elige el que representa el período:
+ * current > pending_renewal > scheduled > archived; a igual estado, el `created_at` más reciente.
+ */
+export function pickCycleForPeriod<T extends Pick<BillingCycle, 'status' | 'created_at'>>(cycles: readonly T[]): T | null {
+  let best: T | null = null
+  for (const c of cycles) {
+    if (!best) { best = c; continue }
+    const rc = CYCLE_STATUS_RANK[c.status] ?? Number.MAX_SAFE_INTEGER
+    const rb = CYCLE_STATUS_RANK[best.status] ?? Number.MAX_SAFE_INTEGER
+    if (rc < rb || (rc === rb && new Date(c.created_at).getTime() > new Date(best.created_at).getTime())) best = c
+  }
+  return best
 }
 
 const ZERO_TOTALS: Record<ContentType, number> = {
@@ -319,7 +336,8 @@ function inPeriod(d: DateString, p: PeriodRange): boolean {
  * `RangeError` sobre esa fecha, así que se descarta antes de reformatear.
  */
 export function isIsoDate(d: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return false
+  // typeof: input del navegador. Un array ['2026-10-15'] pasa el regex (se coerciona) y parseISO lanzaría.
+  if (typeof d !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return false
   const parsed = parseDate(d)
   return !Number.isNaN(parsed.getTime()) && formatDate(parsed) === d
 }

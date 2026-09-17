@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeTargetPeriods, matrixTitleFor, periodLabel, resolveMatrixLimits, computeMatrixUsage, usageTone, proposeDeadline, limitsForDistribution, canTransition, validateForApproval, validateItemPatch, shiftDeadline, sanitizeTopics, compareMatrixItems, isIsoDate } from './matrix'
+import { computeTargetPeriods, matrixTitleFor, periodLabel, resolveMatrixLimits, computeMatrixUsage, usageTone, proposeDeadline, limitsForDistribution, canTransition, validateForApproval, validateItemPatch, shiftDeadline, sanitizeTopics, compareMatrixItems, isIsoDate, pickCycleForPeriod } from './matrix'
 import type { MatrixLimits } from './matrix'
 import type { BillingCycle, MatrixTopic, Plan, Requirement } from '@/types/db'
 import { buildEffectiveDistribution } from './weekly-distribution'
@@ -353,5 +353,39 @@ describe('isIsoDate', () => {
     expect(isIsoDate('abc')).toBe(false)
     expect(isIsoDate('')).toBe(false)
     expect(isIsoDate('2026-10-15T00:00:00Z')).toBe(false)
+  })
+  it('devuelve false (sin lanzar) para valores que no son string', () => {
+    expect(isIsoDate(['2026-10-15'] as unknown as string)).toBe(false)
+    expect(isIsoDate(null as unknown as string)).toBe(false)
+    expect(isIsoDate(20261015 as unknown as string)).toBe(false)
+  })
+})
+
+describe('pickCycleForPeriod', () => {
+  const c = (id: string, status: BillingCycle['status'], created_at: string) => ({ id, status, created_at })
+
+  it('devuelve null sin ciclos', () => {
+    expect(pickCycleForPeriod([])).toBeNull()
+  })
+
+  it('prioriza current > pending_renewal > scheduled > archived aunque haya uno más nuevo', () => {
+    const cycles = [
+      c('arch', 'archived', '2026-09-10T00:00:00Z'),
+      c('sch', 'scheduled', '2026-09-09T00:00:00Z'),
+      c('cur', 'current', '2026-09-01T00:00:00Z'),
+      c('pen', 'pending_renewal', '2026-09-08T00:00:00Z'),
+    ]
+    expect(pickCycleForPeriod(cycles)?.id).toBe('cur')
+    expect(pickCycleForPeriod(cycles.filter((x) => x.id !== 'cur'))?.id).toBe('pen')
+    expect(pickCycleForPeriod(cycles.filter((x) => x.id === 'arch' || x.id === 'sch'))?.id).toBe('sch')
+  })
+
+  it('con el mismo estado elige el created_at más reciente', () => {
+    const cycles = [
+      c('viejo', 'scheduled', '2026-09-01T10:00:00+00:00'),
+      c('nuevo', 'scheduled', '2026-09-02T09:00:00+00:00'),
+      c('medio', 'scheduled', '2026-09-01T23:00:00+00:00'),
+    ]
+    expect(pickCycleForPeriod(cycles)?.id).toBe('nuevo')
   })
 })
