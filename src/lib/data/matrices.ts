@@ -53,9 +53,21 @@ export interface MatrixEditorData {
   period: { periodStart: string; periodEnd: string; label: string }
   /** Requerimiento de matriz vinculado. `voided: true` → fue anulado: el editor ofrece registrar uno nuevo. */
   linkedRequirement: LinkedMatrixRequirement | null
+  /**
+   * Piezas `converted` cuyo requerimiento está en el ciclo leído y cuenta en `computeTotals`
+   * (array, no Set: cruza server → client). Las demás `converted` se siguen contando como
+   * planificadas en los chips, para no desaparecer por los dos lados.
+   */
+  convertedInCycleIds: string[]
+  /** Piezas convertidas cuyo requerimiento fue anulado o borrado: el editor ofrece replanificar. */
+  linkedVoidedItemIds: string[]
+  /** Usuarios internos asignables a una pieza (sin `client` ni `agent`). */
+  assignableUsers: AssignableUser[]
 }
 
 export type LinkedMatrixRequirement = Pick<Requirement, 'id' | 'title' | 'phase' | 'voided'>
+
+export interface AssignableUser { id: string; full_name: string; default_assignee: boolean }
 
 export async function loadMatrixEditorData(db: Db, matrixId: string): Promise<MatrixEditorData | null> {
   const L = 'loadMatrixEditorData'
@@ -64,7 +76,7 @@ export async function loadMatrixEditorData(db: Db, matrixId: string): Promise<Ma
   if (!matrixRaw) return null
   const matrix = matrixRaw as ContentMatrix
 
-  const [itemsRes, clientRes, cyclesRes, credits, linkedRes] = await Promise.all([
+  const [itemsRes, clientRes, cyclesRes, credits, linkedRes, usersRes] = await Promise.all([
     db.from('content_matrix_items').select('*').eq('matrix_id', matrixId)
       .order('deadline', { ascending: true }).order('created_at', { ascending: true }).order('id', { ascending: true }),
     db.from('clients').select('*, plan:plans(*)').eq('id', matrix.client_id).maybeSingle(),
@@ -75,11 +87,14 @@ export async function loadMatrixEditorData(db: Db, matrixId: string): Promise<Ma
     matrix.matrix_requirement_id
       ? db.from('requirements').select('id, title, phase, voided').eq('id', matrix.matrix_requirement_id).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
+    // Mismo query que clients/[id] y pipeline: usuarios internos, sin clientes ni el bot.
+    db.from('users').select('id, full_name, default_assignee').not('role', 'in', '(client,agent)').order('full_name'),
   ])
   if (itemsRes.error) fail(L, itemsRes.error)
   if (clientRes.error) fail(L, clientRes.error)
   if (cyclesRes.error) fail(L, cyclesRes.error)
   if (linkedRes.error) fail(L, linkedRes.error)
+  if (usersRes.error) fail(L, usersRes.error)
   if (!clientRes.data) return null
   const client = clientRes.data as unknown as ClientWithPlanRow
   const cycle = pickCycleForPeriod((cyclesRes.data ?? []) as BillingCycle[])
@@ -95,7 +110,30 @@ export async function loadMatrixEditorData(db: Db, matrixId: string): Promise<Ma
   // Orden canónico (deadline → created_at → id), idéntico al que usa el cliente al reordenar.
   const items = ((itemsRes.data ?? []) as ContentMatrixItem[]).sort(compareMatrixItems)
   const limits = resolveMatrixLimits({ cycle, plan: client.plan, cycleRequirements, credits })
-  const usage = computeMatrixUsage(items, limits)
+
+  // Solo requerimientos que cuentan en computeTotals: si uno se anuló, su pieza debe volver a
+  // contarse como planificada en los chips, no desaparecer.
+  const countedIds = new Set(cycleRequirements.filter((r) => !r.voided && !r.carried_over).map((r) => r.id))
+  const convertedInCycleIds = items
+    .filter((i) => i.status === 'converted' && i.requirement_id && countedIds.has(i.requirement_id))
+    .map((i) => i.id)
+  const usage = computeMatrixUsage(items, limits, convertedInCycleIds)
+
+  // Por ids y SIN filtrar por ciclo ni por approval_status: una pieza convertida al ciclo anterior
+  // —caso previsto por el diseño— no aparece en cycleRequirements, y filtrando por ahí se marcaría
+  // como anulada sin serlo.
+  const convertedReqIds = items
+    .filter((i) => i.status === 'converted' && i.requirement_id)
+    .map((i) => i.requirement_id as string)
+  let linkedVoidedItemIds: string[] = []
+  if (convertedReqIds.length > 0) {
+    const { data: reqRows, error: reqErr } = await db.from('requirements').select('id, voided').in('id', convertedReqIds)
+    if (reqErr) fail(L, reqErr)
+    const alive = new Map((reqRows ?? []).map((r) => [r.id as string, r.voided as boolean]))
+    linkedVoidedItemIds = items
+      .filter((i) => i.status === 'converted' && i.requirement_id && (alive.get(i.requirement_id) ?? true))
+      .map((i) => i.id)   // `?? true`: si el requerimiento ya no existe, cuenta como anulado
+  }
   const maxWeek = maxWeeksForPeriod(client.billing_period)
   const distribution = buildEffectiveDistribution({
     clientDistribution: client.weekly_distribution_json,
@@ -111,6 +149,11 @@ export async function loadMatrixEditorData(db: Db, matrixId: string): Promise<Ma
     matrix, items, client, cycle, limits, usage, distribution, maxWeek,
     period: { periodStart: matrix.period_start, periodEnd: matrix.period_end, label: periodLabel(matrix.period_start, matrix.period_end) },
     linkedRequirement: (linkedRes.data as LinkedMatrixRequirement | null) ?? null,
+    convertedInCycleIds,
+    linkedVoidedItemIds,
+    assignableUsers: (usersRes.data ?? []).map((u) => ({
+      id: u.id, full_name: u.full_name || 'Sin nombre', default_assignee: u.default_assignee ?? false,
+    })),
   }
 }
 

@@ -809,7 +809,7 @@ git commit -m "feat(matrices): acciones de convertir ahora y volver a planificar
 **Files:**
 - Modify: `src/lib/data/matrices.ts`
 
-- [ ] **Step 1: `convertedInCycleIds` y usuarios asignables**
+- [x] **Step 1: `convertedInCycleIds` y usuarios asignables**
 
 En `MatrixEditorData`:
 
@@ -869,12 +869,12 @@ Y una query más en el `Promise.all` inicial:
 
 con su comprobación de error (`fail(L, …)`) y el mapeo a `assignableUsers` usando `u.full_name || 'Sin nombre'`.
 
-- [ ] **Step 2: Verificar**
+- [x] **Step 2: Verificar**
 
 Run: `npx tsc --noEmit -p tsconfig.json` y `npx eslint src/lib/data/matrices.ts`
 Expected: sin errores (el editor todavía no usa los campos nuevos; eso es la Task 8).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/lib/data/matrices.ts
