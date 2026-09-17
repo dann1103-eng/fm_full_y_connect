@@ -374,13 +374,13 @@ export async function setMatrixStatus(
 
   const [matrixRes, itemsRes] = await Promise.all([
     supabase.from('content_matrices').select('*').eq('id', matrixId).maybeSingle(),
-    supabase.from('content_matrix_items').select('id, title, deadline, status').eq('matrix_id', matrixId),
+    supabase.from('content_matrix_items').select('id, title, deadline, status, assigned_to, estimated_time_minutes').eq('matrix_id', matrixId),
   ])
   if (matrixRes.error) return { ok: false, error: dbError(matrixRes.error, 'No se pudo leer la matriz.') }
   if (itemsRes.error) return { ok: false, error: dbError(itemsRes.error, 'No se pudieron leer las piezas de la matriz.') }
   const current = matrixRes.data
   if (!current) return { ok: false, error: 'Matriz no encontrada.' }
-  const list = (itemsRes.data ?? []) as Pick<ContentMatrixItem, 'id' | 'title' | 'deadline' | 'status'>[]
+  const list = (itemsRes.data ?? []) as Pick<ContentMatrixItem, 'id' | 'title' | 'deadline' | 'status' | 'assigned_to' | 'estimated_time_minutes'>[]
   const hasConvertedItems = list.some((i) => i.status === 'converted')
 
   if (!canTransition(current.status, to, { hasConvertedItems })) {

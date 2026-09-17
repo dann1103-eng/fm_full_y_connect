@@ -251,9 +251,21 @@ export function compareMatrixItems(
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
 }
 
-export function computeMatrixUsage(items: UsageItem[], ml: MatrixLimits): MatrixUsage {
+export function computeMatrixUsage(
+  items: UsageItem[],
+  ml: MatrixLimits,
+  /** Ids de piezas `converted` cuyo requerimiento SÍ está en el ciclo leído (array, no Set: cruza server → client). */
+  convertedInCycleIds?: readonly string[],
+): MatrixUsage {
+  const inCycle = new Set(convertedInCycleIds ?? [])
+  // Sin el parámetro, toda `converted` se asume dentro del ciclo (comportamiento del bloque 1).
+  // Con él, la que NO está en la lista se sigue contando como planificada: se convirtió a otro
+  // ciclo y si no, desaparecería de los chips por los dos lados.
+  const counts = (it: UsageItem) =>
+    it.status !== 'converted' ? true : (convertedInCycleIds !== undefined && !inCycle.has(it.id))
+
   const planned: Record<ContentType, number> = { ...ZERO_TOTALS }
-  for (const it of items) if (it.status !== 'converted') planned[it.content_type] += 1
+  for (const it of items) if (counts(it)) planned[it.content_type] += 1
 
   const byType = {} as Record<ContentType, MatrixUsageByType>
   for (const t of CONTENT_TYPES) {
@@ -277,7 +289,7 @@ export function computeMatrixUsage(items: UsageItem[], ml: MatrixLimits): Matrix
     : null
 
   const sorted = items
-    .filter((i) => i.status !== 'converted')
+    .filter((i) => counts(i))
     .sort(compareMatrixItems)
 
   const counters: Record<ContentType, number> = { ...ml.cycleTotals }
@@ -372,11 +384,13 @@ export function canTransition(from: MatrixStatus, to: MatrixStatus, ctx: { hasCo
   return false
 }
 
-export type ApprovalProblemReason = 'sin_titulo' | 'fecha_fuera_de_periodo'
+export type ApprovalProblemReason = 'sin_titulo' | 'fecha_fuera_de_periodo' | 'sin_responsable' | 'sin_estimado'
 export interface ApprovalProblem { itemId: string; reason: ApprovalProblemReason }
 export const APPROVAL_PROBLEM_LABELS: Record<ApprovalProblemReason, string> = {
   sin_titulo: 'Sin título',
   fecha_fuera_de_periodo: 'Fecha fuera del período',
+  sin_responsable: 'Sin responsable',
+  sin_estimado: 'Sin tiempo estimado',
 }
 
 export interface PeriodRange { periodStart: DateString; periodEnd: DateString }
@@ -398,14 +412,19 @@ export function isIsoDate(d: string): boolean {
 }
 
 export function validateForApproval(
-  items: Pick<ContentMatrixItem, 'id' | 'title' | 'deadline'>[],
+  items: Pick<ContentMatrixItem, 'id' | 'title' | 'deadline' | 'status' | 'assigned_to' | 'estimated_time_minutes'>[],
   period: PeriodRange,
 ): { ok: boolean; empty: boolean; problems: ApprovalProblem[] } {
   if (items.length === 0) return { ok: false, empty: true, problems: [] }
   const problems: ApprovalProblem[] = []
   for (const it of items) {
+    // Una pieza ya convertida tiene esos campos bloqueados en el editor: exigirlos sería
+    // un problema imposible de arreglar.
+    if (it.status === 'converted') continue
     if (!it.title.trim()) problems.push({ itemId: it.id, reason: 'sin_titulo' })
     else if (!inPeriod(it.deadline, period)) problems.push({ itemId: it.id, reason: 'fecha_fuera_de_periodo' })
+    else if (!it.assigned_to || it.assigned_to.length === 0) problems.push({ itemId: it.id, reason: 'sin_responsable' })
+    else if (!it.estimated_time_minutes) problems.push({ itemId: it.id, reason: 'sin_estimado' })
   }
   return { ok: problems.length === 0, empty: false, problems }
 }

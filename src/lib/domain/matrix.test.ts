@@ -340,15 +340,53 @@ describe('validateForApproval', () => {
   })
   it('detecta sin título y fecha fuera de período', () => {
     const r = validateForApproval([
-      { id: 'a', title: '', deadline: '2026-10-20' },
-      { id: 'b', title: 'Ok', deadline: '2026-12-01' },
-      { id: 'c', title: 'Ok', deadline: '2026-10-21' },
+      { id: 'a', title: '', deadline: '2026-10-20', status: 'planned', assigned_to: ['u1'], estimated_time_minutes: 60 },
+      { id: 'b', title: 'Ok', deadline: '2026-12-01', status: 'planned', assigned_to: ['u1'], estimated_time_minutes: 60 },
+      { id: 'c', title: 'Ok', deadline: '2026-10-21', status: 'planned', assigned_to: ['u1'], estimated_time_minutes: 60 },
     ], period)
     expect(r.ok).toBe(false)
     expect(r.problems).toEqual([
       { itemId: 'a', reason: 'sin_titulo' },
       { itemId: 'b', reason: 'fecha_fuera_de_periodo' },
     ])
+  })
+})
+
+describe('validateForApproval con responsable y estimado', () => {
+  const period = { periodStart: '2026-10-15', periodEnd: '2026-11-14' }
+  const base = { title: 'Ok', deadline: '2026-10-20', status: 'planned' as const, assigned_to: ['u1'], estimated_time_minutes: 60 }
+  it('exige responsable y estimado', () => {
+    const r = validateForApproval([
+      { id: 'a', ...base, assigned_to: null },
+      { id: 'b', ...base, assigned_to: [] },
+      { id: 'c', ...base, estimated_time_minutes: null },
+      { id: 'd', ...base },
+    ], period)
+    expect(r.problems).toEqual([
+      { itemId: 'a', reason: 'sin_responsable' },
+      { itemId: 'b', reason: 'sin_responsable' },
+      { itemId: 'c', reason: 'sin_estimado' },
+    ])
+  })
+  it('un solo problema por pieza, el título manda', () => {
+    const r = validateForApproval([{ id: 'a', ...base, title: '', assigned_to: null }], period)
+    expect(r.problems).toEqual([{ itemId: 'a', reason: 'sin_titulo' }])
+  })
+  it('exime a las piezas ya convertidas', () => {
+    const r = validateForApproval([{ id: 'a', ...base, status: 'converted', assigned_to: null, estimated_time_minutes: null }], period)
+    expect(r.ok).toBe(true)
+  })
+})
+
+describe('computeMatrixUsage con convertedInCycleIds', () => {
+  it('una convertida al ciclo del período no cuenta como planificada; una convertida a otro ciclo sí', () => {
+    const items = [item('1', 'estatico', '2026-10-17', 'converted'), item('2', 'estatico', '2026-10-18', 'converted')]
+    const u = computeMatrixUsage(items, baseML, ['1'])
+    expect(u.byType.estatico.planned).toBe(1)
+  })
+  it('sin el parámetro se comporta como antes', () => {
+    const items = [item('1', 'estatico', '2026-10-17', 'converted')]
+    expect(computeMatrixUsage(items, baseML).byType.estatico.planned).toBe(0)
   })
 })
 
