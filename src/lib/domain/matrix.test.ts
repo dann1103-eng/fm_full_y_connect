@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { computeTargetPeriods, matrixTitleFor, periodLabel, resolveMatrixLimits, computeMatrixUsage, usageTone, proposeDeadline, limitsForDistribution, canTransition, validateForApproval, validateItemPatch, shiftDeadline, sanitizeTopics, compareMatrixItems, isIsoDate, pickCycleForPeriod, canCreateMatrixForClient } from './matrix'
+import { shouldConvert, selectItemsToConvert, convertsBeforePeriodStart, CATCHUP_DAYS } from './matrix'
 import type { MatrixLimits } from './matrix'
+import type { ConvertibleItem, ConvertibleMatrix } from './matrix'
 import type { BillingCycle, MatrixTopic, Plan, Requirement } from '@/types/db'
 import { buildEffectiveDistribution } from './weekly-distribution'
 import { WEEKS_BIMONTHLY } from '@/types/db'
@@ -464,5 +466,74 @@ describe('canCreateMatrixForClient', () => {
   it('bloquea inactive_payment e inactive_manual', () => {
     expect(canCreateMatrixForClient('inactive_payment')).toBe(false)
     expect(canCreateMatrixForClient('inactive_manual')).toBe(false)
+  })
+})
+
+const approvedMatrix: ConvertibleMatrix = { id: 'm1', status: 'approved', lead_days: 7 }
+
+function citem(id: string, deadline: string, status: ConvertibleItem['status'] = 'planned', matrix_id = 'm1'): ConvertibleItem & { created_at: string } {
+  return { id, matrix_id, deadline, status, created_at: `2026-10-01T00:00:${id.padStart(2, '0')}Z` }
+}
+
+describe('shouldConvert', () => {
+  const today = '2026-10-10'
+  it('convierte dentro de la ventana y justo en el borde', () => {
+    expect(shouldConvert({ status: 'planned', deadline: '2026-10-15' }, approvedMatrix, today)).toBe(true)
+    expect(shouldConvert({ status: 'planned', deadline: '2026-10-17' }, approvedMatrix, today)).toBe(true) // today + 7
+  })
+  it('no convierte lo que aún está lejos', () => {
+    expect(shouldConvert({ status: 'planned', deadline: '2026-10-18' }, approvedMatrix, today)).toBe(false)
+  })
+  it('convierte vencidas hasta CATCHUP_DAYS atrás, no más', () => {
+    expect(shouldConvert({ status: 'planned', deadline: '2026-09-10' }, approvedMatrix, today)).toBe(true)  // -30
+    expect(shouldConvert({ status: 'planned', deadline: '2026-09-09' }, approvedMatrix, today)).toBe(false) // -31
+    expect(CATCHUP_DAYS).toBe(30)
+  })
+  it('solo piezas planned de matrices approved', () => {
+    expect(shouldConvert({ status: 'converted', deadline: '2026-10-12' }, approvedMatrix, today)).toBe(false)
+    expect(shouldConvert({ status: 'blocked', deadline: '2026-10-12' }, approvedMatrix, today)).toBe(false)
+    expect(shouldConvert({ status: 'planned', deadline: '2026-10-12' }, { ...approvedMatrix, status: 'draft' }, today)).toBe(false)
+    expect(shouldConvert({ status: 'planned', deadline: '2026-10-12' }, { ...approvedMatrix, status: 'closed' }, today)).toBe(false)
+  })
+  it('lead_days 0 solo convierte el mismo día o antes', () => {
+    const m = { ...approvedMatrix, lead_days: 0 }
+    expect(shouldConvert({ status: 'planned', deadline: today }, m, today)).toBe(true)
+    expect(shouldConvert({ status: 'planned', deadline: '2026-10-11' }, m, today)).toBe(false)
+  })
+})
+
+describe('selectItemsToConvert', () => {
+  const today = '2026-10-10'
+  const matrices = new Map<string, ConvertibleMatrix>([
+    ['m1', approvedMatrix],
+    ['m2', { id: 'm2', status: 'approved', lead_days: 14 }],
+    ['m3', { id: 'm3', status: 'draft', lead_days: 7 }],
+  ])
+  it('ordena por fecha y respeta el lead_days de cada matriz', () => {
+    const items = [
+      citem('1', '2026-10-16'),
+      citem('2', '2026-10-12'),
+      citem('3', '2026-10-20', 'planned', 'm2'), // dentro de los 14 de m2
+      citem('4', '2026-10-20'),                   // fuera de los 7 de m1
+    ]
+    expect(selectItemsToConvert(items, matrices, today).map((i) => i.id)).toEqual(['2', '1', '3'])
+  })
+  it('descarta piezas de matrices no aprobadas o ausentes del mapa', () => {
+    const items = [citem('1', '2026-10-12', 'planned', 'm3'), citem('2', '2026-10-12', 'planned', 'mX')]
+    expect(selectItemsToConvert(items, matrices, today)).toEqual([])
+  })
+  it('aplica el tope', () => {
+    const items = [citem('1', '2026-10-11'), citem('2', '2026-10-12'), citem('3', '2026-10-13')]
+    expect(selectItemsToConvert(items, matrices, today, 2).map((i) => i.id)).toEqual(['1', '2'])
+  })
+})
+
+describe('convertsBeforePeriodStart', () => {
+  it('avisa cuando la conversión cae antes del inicio del período', () => {
+    expect(convertsBeforePeriodStart({ deadline: '2026-10-17' }, { period_start: '2026-10-15', lead_days: 7 })).toBe(true)
+  })
+  it('no avisa a mitad de período ni con lead_days 0', () => {
+    expect(convertsBeforePeriodStart({ deadline: '2026-10-30' }, { period_start: '2026-10-15', lead_days: 7 })).toBe(false)
+    expect(convertsBeforePeriodStart({ deadline: '2026-10-15' }, { period_start: '2026-10-15', lead_days: 0 })).toBe(false)
   })
 })

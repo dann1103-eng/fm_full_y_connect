@@ -1,4 +1,4 @@
-import type { BillingCycle, BillingPeriod, ClientStatus, ContentMatrixItem, ContentType, CycleStatus,MatrixObjective, MatrixStatus, MatrixTopic, Plan, Requirement, WeeklyDistribution } from '@/types/db'
+import type { BillingCycle, BillingPeriod, ClientStatus, ContentMatrix, ContentMatrixItem, ContentType, CycleStatus, MatrixItemStatus, MatrixObjective, MatrixStatus, MatrixTopic, Plan, Requirement, WeeklyDistribution } from '@/types/db'
 import { CONTENT_TYPE_TO_CREDIT_KIND, CREDIT_KIND_TO_CONTENT_TYPE, WEEKS_BASE, WEEKS_BIMONTHLY } from '@/types/db'
 import { computeTotals, consumptionOf, weekIndexInCycle } from './requirement'
 import { firstCycleDates, nextCycleDates, currentCycleDates } from './cycles'
@@ -487,6 +487,61 @@ export function sanitizeTopics(raw: MatrixTopic[]): MatrixTopic[] {
     if (out.length >= MAX_TOPICS) break
   }
   return out
+}
+
+// ── Conversión a requerimientos (bloque 2) ──────────────────────────────────
+
+/** Días vencidos que el barrido todavía recoge. Más viejo que esto, solo a mano. */
+export const CATCHUP_DAYS = 30
+
+export interface ConvertibleItem {
+  id: string
+  matrix_id: string
+  deadline: DateString
+  status: MatrixItemStatus
+}
+
+export interface ConvertibleMatrix {
+  id: string
+  status: MatrixStatus
+  lead_days: number
+}
+
+/** ¿Toca convertir esta pieza hoy? Solo piezas `planned` de matrices `approved`. */
+export function shouldConvert(
+  item: Pick<ConvertibleItem, 'status' | 'deadline'>,
+  matrix: Pick<ConvertibleMatrix, 'status' | 'lead_days'>,
+  today: DateString,
+): boolean {
+  if (matrix.status !== 'approved' || item.status !== 'planned') return false
+  if (item.deadline > addDaysString(today, matrix.lead_days)) return false
+  return item.deadline >= addDaysString(today, -CATCHUP_DAYS)
+}
+
+/** Piezas elegibles, las más urgentes primero. `limit` recorta el lote. */
+export function selectItemsToConvert<T extends ConvertibleItem & { created_at: string }>(
+  items: T[],
+  matrices: Map<string, ConvertibleMatrix>,
+  today: DateString,
+  limit?: number,
+): T[] {
+  const eligible = items.filter((it) => {
+    const m = matrices.get(it.matrix_id)
+    return m ? shouldConvert(it, m, today) : false
+  })
+  eligible.sort(compareMatrixItems)
+  return limit === undefined ? eligible : eligible.slice(0, limit)
+}
+
+/**
+ * ¿La pieza se convertirá antes de que arranque el período de su matriz? Entonces el
+ * requerimiento entrará al ciclo vigente de ese momento —el anterior— y consumirá su cupo.
+ */
+export function convertsBeforePeriodStart(
+  item: Pick<ContentMatrixItem, 'deadline'>,
+  matrix: Pick<ContentMatrix, 'period_start' | 'lead_days'>,
+): boolean {
+  return addDaysString(item.deadline, -matrix.lead_days) < matrix.period_start
 }
 
 // ── Tipos de resultado para server actions (viven aquí porque un archivo
