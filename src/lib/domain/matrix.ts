@@ -1,7 +1,9 @@
-import type { BillingCycle, BillingPeriod, ContentMatrixItem, ContentType, MatrixObjective, MatrixStatus, Plan, Requirement } from '@/types/db'
-import { dominantCycleMonth, computeTotals } from './requirement'
+import type { BillingCycle, BillingPeriod, ContentMatrixItem, ContentType, MatrixObjective, MatrixStatus, Plan, Requirement, WeeklyDistribution } from '@/types/db'
+import { WEEKS_BASE, WEEKS_BIMONTHLY } from '@/types/db'
+import { dominantCycleMonth, computeTotals, weekIndexInCycle } from './requirement'
 import { firstCycleDates, nextCycleDates, currentCycleDates } from './cycles'
 import type { DateString } from './dates'
+import { addDaysString } from './dates'
 import { formatDeadlineDate } from './deadline'
 import { effectiveLimits, applyContentLimitsWithOverride, limitsToRecord, TIPPABLE_CONTENT_TYPES, CONTENT_TYPES } from './plans'
 
@@ -199,4 +201,51 @@ export function computeMatrixUsage(items: UsageItem[], ml: MatrixLimits): Matrix
   })
 
   return { byType, pool, overPlanItemIds, activeTypes }
+}
+
+// ── Fecha propuesta ─────────────────────────────────────────────────────────
+
+/**
+ * Límites que alimentan la distribución semanal. Bajo pool unificado los tippables
+ * tienen límite individual 0, así que se les asigna el pool para que `augmentDistribution`
+ * les dé presupuesto; `proposeDeadline` los cuenta juntos vía `sharedTypes`.
+ */
+export function limitsForDistribution(ml: MatrixLimits): Record<ContentType, number> {
+  if (ml.unifiedPool == null) return ml.limits
+  const out = { ...ml.limits }
+  for (const t of TIPPABLE_CONTENT_TYPES) out[t] = ml.unifiedPool
+  return out
+}
+
+export interface ProposeDeadlineInput {
+  contentType: ContentType
+  items: Pick<ContentMatrixItem, 'content_type' | 'deadline'>[]
+  distribution: WeeklyDistribution
+  periodStart: DateString
+  periodEnd: DateString
+  maxWeek: 4 | 8
+  /** Tipos que comparten presupuesto semanal (pool). Si incluye contentType, `used` los cuenta todos. */
+  sharedTypes?: ContentType[]
+}
+
+export function proposeDeadline(input: ProposeDeadlineInput): DateString {
+  const weeks = input.maxWeek === 8 ? WEEKS_BIMONTHLY : WEEKS_BASE
+  const family: ContentType[] = input.sharedTypes?.includes(input.contentType) ? input.sharedTypes : [input.contentType]
+
+  const usedByWeek = new Map<number, number>()
+  for (const it of input.items) {
+    if (!family.includes(it.content_type)) continue
+    // new Date(iso) → medianoche UTC, igual que el new Date(periodStart) interno de weekIndexInCycle
+    const w = weekIndexInCycle(new Date(it.deadline), input.periodStart, input.maxWeek)
+    usedByWeek.set(w, (usedByWeek.get(w) ?? 0) + 1)
+  }
+
+  let chosen: number = input.maxWeek
+  for (let w = 1; w <= input.maxWeek; w++) {
+    const budget = input.distribution[weeks[w - 1]]?.[input.contentType] ?? 0
+    if ((usedByWeek.get(w) ?? 0) < budget) { chosen = w; break }
+  }
+
+  const candidate = addDaysString(input.periodStart, (chosen - 1) * 7 + 2)
+  return candidate > input.periodEnd ? input.periodEnd : candidate
 }

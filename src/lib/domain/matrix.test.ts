@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { computeTargetPeriods, matrixTitleFor, periodLabel, resolveMatrixLimits, computeMatrixUsage, usageTone } from './matrix'
+import { computeTargetPeriods, matrixTitleFor, periodLabel, resolveMatrixLimits, computeMatrixUsage, usageTone, proposeDeadline, limitsForDistribution } from './matrix'
 import type { MatrixLimits } from './matrix'
 import type { BillingCycle, Plan, Requirement } from '@/types/db'
+import { buildEffectiveDistribution } from './weekly-distribution'
+import { WEEKS_BIMONTHLY } from '@/types/db'
 
 describe('computeTargetPeriods', () => {
   it('con ciclo vigente mensual encadena 4 períodos', () => {
@@ -157,5 +159,55 @@ describe('usageTone', () => {
     expect(usageTone(3, 2, 0)).toBe('over')
     expect(usageTone(3, 2, 1)).toBe('neutral')
     expect(usageTone(1, 2, 0)).toBe('neutral')
+  })
+})
+
+describe('proposeDeadline', () => {
+  const dist = { S1: { estatico: 1 }, S2: { estatico: 1 }, S3: {}, S4: { estatico: 1 } }
+  const period = { periodStart: '2026-10-15', periodEnd: '2026-11-14', maxWeek: 4 as const }
+
+  it('primera semana con hueco → inicio + 2 días', () => {
+    expect(proposeDeadline({ contentType: 'estatico', items: [], distribution: dist, ...period })).toBe('2026-10-17')
+  })
+  it('S1 ocupada → S2', () => {
+    const items = [{ content_type: 'estatico' as const, deadline: '2026-10-16' }]
+    expect(proposeDeadline({ contentType: 'estatico', items, distribution: dist, ...period })).toBe('2026-10-24')
+  })
+  it('sin hueco en ninguna → última semana', () => {
+    const items = [
+      { content_type: 'estatico' as const, deadline: '2026-10-16' },
+      { content_type: 'estatico' as const, deadline: '2026-10-23' },
+      { content_type: 'estatico' as const, deadline: '2026-11-06' },
+    ]
+    expect(proposeDeadline({ contentType: 'estatico', items, distribution: dist, ...period })).toBe('2026-11-07')
+  })
+  it('recorta a period_end (quincenal con 4 semanas)', () => {
+    const r = proposeDeadline({ contentType: 'reel', items: [], distribution: {}, periodStart: '2026-09-01', periodEnd: '2026-09-14', maxWeek: 4 })
+    expect(r).toBe('2026-09-14')
+  })
+  it('tipos compartidos (pool) cuentan juntos en la semana', () => {
+    const d = { S1: { estatico: 1, reel: 1 }, S2: { estatico: 1, reel: 1 }, S3: {}, S4: {} }
+    const items = [{ content_type: 'reel' as const, deadline: '2026-10-16' }]
+    const r = proposeDeadline({ contentType: 'estatico', items, distribution: d, ...period, sharedTypes: ['estatico', 'video_corto', 'reel', 'short'] })
+    expect(r).toBe('2026-10-24')
+  })
+  it('8 semanas: propone en S5..S8 cuando la distribución las trae', () => {
+    const limits = { historia: 0, estatico: 8, video_corto: 0, reel: 0, short: 0, produccion: 0, reunion: 0, matriz_contenido: 1 }
+    const d = buildEffectiveDistribution({ clientDistribution: null, planDistribution: null, pipelineTypes: ['estatico'], limits, weeks: WEEKS_BIMONTHLY })
+    const items = ['2026-09-02', '2026-09-09', '2026-09-16', '2026-09-23'].map((deadline) => ({ content_type: 'estatico' as const, deadline }))
+    const r = proposeDeadline({ contentType: 'estatico', items, distribution: d, periodStart: '2026-09-01', periodEnd: '2026-10-30', maxWeek: 8 })
+    expect(r).toBe('2026-10-01')
+  })
+})
+
+describe('limitsForDistribution', () => {
+  it('sin pool devuelve los límites tal cual', () => {
+    expect(limitsForDistribution(baseML)).toEqual(baseML.limits)
+  })
+  it('con pool asigna el pool a cada tippable', () => {
+    const r = limitsForDistribution({ ...baseML, unifiedPool: 10 })
+    expect(r.estatico).toBe(10)
+    expect(r.short).toBe(10)
+    expect(r.historia).toBe(baseML.limits.historia)
   })
 })
