@@ -21,12 +21,25 @@ export type ConvertOutcome =
   // o fallo transitorio (se reintenta al día siguiente, sin marcar la pieza).
   | { kind: 'skipped'; reason: string }
 
-/** Requerimientos del ciclo ya leídos en esta corrida, por `billing_cycle_id`. */
-export type CycleRequirementsCache = Map<string, Requirement[]>
+/**
+ * Lo ya leído en esta corrida, para no repetir viajes a la base pieza por pieza: el ciclo vigente
+ * por cliente (`null` = ese cliente no tiene ciclo vigente, también se cachea) y los requerimientos
+ * aprobados por `billing_cycle_id`. Un lote de 80 piezas suele ser de un puñado de clientes.
+ */
+export interface CycleRequirementsCache {
+  cycles: Map<string, BillingCycle | null>
+  requirements: Map<string, Requirement[]>
+}
+
+export function createConvertCache(): CycleRequirementsCache {
+  return { cycles: new Map(), requirements: new Map() }
+}
 
 const REASON_BUSY = 'La pieza ya no está disponible para convertir.'
 const REASON_NOT_APPROVED = 'La matriz no está aprobada.'
 const NO_CYCLE = 'El cliente no tiene ciclo vigente.'
+const ORPHAN_REQUIREMENT = 'Requerimiento huérfano: revisar en el pipeline.'
+const NO_INSERT = 'No se pudo registrar el requerimiento.'
 const BLOCKED_REASON_MAX = 500
 
 type ItemWithMatrix = ContentMatrixItem & { matrix: ContentMatrix }
@@ -51,18 +64,25 @@ export async function convertMatrixItem(
   if (matrix.status !== 'approved') return { kind: 'skipped', reason: REASON_NOT_APPROVED }
 
   // 2. Ciclo vigente del cliente (decisión de diseño: SIEMPRE el vigente, no el del período)
-  const { data: cycles, error: cycleErr } = await db
-    .from('billing_cycles').select('*')
-    .eq('client_id', matrix.client_id).eq('status', 'current')
-    .order('created_at', { ascending: false }).limit(1)
-  if (cycleErr) return { kind: 'skipped', reason: cycleErr.message }
-  const cycle = (cycles?.[0] as BillingCycle | undefined) ?? null
+  let cycle: BillingCycle | null
+  const cachedCycles = opts.cache?.cycles
+  if (cachedCycles?.has(matrix.client_id)) {
+    cycle = cachedCycles.get(matrix.client_id) ?? null
+  } else {
+    const { data: cycles, error: cycleErr } = await db
+      .from('billing_cycles').select('*')
+      .eq('client_id', matrix.client_id).eq('status', 'current')
+      .order('created_at', { ascending: false }).limit(1)
+    if (cycleErr) return { kind: 'skipped', reason: cycleErr.message }
+    cycle = (cycles?.[0] as BillingCycle | undefined) ?? null
+    cachedCycles?.set(matrix.client_id, cycle)
+  }
   if (!cycle) return await markBlocked(db, itemId, NO_CYCLE)
 
   // 3. Fuera de cupo — misma cadena que el registro manual, pool unificado incluido. Sin
   //    `applyUnifiedPool`, en un plan con pool los límites por tipo valen 0 en el snapshot y
   //    TODA pieza nacería `over_limit: true`.
-  let cycleReqs = opts.cache?.get(cycle.id)
+  let cycleReqs = opts.cache?.requirements.get(cycle.id)
   if (!cycleReqs) {
     // `.eq('approval_status','approved')`: computeTotals no filtra por aprobación, y sin esto las
     // solicitudes `pending` del portal contarían como cupo ya consumido.
@@ -70,7 +90,7 @@ export async function convertMatrixItem(
       .eq('billing_cycle_id', cycle.id).eq('approval_status', 'approved')
     if (error) return { kind: 'skipped', reason: error.message }
     cycleReqs = (data ?? []) as Requirement[]
-    opts.cache?.set(cycle.id, cycleReqs)
+    opts.cache?.requirements.set(cycle.id, cycleReqs)
   }
   const totals = computeTotals(cycleReqs)
   const limits = applyUnifiedPool(
@@ -100,9 +120,17 @@ export async function convertMatrixItem(
     requested_via: 'staff',
     notes: null,
   }).select('*').single()
-  // El trigger requirements_check_week_payment_trg rechaza aquí si la semana no está pagada o el
-  // cliente está suspendido; su mensaje ya viene en español y se guarda tal cual.
-  if (insertErr || !req) return await markBlocked(db, itemId, insertErr?.message ?? 'No se pudo registrar el requerimiento.')
+  if (insertErr || !req) {
+    const code = insertErr?.code
+    // Solo los errores de negocio bloquean: el candado de pago del trigger
+    // requirements_check_week_payment_trg (P0001: semana impaga, cliente suspendido — mensaje ya en
+    // español, se guarda tal cual) y el ciclo inexistente (23503). Cualquier otro (red, timeout,
+    // 5xx) se reintenta mañana, porque a una pieza `blocked` ya no la vuelve a mirar el barrido.
+    if (code === 'P0001' || code === '23503') {
+      return await markBlocked(db, itemId, insertErr?.message ?? NO_INSERT)
+    }
+    return { kind: 'skipped', reason: insertErr?.message ?? NO_INSERT }
+  }
 
   // 5. Log inicial de fase (igual que el registro manual)
   await insertInitialPhaseLog(db, { requirementId: req.id, movedBy: registeredBy })
@@ -113,11 +141,14 @@ export async function convertMatrixItem(
     .eq('id', itemId).in('status', ['planned', 'blocked'])
     .select('id')
   if (updErr || !updated || updated.length === 0) {
-    await rollbackRequirement(req.id, cycle.id, opts.cache)
+    const rolledBack = await rollbackRequirement(req as Requirement, cycle.id, opts.cache)
+    // Si el rollback no pudo borrar, quedó un requerimiento vivo sin pieza: se distingue en el
+    // resumen de la corrida para que alguien lo revise a mano.
+    if (!rolledBack) return { kind: 'skipped', reason: ORPHAN_REQUIREMENT }
     return { kind: 'skipped', reason: updErr?.message ?? REASON_BUSY }
   }
 
-  opts.cache?.set(cycle.id, [...cycleReqs, req as Requirement])
+  opts.cache?.requirements.set(cycle.id, [...cycleReqs, req as Requirement])
   return { kind: 'converted', requirementId: req.id }
 }
 
@@ -135,12 +166,19 @@ async function markBlocked(db: Db, itemId: string, reason: string): Promise<Conv
  * Borra el requerimiento recién creado. SIEMPRE con el cliente admin: `requirements` tiene RLS y
  * no existe policy `for delete`, así que un delete autenticado devolvería 0 filas sin error y
  * dejaría un requerimiento huérfano consumiendo cupo. `requirement_phase_logs` cae por cascade.
+ *
+ * Devuelve `false` si el borrado falló: el requerimiento quedó huérfano y hay que revisarlo.
  */
-async function rollbackRequirement(reqId: string, cycleId: string, cache?: CycleRequirementsCache): Promise<void> {
+async function rollbackRequirement(req: Requirement, cycleId: string, cache?: CycleRequirementsCache): Promise<boolean> {
   const admin = createAdminClient()
-  const { error } = await admin.from('requirements').delete().eq('id', reqId)
-  if (error) console.error('[matrix-convert] rollback falló', reqId, error.message)
-  if (!cache) return
-  const cached = cache.get(cycleId)
-  if (cached) cache.set(cycleId, cached.filter((r) => r.id !== reqId))
+  const { error } = await admin.from('requirements').delete().eq('id', req.id)
+  if (error) console.error('[matrix-convert] rollback falló', req.id, error.message)
+  const cached = cache?.requirements.get(cycleId)
+  if (cached) {
+    // Si el borrado falló el requerimiento sigue vivo y sigue consumiendo cupo: se deja en el caché
+    // para que la pieza siguiente del mismo ciclo lo cuente.
+    const next = error ? [...cached.filter((r) => r.id !== req.id), req] : cached.filter((r) => r.id !== req.id)
+    cache?.requirements.set(cycleId, next)
+  }
+  return !error
 }

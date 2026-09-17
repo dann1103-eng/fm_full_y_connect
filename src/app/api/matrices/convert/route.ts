@@ -7,7 +7,7 @@
  */
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { convertMatrixItem, type CycleRequirementsCache } from '@/lib/data/matrix-convert'
+import { convertMatrixItem, createConvertCache } from '@/lib/data/matrix-convert'
 import { selectItemsToConvert, CATCHUP_DAYS, type ConvertibleMatrix } from '@/lib/domain/matrix'
 import { today, addDaysString } from '@/lib/domain/dates'
 
@@ -19,6 +19,14 @@ export const maxDuration = 60
 const WINDOW_DAYS = 30
 const SCAN_LIMIT = 300
 const CONVERT_LIMIT = 80
+/**
+ * Presupuesto de tiempo, 15 s por debajo de `maxDuration`. Cada conversión son 4–6 viajes a la
+ * base, así que 80 piezas pueden pasarse de los 60 s. Si la plataforma matara la función entre el
+ * insert del requerimiento y el update de la pieza, el requerimiento quedaría vivo con la pieza
+ * todavía `planned` y el barrido de mañana crearía un SEGUNDO requerimiento (el índice único no lo
+ * ataja: el id es distinto). Mejor cortar limpio y dejar el resto para la corrida siguiente.
+ */
+const TIME_BUDGET_MS = 45_000
 
 function isAuthorized(request: Request): boolean {
   const cronSecret = process.env.CRON_SECRET
@@ -61,22 +69,45 @@ export async function POST(request: Request) {
   const matrices = new Map<string, ConvertibleMatrix>(rows.map((r) => [r.matrix_id, r.matrix]))
   const selected = selectItemsToConvert(rows, matrices, t, CONVERT_LIMIT)
 
-  const cache: CycleRequirementsCache = new Map()
+  const cache = createConvertCache()
   const details: Array<{ id: string; kind: string; reason?: string }> = []
-  let converted = 0, blocked = 0, skipped = 0
+  let converted = 0, blocked = 0, skipped = 0, processed = 0
+  let stoppedEarly = false
+  const until = new Date().getTime() + TIME_BUDGET_MS
 
   // Secuencial a propósito: en paralelo dos piezas del mismo ciclo calcularían el cupo sobre el
   // mismo estado y ambas nacerían dentro de plan.
   for (const it of selected) {
-    const r = await convertMatrixItem(admin, it.id, { cache })
+    if (new Date().getTime() > until) { stoppedEarly = true; break }
+    let r: Awaited<ReturnType<typeof convertMatrixItem>>
+    try {
+      r = await convertMatrixItem(admin, it.id, { cache })
+    } catch (e) {
+      // Un throw inesperado no puede tumbar la corrida entera y perder los contadores.
+      const message = e instanceof Error ? e.message : String(e)
+      console.error('[matrices/convert] excepción convirtiendo', it.id, message)
+      r = { kind: 'skipped', reason: message }
+    }
+    processed++
     if (r.kind === 'converted') converted++
     else if (r.kind === 'blocked') blocked++
     else skipped++
     if (details.length < 50) details.push({ id: it.id, kind: r.kind, reason: 'reason' in r ? r.reason : undefined })
   }
 
-  console.log(`[matrices/convert] ${t} scanned=${rows.length} selected=${selected.length} converted=${converted} blocked=${blocked} skipped=${skipped}`)
-  return NextResponse.json({ ok: true, today: t, scanned: rows.length, selected: selected.length, converted, blocked, skipped, details })
+  const remaining = selected.length - processed
+  const summary = `scanned=${rows.length} selected=${selected.length} converted=${converted} blocked=${blocked} skipped=${skipped} stoppedEarly=${stoppedEarly} remaining=${remaining}`
+  console.log(`[matrices/convert] ${t} ${summary}`)
+  // Una corrida donde no se convirtió nada teniendo piezas elegibles es señal de que algo va mal.
+  if (selected.length > 0 && converted === 0) console.error(`[matrices/convert] ninguna conversión ${t} ${summary}`)
+
+  return NextResponse.json({
+    ok: true, today: t, scanned: rows.length, selected: selected.length,
+    converted, blocked, skipped,
+    stopped_early: stoppedEarly, remaining,
+    truncated: details.length < selected.length,
+    details,
+  })
 }
 
 // Vercel Cron manda GET.
