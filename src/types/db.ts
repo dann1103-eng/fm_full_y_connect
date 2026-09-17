@@ -11,6 +11,13 @@ export type AdminCategory =
 /** Estado de una tarea asignada (assigned_tasks). */
 export type TaskStatus = 'pending' | 'in_progress' | 'done' | 'cancelled'
 
+/** Estado de una matriz de contenido (content_matrices). */
+export type MatrixStatus = 'draft' | 'approved' | 'closed'
+/** Estado de una pieza de matriz. 'converted' y 'blocked' se usan desde el bloque 2. */
+export type MatrixItemStatus = 'planned' | 'converted' | 'blocked'
+export type MatrixObjective = 'venta' | 'alcance' | 'educacion' | 'comunidad' | 'otro'
+export interface MatrixTopic { name: string; note?: string }
+
 export type ContentType =
   | 'historia'
   | 'estatico'
@@ -1170,6 +1177,162 @@ export interface Database {
           }
         ]
       }
+      content_matrices: {
+        Row: {
+          id: string
+          client_id: string
+          period_start: string
+          period_end: string
+          billing_cycle_id: string | null
+          title: string
+          status: MatrixStatus
+          topics_json: MatrixTopic[]
+          notes: string | null
+          lead_days: number
+          matrix_requirement_id: string | null
+          created_by: string
+          approved_by: string | null
+          approved_at: string | null
+          closed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          client_id: string
+          period_start: string
+          period_end: string
+          billing_cycle_id?: string | null
+          title?: string
+          status?: MatrixStatus
+          topics_json?: MatrixTopic[]
+          notes?: string | null
+          lead_days?: number
+          matrix_requirement_id?: string | null
+          created_by: string
+          approved_by?: string | null
+          approved_at?: string | null
+          closed_at?: string | null
+        }
+        Update: {
+          billing_cycle_id?: string | null
+          title?: string
+          status?: MatrixStatus
+          topics_json?: MatrixTopic[]
+          notes?: string | null
+          lead_days?: number
+          matrix_requirement_id?: string | null
+          approved_by?: string | null
+          approved_at?: string | null
+          closed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'content_matrices_client_id_fkey'
+            columns: ['client_id']
+            isOneToOne: false
+            referencedRelation: 'clients'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'content_matrices_billing_cycle_id_fkey'
+            columns: ['billing_cycle_id']
+            isOneToOne: false
+            referencedRelation: 'billing_cycles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'content_matrices_matrix_requirement_id_fkey'
+            columns: ['matrix_requirement_id']
+            isOneToOne: false
+            referencedRelation: 'requirements'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'content_matrices_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'content_matrices_approved_by_fkey'
+            columns: ['approved_by']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      content_matrix_items: {
+        Row: {
+          id: string
+          matrix_id: string
+          content_type: ContentType
+          title: string
+          topic: string | null
+          objective: MatrixObjective | null
+          copy: string | null
+          script: string | null
+          visual_style: string | null
+          hashtags: string | null
+          cta: string | null
+          deadline: string
+          needs_production: boolean
+          status: MatrixItemStatus
+          requirement_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          matrix_id: string
+          content_type: ContentType
+          title?: string
+          topic?: string | null
+          objective?: MatrixObjective | null
+          copy?: string | null
+          script?: string | null
+          visual_style?: string | null
+          hashtags?: string | null
+          cta?: string | null
+          deadline: string
+          needs_production?: boolean
+          status?: MatrixItemStatus
+          requirement_id?: string | null
+        }
+        Update: {
+          content_type?: ContentType
+          title?: string
+          topic?: string | null
+          objective?: MatrixObjective | null
+          copy?: string | null
+          script?: string | null
+          visual_style?: string | null
+          hashtags?: string | null
+          cta?: string | null
+          deadline?: string
+          needs_production?: boolean
+          status?: MatrixItemStatus
+          requirement_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'content_matrix_items_matrix_id_fkey'
+            columns: ['matrix_id']
+            isOneToOne: false
+            referencedRelation: 'content_matrices'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'content_matrix_items_requirement_id_fkey'
+            columns: ['requirement_id']
+            isOneToOne: false
+            referencedRelation: 'requirements'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       app_settings: {
         Row: {
           key: string
@@ -2283,6 +2446,8 @@ export type RequirementCambioLog = Database['public']['Tables']['requirement_cam
 export type RequirementMessage = Database['public']['Tables']['requirement_messages']['Row']
 export type TimeEntry = Database['public']['Tables']['time_entries']['Row']
 export type AssignedTask = Database['public']['Tables']['assigned_tasks']['Row']
+export type ContentMatrix = Database['public']['Tables']['content_matrices']['Row']
+export type ContentMatrixItem = Database['public']['Tables']['content_matrix_items']['Row']
 export type Conversation = Database['public']['Tables']['conversations']['Row']
 export type ConversationMember = Database['public']['Tables']['conversation_members']['Row']
 export type Message = Database['public']['Tables']['messages']['Row']
