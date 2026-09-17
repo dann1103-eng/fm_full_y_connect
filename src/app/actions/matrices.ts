@@ -10,7 +10,7 @@ import { computeTotals } from '@/lib/domain/requirement'
 import { insertInitialPhaseLog } from '@/lib/domain/pipeline'
 import { today, addDaysString } from '@/lib/domain/dates'
 import {
-  canTransition, isIsoDate, matrixTitleFor, pickCycleForPeriod, sanitizeTopics, validateForApproval, validateItemPatch,
+  canCreateMatrixForClient, canTransition, isIsoDate, matrixTitleFor, pickCycleForPeriod, sanitizeTopics, validateForApproval, validateItemPatch,
   proposeDeadline, shiftDeadline, MATRIX_CONTENT_TYPES, MATRIX_TEXT_LIMITS,
   type ActionErr, type ActionResult, type LinkResult, type ApprovalProblem, type ItemPatch,
 } from '@/lib/domain/matrix'
@@ -115,6 +115,17 @@ async function validateTargetPeriod(ctx: Ctx, clientId: string, period: { period
   if (!r.value) return { ok: false, error: 'Cliente no encontrado.' }
   const match = r.value.periods.some((p) => p.periodStart === period.periodStart && p.periodEnd === period.periodEnd)
   return match ? null : { ok: false, error: INVALID_PERIOD }
+}
+
+/** No se pueden crear (ni duplicar) matrices para un cliente suspendido o inactivo. */
+async function assertClientCreatable(ctx: Ctx, clientId: string): Promise<ActionErr | null> {
+  const { data, error } = await ctx.supabase.from('clients').select('status').eq('id', clientId).maybeSingle()
+  if (error) return { ok: false, error: dbError(error, 'No se pudo verificar el estado del cliente.') }
+  if (!data) return { ok: false, error: 'Cliente no encontrado.' }
+  if (!canCreateMatrixForClient(data.status)) {
+    return { ok: false, error: 'No se pueden crear matrices para un cliente suspendido o inactivo.' }
+  }
+  return null
 }
 
 /** billing_cycle_id de una matriz nueva: ciclo current o scheduled con ese period_start (current gana). */
@@ -236,6 +247,9 @@ export async function createMatrix(input: {
   if (!title.ok) return title
   const notes = textField(input.notes, NOTES_MAX, 'Las notas son demasiado largas.')
   if (!notes.ok) return notes
+
+  const creatableError = await assertClientCreatable(ctx, input.clientId)
+  if (creatableError) return creatableError
 
   const periodError = await validateTargetPeriod(ctx, input.clientId, input)
   if (periodError) return periodError
@@ -592,6 +606,8 @@ export async function duplicateMatrix(sourceId: string, target: { periodStart: s
   if (target.periodStart === src.period_start) {
     return { ok: false, error: 'Elige un período distinto al de la matriz original.' }
   }
+  const creatableError = await assertClientCreatable(ctx, src.client_id)
+  if (creatableError) return creatableError
   const periodError = await validateTargetPeriod(ctx, src.client_id, target)
   if (periodError) return periodError
 

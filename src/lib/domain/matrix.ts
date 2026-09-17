@@ -1,4 +1,4 @@
-import type { BillingCycle, BillingPeriod, ContentMatrixItem, ContentType, CycleStatus,MatrixObjective, MatrixStatus, MatrixTopic, Plan, Requirement, WeeklyDistribution } from '@/types/db'
+import type { BillingCycle, BillingPeriod, ClientStatus, ContentMatrixItem, ContentType, CycleStatus,MatrixObjective, MatrixStatus, MatrixTopic, Plan, Requirement, WeeklyDistribution } from '@/types/db'
 import { WEEKS_BASE, WEEKS_BIMONTHLY } from '@/types/db'
 import { computeTotals, weekIndexInCycle } from './requirement'
 import { firstCycleDates, nextCycleDates, currentCycleDates } from './cycles'
@@ -20,6 +20,13 @@ export const MATRIX_OBJECTIVE_LABELS: Record<MatrixObjective, string> = {
 
 export const MATRIX_STATUS_LABELS: Record<MatrixStatus, string> = {
   draft: 'Borrador', approved: 'Aprobada', closed: 'Cerrada',
+}
+
+/** Estados de cliente para los que se puede crear una matriz (diálogo y acciones de servidor). */
+export const MATRIX_CREATABLE_CLIENT_STATUSES: ClientStatus[] = ['active', 'paused', 'overdue']
+
+export function canCreateMatrixForClient(status: ClientStatus): boolean {
+  return (MATRIX_CREATABLE_CLIENT_STATUSES as ClientStatus[]).includes(status)
 }
 
 const MONTHS_ES = [

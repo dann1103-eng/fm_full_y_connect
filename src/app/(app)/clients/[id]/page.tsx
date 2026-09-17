@@ -263,15 +263,18 @@ export default async function ClientDetailPage({
   const cycle = currentCycle as BillingCycle | null
   const reqs = (requirements ?? []) as Requirement[]
   const totals = computeTotals(reqs)
-  const credits = await listClientCredits(id)
-  let clientMatrices: Awaited<ReturnType<typeof loadClientMatrices>> | null = null
-  if (canCreate) {
-    try {
-      clientMatrices = await loadClientMatrices(supabase, client, cycle)
-    } catch (e) {
-      console.error('[ClientDetailPage] loadClientMatrices error:', e)
-    }
-  }
+  // En paralelo: son consultas independientes. loadClientMatrices puede lanzar si la migración 0129 no
+  // está aplicada — se atrapa en la propia promesa (no con try/catch secuencial) para no bloquear credits.
+  const clientMatricesPromise: Promise<Awaited<ReturnType<typeof loadClientMatrices>> | null> = canCreate
+    ? loadClientMatrices(supabase, client, cycle).catch((e: unknown) => {
+        console.error('[ClientDetailPage] loadClientMatrices error:', e)
+        return null
+      })
+    : Promise.resolve(null)
+  const [credits, clientMatrices] = await Promise.all([
+    listClientCredits(id),
+    clientMatricesPromise,
+  ])
   const baseLimits = cycle
     ? effectiveLimits(cycle.limits_snapshot_json, cycle.rollover_from_previous_json)
     : null

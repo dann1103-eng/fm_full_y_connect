@@ -3,12 +3,10 @@
 import { useMemo, useState } from 'react'
 import type { Client } from '@/types/db'
 import type { MatrixListRow, MissingMatrix } from '@/lib/data/matrices'
+import { canCreateMatrixForClient } from '@/lib/domain/matrix'
 import { MissingMatricesPanel } from './MissingMatricesPanel'
 import { MatricesTable } from './MatricesTable'
 import { NewMatrixDialog } from './NewMatrixDialog'
-
-/** Estados de cliente a los que se les puede crear una matriz desde el diálogo. */
-const CREATABLE_STATUSES: Client['status'][] = ['active', 'paused', 'overdue']
 
 interface Props {
   rows: MatrixListRow[]
@@ -19,7 +17,7 @@ interface Props {
 
 export function MatricesPageClient({ rows, missing, clients }: Props) {
   const [dialog, setDialog] = useState<{ open: boolean; clientId?: string; periodStart?: string }>({ open: false })
-  const creatableClients = useMemo(() => clients.filter((c) => CREATABLE_STATUSES.includes(c.status)), [clients])
+  const creatableClients = useMemo(() => clients.filter((c) => canCreateMatrixForClient(c.status)), [clients])
   return (
     <>
       <div className="flex items-center justify-between gap-3 flex-wrap">

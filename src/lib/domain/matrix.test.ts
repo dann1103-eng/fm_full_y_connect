@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeTargetPeriods, matrixTitleFor, periodLabel, resolveMatrixLimits, computeMatrixUsage, usageTone, proposeDeadline, limitsForDistribution, canTransition, validateForApproval, validateItemPatch, shiftDeadline, sanitizeTopics, compareMatrixItems, isIsoDate, pickCycleForPeriod } from './matrix'
+import { computeTargetPeriods, matrixTitleFor, periodLabel, resolveMatrixLimits, computeMatrixUsage, usageTone, proposeDeadline, limitsForDistribution, canTransition, validateForApproval, validateItemPatch, shiftDeadline, sanitizeTopics, compareMatrixItems, isIsoDate, pickCycleForPeriod, canCreateMatrixForClient } from './matrix'
 import type { MatrixLimits } from './matrix'
 import type { BillingCycle, MatrixTopic, Plan, Requirement } from '@/types/db'
 import { buildEffectiveDistribution } from './weekly-distribution'
@@ -387,5 +387,18 @@ describe('pickCycleForPeriod', () => {
       c('medio', 'scheduled', '2026-09-01T23:00:00+00:00'),
     ]
     expect(pickCycleForPeriod(cycles)?.id).toBe('nuevo')
+  })
+})
+
+describe('canCreateMatrixForClient', () => {
+  it('permite active, paused y overdue', () => {
+    expect(canCreateMatrixForClient('active')).toBe(true)
+    expect(canCreateMatrixForClient('paused')).toBe(true)
+    expect(canCreateMatrixForClient('overdue')).toBe(true)
+  })
+
+  it('bloquea inactive_payment e inactive_manual', () => {
+    expect(canCreateMatrixForClient('inactive_payment')).toBe(false)
+    expect(canCreateMatrixForClient('inactive_manual')).toBe(false)
   })
 })
