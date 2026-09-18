@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { whatsappReplyHandler } from './handlers/whatsappReply'
 import { whatsappTemplateHandler } from './handlers/whatsappTemplate'
 import { invoiceDueReminderHandler } from './handlers/invoiceDueReminder'
+import { matrixGenerateHandler } from './handlers/matrixGenerate'
 import type { AiHandler, AiHandlerCtx, AiJobRow } from './types'
 
 /**
@@ -16,6 +17,9 @@ const HANDLERS: Record<string, AiHandler> = {
   // No lleva prefijo whatsapp_ a propósito: así el runner le pasa el cliente
   // TIPADO (invoices/clients) y el handler instancia el de wa_* por su cuenta.
   invoice_due_reminder: invoiceDueReminderHandler as AiHandler,
+  // Tampoco llevan prefijo whatsapp_: los dos jobs de matriz escriben en tablas tipadas con su
+  // propio admin client (bloque 3).
+  matrix_generate: matrixGenerateHandler as AiHandler,
 }
 
 /**
