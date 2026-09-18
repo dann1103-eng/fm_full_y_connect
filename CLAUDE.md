@@ -372,7 +372,7 @@ Las violaciones de FK (RESTRICT) **no producen excepción** — retornan `{ erro
 - **EasyPanel:** descartado — el contenedor app está detenido. La VPS de Hostinger se mantiene apagada / o eventualmente para borrar.
 - **Vercel Observability Plus:** desactivado (excluido el proyecto) para evitar el cargo grande por Observability Events. Logs siguen en `vercel logs` y panel Functions.
 
-## Migraciones aplicadas (0001–0129)
+## Migraciones aplicadas (0001–0130)
 | # | Contenido |
 |---|-----------|
 | 0001–0006 | Schema inicial, pipeline base, reuniones, campos de clientes |
@@ -447,18 +447,9 @@ Las violaciones de FK (RESTRICT) **no producen excepción** — retornan `{ erro
 | 0127 | **Bot envía el PDF de facturas**: habilita la tool `send_invoice_document` (audience `client`) + guía de prompt. Envía como mensaje libre (ventana de 24h abierta), no plantilla. |
 | 0128 | **Aviso de ventana de 24h por cerrar**: `users.notify_wa_window` (bool, default false). Solo quienes lo tienen activo reciben la notificación de conversaciones sin contestar cuya ventana de WhatsApp está por vencer. Seed por nombre (laura/samuel) — **verificar a quién le pegó**. Se activa/desactiva con un `update` sin redeploy. |
 | 0129 | **Creador de matrices (bloque 1)**: `content_matrices` (una por cliente + `period_start`, `unique(client_id, period_start)`, estados `draft`/`approved`/`closed`, `topics_json` con `check (jsonb_typeof(topics_json)='array')`, `lead_days`, `matrix_requirement_id`) y `content_matrix_items` (piezas: tipo, título, tema, objetivo, copy, guión, estilo visual, hashtags, CTA, deadline, `needs_production`; `status`/`requirement_id`/`blocked_reason`/`converted_at` reservados para el bloque 2). Índices **únicos** parciales en el vínculo al requerimiento (`content_matrices_matrix_requirement_uq`, `content_matrix_items_requirement_uq`: una matriz por requerimiento de matriz, una pieza por requerimiento) e índice parcial en piezas `planned`. Checks de longitud `*_len_chk` con los topes de `MATRIX_TEXT_LIMITS` (tema 60). `set local lock_timeout='5s'` antes de los `create table`. RLS: una sola policy `for all` por tabla para `role in ('admin','supervisor')` (equivale a las 4 policies separadas). |
+| 0130 | **Creador de matrices (bloque 2)**: `content_matrix_items` gana `assigned_to` (`uuid[]`, responsables de la pieza, se copian al requerimiento al convertir), `estimated_time_minutes` (`integer`, con constraint **con nombre** `content_matrix_items_est_minutes_chk`: `null` o entre 1 y 10080 — 7 días) y `blocked_at` (`timestamptz`, momento del bloqueo: `updated_at` lo pisa cualquier edición del brief, así que no puede fechar ni ordenar el aviso). Índice parcial `content_matrix_items_blocked_idx` sobre `(blocked_at desc nulls last, id desc) where status = 'blocked'` — el `nulls last` y el desempate por `id` son obligatorios: replican exactamente el `order` del query de `/api/notifications` (`desc` implica `nulls first`, así que sin ellos Postgres no podría usar el índice para ordenar). Cierra con un **backfill idempotente** que data con `updated_at` las piezas ya `blocked` sin `blocked_at`. Todo dentro de una transacción con `set local lock_timeout = '5s'` (convención de 0129). |
 
 > La rama asume que `content_matrices`/`content_matrix_items` existen. En un entorno donde 0129 no esté aplicada, `/matrices` y `/matrices/[id]` muestran el error boundary de `src/app/(app)/error.tsx`; la tarjeta del perfil (`ClientMatricesCard`) está guardada con un `.catch()` sobre `loadClientMatrices` en `clients/[id]/page.tsx` y simplemente no aparece.
-
-### Pendiente de aplicar
-| # | Contenido |
-|---|-----------|
-| 0130 | **Creador de matrices (bloque 2)** — `content_matrix_items` gana `assigned_to` (`uuid[]`, responsables de la pieza, se copian al requerimiento al convertir), `estimated_time_minutes` (`integer`, con constraint **con nombre** `content_matrix_items_est_minutes_chk`: `null` o entre 1 y 10080 — 7 días) y `blocked_at` (`timestamptz`, momento del bloqueo: `updated_at` lo pisa cualquier edición del brief, así que no puede fechar ni ordenar el aviso). Índice parcial `content_matrix_items_blocked_idx` sobre `(blocked_at desc nulls last, id desc) where status = 'blocked'` — el `nulls last` y el desempate por `id` son obligatorios: replican exactamente el `order` del query de `/api/notifications` (`desc` implica `nulls first`, así que sin ellos Postgres no podría usar el índice para ordenar). Cierra con un **backfill idempotente** que data con `updated_at` las piezas ya `blocked` sin `blocked_at`. Todo dentro de una transacción con `set local lock_timeout = '5s'` (convención de 0129). |
-
-**Aplicar la migración 0130 manualmente en el Supabase Dashboard antes de desplegar la rama `feat/matrices-bloque-2`** (quitar esta nota al aplicarla). No es opcional ni degradado: sin ella la rama **se rompe**, porque el código lee y escribe esas columnas sin resguardo.
-> - `setMatrixStatus` ensanchó su `select` a `id, title, deadline, status, assigned_to, estimated_time_minutes`: sin las columnas, PostgREST devuelve error y **aprobar o cerrar cualquier matriz falla**, incluidas las que no usan nada del bloque 2.
-> - Cada lectura o escritura de `assigned_to`/`estimated_time_minutes` falla igual: el editor (`loadMatrixEditorData`), `addItem`, `updateItem`, `duplicateItem`, `duplicateMatrix` y el núcleo de conversión.
-> - El barrido `/api/matrices/convert` y el aviso `matrix_blocked` de `/api/notifications` (que filtra y ordena por `blocked_at`) tampoco funcionan.
 
 ## Tareas asignadas (feature — migración 0117)
 
@@ -590,7 +581,7 @@ Planificación mensual por cliente: temas del mes + piezas (tipo, título, tema,
 
 ### Bloque 2 — conversión automática (2026-09)
 
-Las piezas de una matriz **aprobada** se registran solas como requerimientos del pipeline, `lead_days` antes de su fecha de entrega. Migración `0130_matrix_items_assignment.sql` — **pendiente de aplicar** (ver "Pendiente de aplicar" en la tabla de migraciones arriba; la rama no se despliega antes).
+Las piezas de una matriz **aprobada** se registran solas como requerimientos del pipeline, `lead_days` antes de su fecha de entrega. Migración `0130_matrix_items_assignment.sql` — **aplicada el 2026-09-17**.
 
 - Spec: `docs/superpowers/specs/2026-09-17-creador-de-matrices-bloque-2-design.md`. Plan: `docs/superpowers/plans/2026-09-17-creador-de-matrices-bloque-2.md`.
 
