@@ -506,6 +506,66 @@ export async function GET() {
     }
   }
 
+  /* ── Piezas de matriz bloqueadas (solo admin/supervisor) ──
+   * Derivado: una entrada por matriz con piezas `blocked`, con el conteo del grupo
+   * y el `updated_at` más reciente como fecha. Nace `read: false` como el resto de
+   * los avisos derivados: insiste hasta que alguien destrabe o replanifique.
+   */
+  const matrixBlockedItems: NotificationItem[] = []
+  if (isAdminOrSupervisor) {
+    type BlockedItemRow = {
+      id: string
+      matrix_id: string
+      updated_at: string
+      matrix: {
+        id: string
+        title: string
+        client: { name: string } | null
+      } | null
+    }
+    const { data: blockedItems } = await supabase
+      .from('content_matrix_items')
+      .select(`
+        id, matrix_id, updated_at,
+        matrix:content_matrices!inner(
+          id, title,
+          client:clients!content_matrices_client_id_fkey(name)
+        )
+      `)
+      .eq('status', 'blocked')
+      .order('updated_at', { ascending: false })
+      .limit(100)
+
+    const byMatrix = new Map<string, { title: string; clientName: string; count: number; updatedAt: string }>()
+    for (const it of (blockedItems ?? []) as unknown as BlockedItemRow[]) {
+      const prev = byMatrix.get(it.matrix_id)
+      if (prev) {
+        prev.count += 1
+        if (it.updated_at > prev.updatedAt) prev.updatedAt = it.updated_at
+        continue
+      }
+      byMatrix.set(it.matrix_id, {
+        title: it.matrix?.title || 'Matriz de contenido',
+        clientName: it.matrix?.client?.name ?? '',
+        count: 1,
+        updatedAt: it.updated_at,
+      })
+    }
+
+    for (const [matrixId, g] of byMatrix) {
+      matrixBlockedItems.push({
+        kind: 'matrix_blocked',
+        id: `matrix-blocked-${matrixId}`,
+        created_at: g.updatedAt,
+        read: false,
+        matrix_id: matrixId,
+        matrix_title: g.title,
+        matrix_client_name: g.clientName,
+        matrix_blocked_count: g.count,
+      })
+    }
+  }
+
   /* ── Tareas asignadas ──────────────────────────────────────
    * a. task_assigned: tareas asignadas a mí recientemente (aviso al responsable).
    * b. task_completed: tareas que yo asigné y ya finalizaron (aviso al asignador).
@@ -687,7 +747,7 @@ export async function GET() {
   }
 
   /* ── Merge y sort: vencidos al frente, luego por fecha ─────── */
-  const items = [...overdueItems, ...waHandoffItems, ...waWindowItems, ...cambioPendingItems, ...pendingRequestItems, ...taskItems, ...mentionItems, ...reviewMentionItems, ...invoiceAutoItems, ...calendarItems, ...convItems].sort((a, b) => {
+  const items = [...overdueItems, ...waHandoffItems, ...waWindowItems, ...cambioPendingItems, ...matrixBlockedItems, ...pendingRequestItems, ...taskItems, ...mentionItems, ...reviewMentionItems, ...invoiceAutoItems, ...calendarItems, ...convItems].sort((a, b) => {
     if (a.kind === 'overdue' && b.kind !== 'overdue') return -1
     if (a.kind !== 'overdue' && b.kind === 'overdue') return 1
     return a.created_at < b.created_at ? 1 : -1

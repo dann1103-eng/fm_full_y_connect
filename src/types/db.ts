@@ -2518,7 +2518,7 @@ export const PAYMENT_METHOD_LABELS: Record<InvoicePaymentMethod, string> = {
 
 /** Item unificado para el dropdown de notificaciones (TopNav). */
 export interface NotificationItem {
-  kind: 'mention' | 'dm' | 'channel' | 'overdue' | 'calendar' | 'invoice_auto' | 'cambio_pending' | 'task_assigned' | 'task_completed' | 'wa_handoff' | 'wa_window_closing' | 'pending_request'
+  kind: 'mention' | 'dm' | 'channel' | 'overdue' | 'calendar' | 'invoice_auto' | 'cambio_pending' | 'task_assigned' | 'task_completed' | 'wa_handoff' | 'wa_window_closing' | 'pending_request' | 'matrix_blocked'
   /** mention.id | conversation.id | requirement.id */
   id: string
   created_at: string
@@ -2586,6 +2586,12 @@ export interface NotificationItem {
   request_content_type?: string
   /** 'portal' | 'whatsapp_bot' | 'staff' | 'unknown' — canal de origen de la solicitud. */
   request_via?: string
+  /* Para 'matrix_blocked' */
+  matrix_id?: string
+  matrix_title?: string
+  matrix_client_name?: string
+  /** Cuántas piezas de esa matriz quedaron bloqueadas. */
+  matrix_blocked_count?: number
 }
 
 /** Mensaje enriquecido con autor y adjuntos para UI */

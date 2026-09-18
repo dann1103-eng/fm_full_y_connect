@@ -220,6 +220,7 @@ export function useNotifications() {
     if (it.kind === 'calendar') return sum + 1
     if (it.kind === 'invoice_auto') return sum + 1
     if (it.kind === 'cambio_pending') return sum + 1
+    if (it.kind === 'matrix_blocked') return sum + 1
     if (it.kind === 'wa_handoff') return sum + 1
     if (it.kind === 'wa_window_closing') return sum + 1
     if (it.kind === 'pending_request') return sum + 1

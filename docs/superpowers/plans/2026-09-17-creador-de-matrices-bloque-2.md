@@ -1095,11 +1095,11 @@ git commit -m "feat(matrices): brief de la matriz en la ficha del requerimiento"
 - Modify: `src/components/layout/NotificationsDropdown.tsx`
 - Modify: `src/hooks/useNotifications.ts` (o donde viva `unreadCount`; localizarlo con grep)
 
-- [ ] **Step 1: Tipos**
+- [x] **Step 1: Tipos**
 
 En `NotificationItem` (`src/types/db.ts`): añadir `'matrix_blocked'` al union de `kind` y los campos `matrix_id?`, `matrix_title?`, `matrix_client_name?`, `matrix_blocked_count?`.
 
-- [ ] **Step 2: Derivar el aviso**
+- [x] **Step 2: Derivar el aviso**
 
 En `route.ts`, junto al bloque de `cambio_pending` y con la misma forma (solo `isAdminOrSupervisor`):
 
@@ -1114,18 +1114,18 @@ const { data: blockedItems } = await supabase
 
 Agrupar por `matrix_id` y emitir un item por matriz con `read: false`, `created_at` = el `updated_at` más reciente del grupo, e `id: \`matrix-blocked-${matrixId}\``.
 
-- [ ] **Step 3: Render y contador**
+- [x] **Step 3: Render y contador**
 
 1. En `NotificationsDropdown`, añadir el caso `matrix_blocked`: icono `grid_view`, texto "N pieza(s) bloqueada(s) · {cliente}" con el título de la matriz debajo, y clic → `/matrices/{matrix_id}`. Seguir el patrón exacto de `cambio_pending`.
 2. En `useNotifications.ts`, `unreadCount` suma por `kind` con ramas explícitas: **añadir la rama `matrix_blocked`** (cuenta 1 por item, como `cambio_pending`). Sin eso el aviso sale en la lista pero no suma en la campana.
 3. En `route.ts`, acordarse de **añadir `matrixBlockedItems` al array final de merge** (junto a `overdueItems`, `cambioPendingItems`, etc.).
 
-- [ ] **Step 4: Verificar**
+- [x] **Step 4: Verificar**
 
 Run: `npx tsc --noEmit -p tsconfig.json`, `npx eslint "src/app/api/notifications/route.ts" src/components/layout` y `npm run build`
 Expected: sin errores.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add "src/app/api/notifications/route.ts" src/types/db.ts src/components/layout/NotificationsDropdown.tsx

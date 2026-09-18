@@ -58,6 +58,10 @@ export function NotificationsDropdown() {
       router.push(`/pipeline?req=${item.cambio_requirement_id}`)
       return
     }
+    if (item.kind === 'matrix_blocked' && item.matrix_id) {
+      router.push(`/matrices/${item.matrix_id}`)
+      return
+    }
     if (item.kind === 'task_assigned' || item.kind === 'task_completed') {
       router.push('/tareas')
       return
@@ -342,6 +346,39 @@ function NotificationRow({
                 <div className="text-fm-on-surface-variant text-[11px] mt-0.5 truncate italic">
                   &ldquo;{item.cambio_notes}&rdquo;
                 </div>
+              )}
+              <div className="text-fm-on-surface-variant/50 text-[10px] mt-0.5">{timeAgo}</div>
+            </div>
+          </div>
+        </button>
+        {dismissButton}
+      </div>
+    )
+  }
+
+  if (item.kind === 'matrix_blocked') {
+    const count = item.matrix_blocked_count ?? 0
+    return (
+      <div className="relative group">
+        <button
+          type="button"
+          onClick={onClick}
+          className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-amber-50 dark:hover:bg-amber-400/10 transition-colors border-b border-fm-surface-container-high/60 last:border-b-0 bg-amber-50/60 dark:bg-amber-400/5 border-l-4 border-l-amber-400"
+        >
+          <span className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-400/20 flex items-center justify-center flex-shrink-0">
+            <span className="material-symbols-outlined text-[18px] text-amber-600 dark:text-amber-400">grid_view</span>
+          </span>
+          <div className="flex-1 min-w-0 pr-5">
+            <div className="text-xs leading-tight">
+              <span className="font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide text-[10px]">
+                Piezas bloqueadas
+              </span>
+              <div className="font-semibold text-fm-on-surface mt-0.5 truncate">
+                {count === 1 ? '1 pieza bloqueada' : `${count} piezas bloqueadas`}
+                {item.matrix_client_name ? ` · ${item.matrix_client_name}` : ''}
+              </div>
+              {item.matrix_title && (
+                <div className="text-fm-on-surface-variant/70 text-[11px] truncate">{item.matrix_title}</div>
               )}
               <div className="text-fm-on-surface-variant/50 text-[10px] mt-0.5">{timeAgo}</div>
             </div>
