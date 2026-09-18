@@ -138,7 +138,7 @@ export async function convertMatrixItem(
 
   // 6. Marcar la pieza (condicional: si otro proceso ganó, deshacer)
   const { data: updated, error: updErr } = await db.from('content_matrix_items')
-    .update({ status: 'converted', requirement_id: req.id, converted_at: new Date().toISOString(), blocked_reason: null })
+    .update({ status: 'converted', requirement_id: req.id, converted_at: new Date().toISOString(), blocked_reason: null, blocked_at: null })
     .eq('id', itemId).in('status', ['planned', 'blocked'])
     .select('id')
   if (updErr || !updated || updated.length === 0) {
@@ -160,7 +160,8 @@ export async function convertMatrixItem(
 async function markBlocked(db: Db, itemId: string, reason: string): Promise<ConvertOutcome> {
   const clean = reason.slice(0, BLOCKED_REASON_MAX)
   const { error } = await db.from('content_matrix_items')
-    .update({ status: 'blocked', blocked_reason: clean })
+    // `blocked_at` fecha el aviso de la campana: `updated_at` lo pisa cualquier edición del brief.
+    .update({ status: 'blocked', blocked_reason: clean, blocked_at: new Date().toISOString() })
     .eq('id', itemId).in('status', ['planned', 'blocked'])
   if (error) console.error('[matrix-convert] no se pudo marcar bloqueada', itemId, error.message)
   return { kind: 'blocked', reason: clean }

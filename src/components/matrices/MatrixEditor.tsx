@@ -431,7 +431,7 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
     if (outcome.kind === 'converted') {
       applyItemFields(itemId, {
         status: 'converted', requirement_id: outcome.requirementId,
-        blocked_reason: null, converted_at: new Date().toISOString(),
+        blocked_reason: null, blocked_at: null, converted_at: new Date().toISOString(),
       })
       setVoidedItemIds((ids) => ids.filter((id) => id !== itemId))
       // El título queda congelado al convertir: un borrador fallido suyo ya no se puede reintentar (el
@@ -441,7 +441,7 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
       return
     }
     if (outcome.kind === 'blocked') {
-      applyItemFields(itemId, { status: 'blocked', blocked_reason: outcome.reason })
+      applyItemFields(itemId, { status: 'blocked', blocked_reason: outcome.reason, blocked_at: new Date().toISOString() })
       setError({ message: `No se pudo convertir: ${outcome.reason}`, fields: [] })
       return
     }

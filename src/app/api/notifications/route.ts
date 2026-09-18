@@ -507,16 +507,26 @@ export async function GET() {
   }
 
   /* ── Piezas de matriz bloqueadas (solo admin/supervisor) ──
-   * Derivado: una entrada por matriz con piezas `blocked`, con el conteo del grupo
-   * y el `updated_at` más reciente como fecha. Nace `read: false` como el resto de
-   * los avisos derivados: insiste hasta que alguien destrabe o replanifique.
+   * Derivado: una entrada por matriz con piezas `blocked`, con el conteo del grupo y el
+   * `blocked_at` más reciente como fecha. Nace `read: false` como el resto de los avisos
+   * derivados: insiste hasta que alguien destrabe o replanifique.
+   *
+   * - Se excluyen las matrices `closed`: es un estado terminal (no hay transición de salida y
+   *   las escrituras sobre sus piezas se rechazan), así que su aviso nadie podría resolverlo.
+   *   Las `draft` sí entran: son accionables (aprobar y convertir).
+   * - Orden por `blocked_at desc` con `id` de desempate: el barrido bloquea muchas piezas en la
+   *   misma transacción y sin desempate el corte del `limit` sería no determinista. Las filas
+   *   anteriores a 0130 tienen `blocked_at` null y van al final (`nullsFirst: false`); para
+   *   fecharlas se cae a `updated_at`.
    */
+  const MATRIX_BLOCKED_LIMIT = 500
   const matrixBlockedItems: NotificationItem[] = []
   if (isAdminOrSupervisor) {
     type BlockedItemRow = {
       id: string
       matrix_id: string
       updated_at: string
+      blocked_at: string | null
       matrix: {
         id: string
         title: string
@@ -526,29 +536,40 @@ export async function GET() {
     const { data: blockedItems } = await supabase
       .from('content_matrix_items')
       .select(`
-        id, matrix_id, updated_at,
+        id, matrix_id, updated_at, blocked_at,
         matrix:content_matrices!inner(
-          id, title,
+          id, title, status,
           client:clients!content_matrices_client_id_fkey(name)
         )
       `)
       .eq('status', 'blocked')
-      .order('updated_at', { ascending: false })
-      .limit(100)
+      .neq('matrix.status', 'closed')
+      .order('blocked_at', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: false })
+      .limit(MATRIX_BLOCKED_LIMIT)
 
-    const byMatrix = new Map<string, { title: string; clientName: string; count: number; updatedAt: string }>()
-    for (const it of (blockedItems ?? []) as unknown as BlockedItemRow[]) {
+    const rows = (blockedItems ?? []) as unknown as BlockedItemRow[]
+    // Si el barrido llegó al tope, cualquier grupo puede tener piezas más allá del corte (el orden
+    // es global por fecha, no por matriz): los conteos se marcan como mínimos y la campana los
+    // muestra como "N+".
+    const partial = rows.length >= MATRIX_BLOCKED_LIMIT
+
+    const byMatrix = new Map<string, { title: string; clientName: string; count: number; at: string }>()
+    for (const it of rows) {
+      const at = it.blocked_at ?? it.updated_at
       const prev = byMatrix.get(it.matrix_id)
       if (prev) {
         prev.count += 1
-        if (it.updated_at > prev.updatedAt) prev.updatedAt = it.updated_at
+        // La comparación es necesaria: las filas llegan ordenadas por `blocked_at`, pero el
+        // fallback a `updated_at` de las filas viejas (null, al final) puede ser más reciente.
+        if (at > prev.at) prev.at = at
         continue
       }
       byMatrix.set(it.matrix_id, {
         title: it.matrix?.title || 'Matriz de contenido',
         clientName: it.matrix?.client?.name ?? '',
         count: 1,
-        updatedAt: it.updated_at,
+        at,
       })
     }
 
@@ -556,12 +577,13 @@ export async function GET() {
       matrixBlockedItems.push({
         kind: 'matrix_blocked',
         id: `matrix-blocked-${matrixId}`,
-        created_at: g.updatedAt,
+        created_at: g.at,
         read: false,
         matrix_id: matrixId,
         matrix_title: g.title,
         matrix_client_name: g.clientName,
         matrix_blocked_count: g.count,
+        matrix_blocked_partial: partial,
       })
     }
   }

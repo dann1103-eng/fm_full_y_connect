@@ -357,7 +357,11 @@ function NotificationRow({
   }
 
   if (item.kind === 'matrix_blocked') {
-    const count = item.matrix_blocked_count ?? 0
+    // Fallback a 1: el aviso solo existe si hay al menos una pieza bloqueada, así que un conteo
+    // ausente nunca debe renderizar "0 piezas bloqueadas".
+    const count = item.matrix_blocked_count ?? 1
+    // `N+` cuando el barrido se cortó en el tope: el conteo del grupo es un mínimo.
+    const countLabel = `${count}${item.matrix_blocked_partial ? '+' : ''}`
     return (
       <div className="relative group">
         <button
@@ -374,7 +378,9 @@ function NotificationRow({
                 Piezas bloqueadas
               </span>
               <div className="font-semibold text-fm-on-surface mt-0.5 truncate">
-                {count === 1 ? '1 pieza bloqueada' : `${count} piezas bloqueadas`}
+                {count === 1 && !item.matrix_blocked_partial
+                  ? '1 pieza bloqueada'
+                  : `${countLabel} piezas bloqueadas`}
                 {item.matrix_client_name ? ` · ${item.matrix_client_name}` : ''}
               </div>
               {item.matrix_title && (

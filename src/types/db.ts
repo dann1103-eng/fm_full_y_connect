@@ -1291,6 +1291,8 @@ export interface Database {
           blocked_reason: string | null
           /** Reservado (bloque 2): momento de la conversión a requerimiento. */
           converted_at: string | null
+          /** Momento del bloqueo. `updated_at` lo pisa cualquier edición, así que no puede fechar el aviso. */
+          blocked_at: string | null
           assigned_to: string[] | null
           estimated_time_minutes: number | null
           created_at: string
@@ -1314,6 +1316,7 @@ export interface Database {
           requirement_id?: string | null
           blocked_reason?: string | null
           converted_at?: string | null
+          blocked_at?: string | null
           assigned_to?: string[] | null
           estimated_time_minutes?: number | null
         }
@@ -1333,6 +1336,7 @@ export interface Database {
           requirement_id?: string | null
           blocked_reason?: string | null
           converted_at?: string | null
+          blocked_at?: string | null
           assigned_to?: string[] | null
           estimated_time_minutes?: number | null
         }
@@ -2592,6 +2596,8 @@ export interface NotificationItem {
   matrix_client_name?: string
   /** Cuántas piezas de esa matriz quedaron bloqueadas. */
   matrix_blocked_count?: number
+  /** El barrido llegó al tope de filas: el conteo es un mínimo y la UI lo muestra como "N+". */
+  matrix_blocked_partial?: boolean
 }
 
 /** Mensaje enriquecido con autor y adjuntos para UI */

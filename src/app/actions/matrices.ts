@@ -771,7 +771,7 @@ export async function replanItem(itemId: string): Promise<ActionResult<{ item: C
   }
 
   const { data: rows, error } = await supabase.from('content_matrix_items')
-    .update({ status: 'planned', requirement_id: null, converted_at: null, blocked_reason: null })
+    .update({ status: 'planned', requirement_id: null, converted_at: null, blocked_reason: null, blocked_at: null })
     .eq('id', itemId).eq('status', 'converted').select('*')
   if (error) return { ok: false, error: dbError(error, 'No se pudo volver a planificar.') }
   const item = rows?.[0]

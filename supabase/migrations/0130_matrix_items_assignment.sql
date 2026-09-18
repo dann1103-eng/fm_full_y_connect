@@ -8,7 +8,16 @@ set local lock_timeout = '5s';
 
 alter table public.content_matrix_items
   add column if not exists assigned_to uuid[],
-  add column if not exists estimated_time_minutes integer;
+  add column if not exists estimated_time_minutes integer,
+  -- Momento en que la pieza quedó bloqueada. No sirve `updated_at`: cualquier edición del brief lo
+  -- pisa, así que no puede ordenar ni fechar el aviso de piezas bloqueadas.
+  add column if not exists blocked_at timestamptz;
+
+-- El aviso derivado de /api/notifications filtra por status='blocked' y ordena por blocked_at desc;
+-- lo consulta cada usuario de staff cada 60 s y hoy no hay índice para ese filtro.
+create index if not exists content_matrix_items_blocked_idx
+  on public.content_matrix_items (blocked_at desc)
+  where status = 'blocked';
 
 -- Constraint con nombre explícito (convención de 0129), idempotente.
 do $$

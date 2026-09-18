@@ -68,8 +68,6 @@ export function MatrixBriefSection({ requirementId }: Props) {
   if (brief.hashtags?.trim()) fields.push({ label: 'Hashtags', value: brief.hashtags, pre: true })
   if (brief.cta?.trim()) fields.push({ label: 'Llamado a la acción', value: brief.cta, pre: true })
 
-  if (fields.length === 0) return null
-
   return (
     <div className="space-y-3 pb-4 border-b border-fm-surface-container-low">
       <div className="flex items-center justify-between gap-2">
@@ -86,10 +84,21 @@ export function MatrixBriefSection({ requirementId }: Props) {
       </div>
 
       <div className="rounded-xl bg-fm-background border border-fm-surface-container-high px-3 py-2.5 space-y-2">
+        {fields.length === 0 && (
+          <p className="text-xs text-fm-outline-variant">La pieza no tiene brief cargado.</p>
+        )}
         {fields.map((f) => (
           <div key={f.label} className="space-y-0.5">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-fm-on-surface-variant">{f.label}</p>
-            <p className={`text-sm text-fm-on-surface break-words ${f.pre ? 'whitespace-pre-wrap' : ''}`}>{f.value}</p>
+            {/* Los campos largos se acotan: un guion de 10 000 caracteres empujaría fuera de la
+                ficha el historial de fases. */}
+            <p
+              className={`text-sm text-fm-on-surface break-words ${
+                f.pre ? 'whitespace-pre-wrap max-h-48 overflow-y-auto' : ''
+              }`}
+            >
+              {f.value}
+            </p>
           </div>
         ))}
       </div>
