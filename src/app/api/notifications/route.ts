@@ -515,9 +515,10 @@ export async function GET() {
    *   las escrituras sobre sus piezas se rechazan), así que su aviso nadie podría resolverlo.
    *   Las `draft` sí entran: son accionables (aprobar y convertir).
    * - Orden por `blocked_at desc` con `id` de desempate: el barrido bloquea muchas piezas en la
-   *   misma transacción y sin desempate el corte del `limit` sería no determinista. Las filas
-   *   anteriores a 0130 tienen `blocked_at` null y van al final (`nullsFirst: false`); para
-   *   fecharlas se cae a `updated_at`.
+   *   misma transacción y sin desempate el corte del `limit` sería no determinista. El
+   *   `nullsFirst: false` y el fallback a `updated_at` son un resto: 0130 rellena con `updated_at`
+   *   las filas bloqueadas que no tenían `blocked_at`, así que en una base migrada ya no hay nulos.
+   *   Se conservan por si la migración aún no se aplicó (o si alguien escribe la columna a mano).
    */
   const MATRIX_BLOCKED_LIMIT = 500
   const matrixBlockedItems: NotificationItem[] = []
@@ -546,13 +547,19 @@ export async function GET() {
       .neq('matrix.status', 'closed')
       .order('blocked_at', { ascending: false, nullsFirst: false })
       .order('id', { ascending: false })
-      .limit(MATRIX_BLOCKED_LIMIT)
+      // Se pide una fila de más que el tope: es la única forma de distinguir “hay más” de “justo
+      // caben”. Con `limit(MATRIX_BLOCKED_LIMIT)` un resultado completo de exactamente 500 filas
+      // sería indistinguible de uno truncado y marcaría todos los grupos como "N+".
+      .limit(MATRIX_BLOCKED_LIMIT + 1)
 
-    const rows = (blockedItems ?? []) as unknown as BlockedItemRow[]
-    // Si el barrido llegó al tope, cualquier grupo puede tener piezas más allá del corte (el orden
-    // es global por fecha, no por matriz): los conteos se marcan como mínimos y la campana los
-    // muestra como "N+".
-    const partial = rows.length >= MATRIX_BLOCKED_LIMIT
+    const raw = (blockedItems ?? []) as unknown as BlockedItemRow[]
+    // Si vino la fila extra, el corte dejó piezas fuera: cualquier grupo puede tener más (el orden
+    // es global por fecha, no por matriz), así que los conteos se marcan como mínimos y la campana
+    // los muestra como "N+".
+    const partial = raw.length > MATRIX_BLOCKED_LIMIT
+    // La fila extra solo servía de centinela: no se agrupa, para que los conteos sigan siendo los
+    // del tope real.
+    const rows = partial ? raw.slice(0, MATRIX_BLOCKED_LIMIT) : raw
 
     const byMatrix = new Map<string, { title: string; clientName: string; count: number; at: string }>()
     for (const it of rows) {

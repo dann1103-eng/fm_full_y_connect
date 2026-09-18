@@ -13,10 +13,13 @@ alter table public.content_matrix_items
   -- pisa, así que no puede ordenar ni fechar el aviso de piezas bloqueadas.
   add column if not exists blocked_at timestamptz;
 
--- El aviso derivado de /api/notifications filtra por status='blocked' y ordena por blocked_at desc;
--- lo consulta cada usuario de staff cada 60 s y hoy no hay índice para ese filtro.
+-- El aviso derivado de /api/notifications filtra por status='blocked' y ordena por
+-- `blocked_at desc nulls last, id desc`; lo consulta cada usuario de staff cada 60 s y hoy no hay
+-- índice para ese filtro. El orden del índice replica el del query: `desc` implica `nulls first`,
+-- así que sin el `nulls last` explícito (y sin el desempate por `id`) el índice no serviría para
+-- ordenar y Postgres caería en un sort.
 create index if not exists content_matrix_items_blocked_idx
-  on public.content_matrix_items (blocked_at desc)
+  on public.content_matrix_items (blocked_at desc nulls last, id desc)
   where status = 'blocked';
 
 -- Constraint con nombre explícito (convención de 0129), idempotente.
@@ -32,5 +35,11 @@ begin
       check (estimated_time_minutes is null or estimated_time_minutes between 1 and 10080);
   end if;
 end $$;
+
+-- Filas bloqueadas por una versión anterior no tienen blocked_at; datarlas con updated_at
+-- evita el caso especial de nulos en el aviso. Idempotente: solo toca las que faltan.
+update public.content_matrix_items
+   set blocked_at = updated_at
+ where status = 'blocked' and blocked_at is null;
 
 commit;
