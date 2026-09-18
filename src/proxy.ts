@@ -21,6 +21,13 @@ const PORTAL_PREFIX = '/portal'
 // Debe coincidir con IMPERSONATE_COOKIE en src/lib/auth/effective-user.ts
 const IMPERSONATE_COOKIE = 'fm_impersonate_user_id'
 
+/** Rutas de cron/servicio con auth por secreto en el handler (una por cada entrada de vercel.json). */
+const SECRET_AUTH_API_PREFIXES = [
+  '/api/ai-jobs',
+  '/api/billing/due-reminders',
+  '/api/matrices/convert',
+]
+
 function startsWithAny(pathname: string, prefixes: string[]): boolean {
   return prefixes.some((p) => pathname === p || pathname.startsWith(p + '/'))
 }
@@ -38,9 +45,12 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next({ request })
   }
 
-  // Endpoint que procesa la cola de ai_jobs — autenticado por secret/cron header
-  // dentro del handler, no necesita sesión Supabase.
-  if (request.nextUrl.pathname.startsWith('/api/ai-jobs/')) {
+  // Endpoints de cron/servicio: se autentican DENTRO del handler con `Authorization: Bearer
+  // $CRON_SECRET` (lo manda Vercel Cron) o `x-trigger-secret`, y no llevan sesión de Supabase.
+  // Sin esta salida, el middleware los responde con un 307 a /login: el cron recibe un redirect
+  // en vez de un error, Vercel lo da por bueno y el trabajo NUNCA corre, sin un solo log.
+  // Al agregar un cron a vercel.json hay que agregarlo también aquí.
+  if (startsWithAny(request.nextUrl.pathname, SECRET_AUTH_API_PREFIXES)) {
     return NextResponse.next({ request })
   }
 
