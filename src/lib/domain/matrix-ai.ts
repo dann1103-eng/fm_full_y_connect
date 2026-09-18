@@ -23,6 +23,13 @@ import { TIPPABLE_CONTENT_TYPES } from './plans'
 /** Estimado por defecto cuando el modelo no devuelve un número usable: una hora de trabajo. */
 export const DEFAULT_ESTIMATE_MINUTES = 60
 
+/**
+ * Tope de las instrucciones de "Regenerar". Vive en el dominio porque lo usan a la vez la caja del
+ * panel lateral (contador y `maxLength`) y la server action, que lo re-valida: la UI no es validación.
+ * Se cuenta con `.length` (UTF-16), igual que el resto de los topes del bloque 1.
+ */
+export const MATRIX_INSTRUCTIONS_MAX = 300
+
 function isPoolType(t: ContentType): boolean {
   return (TIPPABLE_CONTENT_TYPES as ContentType[]).includes(t)
 }
