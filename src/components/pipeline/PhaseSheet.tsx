@@ -27,6 +27,7 @@ import { PRIORITY_LABELS, PRIORITY_COLORS } from '@/types/db'
 import { RequirementChat } from './RequirementChat'
 import { RequirementTimesheet } from './RequirementTimesheet'
 import { ShareRequirementDialog } from './ShareRequirementDialog'
+import { MatrixBriefSection } from './MatrixBriefSection'
 import { ContentReviewDialog } from '@/components/clients/review/ContentReviewDialog'
 import { voidCambioLog, approveCambioLog, rejectCambioLog, addCambioLog } from '@/app/actions/cambioLogs'
 import { enqueueReviewReadyNotification } from '@/app/actions/whatsappNotify'
@@ -745,6 +746,9 @@ export function PhaseSheet({
                   )}
                 </div>
               )}
+
+              {/* Brief de la matriz — solo si el requerimiento nació de una pieza y la RLS lo permite */}
+              <MatrixBriefSection requirementId={requirementId} />
 
               {/* Passive timer — all passive_timer phases */}
               {isPassiveTimer && (

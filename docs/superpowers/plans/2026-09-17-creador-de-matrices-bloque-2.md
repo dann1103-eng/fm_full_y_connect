@@ -1055,7 +1055,7 @@ git commit -m "feat(matrices): avance de conversion en la lista de matrices" -m 
 - Create: `src/components/pipeline/MatrixBriefSection.tsx`
 - Modify: `src/components/pipeline/PhaseSheet.tsx`
 
-- [ ] **Step 1: El componente**
+- [x] **Step 1: El componente**
 
 `'use client'`, recibe `requirementId: string`. Carga con el cliente del navegador (`@/lib/supabase/client`) dentro de un `useEffect` con bandera `cancelled` (patrón ya usado en `MatrixContentCard`):
 
@@ -1069,16 +1069,16 @@ const { data } = await supabase
 
 Para un operador la RLS devuelve 0 filas (no error) → el componente no renderiza nada. Si hay fila, muestra una sección con título "Brief de la matriz", enlace a `/matrices/{matrix_id}`, y los campos no vacíos con sus etiquetas (Tema, Objetivo con `MATRIX_OBJECTIVE_LABELS`, Copy, Guion, Estilo visual, Hashtags, Llamado a la acción), respetando saltos de línea (`whitespace-pre-wrap`).
 
-- [ ] **Step 2: Montarlo**
+- [x] **Step 2: Montarlo**
 
 En `PhaseSheet`, debajo de las notas del requerimiento: `<MatrixBriefSection requirementId={...} />`. Verificar el nombre real de la prop del id en ese componente.
 
-- [ ] **Step 3: Verificar**
+- [x] **Step 3: Verificar**
 
 Run: `npx tsc --noEmit -p tsconfig.json`, `npx eslint src/components/pipeline` y `npm run build`
 Expected: sin errores.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/components/pipeline/MatrixBriefSection.tsx src/components/pipeline/PhaseSheet.tsx
