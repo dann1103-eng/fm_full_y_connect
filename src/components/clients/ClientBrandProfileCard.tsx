@@ -3,8 +3,8 @@
 import { useRef, useState } from 'react'
 import type { BrandPerson, ClientBrandProfile } from '@/types/db'
 import {
-  BRAND_MAX_HASHTAGS, BRAND_MAX_SAMPLE_COPIES, BRAND_PERSON_LABELS, BRAND_PERSONS, BRAND_TEXT_LIMITS,
-  hasUsableBrandProfile, type BrandPatch,
+  BRAND_MAX_HASHTAGS, BRAND_MAX_SAMPLE_COPIES, BRAND_PERSON_LABELS, BRAND_PERSONS,
+  BRAND_REQUIRED_FIELDS, BRAND_TEXT_LIMITS, hasUsableBrandProfile, type BrandPatch,
 } from '@/lib/domain/brand'
 import { updateBrandProfile } from '@/app/actions/brand'
 
@@ -50,15 +50,29 @@ export function ClientBrandProfileCard({ clientId, profile }: Props) {
   // Borrador del copy de ejemplo enfocado, por posición en la lista.
   const [copyDraft, setCopyDraft] = useState<{ index: number; value: string } | null>(null)
   const [newHashtag, setNewHashtag] = useState('')
+  const [hashtagNotice, setHashtagNotice] = useState<string | null>(null)
   const [inFlight, setInFlight] = useState(0)
-  const [error, setError] = useState<string | null>(null)
+  // Campos cuyo último guardado falló y siguen pendientes, con su motivo. Es lo mismo que
+  // `failedMatrixDrafts` + `unsavedCount` del editor de matrices: el éxito de un campo NO puede
+  // apagar el aviso de otro, así que el error vive por campo y no en un solo `error` global.
+  const [failedFields, setFailedFields] = useState<Map<string, string>>(() => new Map())
   const [savedOnce, setSavedOnce] = useState(false)
   // Una secuencia por campo: una respuesta vieja nunca pisa un guardado más nuevo del mismo campo.
   const seqRef = useRef<Map<string, number>>(new Map())
 
   const hashtags = row.base_hashtags ?? []
   const copies = row.sample_copies ?? []
-  const ready = hasUsableBrandProfile(row)
+  // Una fila vacía no existe para el servidor (`cleanList` la descarta), así que no se cuenta aquí:
+  // el tope de filas sí se mide sobre `copies.length`, que es lo que limita agregar una más.
+  const filledCopies = copies.filter((c) => c.trim().length > 0).length
+  const unsavedCount = failedFields.size
+  // Un campo obligatorio sin guardar significa que la base NO tiene ese contexto: el handler de IA
+  // leería el perfil incompleto, así que la píldora no puede decir "Listo para generar con IA".
+  const ready = hasUsableBrandProfile(row) && !BRAND_REQUIRED_FIELDS.some((k) => failedFields.has(k))
+  // Motivo del fallo pendiente más reciente (un `Map` conserva el orden de inserción). Solo se pinta
+  // mientras quede algún campo sin guardar, así que nunca sobrevive a su propio campo.
+  const failedEntries = [...failedFields.entries()]
+  const saveError = failedEntries.length > 0 ? failedEntries[failedEntries.length - 1][1] : null
 
   async function save(field: string, patch: BrandPatch) {
     const seq = (seqRef.current.get(field) ?? 0) + 1
@@ -68,8 +82,18 @@ export function ClientBrandProfileCard({ clientId, profile }: Props) {
     try {
       const r = await updateBrandProfile(clientId, patch)
       if (seqRef.current.get(field) !== seq) return
-      if (!r.ok) { setError(r.error); return }
-      setError(null)
+      if (!r.ok) {
+        // Se anota SOLO este campo: los demás conservan su estado (fallido o guardado).
+        setFailedFields((prev) => new Map(prev).set(field, r.error))
+        return
+      }
+      // Y en el éxito se borra SOLO este campo: si otro sigue pendiente, la franja se queda.
+      setFailedFields((prev) => {
+        if (!prev.has(field)) return prev
+        const next = new Map(prev)
+        next.delete(field)
+        return next
+      })
       setSavedOnce(true)
       // Solo se confirma el campo de ESTE guardado: otro campo puede tener uno más nuevo en vuelo.
       // Las listas se dejan como están localmente: el servidor descarta los elementos vacíos y aquí
@@ -87,15 +111,24 @@ export function ClientBrandProfileCard({ clientId, profile }: Props) {
     if (!draft || draft.key !== key) return
     const value = draft.value
     setDraft(null)
-    if (value.trim() === (row[key] ?? '').trim()) return
+    // Con un fallo pendiente se reintenta aunque el texto coincida: `row[key]` ya se pisó de forma
+    // optimista, así que sin esta salvedad reenfocar y salir no reintentaría nunca. Es el mismo
+    // `|| p.failedTitle !== undefined` de `commitTitle` en `MatrixHeader`.
+    if (value.trim() === (row[key] ?? '').trim() && !failedFields.has(key)) return
     void save(key, { [key]: value } as BrandPatch)
   }
 
   function addHashtag() {
     const tag = newHashtag.trim()
     if (!tag || hashtags.length >= BRAND_MAX_HASHTAGS) return
+    // El dedupe va ANTES de limpiar el campo: al revés, el hashtag repetido desaparecía del input y
+    // no pasaba nada más, sin un solo mensaje.
+    if (hashtags.some((h) => h.toLowerCase() === tag.toLowerCase())) {
+      setHashtagNotice('Ese hashtag ya está en la lista.')
+      return
+    }
+    setHashtagNotice(null)
     setNewHashtag('')
-    if (hashtags.some((h) => h.toLowerCase() === tag.toLowerCase())) return
     void save('base_hashtags', { base_hashtags: [...hashtags, tag] })
   }
 
@@ -107,14 +140,19 @@ export function ClientBrandProfileCard({ clientId, profile }: Props) {
     if (!copyDraft || copyDraft.index !== index) return
     const value = copyDraft.value
     setCopyDraft(null)
-    if (value.trim() === (copies[index] ?? '').trim()) return
+    if (value.trim() === (copies[index] ?? '').trim() && !failedFields.has('sample_copies')) return
     void save('sample_copies', { sample_copies: copies.map((c, i) => (i === index ? value : c)) })
   }
 
   function addCopy() {
-    if (copies.length >= BRAND_MAX_SAMPLE_COPIES) return
-    // Una fila vacía todavía no se guarda: el servidor la descartaría. Se guarda al salir del campo.
-    setRow((prev) => ({ ...prev, sample_copies: [...copies, ''] }))
+    // Todo dentro del updater funcional: mezclar `prev` con el `copies` del render hacía que dos
+    // clics seguidos agregaran una sola fila (y el tope se medía sobre una lista ya vieja).
+    setRow((prev) => {
+      const list = prev.sample_copies ?? []
+      if (list.length >= BRAND_MAX_SAMPLE_COPIES) return prev
+      // Una fila vacía todavía no se guarda: el servidor la descartaría. Se guarda al salir del campo.
+      return { ...prev, sample_copies: [...list, ''] }
+    })
   }
 
   function removeCopy(index: number) {
@@ -122,7 +160,11 @@ export function ClientBrandProfileCard({ clientId, profile }: Props) {
     void save('sample_copies', { sample_copies: copies.filter((_, i) => i !== index) })
   }
 
-  const statusLabel = inFlight > 0 ? 'Guardando…' : savedOnce ? 'Guardado' : ''
+  const statusLabel = inFlight > 0
+    ? 'Guardando…'
+    : unsavedCount > 0
+      ? `${unsavedCount} cambio${unsavedCount !== 1 ? 's' : ''} sin guardar`
+      : savedOnce ? 'Guardado' : ''
 
   return (
     <section className="glass-panel rounded-[2rem] p-4 sm:p-6 space-y-3">
@@ -134,16 +176,20 @@ export function ClientBrandProfileCard({ clientId, profile }: Props) {
         }`}>
           {ready ? 'Listo para generar con IA' : 'Incompleto'}
         </span>
-        <span role="status" className="ml-auto text-[11px] text-fm-on-surface-variant">{statusLabel}</span>
+        <span role="status" className={`ml-auto text-[11px] ${
+          unsavedCount > 0 ? 'text-fm-error font-semibold' : 'text-fm-on-surface-variant'
+        }`}>{statusLabel}</span>
       </div>
 
       <p className="text-xs text-fm-on-surface-variant">
         Con este contexto la IA arma la matriz del mes. Sin tono, público, propuesta de valor y oferta no se puede generar.
       </p>
 
-      {error && (
-        <p className="rounded-xl border border-fm-error/40 bg-fm-error/5 px-3 py-2 text-xs text-fm-error">
-          No se pudo guardar: {error}
+      {/* `role="alert"`: la única región viva del encabezado es la píldora de estado, que en cuanto otro
+          campo se guarda vuelve a decir "Guardado". Sin esto el fallo no se anuncia nunca. */}
+      {saveError && (
+        <p role="alert" className="rounded-xl border border-fm-error/40 bg-fm-error/5 px-3 py-2 text-xs text-fm-error">
+          No se pudo guardar: {saveError} Vuelve a entrar al campo marcado y sal de él para reintentar.
         </p>
       )}
 
@@ -152,6 +198,7 @@ export function ClientBrandProfileCard({ clientId, profile }: Props) {
           <div key={f.key} className={f.key === 'offerings' || f.key === 'avoid' ? 'sm:col-span-2' : undefined}>
             <label htmlFor={`brand-${f.key}`} className={labelCls}>
               {f.label}{f.required && <span className="text-fm-error"> *</span>}
+              {failedFields.has(f.key) && <span className="text-fm-error normal-case"> · sin guardar</span>}
             </label>
             <textarea
               id={`brand-${f.key}`}
@@ -160,8 +207,12 @@ export function ClientBrandProfileCard({ clientId, profile }: Props) {
               placeholder={f.hint}
               value={draft?.key === f.key ? draft.value : row[f.key] ?? ''}
               onChange={(e) => setDraft({ key: f.key, value: e.target.value })}
+              // Con un guardado fallido pendiente, enfocar carga lo escrito como borrador: al salir del
+              // campo se reintenta aunque no se toque nada (el `onFocus` de `MatrixHeader`).
+              onFocus={() => { if (!draft && failedFields.has(f.key)) setDraft({ key: f.key, value: row[f.key] ?? '' }) }}
               onBlur={() => commitText(f.key)}
-              className={`${inputCls} resize-y`}
+              aria-invalid={failedFields.has(f.key) || undefined}
+              className={`${inputCls} resize-y ${failedFields.has(f.key) ? 'border-fm-error/60' : ''}`}
             />
           </div>
         ))}
@@ -194,7 +245,7 @@ export function ClientBrandProfileCard({ clientId, profile }: Props) {
               maxLength={BRAND_TEXT_LIMITS.base_hashtag}
               placeholder="#fmcomsolutions"
               disabled={hashtags.length >= BRAND_MAX_HASHTAGS}
-              onChange={(e) => setNewHashtag(e.target.value)}
+              onChange={(e) => { setNewHashtag(e.target.value); setHashtagNotice(null) }}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addHashtag() } }}
               className={inputCls}
             />
@@ -207,6 +258,7 @@ export function ClientBrandProfileCard({ clientId, profile }: Props) {
               Agregar
             </button>
           </div>
+          {hashtagNotice && <p role="alert" className="mt-1 text-[11px] text-fm-error">{hashtagNotice}</p>}
           {hashtags.length >= BRAND_MAX_HASHTAGS && (
             <p className="mt-1 text-[11px] text-fm-on-surface-variant">Ya están los {BRAND_MAX_HASHTAGS} hashtags que admite el perfil.</p>
           )}
@@ -226,7 +278,10 @@ export function ClientBrandProfileCard({ clientId, profile }: Props) {
         </div>
 
         <div className="sm:col-span-2">
-          <p className={labelCls}>Copys de ejemplo ({copies.length}/{BRAND_MAX_SAMPLE_COPIES})</p>
+          <p className={labelCls}>
+            Copys de ejemplo ({filledCopies}/{BRAND_MAX_SAMPLE_COPIES})
+            {failedFields.has('sample_copies') && <span className="text-fm-error normal-case"> · sin guardar</span>}
+          </p>
           <p className="mb-2 text-[11px] text-fm-on-surface-variant">
             Copys reales que funcionaron. Mueven la calidad del texto más que cualquier adjetivo sobre el tono.
           </p>
@@ -239,8 +294,9 @@ export function ClientBrandProfileCard({ clientId, profile }: Props) {
                   aria-label={`Copy de ejemplo ${i + 1}`}
                   value={copyDraft?.index === i ? copyDraft.value : c}
                   onChange={(e) => setCopyDraft({ index: i, value: e.target.value })}
+                  onFocus={() => { if (!copyDraft && failedFields.has('sample_copies')) setCopyDraft({ index: i, value: c }) }}
                   onBlur={() => commitCopy(i)}
-                  className={`${inputCls} resize-y`}
+                  className={`${inputCls} resize-y ${failedFields.has('sample_copies') ? 'border-fm-error/60' : ''}`}
                 />
                 <button type="button" onClick={() => removeCopy(i)} aria-label={`Quitar el copy de ejemplo ${i + 1}`}
                   className="mt-1 rounded-xl border border-fm-error/40 px-2 py-1.5 text-xs font-semibold text-fm-error hover:bg-fm-error/5">
