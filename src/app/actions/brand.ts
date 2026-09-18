@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { assertNotImpersonating } from './impersonation'
 import { canManageMatrices } from '@/lib/domain/permissions'
 import { validateBrandPatch, type BrandPatch } from '@/lib/domain/brand'
-import type { ActionResult } from '@/lib/domain/matrix'
+import { UUID_RE, type ActionResult } from '@/lib/domain/matrix'
 import type { ClientBrandProfile, Database } from '@/types/db'
 
 type Ctx = { supabase: Awaited<ReturnType<typeof createClient>>; userId: string }
@@ -66,7 +66,10 @@ export async function updateBrandProfile(clientId: string, patch: BrandPatch): P
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const { supabase, userId } = ctx
 
-  if (typeof clientId !== 'string' || !clientId.trim()) return { ok: false, error: INVALID_DATA }
+  // UUID de verdad, no solo "no vacío": un id malformado llega a Postgres y el usuario ve el
+  // `invalid input syntax for type uuid` crudo en vez de un mensaje en español (mismo criterio que
+  // `validateItemPatch` con los responsables de una pieza).
+  if (typeof clientId !== 'string' || !UUID_RE.test(clientId)) return { ok: false, error: INVALID_DATA }
   if (!isPlainObject(patch)) return { ok: false, error: INVALID_DATA }
 
   const v = validateBrandPatch(patch)

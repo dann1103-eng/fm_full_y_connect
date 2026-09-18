@@ -447,7 +447,7 @@ export const MATRIX_ESTIMATE_MAX_MINUTES = 10080
 /** Tope de responsables por pieza (mismo orden de magnitud que el equipo interno). */
 export const MATRIX_MAX_ASSIGNEES = 20
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export function validateItemPatch(
   patch: ItemPatch,
