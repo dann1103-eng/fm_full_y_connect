@@ -71,6 +71,10 @@ export async function POST(request: Request) {
 
   const cache = createConvertCache()
   const details: Array<{ id: string; kind: string; reason?: string }> = []
+  // Motivos distintos de `skipped`, para el log: una pieza que falla por algo que no bloquea
+  // (RLS, un check, un uuid inválido) se reintenta cada mañana, gasta un cupo del lote y no deja
+  // rastro en ninguna pantalla. `details` solo viaja en la respuesta HTTP, que en un cron no lee nadie.
+  const skippedReasons = new Set<string>()
   let converted = 0, blocked = 0, skipped = 0, processed = 0
   let stoppedEarly = false
   const until = new Date().getTime() + TIME_BUDGET_MS
@@ -91,7 +95,7 @@ export async function POST(request: Request) {
     processed++
     if (r.kind === 'converted') converted++
     else if (r.kind === 'blocked') blocked++
-    else skipped++
+    else { skipped++; if ('reason' in r && r.reason) skippedReasons.add(r.reason) }
     if (details.length < 50) details.push({ id: it.id, kind: r.kind, reason: 'reason' in r ? r.reason : undefined })
   }
 
@@ -100,6 +104,11 @@ export async function POST(request: Request) {
   console.log(`[matrices/convert] ${t} ${summary}`)
   // Una corrida donde no se convirtió nada teniendo piezas elegibles es señal de que algo va mal.
   if (selected.length > 0 && converted === 0) console.error(`[matrices/convert] ninguna conversión ${t} ${summary}`)
+  // Un `skipped` aislado suele ser una carrera benigna, pero si se repite día tras día es un fallo
+  // real que nadie ve: se deja el motivo en los logs aunque el resto de la corrida haya ido bien.
+  if (skippedReasons.size > 0) {
+    console.error(`[matrices/convert] omitidas ${t}: ${[...skippedReasons].slice(0, 10).join(' | ')}`)
+  }
 
   return NextResponse.json({
     ok: true, today: t, scanned: rows.length, selected: selected.length,

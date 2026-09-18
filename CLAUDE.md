@@ -604,12 +604,27 @@ Las piezas de una matriz **aprobada** se registran solas como requerimientos del
 - **Secuencial a propósito**, no en paralelo: dos piezas del mismo ciclo calcularían el cupo sobre el mismo estado y ambas nacerían dentro de plan.
 - **Caché por corrida** (`createConvertCache`): ciclo vigente por cliente y requerimientos aprobados por `billing_cycle_id`. Un lote de 80 piezas suele ser de un puñado de clientes. **Un cliente sin ciclo vigente NO se cachea**: si una renovación crea el ciclo a mitad de corrida, cachear el `null` dejaría bloqueadas "sin ciclo vigente" todas las piezas restantes de ese cliente.
 - Un `throw` inesperado de una pieza se captura y cuenta como `skipped`: no puede tumbar la corrida y perder los contadores. La respuesta trae `scanned/selected/converted/blocked/skipped/stopped_early/remaining/truncated/details` (máximo 50 detalles) y se loguea; una corrida con piezas elegibles y **cero** conversiones emite `console.error`.
+- **Los motivos de `skipped` se loguean** (`console.error`, hasta 10 distintos por corrida). `details` solo viaja en la respuesta HTTP y en un cron no la lee nadie: sin ese log, una pieza que falla por algo que no bloquea (RLS, un check, un uuid inválido) se reintentaría cada mañana, gastaría un cupo del lote y **no dejaría rastro en ninguna pantalla** mientras el resto de la corrida fuera bien.
+- **No desplegar a las 12:00 UTC.** Un deploy a media corrida mata la función y puede dejar el requerimiento creado con la pieza todavía `planned` — el caso del `TIME_BUDGET_MS`, que estrecha la ventana pero no la cierra. Para encontrar esos huérfanos (el requerimiento no lleva marca que lo distinga de uno manual, así que se cruzan por cliente + título + fecha):
+
+```sql
+select r.id, r.title, r.deadline, m.client_id, i.id as item_id
+from requirements r
+join billing_cycles bc on bc.id = r.billing_cycle_id
+join content_matrix_items i on i.title = r.title and i.deadline = r.deadline and i.status = 'planned'
+join content_matrices m on m.id = i.matrix_id and m.client_id = bc.client_id
+where r.voided = false
+  and not exists (select 1 from content_matrix_items x where x.requirement_id = r.id);
+```
+
+> Cada fila es un requerimiento sin pieza que lo reclame: o se anula en el pipeline, o se vincula a mano (`update content_matrix_items set status='converted', requirement_id=…, converted_at=now() where id=…`) antes de que el barrido cree el duplicado.
 
 #### Los tres estados de pieza (`content_matrix_items.status`)
 
 `planned` → `converted` (con `requirement_id` + `converted_at`) o `blocked` (con `blocked_reason` + `blocked_at`). Etiquetas en `MATRIX_ITEM_STATUS_LABELS` (`Planificada`/`Convertida`/`Bloqueada`).
 
 - **Una pieza `blocked` NUNCA se reintenta sola.** `shouldConvert` exige `status === 'planned'`, así que el barrido ni la mira. La única salida es el botón **"Convertir ahora"** (`convertItemNow`), que sí acepta `planned` y `blocked`. Es deliberado: reintentar a diario una pieza de un cliente impago generaría ruido todos los días sin resolver nada.
+- **"Convertir ahora" también aparece en las piezas `planned` que se le escaparon al barrido**: `isStalePlanned` (dominio) marca las que vencieron hace más de `CATCHUP_DAYS` en una matriz aprobada — matriz aprobada tarde, o pieza replanificada cuando su fecha ya había pasado. Sin el botón quedarían muertas en la tabla (el barrido ya no las mira) y "Volver a planificar" las devolvería a ese mismo limbo. Las `planned` **dentro** de la ventana no lo llevan a propósito: de eso se encarga el barrido y un clic de más convertiría antes de tiempo, consumiendo cupo del ciclo vigente.
 - **Solo `P0001` y `23503` bloquean.** `P0001` es el candado de pago (`requirements_check_week_payment_trg`: semana impaga, cliente suspendido — el mensaje ya viene en español y se guarda tal cual, recortado a 500 caracteres) y `23503` es la FK del ciclo inexistente. **Cualquier otro error de insert (red, timeout, 5xx) devuelve `skipped` y se reintenta mañana**, precisamente porque a una `blocked` ya no la vuelve a mirar el barrido: marcarla por un fallo transitorio la dejaría muerta hasta que alguien la viera a mano.
 
 #### El ciclo de destino y el cupo

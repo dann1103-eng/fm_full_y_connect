@@ -542,6 +542,13 @@ export function sanitizeTopics(raw: MatrixTopic[]): MatrixTopic[] {
 
 // ── Conversión a requerimientos (bloque 2) ──────────────────────────────────
 
+/**
+ * Motivo de `skipped` que el editor distingue del resto: no es un fallo transitorio, es que falta
+ * aprobar la matriz. Vive en el dominio (y no en `matrix-convert.ts`) porque lo comparten el núcleo
+ * de conversión —servidor— y el editor —cliente—, que no puede importar la capa de datos.
+ */
+export const CONVERT_REASON_NOT_APPROVED = 'La matriz no está aprobada.'
+
 /** Días vencidos que el barrido todavía recoge. Más viejo que esto, solo a mano. */
 export const CATCHUP_DAYS = 30
 
@@ -568,6 +575,18 @@ export function shouldConvert(
   if (matrix.status !== 'approved' || item.status !== 'planned') return false
   if (item.deadline > addDaysString(today, matrix.lead_days)) return false
   return item.deadline >= addDaysString(today, -CATCHUP_DAYS)
+}
+
+/**
+ * Pieza planificada que el barrido ya no recogerá nunca: venció hace más de `CATCHUP_DAYS`.
+ * Es el único caso en que una pieza `planned` necesita el botón manual — si no, queda muerta en la
+ * tabla, y "Volver a planificar" sobre una pieza vieja la devolvería justo a ese limbo.
+ */
+export function isStalePlanned(
+  item: Pick<ConvertibleItem, 'status' | 'deadline'>,
+  today: DateString,
+): boolean {
+  return item.status === 'planned' && item.deadline < addDaysString(today, -CATCHUP_DAYS)
 }
 
 /** Piezas elegibles, las más urgentes primero. `limit` recorta el lote. */

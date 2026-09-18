@@ -534,7 +534,7 @@ export async function GET() {
         client: { name: string } | null
       } | null
     }
-    const { data: blockedItems } = await supabase
+    const { data: blockedItems, error: blockedErr } = await supabase
       .from('content_matrix_items')
       .select(`
         id, matrix_id, updated_at, blocked_at,
@@ -551,6 +551,11 @@ export async function GET() {
       // caben”. Con `limit(MATRIX_BLOCKED_LIMIT)` un resultado completo de exactamente 500 filas
       // sería indistinguible de uno truncado y marcaría todos los grupos como "N+".
       .limit(MATRIX_BLOCKED_LIMIT + 1)
+
+    // El resto de este archivo ignora los errores de consulta, pero aquí el modo de fallo es mudo y
+    // engañoso: si faltara la columna `blocked_at` (migración 0130 sin aplicar) la campana se
+    // quedaría callada para siempre sin que nadie note la diferencia.
+    if (blockedErr) console.error('[notifications] piezas bloqueadas', blockedErr.message)
 
     const raw = (blockedItems ?? []) as unknown as BlockedItemRow[]
     // Si vino la fila extra, el corte dejó piezas fuera: cualquier grupo puede tener más (el orden

@@ -51,6 +51,8 @@ export interface MatrixEditorData {
   distribution: WeeklyDistribution
   maxWeek: 4 | 8
   period: { periodStart: string; periodEnd: string; label: string }
+  /** Hoy en GMT-6, calculado en el servidor: el cliente no puede calcularlo en render (react-hooks/purity). */
+  today: DateString
   /** Requerimiento de matriz vinculado. `voided: true` → fue anulado: el editor ofrece registrar uno nuevo. */
   linkedRequirement: LinkedMatrixRequirement | null
   /**
@@ -151,6 +153,7 @@ export async function loadMatrixEditorData(db: Db, matrixId: string): Promise<Ma
   return {
     matrix, items, client, cycle, limits, usage, distribution, maxWeek,
     period: { periodStart: matrix.period_start, periodEnd: matrix.period_end, label: periodLabel(matrix.period_start, matrix.period_end) },
+    today: today(),
     linkedRequirement: (linkedRes.data as LinkedMatrixRequirement | null) ?? null,
     convertedInCycleIds,
     linkedVoidedItemIds,
@@ -242,6 +245,10 @@ async function countItemStatuses(db: Db, matrixIds: string[]): Promise<Map<strin
       const { data, error } = await db
         .from('content_matrix_items').select('matrix_id, status')
         .in('matrix_id', chunk)
+        // Solo los dos estados que se cuentan: la inmensa mayoría de las piezas son `planned` y
+        // traerlas para descartarlas en JS es la diferencia entre una página corta y varias largas.
+        // El denominador (`item_count`) no sale de aquí, sino del count del embed, así que no cambia.
+        .in('status', ['converted', 'blocked'])
         // Orden estable: sin él, dos páginas pueden repetir u omitir filas.
         .order('id', { ascending: true })
         .range(from, from + STATUS_PAGE_SIZE - 1)

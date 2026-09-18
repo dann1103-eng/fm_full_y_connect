@@ -12,6 +12,7 @@ import type { BillingCycle, ContentMatrix, ContentMatrixItem, Requirement } from
 import { effectiveLimits, applyContentLimitsWithOverride, applyUnifiedPool } from '@/lib/domain/plans'
 import { computeTotals } from '@/lib/domain/requirement'
 import { insertInitialPhaseLog } from '@/lib/domain/pipeline'
+import { CONVERT_REASON_NOT_APPROVED } from '@/lib/domain/matrix'
 import type { Db } from './matrices'
 
 export type ConvertOutcome =
@@ -36,7 +37,6 @@ export function createConvertCache(): CycleRequirementsCache {
 }
 
 const REASON_BUSY = 'La pieza ya no está disponible para convertir.'
-const REASON_NOT_APPROVED = 'La matriz no está aprobada.'
 const NO_CYCLE = 'El cliente no tiene ciclo vigente.'
 const ORPHAN_REQUIREMENT = 'Requerimiento huérfano: revisar en el pipeline.'
 const NO_INSERT = 'No se pudo registrar el requerimiento.'
@@ -61,7 +61,7 @@ export async function convertMatrixItem(
   const matrix = item.matrix
   // Solo se convierten piezas `planned`/`blocked`; una ya convertida no se toca.
   if (item.status !== 'planned' && item.status !== 'blocked') return { kind: 'skipped', reason: REASON_BUSY }
-  if (matrix.status !== 'approved') return { kind: 'skipped', reason: REASON_NOT_APPROVED }
+  if (matrix.status !== 'approved') return { kind: 'skipped', reason: CONVERT_REASON_NOT_APPROVED }
 
   // 2. Ciclo vigente del cliente (decisión de diseño: SIEMPRE el vigente, no el del período)
   const cachedCycles = opts.cache?.cycles

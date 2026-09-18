@@ -6,10 +6,11 @@ import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import { CONTENT_ICONS } from '@/lib/domain/content-icons'
 import { formatDeadlineBadge } from '@/lib/domain/deadline'
 import {
-  APPROVAL_PROBLEM_LABELS, convertsBeforePeriodStart, MATRIX_CONTENT_TYPES, MATRIX_ITEM_STATUS_LABELS,
-  MATRIX_OBJECTIVE_LABELS,
+  APPROVAL_PROBLEM_LABELS, convertsBeforePeriodStart, isStalePlanned, MATRIX_CONTENT_TYPES,
+  MATRIX_ITEM_STATUS_LABELS, MATRIX_OBJECTIVE_LABELS,
   type ApprovalProblem, type ApprovalProblemReason, type MatrixUsage,
 } from '@/lib/domain/matrix'
+import type { DateString } from '@/lib/domain/dates'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -69,6 +70,8 @@ interface Props {
   linkedVoidedItemIds: string[]
   /** Pieza con una conversión o replanificación en curso: sus botones quedan bloqueados. */
   busyItemId: string | null
+  /** Hoy en GMT-6, del servidor: decide qué piezas planificadas ya se le escaparon al barrido. */
+  today: DateString
   onSelect: (id: string) => void
   onAdd: (type: ContentType) => void
   onDuplicate: (id: string) => void
@@ -78,7 +81,7 @@ interface Props {
 }
 
 export function MatrixItemsTable({
-  items, matrix, usage, problems, selectedId, readOnly, adding, unsavedIds, linkedVoidedItemIds, busyItemId,
+  items, matrix, usage, problems, selectedId, readOnly, adding, unsavedIds, linkedVoidedItemIds, busyItemId, today,
   onSelect, onAdd, onDuplicate, onDelete, onConvertNow, onReplan,
 }: Props) {
   const over = new Set(usage.overPlanItemIds)
@@ -176,7 +179,14 @@ export function MatrixItemsTable({
               Ver requerimiento
             </Link>
           )}
-          {it.status === 'blocked' && !readOnly && (
+          {/*
+            Bloqueada: el barrido ya no la vuelve a mirar, el reintento es manual.
+            Planificada y vencida hace más de CATCHUP_DAYS: el barrido tampoco la recogerá nunca
+            (matriz aprobada tarde, o pieza replanificada cuando su fecha ya pasó). Sin este botón
+            queda muerta en la tabla. Las planificadas dentro de la ventana NO lo llevan: el barrido
+            se encarga y un clic de más convertiría antes de tiempo, consumiendo cupo.
+          */}
+          {!readOnly && (it.status === 'blocked' || (isStalePlanned(it, today) && matrix.status === 'approved')) && (
             <button type="button" disabled={anyBusy} className={actionCls}
               onClick={(e) => { e.stopPropagation(); onConvertNow(it.id) }}>
               {busy ? 'Convirtiendo…' : 'Convertir ahora'}

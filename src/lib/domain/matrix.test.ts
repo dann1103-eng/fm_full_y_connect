@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { computeTargetPeriods, matrixTitleFor, periodLabel, resolveMatrixLimits, computeMatrixUsage, usageTone, proposeDeadline, limitsForDistribution, canTransition, validateForApproval, validateItemPatch, shiftDeadline, sanitizeTopics, compareMatrixItems, isIsoDate, pickCycleForPeriod, canCreateMatrixForClient } from './matrix'
-import { shouldConvert, selectItemsToConvert, convertsBeforePeriodStart, CATCHUP_DAYS } from './matrix'
+import { shouldConvert, selectItemsToConvert, convertsBeforePeriodStart, isStalePlanned, CATCHUP_DAYS } from './matrix'
 import type { MatrixLimits } from './matrix'
 import type { ConvertibleItem, ConvertibleMatrix } from './matrix'
 import type { BillingCycle, MatrixTopic, Plan, Requirement } from '@/types/db'
@@ -571,6 +571,23 @@ describe('shouldConvert', () => {
     const m = { ...approvedMatrix, lead_days: 0 }
     expect(shouldConvert({ status: 'planned', deadline: today }, m, today)).toBe(true)
     expect(shouldConvert({ status: 'planned', deadline: '2026-10-11' }, m, today)).toBe(false)
+  })
+})
+
+describe('isStalePlanned', () => {
+  const today = '2026-10-10'
+  it('es el complemento exacto de la ventana de recuperación', () => {
+    // -30: el barrido todavía la recoge → no está muerta.
+    expect(isStalePlanned({ status: 'planned', deadline: '2026-09-10' }, today)).toBe(false)
+    // -31: el barrido ya no la mira nunca → solo a mano.
+    expect(isStalePlanned({ status: 'planned', deadline: '2026-09-09' }, today)).toBe(true)
+  })
+  it('una pieza futura nunca está muerta', () => {
+    expect(isStalePlanned({ status: 'planned', deadline: '2026-12-01' }, today)).toBe(false)
+  })
+  it('solo aplica a piezas planificadas', () => {
+    expect(isStalePlanned({ status: 'blocked', deadline: '2026-09-09' }, today)).toBe(false)
+    expect(isStalePlanned({ status: 'converted', deadline: '2026-09-09' }, today)).toBe(false)
   })
 })
 

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import type { ContentMatrix, ContentMatrixItem, ContentType, MatrixStatus, MatrixTopic } from '@/types/db'
 import type { MatrixEditorData } from '@/lib/data/matrices'
 import {
-  compareMatrixItems, computeMatrixUsage, validateForApproval,
+  compareMatrixItems, computeMatrixUsage, validateForApproval, CONVERT_REASON_NOT_APPROVED,
   type ActionErr, type ItemPatch, type TargetPeriod,
 } from '@/lib/domain/matrix'
 import {
@@ -446,8 +446,10 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
       return
     }
     // `skipped`: la pieza no se tocó (otro proceso ganó, matriz sin aprobar o fallo transitorio). La fila
-    // que se ve puede haber quedado vieja, así que se pide recargar.
-    setError({ message: `No se convirtió: ${outcome.reason} Recarga la página.`, fields: [] })
+    // que se ve puede haber quedado vieja, así que se pide recargar — salvo cuando el motivo ya dice qué
+    // hacer (aprobar la matriz), donde recargar no arregla nada y despista.
+    const reload = outcome.reason === CONVERT_REASON_NOT_APPROVED ? '' : ' Recarga la página.'
+    setError({ message: `No se convirtió: ${outcome.reason}${reload}`, fields: [] })
   }
 
   /** "Volver a planificar": la acción sí devuelve la fila, así que se aplica tal cual. */
@@ -536,6 +538,7 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
         unsavedIds={unsavedItemIds}
         linkedVoidedItemIds={voidedItemIds}
         busyItemId={busyItemId}
+        today={data.today}
         onSelect={setSelectedId}
         onAdd={(t) => void onAdd(t)}
         onDuplicate={(id) => void onDuplicateItem(id)}
