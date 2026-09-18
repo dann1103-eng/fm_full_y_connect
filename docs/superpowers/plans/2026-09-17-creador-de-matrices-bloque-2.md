@@ -1139,11 +1139,11 @@ git commit -m "feat(matrices): aviso de piezas bloqueadas en la campana" -m "Co-
 **Files:**
 - Modify: `CLAUDE.md`
 
-- [ ] **Step 1: Documentar**
+- [x] **Step 1: Documentar**
 
 En la tabla de migraciones, fila `0130` marcada **pendiente de aplicar** (mismo formato que usó 0129 antes de aplicarse). En la sección "Matrices de contenido", subsección nueva "Bloque 2 — conversión automática" con: el barrido (`/api/matrices/convert`, cron `0 12 * * *`, ventana `lead_days`/`CATCHUP_DAYS`, tope 80 y caché de cupo por ciclo), los tres estados de pieza, que **las bloqueadas no se reintentan solas**, que el requerimiento entra **siempre al ciclo vigente** (y la advertencia `convertsBeforePeriodStart`), `over_limit` sin consumir créditos, el rollback con cliente admin y por qué, la guarda de `voided` en `replanItem`, el brief en `PhaseSheet` y que los textos de una pieza convertida siguen editables.
 
-- [ ] **Step 2: Verificación automática completa**
+- [x] **Step 2: Verificación automática completa**
 
 Run, en orden:
 ```bash
@@ -1155,6 +1155,8 @@ npm run build
 Expected: pruebas solo con la falla conocida de `cycles.test.ts`; 0 errores de tipos; lint sin errores nuevos (comparar contra 49 problemas / 11 errores de la base); build exitoso con las rutas `/matrices`, `/matrices/[id]` y `/api/matrices/convert`.
 
 - [ ] **Step 3: Recorrido manual (requiere 0130 aplicada por el usuario)**
+
+> **No realizado.** La migración 0130 sigue sin aplicar (el usuario aplica las migraciones a mano en el Supabase Dashboard) y el agente no tiene sesión de navegador ni credenciales, así que ninguno de los 7 puntos se pudo comprobar. Queda pendiente para el usuario **después** de aplicar 0130.
 
 Con admin o supervisor, anotando el resultado de cada punto:
 
@@ -1170,7 +1172,7 @@ Con admin o supervisor, anotando el resultado de cada punto:
 6. Anular el requerimiento → la fila muestra "Requerimiento anulado"; "Volver a planificar" la devuelve a Planificada. Intentarlo con un requerimiento vivo → error explicando que hay que anularlo primero.
 7. Correr el barrido dos veces seguidas → la segunda no crea nada.
 
-- [ ] **Step 4: Commit final**
+- [x] **Step 4: Commit final**
 
 ```bash
 git add CLAUDE.md

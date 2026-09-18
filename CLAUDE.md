@@ -450,6 +450,16 @@ Las violaciones de FK (RESTRICT) **no producen excepción** — retornan `{ erro
 
 > La rama asume que `content_matrices`/`content_matrix_items` existen. En un entorno donde 0129 no esté aplicada, `/matrices` y `/matrices/[id]` muestran el error boundary de `src/app/(app)/error.tsx`; la tarjeta del perfil (`ClientMatricesCard`) está guardada con un `.catch()` sobre `loadClientMatrices` en `clients/[id]/page.tsx` y simplemente no aparece.
 
+### Pendiente de aplicar
+| # | Contenido |
+|---|-----------|
+| 0130 | **Creador de matrices (bloque 2)** — `content_matrix_items` gana `assigned_to` (`uuid[]`, responsables de la pieza, se copian al requerimiento al convertir), `estimated_time_minutes` (`integer`, con constraint **con nombre** `content_matrix_items_est_minutes_chk`: `null` o entre 1 y 10080 — 7 días) y `blocked_at` (`timestamptz`, momento del bloqueo: `updated_at` lo pisa cualquier edición del brief, así que no puede fechar ni ordenar el aviso). Índice parcial `content_matrix_items_blocked_idx` sobre `(blocked_at desc nulls last, id desc) where status = 'blocked'` — el `nulls last` y el desempate por `id` son obligatorios: replican exactamente el `order` del query de `/api/notifications` (`desc` implica `nulls first`, así que sin ellos Postgres no podría usar el índice para ordenar). Cierra con un **backfill idempotente** que data con `updated_at` las piezas ya `blocked` sin `blocked_at`. Todo dentro de una transacción con `set local lock_timeout = '5s'` (convención de 0129). |
+
+**Aplicar la migración 0130 manualmente en el Supabase Dashboard antes de desplegar la rama `feat/matrices-bloque-2`** (quitar esta nota al aplicarla). No es opcional ni degradado: sin ella la rama **se rompe**, porque el código lee y escribe esas columnas sin resguardo.
+> - `setMatrixStatus` ensanchó su `select` a `id, title, deadline, status, assigned_to, estimated_time_minutes`: sin las columnas, PostgREST devuelve error y **aprobar o cerrar cualquier matriz falla**, incluidas las que no usan nada del bloque 2.
+> - Cada lectura o escritura de `assigned_to`/`estimated_time_minutes` falla igual: el editor (`loadMatrixEditorData`), `addItem`, `updateItem`, `duplicateItem`, `duplicateMatrix` y el núcleo de conversión.
+> - El barrido `/api/matrices/convert` y el aviso `matrix_blocked` de `/api/notifications` (que filtra y ordena por `blocked_at`) tampoco funcionan.
+
 ## Tareas asignadas (feature — migración 0117)
 
 Función para que supervisores/admins asignen tareas específicas (fuera del plan de un cliente) a miembros del equipo.
@@ -560,7 +570,7 @@ Registry tipado `WA_TEMPLATES`. Cada entry declara `name` + `language` (debe coi
 - `ai_jobs.cost_usd_cents` calculado por handler según pricing Sonnet 4.6 ($3/M in, $15/M out, $0.30/M cache). Fórmula en `whatsappReply.ts` usa constantes `USD_PER_MTOK_*` y `/1_000_000` → céntimos enteros. **NO agregar un `*100` extra**: la conversión USD→céntimos ya está incluida (bug histórico corregido en migración 0123).
 - `WaBotUsageStats` (src/components/whatsapp/) — tarjetas mes actual/anterior + tabla por cliente. Muestra dólares con `cost_usd_cents / 100` (conversión céntimos→dólares correcta; NO tocar). TZ America/El_Salvador para corte mensual.
 
-## Matrices de contenido (bloque 1 — 2026-09)
+## Matrices de contenido (bloques 1 y 2 — 2026-09)
 
 Planificación mensual por cliente: temas del mes + piezas (tipo, título, tema, objetivo, copy, guión, estilo visual, hashtags, CTA, deadline) agrupadas en una matriz por período objetivo. Migración `0129_content_matrices.sql` — **aplicada el 2026-09-17**.
 
@@ -576,4 +586,81 @@ Planificación mensual por cliente: temas del mes + piezas (tipo, título, tema,
 - Cupos excedidos = aviso ("fuera de plan"), **nunca bloqueo**. Bajo pool unificado los tippables (`TIPPABLE_CONTENT_TYPES`: `estatico`, `video_corto`, `reel`, `short`) comparten un chip de cupo; `historia` queda fuera del pool, con límite propio.
 - **Solo clientes creables** (`MATRIX_CREATABLE_CLIENT_STATUSES`/`canCreateMatrixForClient` en `matrix.ts`: `active`, `paused`, `overdue`) pueden recibir una matriz nueva — un cliente `inactive_payment`/`inactive_manual` no. Se filtra en `MatricesPageClient` (diálogo) y en `ClientMatricesCard` (oculta "+ Crear matriz" y muestra el aviso), y se re-valida en servidor en `createMatrix`/`duplicateMatrix` (`assertClientCreatable`). `loadMissingMatrices` ya solo lista clientes `active`.
 - Tarjeta `ClientMatricesCard` (perfil del cliente, solo admin/supervisor) y páginas `/matrices` (lista) y `/matrices/[id]` (editor).
-- Pendiente: **bloque 2** (conversión automática de piezas a requerimientos) y **bloque 3** (IA).
+- Bloque 2 implementado (ver la subsección siguiente). Pendiente: **bloque 3** (IA).
+
+### Bloque 2 — conversión automática (2026-09)
+
+Las piezas de una matriz **aprobada** se registran solas como requerimientos del pipeline, `lead_days` antes de su fecha de entrega. Migración `0130_matrix_items_assignment.sql` — **pendiente de aplicar** (ver "Pendiente de aplicar" en la tabla de migraciones arriba; la rama no se despliega antes).
+
+- Spec: `docs/superpowers/specs/2026-09-17-creador-de-matrices-bloque-2-design.md`. Plan: `docs/superpowers/plans/2026-09-17-creador-de-matrices-bloque-2.md`.
+
+#### El barrido diario (`/api/matrices/convert`)
+
+- Ruta `src/app/api/matrices/convert/route.ts`, `runtime = 'nodejs'`, `maxDuration = 60`. Cron en `vercel.json`: **`0 12 * * *`** → 12:00 UTC = **6:00 AM en El Salvador** (GMT-6), antes de que entre el equipo y sin colisionar con los crons existentes. Vercel Cron manda **GET**, así que `GET` delega en `POST`. Auth: `Authorization: Bearer $CRON_SECRET` **o** header `x-trigger-secret: $AI_JOBS_TRIGGER_SECRET` (el mismo par que usa el runner de IA); sin ninguno de los dos → 401. Se dispara a mano con `curl -X POST -H "x-trigger-secret: …" …/api/matrices/convert`.
+- **Ventana**: piezas con `deadline` entre `hoy - CATCHUP_DAYS` (30 días de recuperación hacia atrás, por si el cron no corrió) y `hoy + 30` (`WINDOW_DAYS`, cota barata en SQL porque el tope de `lead_days` es 30). El filtro fino — `deadline <= hoy + lead_days` de **su** matriz — lo hace `shouldConvert`/`selectItemsToConvert` en el dominio, ya en memoria.
+- **El filtro de matriz aprobada va en SQL a propósito** (`matrix:content_matrices!inner(...)` + `.eq('matrix.status','approved')`): si se filtrara en JS, las piezas viejas de matrices en borrador o cerradas se acumularían en la cabeza del ranking y, pasado `SCAN_LIMIT`, el barrido dejaría de encontrar piezas convertibles **sin dar error**.
+- **Topes**: `SCAN_LIMIT = 300` filas leídas, `CONVERT_LIMIT = 80` piezas por corrida (las más urgentes primero, orden canónico de `compareMatrixItems`). Lo que no entró se convierte mañana.
+- **Presupuesto de tiempo `TIME_BUDGET_MS = 45_000`** (15 s por debajo de `maxDuration`): cada conversión son 4–6 viajes a la base y 80 piezas pueden pasarse de los 60 s. Si la plataforma matara la función **entre el insert del requerimiento y el update de la pieza**, quedaría un requerimiento vivo con la pieza todavía `planned` y el barrido de mañana crearía un **segundo** requerimiento (el índice único de 0129 no lo ataja: el id es distinto). Por eso se corta limpio y se deja el resto para la corrida siguiente (`stopped_early`/`remaining` en la respuesta).
+- **Secuencial a propósito**, no en paralelo: dos piezas del mismo ciclo calcularían el cupo sobre el mismo estado y ambas nacerían dentro de plan.
+- **Caché por corrida** (`createConvertCache`): ciclo vigente por cliente y requerimientos aprobados por `billing_cycle_id`. Un lote de 80 piezas suele ser de un puñado de clientes. **Un cliente sin ciclo vigente NO se cachea**: si una renovación crea el ciclo a mitad de corrida, cachear el `null` dejaría bloqueadas "sin ciclo vigente" todas las piezas restantes de ese cliente.
+- Un `throw` inesperado de una pieza se captura y cuenta como `skipped`: no puede tumbar la corrida y perder los contadores. La respuesta trae `scanned/selected/converted/blocked/skipped/stopped_early/remaining/truncated/details` (máximo 50 detalles) y se loguea; una corrida con piezas elegibles y **cero** conversiones emite `console.error`.
+
+#### Los tres estados de pieza (`content_matrix_items.status`)
+
+`planned` → `converted` (con `requirement_id` + `converted_at`) o `blocked` (con `blocked_reason` + `blocked_at`). Etiquetas en `MATRIX_ITEM_STATUS_LABELS` (`Planificada`/`Convertida`/`Bloqueada`).
+
+- **Una pieza `blocked` NUNCA se reintenta sola.** `shouldConvert` exige `status === 'planned'`, así que el barrido ni la mira. La única salida es el botón **"Convertir ahora"** (`convertItemNow`), que sí acepta `planned` y `blocked`. Es deliberado: reintentar a diario una pieza de un cliente impago generaría ruido todos los días sin resolver nada.
+- **Solo `P0001` y `23503` bloquean.** `P0001` es el candado de pago (`requirements_check_week_payment_trg`: semana impaga, cliente suspendido — el mensaje ya viene en español y se guarda tal cual, recortado a 500 caracteres) y `23503` es la FK del ciclo inexistente. **Cualquier otro error de insert (red, timeout, 5xx) devuelve `skipped` y se reintenta mañana**, precisamente porque a una `blocked` ya no la vuelve a mirar el barrido: marcarla por un fallo transitorio la dejaría muerta hasta que alguien la viera a mano.
+
+#### El ciclo de destino y el cupo
+
+- El requerimiento entra **SIEMPRE al ciclo vigente (`status='current'`) del cliente en el momento de convertir**, no al ciclo del período de la matriz. Consecuencia visible: una pieza cuya conversión cae antes de que arranque el período de su matriz consume cupo del ciclo **anterior**. `convertsBeforePeriodStart(item, matrix)` (dominio) detecta el caso y `MatrixItemsTable` muestra la advertencia en la fila.
+- **`over_limit` se calcula con la cadena completa**, idéntica a la del registro manual: `effectiveLimits` → `applyContentLimitsWithOverride` → **`applyUnifiedPool`**. El `applyUnifiedPool` no es opcional: en un plan con pool unificado los límites por tipo valen 0 en el snapshot y **toda** pieza nacería `over_limit: true`.
+- Los requerimientos del ciclo se leen con `.eq('approval_status','approved')`: `computeTotals` no filtra por aprobación y sin eso las solicitudes `pending` del portal contarían como cupo ya consumido.
+- **Estar fuera de cupo no bloquea ni consume créditos**: el insert no lleva `paid_from_credit_id`, solo `over_limit: true`. Misma política que el bloque 1 (aviso, nunca bloqueo).
+- El requerimiento nace con `approval_status: 'approved'`, `requested_via: 'staff'`, `priority: 'media'`, `includes_story: false`, `registered_by_user_id` = `matrix.approved_by ?? matrix.created_by` (o el usuario autenticado en "Convertir ahora"), y copia de la pieza `content_type`, `title`, `deadline`, `assigned_to` y `estimated_time_minutes`. Se le añade el log inicial de fase con `insertInitialPhaseLog`, igual que un registro manual.
+
+#### El núcleo compartido y el rollback
+
+`src/lib/data/matrix-convert.ts` — `convertMatrixItem(db, itemId, opts)` lo usan **igual** el barrido (con el cliente admin) y `convertItemNow` (con el cliente **autenticado**, para que el trigger de pago aplique como en un registro manual).
+
+- El paso final marca la pieza con un update **condicional** (`.in('status', ['planned','blocked'])`). Si otro proceso ganó la carrera, se **deshace** el requerimiento recién creado.
+- **El rollback va SIEMPRE con el cliente admin**, aunque la conversión haya corrido con el autenticado: `requirements` tiene RLS y **no existe ninguna policy `for delete`**, así que un delete autenticado devolvería 0 filas **sin error** y dejaría un requerimiento huérfano consumiendo cupo en silencio. `requirement_phase_logs` cae por cascade.
+- Si el rollback falla, el requerimiento queda huérfano: se loguea con `console.error`, el motivo se devuelve como `Requerimiento huérfano: revisar en el pipeline.` y el caso se distingue en el resumen de la corrida. En el caché el requerimiento se **conserva** (sigue vivo y sigue consumiendo cupo, la pieza siguiente del mismo ciclo debe contarlo).
+
+#### Acciones manuales del editor
+
+- **`convertItemNow(itemId)`** — "Convertir ahora". Admin/supervisor (`requireManager`). Devuelve el `ConvertOutcome` tal cual para que la fila muestre el motivo si vuelve a bloquearse.
+- **`replanItem(itemId)`** — "Volver a planificar". Exige que el requerimiento vinculado esté **anulado o ya no exista**; con uno vivo devuelve "El requerimiento sigue activo: anúlalo primero en el pipeline." **Esa guarda es imprescindible**: sin ella el barrido de mañana crearía un segundo requerimiento para la misma pieza (el índice único no lo ataja porque el id nuevo es distinto). Y replanificar significa exactamente eso: la pieza vuelve a `planned` y **el barrido la volverá a convertir** (el botón lo dice: "Volver a planificar (se convertirá de nuevo)"). Funciona también en matriz **cerrada** — a diferencia de `updateItem` — porque el caso real es "anulé el requerimiento y quiero dejar la pieza planificada", y el barrido ignora las matrices cerradas.
+
+#### Edición de una pieza ya convertida
+
+`updateItem` **congela** en la pieza los cinco campos que se copiaron al requerimiento: `title`, `content_type`, `deadline`, `assigned_to` y `estimated_time_minutes`. Se editan en el requerimiento; renombrar en la matriz dejaría la tarjeta del pipeline con el título viejo sin que nada indicara la divergencia. **El resto del brief sigue editable** (tema, objetivo, copy, guion, estilo visual, hashtags, CTA) y el requerimiento lo lee **en vivo**: `MatrixBriefSection` (montado en `PhaseSheet`) consulta `content_matrix_items` por `requirement_id` desde el navegador, así que cambiar el guion en la matriz y recargar la ficha basta para verlo. La RLS de esa tabla es de admin/supervisor: para un operador la query devuelve 0 filas (no error) y la sección simplemente no se renderiza; el portal del cliente no monta el componente.
+
+#### Responsable y estimado
+
+- `assigned_to` (`uuid[]`) y `estimated_time_minutes` se editan en `MatrixItemSheet` (checkboxes de usuarios + horas/minutos). `MATRIX_MAX_ASSIGNEES = 20` y `MATRIX_ESTIMATE_MAX_MINUTES = 10080` (7 días) se validan en `validateItemPatch` — el UUID también se valida con regex, porque un id cualquiera llegaría a Postgres y el usuario vería el `invalid input syntax for type uuid` crudo en vez de un mensaje en español. El tope de minutos está además en el check de 0130: si se cambia, cambiarlo en los dos lados.
+- Lista vacía → se guarda `null`, para que la base tenga una sola forma de "vacío".
+- **Aprobar ahora exige responsable y estimado** en toda pieza: `validateForApproval` añade los problemas `sin_responsable` y `sin_estimado`. **Las piezas ya `converted` quedan exentas** (`continue`): tienen esos campos congelados en el editor, así que exigirlos sería un problema imposible de arreglar.
+- `addItem` prerrellena los responsables por defecto igual que `RequirementModal` (`default_assignee = true`, sin `client`/`agent`) y **filtra `deactivated_at is null`**: `deleteUser` desactiva sin limpiar `default_assignee` y el usuario desaparece de `/users`, así que el flag ya no se puede apagar; sin el filtro cada pieza nueva nacería asignada a alguien dado de baja y ese id acabaría copiado en el requerimiento real. Mismo filtro en `assignableUsers` del loader. `duplicateItem` y `duplicateMatrix` **sí** copian ambos campos: sin ellos la copia — el caso de uso principal — no se podría aprobar sin rellenarlos a mano.
+
+#### Loader: `convertedInCycleIds` y `linkedVoidedItemIds`
+
+`loadMatrixEditorData` devuelve dos listas nuevas (arrays, no `Set`: cruzan server → client):
+
+- **`convertedInCycleIds`** — piezas `converted` cuyo requerimiento está en el ciclo leído **y cuenta en `computeTotals`** (ni `voided` ni `carried_over`). **El editor DEBE pasárselo a `computeMatrixUsage`**: sin el parámetro, toda pieza `converted` se descuenta de los chips, y como el servidor sí la cuenta vía `cycleTotals`, el chip del servidor y el del cliente divergirían en cuanto se editara cualquier cosa. Con el parámetro, una `converted` que **no** está en la lista (se convirtió a otro ciclo, o su requerimiento se anuló) se sigue contando como planificada, para que no desaparezca por los dos lados. Sin el parámetro `computeMatrixUsage` mantiene el comportamiento del bloque 1.
+- **`linkedVoidedItemIds`** — piezas convertidas cuyo requerimiento fue anulado o borrado (`?? true`: requerimiento inexistente = anulado). La fila muestra "Requerimiento anulado" y ofrece "Volver a planificar". Se consulta **por ids y sin filtrar por ciclo ni por `approval_status`**: una pieza convertida al ciclo anterior — caso previsto por el diseño — no aparece en `cycleRequirements`, y filtrando por ahí se marcaría como anulada sin serlo.
+
+#### Superficies de seguimiento
+
+- **Editor**: columna de estado en `MatrixItemsTable` (con motivo del bloqueo truncado + texto completo para lector de pantalla), campo **"Anticipación (días)"** en `MatrixHeader` (0–30; un `type="number"` vacío se **descarta** en vez de guardar `lead_days = 0`, que convertiría todas las piezas el mismo día de su entrega) y el contador "N por convertir · N bloqueadas".
+- **Lista `/matrices`**: columna "Convertidas" (`converted_count / item_count`) y chip rojo "N bloqueada(s)" junto al estado. Los conteos los calcula `countItemStatuses` en `loadMatricesList` **por lotes de 100 matrices y paginado dentro de cada lote**: PostgREST recorta en `db-max-rows` **sin devolver error**, así que el paginado avanza por el largo **real** de cada página y para cuando una vuelve vacía — cortar en "página más corta que la pedida" daría conteos por debajo de lo real, otra vez en silencio, en cuanto `db-max-rows` fuera menor que `STATUS_PAGE_SIZE`.
+- **Notificación `matrix_blocked`** (derivada en `/api/notifications`, solo admin/supervisor, sin tabla): una entrada **por matriz** con piezas `blocked`, con el conteo del grupo y el `blocked_at` más reciente como fecha; nace `read: false` como el resto de los avisos derivados e insiste hasta que alguien destrabe o replanifique. Clic → `/matrices/{id}`. Suma en la campana vía la rama `matrix_blocked` de `unreadCount` en `useNotifications`.
+  - **Excluye las matrices `closed`**: es un estado terminal (sin transición de salida y con las escrituras sobre sus piezas rechazadas), así que su aviso nadie podría resolverlo. Las `draft` sí entran: son accionables (aprobar y convertir).
+  - Orden `blocked_at desc nulls last, id desc` — el desempate por `id` no es cosmético: el barrido bloquea muchas piezas en la misma transacción y sin él el corte del `limit` sería no determinista. Es el orden que replica el índice de 0130.
+  - **"N+" cuando el resultado vino truncado**: se piden `MATRIX_BLOCKED_LIMIT + 1` (501) filas y `partial = raw.length > MATRIX_BLOCKED_LIMIT`; la fila centinela se recorta antes de agrupar. Con `limit(500)` y `>= 500` un resultado **completo** de exactamente 500 filas sería indistinguible de uno truncado y **todos** los grupos saldrían como "N+". Truncado marca los conteos como mínimos porque el orden es global por fecha, no por matriz: cualquier grupo puede tener piezas más allá del corte.
+  - El `?? updated_at` al fechar cada fila es un **resto defensivo**: el backfill de 0130 rellena `blocked_at` en las filas viejas, así que en una base migrada no quedan nulos.
+
+#### Fuera de alcance del bloque 2
+
+`needs_production` no dispara nada; sin reintento automático de bloqueadas; el editor abierto no se refresca solo cuando corre el barrido; el portal del cliente no ve el brief; no se agrupan piezas en una producción; IA (bloque 3).
