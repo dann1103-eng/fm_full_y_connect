@@ -71,7 +71,7 @@ El cupo del plan para el período de la matriz, menos lo que la matriz ya tenga.
 |---|---|
 | Temas del mes (si la matriz no los tiene) | `deadline` — `proposeDeadline`, acumulando las piezas ya propuestas en la misma corrida para que el presupuesto semanal se consuma de verdad |
 | El **reparto** de tipos dentro del cupo (el sistema fija el `content_type` de cada pieza a partir de ese reparto) | `assigned_to` — prellenado con `default_assignee`, igual que `addItem` |
-| `title`, `topic`, `objective`, `copy`, `script`, `visual_style`, `hashtags`, `cta` | |
+| `title` y `topic` (este por **índice** a la lista de temas, y lo fija el padre: el hijo nunca lo toca), `objective`, `copy`, `script`, `visual_style`, `hashtags`, `cta` | |
 | `needs_production`, `estimated_time_minutes` | |
 
 Las fechas no las elige el modelo a propósito: `proposeDeadline` ya respeta la distribución semanal y el presupuesto por semana. El estimado sí lo propone porque **aprobar exige responsable y estimado en cada pieza** (bloque 2): sin proponerlo, generar 15 piezas dejaría 15 campos obligatorios en blanco.
@@ -181,6 +181,10 @@ Los prompts viven en `src/lib/ai/matrix/prompts.ts` (código, no base): no hay `
   total: number, done: number, failed: number,
   writingItemIds: string[],      // de ai_jobs.content_matrix_item_id
   error: string | null,
+  reason: string | null,         // 'sin_plan_valido' del result_json del padre: terminar en
+                                 // silencio con 0 piezas parecería éxito
+  topics: MatrixTopic[] | null,  // topics_json actual; sin esto el editor abierto pierde los
+                                 // temas generados en el siguiente updateMatrix
   items: ContentMatrixItem[] }   // solo las filas con updated_at > since
 ```
 
