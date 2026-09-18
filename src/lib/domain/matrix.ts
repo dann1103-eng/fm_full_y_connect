@@ -509,7 +509,7 @@ export const MATRIX_TEXT_LIMITS = {
 export const MAX_TOPICS = 20
 
 /** Recorta un string a lo sumo `max` code points (no UTF-16 units) — evita partir un emoji a la mitad. */
-function truncateCodePoints(s: string, max: number): string {
+export function truncateCodePoints(s: string, max: number): string {
   return Array.from(s).slice(0, max).join('')
 }
 
