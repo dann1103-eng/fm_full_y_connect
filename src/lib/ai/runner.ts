@@ -5,6 +5,7 @@ import { whatsappReplyHandler } from './handlers/whatsappReply'
 import { whatsappTemplateHandler } from './handlers/whatsappTemplate'
 import { invoiceDueReminderHandler } from './handlers/invoiceDueReminder'
 import { matrixGenerateHandler } from './handlers/matrixGenerate'
+import { matrixItemWriteHandler } from './handlers/matrixItemWrite'
 import type { AiHandler, AiHandlerCtx, AiJobRow } from './types'
 
 /**
@@ -20,6 +21,7 @@ const HANDLERS: Record<string, AiHandler> = {
   // Tampoco llevan prefijo whatsapp_: los dos jobs de matriz escriben en tablas tipadas con su
   // propio admin client (bloque 3).
   matrix_generate: matrixGenerateHandler as AiHandler,
+  matrix_item_write: matrixItemWriteHandler as AiHandler,
 }
 
 /**
