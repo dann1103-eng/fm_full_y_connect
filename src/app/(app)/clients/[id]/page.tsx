@@ -27,6 +27,8 @@ import { listClientCredits } from '@/app/actions/credits'
 import { ClientCreditsCard } from '@/components/clients/ClientCreditsCard'
 import { loadClientMatrices } from '@/lib/data/matrices'
 import { ClientMatricesCard } from '@/components/clients/ClientMatricesCard'
+import { loadBrandProfile } from '@/lib/data/brand'
+import { ClientBrandProfileCard } from '@/components/clients/ClientBrandProfileCard'
 
 export const dynamic = 'force-dynamic'
 
@@ -271,9 +273,21 @@ export default async function ClientDetailPage({
         return null
       })
     : Promise.resolve(null)
-  const [credits, clientMatrices] = await Promise.all([
+  // Igual que la tarjeta de matrices: sin la migración 0131 el loader lanza y la tarjeta simplemente no
+  // aparece. El resultado se envuelve porque `null` aquí significa "no se puede mostrar la tarjeta",
+  // mientras que un perfil sin fila (`{ profile: null }`) es el caso normal: hay que llenarlo.
+  const brandProfilePromise: Promise<{ profile: Awaited<ReturnType<typeof loadBrandProfile>> } | null> = canCreate
+    ? loadBrandProfile(supabase, id)
+        .then((profile) => ({ profile }))
+        .catch((e: unknown) => {
+          console.error('[ClientDetailPage] loadBrandProfile error:', e)
+          return null
+        })
+    : Promise.resolve(null)
+  const [credits, clientMatrices, brandProfile] = await Promise.all([
     listClientCredits(id),
     clientMatricesPromise,
+    brandProfilePromise,
   ])
   const baseLimits = cycle
     ? effectiveLimits(cycle.limits_snapshot_json, cycle.rollover_from_previous_json)
@@ -385,6 +399,11 @@ export default async function ClientDetailPage({
         {/* 1b — Matrices de contenido (admin/supervisor) */}
         {clientMatrices && (
           <ClientMatricesCard client={client} periods={clientMatrices.periods} matrices={clientMatrices.matrices} />
+        )}
+
+        {/* 1c — Perfil de marca: el contexto con el que la IA genera la matriz (admin/supervisor) */}
+        {brandProfile && (
+          <ClientBrandProfileCard clientId={client.id} profile={brandProfile.profile} />
         )}
 
         {/* 2 — Pipeline del ciclo actual */}
