@@ -13,7 +13,6 @@ import { TeamShiftNotificationHost } from '@/components/layout/TeamShiftNotifica
 import { ActiveCallProvider } from '@/contexts/ActiveCallContext'
 import { LoginWelcomeDialog } from '@/components/layout/LoginWelcomeDialog'
 import { IdleSchedulerWrapper } from '@/components/layout/IdleSchedulerWrapper'
-import { SessionSentinel } from '@/components/auth/SessionSentinel'
 import { SpectatorBanner } from '@/components/layout/SpectatorBanner'
 
 interface AppLayoutProps {
@@ -82,7 +81,6 @@ export default async function AppLayout({ children }: AppLayoutProps) {
           <TeamShiftNotificationHost />
           <LoginWelcomeDialog />
           <IdleSchedulerWrapper />
-          <SessionSentinel />
         </MobileSidebarProvider>
       </ActiveCallProvider>
     </UserProvider>

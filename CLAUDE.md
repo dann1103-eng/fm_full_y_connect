@@ -460,9 +460,9 @@ Función para que supervisores/admins asignen tareas específicas (fuera del pla
 - **UI** `/tareas` (nav "Tareas", visible a todos los roles internos): admin/supervisor → `TaskManagerPanel` (lista + filtros por responsable/estado + asignar/editar/reasignar/cancelar); operador → `MyTasksPanel` (iniciar/detener timer, marcar finalizada, historial + contador de horas). El timer activo de tarea se refleja en `ClockInPanel` de /tiempo con badge "Tarea".
 - **Notificaciones**: derivadas en `/api/notifications` (sin tabla; kinds `task_assigned` al responsable y `task_completed` al asignador) + toast/bell + browser-notif.
 
-## Auth — fix expulsión de sesión (2026-07-07)
+## Auth — sesiones múltiples permitidas (2026-09)
 
-`verifySession` en `src/app/actions/sessions.ts` ahora retorna `status: 'valid' | 'superseded' | 'unknown'` en lugar de `{ valid: boolean }`. `SessionSentinel.tsx` solo expulsa al usuario en `superseded` (hay otro `current_session_id` no-nulo diferente en DB). `unknown` (fallo transitorio de auth, columna NULL) ya NO provoca kick — antes causaba falsos positivos cada 30s.
+Se **eliminó** la expulsión por sesión única (`SessionSentinel`, `SessionKickedDialog` y `src/app/actions/sessions.ts`): un usuario puede iniciar sesión en varios dispositivos a la vez sin que se cierren entre sí. La columna `users.current_session_id` (migración 0066) queda en la base sin uso; `signout` y `UsersTable` todavía la ponen en `null`, es inofensivo. No reintroducir un kick por `current_session_id`: los falsos positivos (auth transitorio, realtime) sacaban a usuarios en su única sesión.
 
 ## Integración WhatsApp Cloud API + Bot IA (migraciones 0091 + 0106–0122)
 
