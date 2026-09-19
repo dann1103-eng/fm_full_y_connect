@@ -58,15 +58,6 @@ export function LoginForm({ agencyLogoUrl }: LoginFormProps) {
       if (appUser?.role === 'client') destination = '/portal/dashboard'
     }
 
-    // Borrar el session id local: forzamos que SessionSentinel reclame uno
-    // nuevo al montarse, lo que dispara el kick a otros dispositivos del mismo
-    // usuario.
-    try {
-      localStorage.removeItem('fm_session_id')
-    } catch {
-      /* ignore */
-    }
-
     router.push(destination)
     router.refresh()
   }

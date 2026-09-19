@@ -7,7 +7,6 @@ import { loadPortalPermissions } from '@/lib/auth/portal-permissions'
 import { PortalSidebar } from '@/components/portal/PortalSidebar'
 import { PortalTopNav } from '@/components/portal/PortalTopNav'
 import { UserProvider } from '@/contexts/UserContext'
-import { SessionSentinel } from '@/components/auth/SessionSentinel'
 import { SpectatorBanner } from '@/components/layout/SpectatorBanner'
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
@@ -98,7 +97,6 @@ export default async function PortalLayout({ children }: { children: React.React
           <main className="flex-1 overflow-y-auto">{children}</main>
         </div>
       </div>
-      <SessionSentinel />
     </UserProvider>
   )
 }
