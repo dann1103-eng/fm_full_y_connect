@@ -29,8 +29,11 @@ export const MATRIX_PARENT_PARAMS = { max_tokens: 4000, temperature: 0.7 } as co
 export const MATRIX_CHILD_PARAMS = { max_tokens: 1500, temperature: 0.8 } as const
 
 /**
- * Lee la API key y **lanza** si falta: el job termina `failed` tras los reintentos y queda visible en
- * `/admin/whatsapp` (sección de jobs fallidos), que es la única superficie donde el equipo lo vería.
+ * Lee la API key y **lanza** si falta: el job termina `failed` tras los reintentos y queda visible en el
+ * editor de la matriz — la franja roja del padre ("La última generación con IA falló…" con el
+ * `error_text`) o, en un hijo, "No se pudo redactar" en la fila, con el detalle en el panel de la pieza.
+ * **No** sale en `WaBotFailedJobs` de `/admin/whatsapp`: ese panel solo lista los jobs del bot y los
+ * recordatorios de factura.
  */
 export function requireAnthropicApiKey(): string {
   const apiKey = process.env.ANTHROPIC_API_KEY
