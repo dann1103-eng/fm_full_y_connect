@@ -11,6 +11,7 @@ import {
   type ApprovalProblem, type ApprovalProblemReason, type MatrixUsage,
 } from '@/lib/domain/matrix'
 import type { DateString } from '@/lib/domain/dates'
+import { failedItemLabel, isUnwrittenItem, type FailedItem } from '@/lib/domain/matrix-generation'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -78,16 +79,33 @@ interface Props {
   onDelete: (id: string) => void
   onConvertNow: (id: string) => void
   onReplan: (id: string) => void
+  /**
+   * El cliente tiene perfil de marca usable: se ofrece "Sin redactar" + "Regenerar". Sin perfil no se
+   * muestra por fila (el motivo ya está una vez, junto a "Generar con IA", y una matriz manual no se
+   * llenaría de avisos de algo que no se puede usar).
+   */
+  aiAvailable: boolean
+  /** Piezas con un hijo de IA vivo. */
+  writingItemIds: string[]
+  /** Piezas cuyo último hijo no dejó texto y que vale la pena señalar (el editor ya filtró). */
+  failedItems: FailedItem[]
+  /** Piezas con la acción "Regenerar" encolándose: evita el doble clic. */
+  regeneratingIds: string[]
+  onRegenerate: (id: string) => void
 }
 
 export function MatrixItemsTable({
   items, matrix, usage, problems, selectedId, readOnly, adding, unsavedIds, linkedVoidedItemIds, busyItemId, today,
   onSelect, onAdd, onDuplicate, onDelete, onConvertNow, onReplan,
+  aiAvailable, writingItemIds, failedItems, regeneratingIds, onRegenerate,
 }: Props) {
   const over = new Set(usage.overPlanItemIds)
   const unsaved = new Set(unsavedIds)
   const voided = new Set(linkedVoidedItemIds)
   const problemById = new Map<string, ApprovalProblemReason>(problems.map((p) => [p.itemId, p.reason]))
+  const writing = new Set(writingItemIds)
+  const failedById = new Map(failedItems.map((f) => [f.itemId, f]))
+  const regenerating = new Set(regeneratingIds)
   const inactive = MATRIX_CONTENT_TYPES.filter((t) => !usage.activeTypes.includes(t))
 
   // Menú y no <select>: con un select, recorrer las opciones con las flechas dispararía onChange y crearía
@@ -213,6 +231,47 @@ export function MatrixItemsTable({
     )
   }
 
+  /**
+   * Estado de la redacción con IA: "Redactando…" mientras haya un hijo vivo; si el último no dejó texto,
+   * el motivo; si nunca se redactó, "Sin redactar". Los dos últimos con "Regenerar" al lado.
+   */
+  const aiState = (it: ContentMatrixItem) => {
+    if (writing.has(it.id)) {
+      // Sin `role="status"`: con 15 piezas serían 15 regiones vivas. El avance agregado lo anuncia la franja.
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-fm-primary/10 text-fm-primary px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap">
+          <span className="material-symbols-outlined text-[12px] animate-spin" aria-hidden="true">progress_activity</span>
+          Redactando…
+        </span>
+      )
+    }
+    if (readOnly || !aiAvailable) return null
+    const failure = failedById.get(it.id)
+    if (!failure && !isUnwrittenItem(it)) return null
+    const queued = regenerating.has(it.id)
+    const label = failure ? failedItemLabel(failure) : null
+    return (
+      <span className="flex flex-col items-start gap-0.5">
+        <span className="flex flex-wrap items-center gap-1.5">
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap ${
+            failure ? 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-200' : 'bg-fm-surface-container-high text-fm-on-surface-variant'
+          }`}>
+            {failure ? 'No se pudo redactar' : 'Sin redactar'}
+          </span>
+          <button type="button" disabled={queued} className={actionCls}
+            aria-label={`Regenerar con IA: ${it.title || 'pieza sin título'}`}
+            onClick={(e) => { e.stopPropagation(); onRegenerate(it.id) }}>
+            {queued ? 'Encolando…' : 'Regenerar'}
+          </button>
+        </span>
+        {label && (
+          // El detalle técnico de un job fallido (a veces en inglés, del SDK) solo va en el `title`.
+          <span className="block max-w-[16rem] text-[11px] text-fm-error" title={failure?.error ?? undefined}>{label}</span>
+        )}
+      </span>
+    )
+  }
+
   const untitled = <span className="italic text-fm-on-surface-variant">Sin título</span>
 
   return (
@@ -261,7 +320,9 @@ export function MatrixItemsTable({
                       </button>
                     </td>
                     <td className="py-2.5 pr-3 hidden lg:table-cell text-fm-on-surface-variant">{it.objective ? MATRIX_OBJECTIVE_LABELS[it.objective] : '—'}</td>
-                    <td className="py-2.5 pr-3">{conversion(it)}</td>
+                    <td className="py-2.5 pr-3">
+                      <span className="flex flex-col items-start gap-1">{conversion(it)}{aiState(it)}</span>
+                    </td>
                     <td className="py-2.5 pr-3">{flags(it)}</td>
                     <td className="py-2.5 text-right whitespace-nowrap">{rowActions(it)}</td>
                   </tr>
@@ -292,6 +353,7 @@ export function MatrixItemsTable({
                   </button>
                   {/* Fuera del botón: enlace y botones de conversión no pueden anidarse dentro de otro botón. */}
                   {conversion(it)}
+                  {aiState(it)}
                 </div>
                 {!readOnly && <span className="pt-2 pr-2">{rowActions(it)}</span>}
               </div>

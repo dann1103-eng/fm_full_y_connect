@@ -12,16 +12,19 @@ import {
   addItem, convertItemNow, deleteItem, deleteMatrix, duplicateItem, duplicateMatrix, replanItem,
   retryMatrixRequirementLink, setMatrixStatus, updateItem, updateMatrix,
 } from '@/app/actions/matrices'
+import { generateMatrix, regenerateItem } from '@/app/actions/matrixAi'
+import { missingByType } from '@/lib/domain/matrix-ai'
 import { MatrixHeader, type SaveState } from './MatrixHeader'
 import { MatrixTopicsBar } from './MatrixTopicsBar'
 import { MatrixItemsTable } from './MatrixItemsTable'
 import { ITEM_TEXT_KEYS, MatrixItemSheet, type FailedItemDrafts, type ItemTextKey } from './MatrixItemSheet'
 import { DuplicateMatrixDialog } from './DuplicateMatrixDialog'
+import { MatrixGenerationStrip } from './MatrixGenerationStrip'
 import { forgetLinkError, readLinkError, rememberLinkError } from './matrixLinkError'
 import { useMatrixGeneration } from '@/hooks/useMatrixGeneration'
 import {
-  applyItemMerges, maxUpdatedAt, mergePolledItem, mergePolledTopics, newestItem, sameTopics,
-  type GenerationProgress, type ItemMerge,
+  applyItemMerges, GENERATE_BLOCK_REASONS, generateBlockReason, isUnwrittenItem, maxUpdatedAt, mergePolledItem,
+  mergePolledTopics, newestItem, sameTopics, type GenerationProgress, type ItemMerge,
 } from '@/lib/domain/matrix-generation'
 
 type MatrixPatch = Parameters<typeof updateMatrix>[1]
@@ -74,8 +77,11 @@ function withoutItemDrafts(all: Record<string, FailedItemDrafts>, itemId: string
  * Guardado por campo: optimista sobre `matrix`/`items`, con rollback a la última versión CONFIRMADA por el
  * servidor (refs `confirmed*`, no el estado optimista) y sin perder el texto: si un guardado de texto falla,
  * lo escrito queda en `failed*Drafts` y los campos lo siguen mostrando hasta que un guardado posterior salga bien.
+ *
+ * `brandReady`: el cliente tiene perfil de marca usable (`hasUsableBrandProfile`, calculado en el servidor);
+ * `null` si no se pudo leer. Es la compuerta de la generación con IA.
  */
-export function MatrixEditor({ data }: { data: MatrixEditorData }) {
+export function MatrixEditor({ data, brandReady }: { data: MatrixEditorData; brandReady: boolean | null }) {
   const router = useRouter()
   const matrixId = data.matrix.id
   const [matrix, setMatrix] = useState<ContentMatrix>(data.matrix)
@@ -95,6 +101,12 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
   const [dupOpen, setDupOpen] = useState(false)
   const [failedItemDrafts, setFailedItemDrafts] = useState<Record<string, FailedItemDrafts>>({})
   const [failedMatrixDrafts, setFailedMatrixDrafts] = useState<FailedMatrixDrafts>({})
+  // Generación con IA: encolando el padre, franja ocultada, "Regenerar" encolándose y piezas regeneradas aquí
+  // (solo de esas se señala un fallo aunque tengan texto: el "Redactando…" no puede apagarse en silencio).
+  const [generating, setGenerating] = useState(false)
+  const [stripDismissed, setStripDismissed] = useState(false)
+  const [regeneratingIds, setRegeneratingIds] = useState<string[]>([])
+  const [regeneratedHere, setRegeneratedHere] = useState<string[]>([])
 
   // Últimas filas confirmadas por el servidor: se actualizan con cada respuesta exitosa y al agregar/duplicar.
   const confirmedMatrix = useRef<ContentMatrix>(data.matrix)
@@ -641,14 +653,66 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
     }
   }
 
-  // Consulta al montar (matriz no cerrada) y sondeo mientras haya generación viva. La interfaz (botón, franja,
-  // estado por pieza) llega en la tarea siguiente; aquí solo se fusiona.
-  useMatrixGeneration(matrixId, {
+  // Consulta al montar (matriz no cerrada) y sondeo mientras haya generación viva.
+  const generation = useMatrixGeneration(matrixId, {
     enabled: matrix.status !== 'closed',
     initialSince,
     captureSeq: () => localSeq.current,
     onUpdate: applyGeneration,
   })
+  const progress = generation.progress
+  const writingItemIds = useMemo(() => progress?.writingItemIds ?? [], [progress])
+
+  // El botón decide con `generationGate`, la MISMA función que `generateMatrix`, alimentada con el último hijo
+  // de cada pieza que devuelve la ruta. El faltante sale de `usage`, que es lo que pintan los chips.
+  const missingTotal = useMemo(() => missingByType(data.limits, usage).total, [data.limits, usage])
+  const generateBlockedReason = matrix.status === 'draft'
+    ? generateBlockReason({
+      brandReady,
+      missingTotal,
+      items,
+      itemJobs: progress ? progress.itemJobs : null,
+      parentLive: progress?.phase === 'planning',
+    })
+    : null
+
+  // Fallos a señalar en la tabla: piezas sin redactar, o regeneradas en esta pestaña. A una pieza con texto que
+  // el usuario completó a mano después de un fallo no se le ofrece "Regenerar": pisaría lo que escribió.
+  const visibleFailures = useMemo(() => {
+    const byId = new Map(items.map((i) => [i.id, i]))
+    const live = new Set(writingItemIds)
+    return (progress?.failedItems ?? []).filter((f) => {
+      const it = byId.get(f.itemId)
+      return !!it && !live.has(f.itemId) && (isUnwrittenItem(it) || regeneratedHere.includes(f.itemId))
+    })
+  }, [items, progress, writingItemIds, regeneratedHere])
+
+  async function onGenerate() {
+    if (generating) return
+    setGenerating(true)
+    const r = await runAction(() => generateMatrix(matrixId))
+    setGenerating(false)
+    if (!r.ok) {
+      setError({ message: r.error, fields: [] })
+      // Lo que la pantalla creía pudo haber quedado viejo (ya había una generación, cambió el cupo): se relee.
+      generation.kick()
+      return
+    }
+    setStripDismissed(false)
+    generation.kick({ planning: true })
+  }
+
+  /** Encola la redacción de una pieza ("Regenerar"). Devuelve el error a mostrar, o `null`. */
+  async function regenerate(itemId: string, instructions?: string): Promise<string | null> {
+    if (regeneratingIds.includes(itemId)) return null
+    setRegeneratingIds((ids) => [...ids, itemId])
+    const r = await call(() => regenerateItem(itemId, instructions?.trim() || null))
+    setRegeneratingIds((ids) => ids.filter((id) => id !== itemId))
+    if (!r.ok) return r.error
+    setRegeneratedHere((ids) => (ids.includes(itemId) ? ids : [...ids, itemId]))
+    generation.kick({ writingItemId: itemId })
+    return null
+  }
 
   const topicUsage = (name: string) => items.filter((i) => i.topic === name).length
   const sheetError = selected && error && error.fields.some((f) => f.startsWith(`item:${selected.id}:`)) ? error.message : null
@@ -678,6 +742,19 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
         onDuplicate={() => setDupOpen(true)}
         onDelete={() => void onDelete()}
         onRetryLink={() => void onRetryLink()}
+        generateBlockedReason={generateBlockedReason}
+        generateNeedsProfile={generateBlockedReason === GENERATE_BLOCK_REASONS.noBrand}
+        generating={generating}
+        onGenerate={() => void onGenerate()}
+      />
+
+      <MatrixGenerationStrip
+        progress={progress}
+        observed={generation.observed}
+        draft={matrix.status === 'draft'}
+        pool={data.limits.unifiedPool != null}
+        dismissed={stripDismissed}
+        onDismiss={() => setStripDismissed(true)}
       />
 
       {error && (
@@ -731,6 +808,14 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
         onDelete={(id) => void onDeleteItem(id)}
         onConvertNow={(id) => void onConvertNow(id)}
         onReplan={(id) => void onReplan(id)}
+        aiAvailable={brandReady === true}
+        writingItemIds={writingItemIds}
+        failedItems={visibleFailures}
+        regeneratingIds={regeneratingIds}
+        onRegenerate={(id) => {
+          setError(null)
+          void regenerate(id).then((err) => { if (err) setError({ message: err, fields: [] }) })
+        }}
       />
 
       <MatrixItemSheet
@@ -746,6 +831,11 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
         failedDrafts={selected ? failedItemDrafts[selected.id] : undefined}
         onClose={() => setSelectedId(null)}
         onPatch={(patch) => { if (selected) void onPatchItem(selected.id, patch) }}
+        aiAvailable={brandReady}
+        writing={!!selected && writingItemIds.includes(selected.id)}
+        failure={(selected && progress?.failedItems.find((f) => f.itemId === selected.id)) ?? null}
+        regenerating={!!selected && regeneratingIds.includes(selected.id)}
+        onRegenerate={(instructions) => (selected ? regenerate(selected.id, instructions) : Promise.resolve(null))}
       />
 
       <DuplicateMatrixDialog

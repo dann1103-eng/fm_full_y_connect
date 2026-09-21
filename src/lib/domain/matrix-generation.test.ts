@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import {
-  applyItemMerges, compareTimestamps, isGenerationLive, maxUpdatedAt, mergePolledItem, mergePolledTopics,
-  newestItem, sameTopics, timestampMicros, type FieldLocks,
+  applyItemMerges, compareTimestamps, failedItemLabel, generateBlockReason, generationReasonLabel,
+  GENERATE_BLOCK_REASONS, GENERATION_REASON_FALLBACK, isGenerationLive, isUnwrittenItem, maxUpdatedAt,
+  mergePolledItem, mergePolledTopics, newestItem, sameTopics, timestampMicros, type FieldLocks,
 } from './matrix-generation'
+import { generationGate } from './matrix-ai'
 import type { ContentMatrixItem } from '@/types/db'
 
 function row(id: string, extra: Partial<ContentMatrixItem> = {}): ContentMatrixItem {
@@ -187,5 +189,89 @@ describe('mergePolledTopics', () => {
     expect(sameTopics([{ name: 'a' }], [{ name: 'a', note: undefined }])).toBe(true)
     expect(sameTopics([{ name: 'a' }], [{ name: 'a', note: 'x' }])).toBe(false)
     expect(sameTopics([{ name: 'a' }, { name: 'b' }], [{ name: 'b' }, { name: 'a' }])).toBe(false)
+  })
+})
+
+describe('isUnwrittenItem', () => {
+  it('sin ai_written_at y sin copy (los espacios no cuentan)', () => {
+    expect(isUnwrittenItem({ ai_written_at: null, copy: null })).toBe(true)
+    expect(isUnwrittenItem({ ai_written_at: null, copy: '   ' })).toBe(true)
+    expect(isUnwrittenItem({ ai_written_at: null, copy: 'hola' })).toBe(false)
+    // El usuario borró el copy de una pieza que la IA ya redactó: no es "sin redactar".
+    expect(isUnwrittenItem({ ai_written_at: '2026-09-17T10:00:00+00:00', copy: null })).toBe(false)
+  })
+})
+
+describe('generationReasonLabel', () => {
+  it('traduce todos los motivos que emiten el padre y el hijo', () => {
+    const slugs = [
+      'sin_plan_valido', 'cupo_cubierto', 'hijos_reencolados', 'matriz_no_borrador', 'sin_perfil_de_marca',
+      'sin_tipos_activos', 'matriz_no_encontrada', 'pieza_no_existe', 'matriz_no_existe', 'matriz_cerrada',
+      'cliente_no_existe', 'respuesta_truncada',
+    ]
+    for (const slug of slugs) {
+      const label = generationReasonLabel(slug)
+      expect(label).not.toBe(GENERATION_REASON_FALLBACK)
+      expect(label).not.toContain('_')
+    }
+  })
+  it('un motivo desconocido cae en el mensaje genérico, nunca en el slug crudo', () => {
+    expect(generationReasonLabel('motivo_nuevo')).toBe(GENERATION_REASON_FALLBACK)
+    // Claves del prototipo: un indexado a secas devolvería una función.
+    expect(generationReasonLabel('constructor')).toBe(GENERATION_REASON_FALLBACK)
+    expect(generationReasonLabel('toString')).toBe(GENERATION_REASON_FALLBACK)
+  })
+  it('failedItemLabel: el motivo del hijo que terminó sin escribir, o el genérico de un fallido', () => {
+    expect(failedItemLabel({ reason: 'respuesta_truncada' })).toBe(generationReasonLabel('respuesta_truncada'))
+    expect(failedItemLabel({ reason: null })).toBe('La IA no pudo redactar esta pieza.')
+  })
+})
+
+describe('generateBlockReason', () => {
+  const unwritten = { id: 'a', ai_written_at: null, copy: null }
+  const written = { id: 'b', ai_written_at: '2026-09-17T10:00:00+00:00', copy: 'hola' }
+  const base = { brandReady: true as boolean | null, missingTotal: 0, items: [written], itemJobs: [], parentLive: false }
+
+  it('sin perfil de marca, o sin poder leerlo', () => {
+    expect(generateBlockReason({ ...base, missingTotal: 5, brandReady: false })).toBe(GENERATE_BLOCK_REASONS.noBrand)
+    expect(generateBlockReason({ ...base, missingTotal: 5, brandReady: null })).toBe(GENERATE_BLOCK_REASONS.brandUnknown)
+  })
+
+  it('con cupo faltante abre aunque todavía no se conozcan los hijos', () => {
+    expect(generateBlockReason({ ...base, missingTotal: 3, itemJobs: null })).toBeNull()
+  })
+
+  it('con el cupo cubierto no adivina antes de conocer los hijos', () => {
+    expect(generateBlockReason({ ...base, itemJobs: null })).toBe(GENERATE_BLOCK_REASONS.checking)
+  })
+
+  it('cupo cubierto con una pieza sin redactar y sin ningún hijo: abre (la matriz llenada a mano)', () => {
+    expect(generateBlockReason({ ...base, items: [written, unwritten] })).toBeNull()
+  })
+
+  it('un hijo truncado (completed sin escribir) cuenta como atendido: el botón NO ofrece lo que la acción rechaza', () => {
+    const args = { ...base, items: [written, unwritten], itemJobs: [{ itemId: 'a', status: 'completed' as const }] }
+    const gate = generationGate(0, args.items, [{ content_matrix_item_id: 'a', status: 'completed' }])
+    expect(gate.ok).toBe(false)
+    // Exactamente el mismo mensaje que devolvería `generateMatrix`.
+    expect(generateBlockReason(args)).toBe(gate.ok ? null : gate.error)
+  })
+
+  it('decide con generationGate en todos los casos de cupo cubierto', () => {
+    const cases = [
+      { items: [written], jobs: [] },
+      { items: [unwritten], jobs: [{ itemId: 'a', status: 'pending' as const }] },
+      { items: [unwritten], jobs: [{ itemId: 'a', status: 'failed' as const }] },
+      { items: [unwritten, written], jobs: [] },
+      { items: [], jobs: [] },
+    ]
+    for (const c of cases) {
+      const gate = generationGate(0, c.items, c.jobs.map((j) => ({ content_matrix_item_id: j.itemId, status: j.status })))
+      expect(generateBlockReason({ ...base, items: c.items, itemJobs: c.jobs })).toBe(gate.ok ? null : gate.error)
+    }
+  })
+
+  it('con un padre vivo, el mismo mensaje que el 23505 de la acción', () => {
+    expect(generateBlockReason({ ...base, missingTotal: 4, parentLive: true })).toBe(GENERATE_BLOCK_REASONS.running)
   })
 })

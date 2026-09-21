@@ -26,8 +26,9 @@ export interface MatrixGeneration {
   /** Última respuesta (o el estado optimista de un `kick`). `null` hasta la primera. */
   progress: GenerationProgress | null
   /**
-   * Esta pestaña lanzó una generación o la vio viva. Decide si se muestra el motivo con que terminó el
-   * padre: sin esto, el `cupo_cubierto` de una corrida de hace un mes saldría en cada visita.
+   * Esta pestaña lanzó una generación de la matriz (el padre) o la vio en curso. Decide si se cuenta cómo
+   * terminó: sin esto, el `cupo_cubierto` de una corrida de hace un mes saldría en cada visita. Un
+   * "Regenerar" suelto no cuenta: si no, al terminar resucitaría el resumen de la última generación.
    */
   observed: boolean
   /** Enciende el sondeo ya, sin esperar al siguiente tick (tras encolar un padre o un hijo). */
@@ -39,6 +40,11 @@ const IDLE: GenerationProgress = {
   reason: null, topics: null, matrixUpdatedAt: null, items: [], watermark: null,
 }
 
+/** El padre planifica o sus hijos siguen redactando (no una regeneración suelta). */
+function parentInProgress(p: GenerationProgress): boolean {
+  return p.phase === 'planning' || (p.phase !== 'failed' && p.total > 0 && p.done + p.failed < p.total)
+}
+
 function optimistic(p: GenerationProgress | null, hint: GenerationKick): GenerationProgress {
   const base = p ?? IDLE
   if ('planning' in hint) return { ...base, phase: 'planning', total: 0, done: 0, failed: 0, error: null, reason: null }
@@ -46,6 +52,8 @@ function optimistic(p: GenerationProgress | null, hint: GenerationKick): Generat
   return {
     ...base,
     writingItemIds: base.writingItemIds.includes(id) ? base.writingItemIds : [...base.writingItemIds, id],
+    // La pieza ya tiene un hijo en cola: así lo ve también `generationGate` hasta la primera respuesta.
+    itemJobs: [...base.itemJobs.filter((j) => j.itemId !== id), { itemId: id, status: 'pending' }],
     failedItems: base.failedItems.filter((f) => f.itemId !== id),
   }
 }
@@ -137,7 +145,7 @@ export function useMatrixGeneration(matrixId: string, { enabled, initialSince, c
         lastLive = live
         want = live
         setProgress(body)
-        if (live) setObserved(true)
+        if (parentInProgress(body)) setObserved(true)
         if (live) schedule(POLL_MS)
         else if (settle) schedule(0)
       } catch {
@@ -174,10 +182,8 @@ export function useMatrixGeneration(matrixId: string, { enabled, initialSince, c
   }, [matrixId, enabled])
 
   const kick = useCallback((hint?: GenerationKick) => {
-    if (hint) {
-      setProgress((p) => optimistic(p, hint))
-      setObserved(true)
-    }
+    if (hint) setProgress((p) => optimistic(p, hint))
+    if (hint && 'planning' in hint) setObserved(true)
     kickRef.current()
   }, [])
 

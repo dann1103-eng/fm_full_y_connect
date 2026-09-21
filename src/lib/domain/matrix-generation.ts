@@ -1,4 +1,5 @@
 import type { AiJobStatus, ContentMatrixItem, MatrixTopic } from '@/types/db'
+import { generationGate, type ChildWorkItem } from './matrix-ai'
 
 /**
  * Progreso de la generación con IA en el editor abierto (bloque 3) — dominio puro.
@@ -65,6 +66,93 @@ export interface GenerationProgress {
  */
 export function isGenerationLive(p: Pick<GenerationProgress, 'phase' | 'writingItemIds'>): boolean {
   return p.phase === 'planning' || p.writingItemIds.length > 0
+}
+
+/**
+ * "Sin redactar" (Parte 4 del spec): ni la IA la escribió ni tiene copy. Es la misma condición que usa
+ * `pendingChildWork` en `matrix-ai.ts`; aquí solo decide qué muestra la fila, nunca si se puede generar
+ * (eso es `generationGate`, sin copias).
+ */
+export function isUnwrittenItem(item: Pick<ContentMatrixItem, 'ai_written_at' | 'copy'>): boolean {
+  return !item.ai_written_at && !(item.copy ?? '').trim()
+}
+
+// ── Mensajes ────────────────────────────────────────────────────────────────
+
+/**
+ * Motivos con que un job de matriz termina sin hacer (todo) el trabajo: del padre (`result_json.reason`
+ * o `skipped`) y del hijo (`skipped`). Lista cerrada con respaldo: un motivo que nadie mapeó cae en
+ * `GENERATION_REASON_FALLBACK`, **nunca** en el slug crudo.
+ */
+export const GENERATION_REASON_LABELS: Readonly<Record<string, string>> = {
+  sin_plan_valido: 'La IA no devolvió ninguna pieza válida. Intenta de nuevo.',
+  cupo_cubierto: 'La matriz ya cubre el cupo del plan.',
+  hijos_reencolados: 'Se retomó la redacción de las piezas que habían quedado pendientes.',
+  matriz_no_borrador: 'La matriz dejó de estar en borrador, así que no se generó nada.',
+  sin_perfil_de_marca: 'Este cliente no tiene perfil de marca.',
+  sin_tipos_activos: 'El plan del cliente no tiene tipos de contenido con cupo para generar.',
+  matriz_no_encontrada: 'No se encontró la matriz.',
+  matriz_no_existe: 'No se encontró la matriz.',
+  pieza_no_existe: 'La pieza ya no existe.',
+  matriz_cerrada: 'La matriz está cerrada.',
+  cliente_no_existe: 'No se encontró el cliente.',
+  respuesta_truncada: 'La respuesta de la IA se cortó. Prueba «Regenerar» con instrucciones más breves.',
+}
+
+export const GENERATION_REASON_FALLBACK = 'La generación terminó sin completar el trabajo.'
+
+export function generationReasonLabel(reason: string): string {
+  // `hasOwnProperty` y no un indexado a secas: `'constructor'` o `'toString'` devolverían una función.
+  return Object.prototype.hasOwnProperty.call(GENERATION_REASON_LABELS, reason)
+    ? GENERATION_REASON_LABELS[reason]
+    : GENERATION_REASON_FALLBACK
+}
+
+/** Lo que muestra una pieza cuyo último hijo no dejó texto. */
+export function failedItemLabel(f: Pick<FailedItem, 'reason'>): string {
+  return f.reason ? generationReasonLabel(f.reason) : 'La IA no pudo redactar esta pieza.'
+}
+
+// ── El botón "Generar con IA" ───────────────────────────────────────────────
+
+export const GENERATE_BLOCK_REASONS = {
+  brandUnknown: 'No se pudo comprobar el perfil de marca del cliente.',
+  noBrand: 'Este cliente no tiene perfil de marca.',
+  checking: 'Comprobando el estado de la generación…',
+  /** El mismo texto que devuelve `generateMatrix` ante el 23505 del índice de un padre vivo. */
+  running: 'Ya hay una generación en curso para esta matriz.',
+} as const
+
+/**
+ * Por qué "Generar con IA" está deshabilitado, o `null` si se puede. Recorre **en el mismo orden** lo que
+ * valida `generateMatrix` (la matriz en borrador la pone quien muestra el botón): perfil de marca usable
+ * → `generationGate` → el índice único de un padre vivo. La compuerta es **la misma función** que usa la
+ * acción (`generationGate` de `matrix-ai.ts`), alimentada con el último hijo de cada pieza que devuelve la
+ * ruta de progreso: una copia de la regla acabaría divergiendo — un hijo truncado termina `completed` sin
+ * escribir y la acción lo da por atendido, así que el botón no puede ofrecer lo que la acción rechazaría.
+ *
+ * Los datos sí pueden estar un poco viejos (el cupo es el del render del servidor, como los chips): la
+ * acción re-evalúa todo con datos frescos.
+ */
+export function generateBlockReason(a: {
+  /** `null`: no se pudo leer el perfil (p. ej. sin la migración 0131). */
+  brandReady: boolean | null
+  missingTotal: number
+  items: readonly ChildWorkItem[]
+  /** El último hijo de cada pieza, de la ruta de progreso; `null` antes de la primera respuesta. */
+  itemJobs: readonly ItemJobState[] | null
+  /** El padre más reciente está vivo (`phase: 'planning'`). */
+  parentLive: boolean
+}): string | null {
+  if (a.brandReady === null) return GENERATE_BLOCK_REASONS.brandUnknown
+  if (!a.brandReady) return GENERATE_BLOCK_REASONS.noBrand
+  // Con cupo faltante la compuerta abre sin mirar los hijos; sin él, decidir sin conocerlos sería adivinar.
+  if (a.missingTotal <= 0 && a.itemJobs === null) return GENERATE_BLOCK_REASONS.checking
+  const jobs = (a.itemJobs ?? []).map((j) => ({ content_matrix_item_id: j.itemId, status: j.status }))
+  const gate = generationGate(a.missingTotal, a.items, jobs)
+  if (!gate.ok) return gate.error
+  if (a.parentLive) return GENERATE_BLOCK_REASONS.running
+  return null
 }
 
 // ── Marcas de tiempo ────────────────────────────────────────────────────────
