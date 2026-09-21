@@ -785,6 +785,11 @@ export function MatrixEditor({ data, brandReady }: { data: MatrixEditorData; bra
         onChange={(topics) => void onTopics(topics)}
         usageCount={topicUsage}
         disabled={readOnly}
+        // Mientras el padre planifica, sus índices de tema apuntan a la lista que leyó (o la escribe él si
+        // estaba vacía): cambiarla en esa ventana dejaría piezas con el tema equivocado o pisaría lo suyo.
+        topicsLockedReason={progress?.phase === 'planning'
+          ? 'La IA está planificando la matriz: podrás editar los temas cuando termine.'
+          : null}
         notes={matrix.notes}
         failedNotes={failedMatrixDrafts.notes}
         onNotesChange={(notes) => void patchMatrix({ notes }, { notes }, { notes: notes ?? '' })}

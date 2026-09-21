@@ -71,19 +71,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const supabase = await createClient()
   const admin = createAdminClient()
 
-  const { data: matrix, error: matrixError } = await supabase
-    .from('content_matrices')
-    // `updated_at` viaja como `matrixUpdatedAt`: sin él el editor no distingue una respuesta vieja
-    // de una nueva y un sondeo que leyó antes de que el padre escribiera los temas los borraría.
-    .select('id, topics_json, updated_at')
-    .eq('id', id)
-    .maybeSingle()
-  if (matrixError) {
-    console.error('[matrices/generation] leer matriz', matrixError.message)
-    return NextResponse.json({ error: 'No se pudo leer la matriz' }, { status: 500 })
-  }
-  if (!matrix) return NextResponse.json({ error: 'Matriz no encontrada' }, { status: 404 })
-
+  // **El padre ANTES que la matriz**, a propósito. Al revés, un padre que terminara entre las dos lecturas
+  // saldría con una fase que ya no es `planning` junto a los temas VIEJOS (leídos antes de que los
+  // escribiera): el editor desbloquearía la barra de temas con la lista vacía y un cambio antes del sondeo
+  // siguiente borraría los de la IA. En este orden, lo peor es informar `planning` con los temas nuevos,
+  // que el siguiente sondeo corrige.
+  //
   // **El padre más reciente y solo ese**: sin esto, una generación que falló en septiembre dejaría la
   // franja roja para siempre y sus hijos fallidos inflarían los contadores de la corrida siguiente.
   //
@@ -102,6 +95,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     console.error('[matrices/generation] leer job padre', parentError.message)
     return NextResponse.json({ error: 'No se pudo leer el estado de la generación' }, { status: 500 })
   }
+
+  const { data: matrix, error: matrixError } = await supabase
+    .from('content_matrices')
+    // `updated_at` viaja como `matrixUpdatedAt`: sin él el editor no distingue una respuesta vieja
+    // de una nueva y un sondeo que leyó antes de que el padre escribiera los temas los borraría.
+    .select('id, topics_json, updated_at')
+    .eq('id', id)
+    .maybeSingle()
+  if (matrixError) {
+    console.error('[matrices/generation] leer matriz', matrixError.message)
+    return NextResponse.json({ error: 'No se pudo leer la matriz' }, { status: 500 })
+  }
+  if (!matrix) return NextResponse.json({ error: 'Matriz no encontrada' }, { status: 404 })
 
   const { data: childRows, error: childrenError } = await admin
     .from('ai_jobs')
