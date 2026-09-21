@@ -19,7 +19,13 @@ export function matrixModel(): string {
 /** Padre (`matrix_generate`): plan completo de la matriz, poca creatividad y mucho espacio de salida. */
 export const MATRIX_PARENT_PARAMS = { max_tokens: 4000, temperature: 0.7 } as const
 
-/** Hijo (`matrix_item_write`): un solo brief, más suelto de creatividad y mucho más corto. */
+/**
+ * Hijo (`matrix_item_write`): un solo brief, más suelto de creatividad y mucho más corto.
+ *
+ * `max_tokens` va atado a `BRIEF_WORKING_RANGES` de `prompts.ts`: el peor caso de esos rangos tiene que
+ * caber con holgura, y lo fija `prompts.test.ts`. Subirlo no cuesta por sí solo (se cobra lo generado),
+ * pero alarga el peor caso de un job dentro del presupuesto de 45 s del runner.
+ */
 export const MATRIX_CHILD_PARAMS = { max_tokens: 1500, temperature: 0.8 } as const
 
 /**

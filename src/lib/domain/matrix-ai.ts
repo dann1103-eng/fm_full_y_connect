@@ -215,6 +215,24 @@ export function sanitizeGeneratedBrief(raw: unknown): Partial<ItemPatch> {
   return out
 }
 
+/**
+ * Qué hace el hijo con la respuesta del modelo:
+ *
+ * - `truncada` — `stop_reason: 'max_tokens'`. **Gana aunque el brief traiga campos**: lo que llegó es un
+ *   brief a medias (el último campo cortado, los siguientes ausentes) y escribirlo pondría `ai_written_at`,
+ *   con lo que la invariante (b) del padre ya no volvería a encolar esa pieza. Tampoco se lanza: reintentar
+ *   el mismo prompt da el mismo corte y cobra dos veces más (Parte 5 del spec). La pieza queda sin redactar
+ *   y se recupera con "Regenerar".
+ * - `vacia` — sin truncar y sin ningún campo usable: sí vale la pena el reintento del runner.
+ * - `escribir` — el caso normal.
+ */
+export type BriefOutcome = 'truncada' | 'vacia' | 'escribir'
+
+export function briefOutcome(stopReason: string | null, patchFieldCount: number): BriefOutcome {
+  if (stopReason === 'max_tokens') return 'truncada'
+  return patchFieldCount === 0 ? 'vacia' : 'escribir'
+}
+
 // ── Fechas de entrega ───────────────────────────────────────────────────────
 
 export interface DeadlineContext {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { missingByType, sanitizeGeneratedPlan, sanitizeGeneratedBrief, assignDeadlines, pendingChildWork, DEFAULT_ESTIMATE_MINUTES } from './matrix-ai'
+import { missingByType, sanitizeGeneratedPlan, sanitizeGeneratedBrief, briefOutcome, assignDeadlines, pendingChildWork, DEFAULT_ESTIMATE_MINUTES } from './matrix-ai'
 import type { PlanContext } from './matrix-ai'
 import { computeMatrixUsage, resolveMatrixLimits, MATRIX_TEXT_LIMITS, MATRIX_ESTIMATE_MAX_MINUTES } from './matrix'
 import type { MatrixLimits } from './matrix'
@@ -421,5 +421,25 @@ describe('pendingChildWork', () => {
       { id: 'z', ai_written_at: null, copy: '' },
     ]
     expect(pendingChildWork(items, [])).toEqual(['x', 'z'])
+  })
+})
+
+// ── briefOutcome ────────────────────────────────────────────────────────────
+
+describe('briefOutcome', () => {
+  it('respuesta truncada → truncada, aunque el brief traiga campos (no se escribe a medias)', () => {
+    expect(briefOutcome('max_tokens', 0)).toBe('truncada')
+    expect(briefOutcome('max_tokens', 3)).toBe('truncada')
+  })
+
+  it('sin truncar y sin campos usables → vacia (el runner reintenta)', () => {
+    expect(briefOutcome('tool_use', 0)).toBe('vacia')
+    expect(briefOutcome('end_turn', 0)).toBe('vacia')
+    expect(briefOutcome(null, 0)).toBe('vacia')
+  })
+
+  it('sin truncar y con campos → escribir', () => {
+    expect(briefOutcome('tool_use', 5)).toBe('escribir')
+    expect(briefOutcome('end_turn', 1)).toBe('escribir')
   })
 })

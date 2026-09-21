@@ -175,8 +175,52 @@ export function matrixPlanTool(opts: { allowedTypes: ContentType[]; askForTopics
   }
 }
 
-/** Tool del hijo: el brief de UNA pieza. No incluye ningún campo que el bloque 2 congela al convertir. */
+// ── Largo de trabajo del brief ──────────────────────────────────────────────
+
+interface CharRange { min: number; max: number }
+
+/**
+ * Rango de trabajo de cada campo del brief, en caracteres. **Son los números que ve el modelo**, no los
+ * topes de `MATRIX_TEXT_LIMITS`: esos topes suman ~21 000 caracteres y el hijo tiene
+ * `MATRIX_CHILD_PARAMS.max_tokens` = 1500, unos 4 500–5 000 caracteres de español dentro del JSON de la
+ * tool. Un modelo que apunta al tope se corta a mitad (`stop_reason: 'max_tokens'`) y el brief se pierde.
+ *
+ * Presupuesto: el peor caso —una pieza de video con cada campo en su máximo— son 2 870 caracteres, ~960
+ * tokens a 3 caracteres por token más el JSON: unos dos tercios de `max_tokens`, con margen para que el
+ * modelo se pase de los rangos sin cortarse. `prompts.test.ts` fija esa cuenta: si se sube un rango, hay
+ * que mirar `max_tokens` en `model.ts`.
+ */
+export const BRIEF_WORKING_RANGES = {
+  copy: { min: 200, max: 600 },
+  /** Guion de una pieza de video (`video_corto`, `reel`, `short`): escena por escena. */
+  scriptVideo: { min: 600, max: 1500 },
+  /** Guion de un estático o una historia. */
+  scriptShort: { min: 150, max: 500 },
+  visual_style: { min: 150, max: 400 },
+  hashtags: { min: 40, max: 250 },
+  cta: { min: 20, max: 120 },
+} as const satisfies Record<string, CharRange>
+
+const VIDEO_SCRIPT_TYPES: readonly ContentType[] = ['video_corto', 'reel', 'short']
+
+/** El rango del guion depende del tipo: un reel se cuenta por escenas, un estático no. */
+export function scriptRange(type: ContentType): CharRange {
+  return VIDEO_SCRIPT_TYPES.includes(type) ? BRIEF_WORKING_RANGES.scriptVideo : BRIEF_WORKING_RANGES.scriptShort
+}
+
+function span(r: CharRange): string {
+  return `${r.min}–${r.max}`
+}
+
+/**
+ * Tool del hijo: el brief de UNA pieza. No incluye ningún campo que el bloque 2 congela al convertir.
+ *
+ * **Idéntica para todas las piezas** (no depende del tipo): va delante del bloque de sistema en el
+ * prefijo de caché, así que variarla por pieza invalidaría la caché del bloque de marca. Por eso el
+ * guion da los dos rangos y el prompt de usuario, que va después, dice cuál aplica.
+ */
 export function matrixBriefTool(): Anthropic.Tool {
+  const R = BRIEF_WORKING_RANGES
   return {
     name: MATRIX_BRIEF_TOOL_NAME,
     description: 'Entrega el brief redactado de la pieza.',
@@ -185,23 +229,23 @@ export function matrixBriefTool(): Anthropic.Tool {
       properties: {
         copy: {
           type: 'string',
-          description: `Texto que se publica con la pieza. Entre 200 y 600 caracteres funciona mejor; máximo duro ${MATRIX_TEXT_LIMITS.copy}.`,
+          description: `Texto que se publica con la pieza. Entre ${R.copy.min} y ${R.copy.max} caracteres; tope duro ${MATRIX_TEXT_LIMITS.copy}.`,
         },
         script: {
           type: 'string',
-          description: `Guion, escena por escena, para las piezas con video. Para un estático, describí el orden de lectura del arte. Máximo ${MATRIX_TEXT_LIMITS.script} caracteres.`,
+          description: `Guion, escena por escena, para las piezas con video. Para un estático, describí el orden de lectura del arte. Largo: ${span(R.scriptVideo)} caracteres en un video corto, reel o short; ${span(R.scriptShort)} en un estático o una historia. Tope duro ${MATRIX_TEXT_LIMITS.script}.`,
         },
         visual_style: {
           type: 'string',
-          description: `Indicaciones visuales para diseño: encuadre, colores, tipografía, referencias. Máximo ${MATRIX_TEXT_LIMITS.visual_style} caracteres.`,
+          description: `Indicaciones visuales para diseño: encuadre, colores, tipografía, referencias. Entre ${R.visual_style.min} y ${R.visual_style.max} caracteres; tope duro ${MATRIX_TEXT_LIMITS.visual_style}.`,
         },
         hashtags: {
           type: 'string',
-          description: `Hashtags separados por espacio, con # incluido. Máximo ${MATRIX_TEXT_LIMITS.hashtags} caracteres.`,
+          description: `Hashtags separados por espacio, con # incluido. Entre ${R.hashtags.min} y ${R.hashtags.max} caracteres en total; tope duro ${MATRIX_TEXT_LIMITS.hashtags}.`,
         },
         cta: {
           type: 'string',
-          description: `Llamado a la acción, una frase. Máximo ${MATRIX_TEXT_LIMITS.cta} caracteres.`,
+          description: `Llamado a la acción, una frase. Entre ${R.cta.min} y ${R.cta.max} caracteres; tope duro ${MATRIX_TEXT_LIMITS.cta}.`,
         },
         objective: {
           type: 'string',
@@ -329,14 +373,17 @@ export function buildBriefPrompt(input: BriefPromptInput): string {
     lines.push('', '## Versión actual (la vas a reemplazar entera)', ...previous)
   }
 
+  // Rangos de trabajo, no los topes duros como meta: ver `BRIEF_WORKING_RANGES`.
+  const R = BRIEF_WORKING_RANGES
   lines.push(
     '',
-    '## Topes de longitud (lo que pase se recorta y queda a medias)',
-    `- copy: ${MATRIX_TEXT_LIMITS.copy} caracteres`,
-    `- script: ${MATRIX_TEXT_LIMITS.script}`,
-    `- visual_style: ${MATRIX_TEXT_LIMITS.visual_style}`,
-    `- hashtags: ${MATRIX_TEXT_LIMITS.hashtags}`,
-    `- cta: ${MATRIX_TEXT_LIMITS.cta}`,
+    '## Largo de cada campo',
+    'Apuntá a estos rangos. El brief entero tiene que caber en una sola respuesta: si se corta, se pierde completo.',
+    `- copy: ${span(R.copy)} caracteres (el tope duro es ${MATRIX_TEXT_LIMITS.copy})`,
+    `- script: ${span(scriptRange(item.content_type))} caracteres (el tope duro es ${MATRIX_TEXT_LIMITS.script})`,
+    `- visual_style: ${span(R.visual_style)} caracteres (el tope duro es ${MATRIX_TEXT_LIMITS.visual_style})`,
+    `- hashtags: ${span(R.hashtags)} caracteres en total (el tope duro es ${MATRIX_TEXT_LIMITS.hashtags})`,
+    `- cta: una frase de ${span(R.cta)} caracteres (el tope duro es ${MATRIX_TEXT_LIMITS.cta})`,
     '',
     `Devolvé el brief llamando a la herramienta \`${MATRIX_BRIEF_TOOL_NAME}\`. No escribas nada fuera de la herramienta.`,
   )

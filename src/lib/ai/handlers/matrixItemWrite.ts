@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { loadBrandProfile } from '@/lib/data/brand'
 import { hasUsableBrandProfile } from '@/lib/domain/brand'
 import { periodLabel } from '@/lib/domain/matrix'
-import { sanitizeGeneratedBrief } from '@/lib/domain/matrix-ai'
+import { briefOutcome, sanitizeGeneratedBrief } from '@/lib/domain/matrix-ai'
 import { MATRIX_CHILD_PARAMS, matrixModel, requireAnthropicApiKey } from '@/lib/ai/matrix/model'
 import { accumulateJobCost } from '@/lib/ai/matrix/cost'
 import {
@@ -129,8 +129,21 @@ export const matrixItemWriteHandler: AiHandler<ItemWriteInput, ItemWriteResult> 
   // ── Paso 3: el único filtro entre el modelo y la base ────────────────────
   const patch = sanitizeGeneratedBrief(readToolInput(response.content, MATRIX_BRIEF_TOOL_NAME))
   const fields = Object.keys(patch)
-  if (fields.length === 0) {
-    // Con `tool_choice` forzado esto solo pasa si la respuesta se truncó: vale la pena reintentar.
+  const outcome = briefOutcome(response.stop_reason, fields.length)
+  if (outcome === 'truncada') {
+    // Ni escribir el brief a medias (marcaría `ai_written_at` y el padre no lo re-encolaría nunca) ni
+    // lanzar (el runner repetiría el mismo prompt, con el mismo corte, dos veces más a precio completo).
+    // El job termina una sola vez y la pieza queda recuperable con "Regenerar".
+    await ctx.logEvent('skipped', {
+      reason: 'respuesta_truncada',
+      itemId,
+      output_tokens: response.usage.output_tokens,
+      fields,
+    })
+    return { written: false, skipped: 'respuesta_truncada' }
+  }
+  if (outcome === 'vacia') {
+    // Sin truncar y sin ningún campo usable (tool_use ausente o con basura): aquí sí vale la pena reintentar.
     throw new Error(`matrix_item_write: el modelo no devolvió un brief usable (stop_reason=${response.stop_reason})`)
   }
 
