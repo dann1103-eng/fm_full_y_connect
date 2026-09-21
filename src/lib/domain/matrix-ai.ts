@@ -305,6 +305,62 @@ export function pendingChildWork(items: readonly ChildWorkItem[], jobs: readonly
   for (const j of jobs) if (j.content_matrix_item_id) withJob.add(j.content_matrix_item_id)
 
   return items
-    .filter((i) => !i.ai_written_at && !(i.copy ?? '').trim() && !withJob.has(i.id))
+    .filter((i) => isUnwritten(i) && !withJob.has(i.id))
     .map((i) => i.id)
+}
+
+/** Sin redactar: ni la IA la escribió ni tiene copy (uno de solo espacios cuenta como vacío). */
+function isUnwritten(i: ChildWorkItem): boolean {
+  return !i.ai_written_at && !(i.copy ?? '').trim()
+}
+
+// ── La compuerta de "Generar con IA" ────────────────────────────────────────
+
+const LIVE_JOB_STATUSES: readonly AiJobStatus[] = ['pending', 'processing']
+
+export const MATRIX_QUOTA_COVERED = 'La matriz ya cubre el cupo del plan.'
+
+export type GenerationGate = { ok: true } | { ok: false; error: string }
+
+/**
+ * Si "Generar con IA" tiene algo que hacer: falta cupo **o** queda alguna pieza sin redactar que el padre
+ * encolaría (su invariante (b)). La segunda vía es la de una matriz llenada a mano con piezas sin brief:
+ * sin ella, "Generar con IA" nunca las redactaría.
+ *
+ * Usa `pendingChildWork` tal cual —cualquier job previo de la pieza cuenta, no solo uno vivo— para
+ * aceptar exactamente lo que el padre va a hacer: con un criterio más laxo la acción encolaría un padre
+ * que terminaría `cupo_cubierto` sin tocar nada. `jobs` son los `matrix_item_write` de la matriz sin
+ * filtrar por estado; con cupo faltante no se miran, así que pueden venir vacíos.
+ *
+ * El rechazo dice por qué: todo redactado, lo pendiente ya en cola, o lo pendiente terminó sin texto
+ * (fallido o truncado) y solo sale con "Regenerar", porque el padre no lo reintenta solo.
+ */
+export function generationGate(
+  missingTotal: number,
+  items: readonly ChildWorkItem[],
+  jobs: readonly ChildWorkJob[],
+): GenerationGate {
+  if (missingTotal > 0 || pendingChildWork(items, jobs).length > 0) return { ok: true }
+
+  const unwritten = new Set(items.filter(isUnwritten).map((i) => i.id))
+  if (unwritten.size === 0) {
+    // Sin piezas no hay nada que decir de su redacción.
+    return {
+      ok: false,
+      error: items.length > 0 ? 'La matriz ya cubre el cupo del plan y todas sus piezas están redactadas.' : MATRIX_QUOTA_COVERED,
+    }
+  }
+
+  const queued = new Set<string>()
+  for (const j of jobs) {
+    if (j.content_matrix_item_id && unwritten.has(j.content_matrix_item_id) && LIVE_JOB_STATUSES.includes(j.status)) {
+      queued.add(j.content_matrix_item_id)
+    }
+  }
+  return {
+    ok: false,
+    error: queued.size === unwritten.size
+      ? 'La matriz ya cubre el cupo del plan y sus piezas sin redactar ya están en cola.'
+      : 'La matriz ya cubre el cupo del plan. Las piezas que quedaron sin redactar se rehacen con "Regenerar".',
+  }
 }

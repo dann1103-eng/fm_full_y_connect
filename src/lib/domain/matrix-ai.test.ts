@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { missingByType, sanitizeGeneratedPlan, sanitizeGeneratedBrief, briefOutcome, assignDeadlines, pendingChildWork, DEFAULT_ESTIMATE_MINUTES } from './matrix-ai'
+import { missingByType, sanitizeGeneratedPlan, sanitizeGeneratedBrief, briefOutcome, assignDeadlines, pendingChildWork, generationGate, MATRIX_QUOTA_COVERED, DEFAULT_ESTIMATE_MINUTES } from './matrix-ai'
 import type { PlanContext } from './matrix-ai'
 import { computeMatrixUsage, resolveMatrixLimits, MATRIX_TEXT_LIMITS, MATRIX_ESTIMATE_MAX_MINUTES } from './matrix'
 import type { MatrixLimits } from './matrix'
@@ -421,6 +421,61 @@ describe('pendingChildWork', () => {
       { id: 'z', ai_written_at: null, copy: '' },
     ]
     expect(pendingChildWork(items, [])).toEqual(['x', 'z'])
+  })
+})
+
+// ── generationGate ──────────────────────────────────────────────────────────
+
+describe('generationGate', () => {
+  const unwritten = (id: string) => ({ id, ai_written_at: null, copy: null })
+  const written = (id: string) => ({ id, ai_written_at: '2026-09-17T10:00:00Z', copy: null })
+  const job = (id: string, status: 'pending' | 'processing' | 'completed' | 'failed') => ({ content_matrix_item_id: id, status })
+
+  it('con cupo faltante abre, aunque todo esté redactado', () => {
+    expect(generationGate(3, [written('a')], [])).toEqual({ ok: true })
+    expect(generationGate(1, [], [])).toEqual({ ok: true })
+  })
+
+  it('cupo cubierto con piezas sin redactar y sin ningún hijo → abre (matriz llenada a mano)', () => {
+    expect(generationGate(0, [written('a'), unwritten('b')], [])).toEqual({ ok: true })
+  })
+
+  it('basta una pieza sin hijo aunque otras ya lo tengan', () => {
+    expect(generationGate(0, [unwritten('a'), unwritten('b')], [job('a', 'failed')])).toEqual({ ok: true })
+  })
+
+  it('cupo cubierto y todo redactado → rechaza y lo dice', () => {
+    expect(generationGate(0, [written('a'), { id: 'b', ai_written_at: null, copy: 'A mano' }], [])).toEqual({
+      ok: false, error: 'La matriz ya cubre el cupo del plan y todas sus piezas están redactadas.',
+    })
+  })
+
+  it('matriz sin piezas y sin cupo → solo el mensaje del cupo', () => {
+    expect(generationGate(0, [], [])).toEqual({ ok: false, error: MATRIX_QUOTA_COVERED })
+  })
+
+  it('lo pendiente ya está en cola → rechaza con "en cola"', () => {
+    const r = generationGate(0, [written('a'), unwritten('b')], [job('b', 'pending')])
+    expect(r).toEqual({ ok: false, error: 'La matriz ya cubre el cupo del plan y sus piezas sin redactar ya están en cola.' })
+    expect(generationGate(0, [unwritten('b')], [job('b', 'failed'), job('b', 'processing')]).ok).toBe(false)
+  })
+
+  it('lo pendiente terminó sin texto (fallido o truncado) → rechaza y remite a "Regenerar"', () => {
+    const regenerar = 'La matriz ya cubre el cupo del plan. Las piezas que quedaron sin redactar se rehacen con "Regenerar".'
+    expect(generationGate(0, [unwritten('a')], [job('a', 'failed')])).toEqual({ ok: false, error: regenerar })
+    // `respuesta_truncada`: el hijo termina `completed` sin escribir.
+    expect(generationGate(0, [unwritten('a')], [job('a', 'completed')])).toEqual({ ok: false, error: regenerar })
+    // Mezcla de en cola y fallida: no todo está en cola, así que manda "Regenerar".
+    expect(generationGate(0, [unwritten('a'), unwritten('b')], [job('a', 'pending'), job('b', 'failed')])).toEqual({ ok: false, error: regenerar })
+  })
+
+  it('coincide con lo que el padre encolaría (pendingChildWork)', () => {
+    const items = [unwritten('a'), written('b'), unwritten('c')]
+    const jobs = [job('a', 'completed')]
+    expect(pendingChildWork(items, jobs)).toEqual(['c'])
+    expect(generationGate(0, items, jobs).ok).toBe(true)
+    expect(pendingChildWork(items, [...jobs, job('c', 'failed')])).toEqual([])
+    expect(generationGate(0, items, [...jobs, job('c', 'failed')]).ok).toBe(false)
   })
 })
 

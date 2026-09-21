@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { assertNotImpersonating } from './impersonation'
 import { canManageMatrices } from '@/lib/domain/permissions'
 import { hasUsableBrandProfile } from '@/lib/domain/brand'
-import { MATRIX_INSTRUCTIONS_MAX, missingByType } from '@/lib/domain/matrix-ai'
+import { MATRIX_INSTRUCTIONS_MAX, generationGate, missingByType, type ChildWorkJob } from '@/lib/domain/matrix-ai'
 import { loadBrandProfile } from '@/lib/data/brand'
 import { loadMatrixEditorData } from '@/lib/data/matrices'
 import { MATRIX_JOB_PRIORITY } from '@/lib/ai/handlers/matrixGenerate'
@@ -68,9 +68,28 @@ export async function generateMatrix(matrixId: string): Promise<ActionResult> {
   if (!hasUsableBrandProfile(profile)) return { ok: false, error: NO_BRAND_PROFILE }
 
   const capacity = missingByType(data.limits, data.usage)
-  if (capacity.total === 0) return { ok: false, error: 'La matriz ya cubre el cupo del plan.' }
-
   const admin = createAdminClient()
+
+  // Con el cupo cubierto todavía puede haber trabajo: piezas sin redactar sin hijo (una matriz llenada a
+  // mano, o un padre que murió antes de encolar). Los hijos solo hacen falta en ese caso — con cupo
+  // faltante la compuerta ya abre — y se leen con el admin client: la única policy de `select` de
+  // `ai_jobs` es `is_admin()` y un supervisor no la pasa (igual que la ruta de progreso).
+  let childJobs: ChildWorkJob[] = []
+  if (capacity.total === 0) {
+    const { data: jobs, error: jobsError } = await admin
+      .from('ai_jobs')
+      .select('content_matrix_item_id, status')
+      .eq('job_type', 'matrix_item_write')
+      .eq('content_matrix_id', matrixId)
+    if (jobsError) {
+      console.error('[matrixAi] leer jobs hijos', jobsError.message)
+      return { ok: false, error: LOAD_ERROR }
+    }
+    childJobs = jobs ?? []
+  }
+  const gate = generationGate(capacity.total, data.items, childJobs)
+  if (!gate.ok) return { ok: false, error: gate.error }
+
   const { error } = await admin.from('ai_jobs').insert({
     job_type: 'matrix_generate',
     status: 'pending',
