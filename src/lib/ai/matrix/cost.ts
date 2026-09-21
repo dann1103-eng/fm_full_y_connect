@@ -55,13 +55,18 @@ export async function accumulateJobCost(
   const cached = usage.cache_read_input_tokens ?? 0
   const cents = costCentsFor(usage)
 
-  const { data } = await admin
+  const { data, error: readError } = await admin
     .from('ai_jobs')
     .select('cost_usd_cents, tokens_input, tokens_output, tokens_cached')
     .eq('id', jobId)
     .maybeSingle()
+  // Se escribe igual: en la primera llamada del job (el caso normal) el acumulado previo es cero y el
+  // valor es correcto; solo un job rescatado perdería la llamada anterior, y queda en el log.
+  if (readError) console.error('[matrix cost] no se pudo leer el acumulado del job', jobId, readError.message)
 
-  await admin
+  // **No fatal**: la llamada al modelo ya se hizo y el brief o el plan valen más que la contabilidad.
+  // Pero tampoco mudo — es la única traza del gasto de ese job.
+  const { data: updated, error } = await admin
     .from('ai_jobs')
     .update({
       cost_usd_cents: (data?.cost_usd_cents ?? 0) + cents,
@@ -70,6 +75,14 @@ export async function accumulateJobCost(
       tokens_cached: (data?.tokens_cached ?? 0) + cached,
     })
     .eq('id', jobId)
+    .select('id')
+  if (error) {
+    console.error('[matrix cost] no se pudo registrar el costo del job', jobId, `${cents}¢`, error.message)
+  } else if (!updated || updated.length === 0) {
+    // Un update sobre una fila inexistente no da error: la fila del job cayó por el `on delete cascade`
+    // de 0131 (se borró la pieza o la matriz mientras corría) y el gasto se pierde con ella.
+    console.error('[matrix cost] el job ya no existe (¿pieza o matriz borrada?): costo perdido', jobId, `${cents}¢`)
+  }
 
   return cents
 }
