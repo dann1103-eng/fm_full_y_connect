@@ -6,6 +6,7 @@ import { whatsappTemplateHandler } from './handlers/whatsappTemplate'
 import { invoiceDueReminderHandler } from './handlers/invoiceDueReminder'
 import { matrixGenerateHandler } from './handlers/matrixGenerate'
 import { matrixItemWriteHandler } from './handlers/matrixItemWrite'
+import { sweepExhaustedZombies } from './zombies'
 import type { AiHandler, AiHandlerCtx, AiJobRow } from './types'
 
 /**
@@ -110,13 +111,17 @@ async function failJob(supabase: SupabaseClient, job: AiJobRow, error: Error) {
 }
 
 /**
- * Presupuesto de tiempo de una corrida, 15 s por debajo del `maxDuration = 60` de la ruta.
+ * Presupuesto de tiempo de una corrida: el corte para RECLAMAR, no para terminar.
  *
  * `maxDuration` es de la RUTA, no de cada job: sin esta guarda, `runJobs` encadena `maxJobs` trabajos
  * sin mirar el reloj. Con jobs de WhatsApp de pocos segundos nunca dolió; con un brief completo de
  * matriz, la plataforma mata la función a mitad de la llamada al modelo, el job queda `processing` con
  * el intento ya consumido (`claim_ai_job` lo incrementa al reclamar) y solo se recupera cinco minutos
  * después por el watchdog de 0124; tres veces y queda `failed` sin que nada estuviera mal.
+ *
+ * Solo se mira ANTES de reclamar, así que un job reclamado a los 44,9 s todavía corre entero: por eso el
+ * `maxDuration` de `/api/ai-jobs/process` es 180 y no 60 (un padre de matriz grande puede pasar de 40–80 s
+ * de modelo). Lo que aun así muera en su último intento lo recoge `sweepExhaustedZombies`.
  */
 export const RUNNER_BUDGET_MS = 45_000
 
@@ -139,6 +144,11 @@ export async function runJobs(opts?: {
   const waitForUpcomingMs = opts?.waitForUpcomingMs ?? 0
   const supabase = createAdminClient()
   const waSupabase = createWaAdminClient()
+
+  // Antes de reclamar: marca `failed` los jobs que murieron `processing` en su último intento, que el
+  // watchdog de 0124 ya no rescata y que, con los índices únicos que cubren `processing` (0126, 0131),
+  // bloquean para siempre la matriz, la pieza o la factura. Nunca lanza; una lectura acotada por corrida.
+  await sweepExhaustedZombies(supabase)
 
   const details: Array<{ id: string; ok: boolean }> = []
 
