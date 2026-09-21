@@ -127,7 +127,7 @@ Los dos índices cubren `processing` además de `pending` —la variante de 0126
 
 **El índice del padre no es la garantía contra dos juegos de piezas** —solo vale mientras el job está vivo—: la garantía real es el paso 2, abajo.
 
-`ai_written_at` da dos cosas que no se pueden derivar: qué piezas escribió la IA (auditoría) y la diferencia entre "sin redactar" y "el usuario borró el copy a propósito".
+`ai_written_at` da dos cosas que no se pueden derivar: qué piezas escribió la IA (auditoría) y la diferencia entre "sin redactar" y "el usuario vació el brief a propósito".
 
 ### El padre, paso a paso
 
@@ -211,7 +211,7 @@ Botón **"Regenerar"** en el panel lateral y caja opcional de instrucciones (300
 - Reescribe `copy`, `script`, `visual_style`, `hashtags`, `cta`, `objective` y `needs_production`.
 - Funciona en matriz `draft` y `approved` (los textos siguen editables tras aprobar y el requerimiento los lee en vivo), **nunca en `closed`**.
 - Doble clic: el segundo encolado choca con el índice único del hijo y se ignora, así que no hay dos escrituras compitiendo.
-- "Sin redactar" = la pieza tiene `ai_written_at` nulo y un hijo fallido o ninguno, con el copy vacío. La fila lo muestra con el botón "Regenerar" al lado.
+- "Sin redactar" = la pieza tiene `ai_written_at` nulo y un hijo fallido o ninguno, con el **brief vacío**: los cinco campos de texto (`copy`, `script`, `visual_style`, `hashtags`, `cta`) nulos o de solo espacios. La fila lo muestra con el botón "Regenerar" al lado. *(Corrección de la revisión final: decía "copy vacío", y una pieza con el guion, los hashtags o el CTA escritos a mano y sin copy recibía un hijo que reescribía todo su brief. La regla vive una sola vez, en `isUnwritten` de `matrix-ai.ts`.)*
 
 ---
 

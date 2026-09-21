@@ -1,5 +1,5 @@
 import type { AiJobStatus, ContentMatrixItem, MatrixTopic } from '@/types/db'
-import { generationGate, type ChildWorkItem } from './matrix-ai'
+import { generationGate, isUnwritten, type ChildWorkItem, type UnwrittenCheckItem } from './matrix-ai'
 
 /**
  * Progreso de la generación con IA en el editor abierto (bloque 3) — dominio puro.
@@ -69,12 +69,12 @@ export function isGenerationLive(p: Pick<GenerationProgress, 'phase' | 'writingI
 }
 
 /**
- * "Sin redactar" (Parte 4 del spec): ni la IA la escribió ni tiene copy. Es la misma condición que usa
- * `pendingChildWork` en `matrix-ai.ts`; aquí solo decide qué muestra la fila, nunca si se puede generar
- * (eso es `generationGate`, sin copias).
+ * "Sin redactar" (Parte 4 del spec): ni la IA la escribió ni tiene nada en el brief. **Es `isUnwritten`
+ * de `matrix-ai.ts`, no una copia**: la regla vive en un solo sitio. Aquí solo decide qué muestra la fila,
+ * nunca si se puede generar (eso es `generationGate`).
  */
-export function isUnwrittenItem(item: Pick<ContentMatrixItem, 'ai_written_at' | 'copy'>): boolean {
-  return !item.ai_written_at && !(item.copy ?? '').trim()
+export function isUnwrittenItem(item: UnwrittenCheckItem): boolean {
+  return isUnwritten(item)
 }
 
 // ── Mensajes ────────────────────────────────────────────────────────────────

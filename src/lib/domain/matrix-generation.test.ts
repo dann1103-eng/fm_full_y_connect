@@ -4,7 +4,7 @@ import {
   GENERATE_BLOCK_REASONS, GENERATION_REASON_FALLBACK, isGenerationLive, isUnwrittenItem, maxUpdatedAt,
   mergePolledItem, mergePolledTopics, newestItem, sameTopics, timestampMicros, type FieldLocks,
 } from './matrix-generation'
-import { generationGate } from './matrix-ai'
+import { generationGate, isUnwritten } from './matrix-ai'
 import type { ContentMatrixItem } from '@/types/db'
 
 function row(id: string, extra: Partial<ContentMatrixItem> = {}): ContentMatrixItem {
@@ -193,12 +193,22 @@ describe('mergePolledTopics', () => {
 })
 
 describe('isUnwrittenItem', () => {
-  it('sin ai_written_at y sin copy (los espacios no cuentan)', () => {
-    expect(isUnwrittenItem({ ai_written_at: null, copy: null })).toBe(true)
-    expect(isUnwrittenItem({ ai_written_at: null, copy: '   ' })).toBe(true)
-    expect(isUnwrittenItem({ ai_written_at: null, copy: 'hola' })).toBe(false)
+  it('sin ai_written_at y con el brief vacío (los espacios no cuentan)', () => {
+    expect(isUnwrittenItem(row('a'))).toBe(true)
+    expect(isUnwrittenItem(row('a', { copy: '   ', script: ' ', hashtags: '' }))).toBe(true)
+    expect(isUnwrittenItem(row('a', { copy: 'hola' }))).toBe(false)
     // El usuario borró el copy de una pieza que la IA ya redactó: no es "sin redactar".
-    expect(isUnwrittenItem({ ai_written_at: '2026-09-17T10:00:00+00:00', copy: null })).toBe(false)
+    expect(isUnwrittenItem(row('a', { ai_written_at: '2026-09-17T10:00:00+00:00' }))).toBe(false)
+  })
+  it('una pieza con solo guion, estilo visual, hashtags o CTA a mano no es "sin redactar"', () => {
+    expect(isUnwrittenItem(row('a', { script: 'Guion a mano' }))).toBe(false)
+    expect(isUnwrittenItem(row('a', { visual_style: 'Tonos cálidos' }))).toBe(false)
+    expect(isUnwrittenItem(row('a', { hashtags: '#marca' }))).toBe(false)
+    expect(isUnwrittenItem(row('a', { cta: 'Ven hoy' }))).toBe(false)
+  })
+  it('es la misma regla que usa el padre (isUnwritten de matrix-ai)', () => {
+    const cases = [row('a'), row('b', { script: 'x' }), row('c', { ai_written_at: '2026-09-17T10:00:00+00:00' }), row('d', { cta: ' ' })]
+    for (const c of cases) expect(isUnwrittenItem(c)).toBe(isUnwritten(c))
   })
 })
 
@@ -228,8 +238,8 @@ describe('generationReasonLabel', () => {
 })
 
 describe('generateBlockReason', () => {
-  const unwritten = { id: 'a', ai_written_at: null, copy: null }
-  const written = { id: 'b', ai_written_at: '2026-09-17T10:00:00+00:00', copy: 'hola' }
+  const unwritten = row('a')
+  const written = row('b', { ai_written_at: '2026-09-17T10:00:00+00:00', copy: 'hola' })
   const base = { brandReady: true as boolean | null, missingTotal: 0, items: [written], itemJobs: [], parentLive: false }
 
   it('sin perfil de marca, o sin poder leerlo', () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { missingByType, sanitizeGeneratedPlan, sanitizeGeneratedBrief, briefOutcome, assignDeadlines, pendingChildWork, generationGate, MATRIX_QUOTA_COVERED, DEFAULT_ESTIMATE_MINUTES } from './matrix-ai'
-import type { PlanContext } from './matrix-ai'
+import { missingByType, sanitizeGeneratedPlan, sanitizeGeneratedBrief, briefOutcome, assignDeadlines, pendingChildWork, generationGate, isUnwritten, BRIEF_TEXT_FIELDS, MATRIX_QUOTA_COVERED, DEFAULT_ESTIMATE_MINUTES } from './matrix-ai'
+import type { ChildWorkItem, PlanContext } from './matrix-ai'
 import { computeMatrixUsage, resolveMatrixLimits, MATRIX_TEXT_LIMITS, MATRIX_ESTIMATE_MAX_MINUTES } from './matrix'
 import type { MatrixLimits } from './matrix'
 import type { BillingCycle, ContentType, MatrixTopic, Plan, Requirement, WeeklyDistribution } from '@/types/db'
@@ -376,10 +376,47 @@ describe('assignDeadlines', () => {
   })
 })
 
+// ── isUnwritten ─────────────────────────────────────────────────────────────
+
+/** Pieza con el brief vacío y sin `ai_written_at`, con lo que se le pise encima. */
+function brief(id: string, over: Partial<ChildWorkItem> = {}): ChildWorkItem {
+  return { id, ai_written_at: null, copy: null, script: null, visual_style: null, hashtags: null, cta: null, ...over }
+}
+
+describe('isUnwritten', () => {
+  it('sin ai_written_at y con los cinco campos del brief vacíos → sin redactar', () => {
+    expect(isUnwritten(brief('a'))).toBe(true)
+    // Los espacios y la cadena vacía cuentan como vacío.
+    expect(isUnwritten(brief('a', { copy: '   ', script: '', visual_style: '\n', hashtags: ' ', cta: '\t' }))).toBe(true)
+  })
+
+  it('cualquier campo del brief escrito a mano → ya no está sin redactar (no solo el copy)', () => {
+    for (const f of BRIEF_TEXT_FIELDS) {
+      expect(isUnwritten(brief('a', { [f]: 'Escrito a mano' }))).toBe(false)
+    }
+  })
+
+  it('solo guion: una pieza con el guion escrito a mano y sin copy NO está sin redactar', () => {
+    expect(isUnwritten(brief('a', { script: 'Escena 1: la barra, luz de mañana.' }))).toBe(false)
+  })
+
+  it('solo hashtags: una pieza con los hashtags a mano y sin copy NO está sin redactar', () => {
+    expect(isUnwritten(brief('a', { hashtags: '#cafe #otono' }))).toBe(false)
+  })
+
+  it('la IA ya la redactó → no, aunque el usuario haya vaciado el brief', () => {
+    expect(isUnwritten(brief('a', { ai_written_at: '2026-09-17T10:00:00Z' }))).toBe(false)
+  })
+
+  it('el brief son exactamente los cinco campos de texto que escribe el hijo', () => {
+    expect([...BRIEF_TEXT_FIELDS]).toEqual(['copy', 'script', 'visual_style', 'hashtags', 'cta'])
+  })
+})
+
 // ── pendingChildWork ────────────────────────────────────────────────────────
 
 describe('pendingChildWork', () => {
-  const unwritten = { id: 'a', ai_written_at: null, copy: null }
+  const unwritten = brief('a')
 
   it('pieza sin redactar y sin job → necesita hijo', () => {
     expect(pendingChildWork([unwritten], [])).toEqual(['a'])
@@ -399,26 +436,40 @@ describe('pendingChildWork', () => {
   })
 
   it('pieza ya redactada por la IA → no', () => {
-    expect(pendingChildWork([{ id: 'a', ai_written_at: '2026-09-17T10:00:00Z', copy: null }], [])).toEqual([])
+    expect(pendingChildWork([brief('a', { ai_written_at: '2026-09-17T10:00:00Z' })], [])).toEqual([])
   })
 
   it('pieza con copy escrito a mano → no', () => {
-    expect(pendingChildWork([{ id: 'a', ai_written_at: null, copy: 'Escrito a mano' }], [])).toEqual([])
+    expect(pendingChildWork([brief('a', { copy: 'Escrito a mano' })], [])).toEqual([])
     // Un copy de solo espacios sigue contando como vacío
-    expect(pendingChildWork([{ id: 'a', ai_written_at: null, copy: '   ' }], [])).toEqual(['a'])
+    expect(pendingChildWork([brief('a', { copy: '   ' })], [])).toEqual(['a'])
+  })
+
+  it('pieza con solo el guion escrito a mano → no: "Generar con IA" no rehace el trabajo de nadie', () => {
+    expect(pendingChildWork([brief('a', { script: 'Guion escrito a mano' })], [])).toEqual([])
+  })
+
+  it('pieza con solo hashtags escritos a mano → no', () => {
+    expect(pendingChildWork([brief('a', { hashtags: '#marca' })], [])).toEqual([])
+  })
+
+  it('cinco guiones a mano y diez piezas vacías → solo las diez vacías reciben hijo', () => {
+    const manual = Array.from({ length: 5 }, (_, i) => brief(`m${i}`, { script: `Guion ${i}` }))
+    const empty = Array.from({ length: 10 }, (_, i) => brief(`e${i}`))
+    expect(pendingChildWork([...manual, ...empty], [])).toEqual(empty.map((i) => i.id))
   })
 
   it('jobs de otras piezas o sin pieza no cuentan', () => {
-    const items = [unwritten, { id: 'b', ai_written_at: null, copy: null }]
+    const items = [unwritten, brief('b')]
     const jobs = [{ content_matrix_item_id: 'b', status: 'pending' as const }, { content_matrix_item_id: null, status: 'pending' as const }]
     expect(pendingChildWork(items, jobs)).toEqual(['a'])
   })
 
   it('conserva el orden de entrada de las piezas', () => {
     const items = [
-      { id: 'x', ai_written_at: null, copy: null },
-      { id: 'y', ai_written_at: '2026-09-17T10:00:00Z', copy: null },
-      { id: 'z', ai_written_at: null, copy: '' },
+      brief('x'),
+      brief('y', { ai_written_at: '2026-09-17T10:00:00Z' }),
+      brief('z', { copy: '' }),
     ]
     expect(pendingChildWork(items, [])).toEqual(['x', 'z'])
   })
@@ -427,8 +478,8 @@ describe('pendingChildWork', () => {
 // ── generationGate ──────────────────────────────────────────────────────────
 
 describe('generationGate', () => {
-  const unwritten = (id: string) => ({ id, ai_written_at: null, copy: null })
-  const written = (id: string) => ({ id, ai_written_at: '2026-09-17T10:00:00Z', copy: null })
+  const unwritten = (id: string) => brief(id)
+  const written = (id: string) => brief(id, { ai_written_at: '2026-09-17T10:00:00Z' })
   const job = (id: string, status: 'pending' | 'processing' | 'completed' | 'failed') => ({ content_matrix_item_id: id, status })
 
   it('con cupo faltante abre, aunque todo esté redactado', () => {
@@ -445,7 +496,13 @@ describe('generationGate', () => {
   })
 
   it('cupo cubierto y todo redactado → rechaza y lo dice', () => {
-    expect(generationGate(0, [written('a'), { id: 'b', ai_written_at: null, copy: 'A mano' }], [])).toEqual({
+    expect(generationGate(0, [written('a'), brief('b', { copy: 'A mano' })], [])).toEqual({
+      ok: false, error: 'La matriz ya cubre el cupo del plan y todas sus piezas están redactadas.',
+    })
+  })
+
+  it('cupo cubierto y piezas con solo guion o solo hashtags a mano → cuentan como redactadas', () => {
+    expect(generationGate(0, [brief('a', { script: 'A mano' }), brief('b', { hashtags: '#marca' })], [])).toEqual({
       ok: false, error: 'La matriz ya cubre el cupo del plan y todas sus piezas están redactadas.',
     })
   })

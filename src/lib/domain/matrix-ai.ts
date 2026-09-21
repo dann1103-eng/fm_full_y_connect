@@ -185,12 +185,14 @@ export function sanitizeGeneratedPlan(raw: unknown, ctx: PlanContext): Generated
 // ── El brief que escribe el hijo ────────────────────────────────────────────
 
 /**
- * Los ÚNICOS campos que el hijo puede escribir. Fuera de esta lista quedan a propósito los cinco que el
+ * Los campos de texto del brief: los ÚNICOS de texto que el hijo puede escribir, y los que deciden si una
+ * pieza está "sin redactar" (`isUnwritten`). Fuera de esta lista quedan a propósito los cinco que el
  * bloque 2 congela al convertir (`title`, `content_type`, `deadline`, `assigned_to`,
  * `estimated_time_minutes`) y todo lo que es del sistema (`id`, `status`, `requirement_id`, …): el
  * handler escribe con el admin client y nada más lo detendría.
  */
-const BRIEF_TEXT_FIELDS = ['copy', 'script', 'visual_style', 'hashtags', 'cta'] as const
+export const BRIEF_TEXT_FIELDS = ['copy', 'script', 'visual_style', 'hashtags', 'cta'] as const
+export type BriefTextField = (typeof BRIEF_TEXT_FIELDS)[number]
 
 /**
  * Recorta y filtra el brief que devuelve el modelo. Un campo ausente o que no es string se **omite** (no
@@ -279,10 +281,11 @@ export function assignDeadlines(plan: readonly GeneratedPiece[], ctx: DeadlineCo
 
 // ── La invariante (b) del padre ─────────────────────────────────────────────
 
-export interface ChildWorkItem {
+/** Lo que hace falta de una pieza para saber si está sin redactar. */
+export type UnwrittenCheckItem = Pick<ContentMatrixItem, 'ai_written_at' | BriefTextField>
+
+export interface ChildWorkItem extends UnwrittenCheckItem {
   id: string
-  ai_written_at: string | null
-  copy: string | null
 }
 
 export interface ChildWorkJob {
@@ -309,9 +312,20 @@ export function pendingChildWork(items: readonly ChildWorkItem[], jobs: readonly
     .map((i) => i.id)
 }
 
-/** Sin redactar: ni la IA la escribió ni tiene copy (uno de solo espacios cuenta como vacío). */
-function isUnwritten(i: ChildWorkItem): boolean {
-  return !i.ai_written_at && !(i.copy ?? '').trim()
+/**
+ * **"Sin redactar"** (Parte 4 del spec): la IA no la escribió (`ai_written_at` nulo) **y** los cinco campos
+ * de texto del brief (`BRIEF_TEXT_FIELDS`) están vacíos — nulos o de solo espacios.
+ *
+ * Mirar solo el `copy` no alcanza: una pieza con el guion, el estilo visual, los hashtags o el CTA escritos
+ * a mano y sin copy recibiría un hijo, y el hijo reemplaza el brief entero. El caso común es justo ese:
+ * alguien escribe 5 guiones a mano, pulsa "Generar con IA" para llenar las otras 10, y sus 5 guiones se
+ * reescriben.
+ *
+ * Es la ÚNICA definición: la usan el padre (`pendingChildWork`), la compuerta (`generationGate`) y el
+ * editor (`isUnwrittenItem` en `matrix-generation.ts`).
+ */
+export function isUnwritten(i: UnwrittenCheckItem): boolean {
+  return !i.ai_written_at && BRIEF_TEXT_FIELDS.every((f) => !(i[f] ?? '').trim())
 }
 
 // ── La compuerta de "Generar con IA" ────────────────────────────────────────
