@@ -6,6 +6,7 @@ import { canManageMatrices } from '@/lib/domain/permissions'
 import type { AiJobStatus, ContentMatrixItem, MatrixTopic } from '@/types/db'
 import type { GenerationPhase as Phase, GenerationProgress } from '@/lib/domain/matrix-generation'
 import { isBriefKeepingSkip } from '@/lib/domain/matrix-ai'
+import { UUID_RE } from '@/lib/domain/matrix'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -67,6 +68,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const ctx = await getEffectiveUser()
   if (!ctx) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
   if (!canManageMatrices(ctx.appUser.role)) return NextResponse.json({ error: 'Sin permisos' }, { status: 403 })
+  // Un id que no es uuid llegaría a Postgres como `invalid input syntax for type uuid` y saldría como un
+  // 500, que el sondeo reintenta para siempre. Un 400 lo apaga (`useMatrixGeneration` se detiene ante 4xx).
+  if (!UUID_RE.test(id)) return NextResponse.json({ error: 'Matriz inválida' }, { status: 400 })
 
   const supabase = await createClient()
   const admin = createAdminClient()

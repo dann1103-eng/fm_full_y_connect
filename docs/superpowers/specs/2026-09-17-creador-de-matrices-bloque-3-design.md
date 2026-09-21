@@ -78,7 +78,7 @@ Las fechas no las elige el modelo a propósito: `proposeDeadline` ya respeta la 
 
 ### Los temas del mes
 
-Si la matriz ya tiene temas, la IA los respeta y reparte las piezas entre ellos. Si no, el padre propone 3–5 y los guarda con `sanitizeTopics`, con un **update condicional** que no escribe si el usuario agregó temas mientras el modelo pensaba. En el esquema de salida el tema de cada pieza es un **índice** a la lista final, no texto libre: así no hay temas inventados que descartar. Un índice fuera de rango deja la pieza sin tema (válido).
+Si la matriz ya tiene temas, la IA los respeta y reparte las piezas entre ellos. Si no, el padre propone 3–5 y los guarda con `sanitizeTopics`, **releyendo los temas justo antes de escribir**: si el usuario agregó temas mientras el modelo pensaba, no escribe. *(Lo que hace el código: esa comprobación es en JS sobre la relectura, no un filtro jsonb del update; el update solo es condicional en `status = 'draft'`. La barra de temas del editor queda bloqueada mientras el padre planifica.)* En el esquema de salida el tema de cada pieza es un **índice** a la lista final, no texto libre: así no hay temas inventados que descartar. Un índice fuera de rango deja la pieza sin tema (válido).
 
 ### Longitudes
 

@@ -70,8 +70,8 @@ function optimistic(p: GenerationProgress | null, hint: GenerationKick): Generat
  * - **Marca de agua**: la `watermark` de la respuesta tal cual; si no vino ninguna fila, se conserva la
  *   anterior. Nunca del reloj del navegador.
  * - **Errores**: un 500 o un fallo de red NO es "terminado": se conserva el último estado y se
- *   reintenta con espera creciente. Un 4xx (sin sesión, sin permiso, matriz borrada) apaga el sondeo:
- *   reintentar no lo arregla.
+ *   reintenta con espera creciente. Un 4xx (sin sesión, sin permiso, id inválido, matriz borrada) apaga
+ *   el sondeo: reintentar no lo arregla.
  * - **Asentamiento**: cuando una generación que se vio viva termina, una última consulta SIN `since`
  *   trae la matriz entera una vez. La marca de agua por `updated_at` tiene una carrera estrecha pero
  *   real con los hijos en paralelo (una escritura cuya transacción empezó antes que otra ya visible,
