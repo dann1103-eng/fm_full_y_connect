@@ -195,8 +195,10 @@ function ItemSheet({
     const common = {
       id,
       value: shownText(key),
-      // El título es lo único de este bloque que además se congela al convertir (se copió al requerimiento).
-      disabled: key === 'title' ? frozen : readOnly,
+      // El título es lo único de este bloque que además se congela al convertir (se copió al requerimiento),
+      // y lo único que la IA no reescribe. El resto se bloquea mientras la IA redacta la pieza, salvo el
+      // campo que se está editando en ese momento: se suelta al salir de él, después de guardarlo.
+      disabled: key === 'title' ? frozen : readOnly || (writing && drafts[key] === undefined),
       placeholder,
       maxLength: MATRIX_TEXT_LIMITS[key],
       'aria-invalid': failed !== undefined || undefined,
@@ -260,7 +262,7 @@ function ItemSheet({
             </div>
             <div>
               <label htmlFor="matrix-item-objective" className={labelCls}>Objetivo</label>
-              <select id="matrix-item-objective" value={item.objective ?? ''} disabled={readOnly} className={inputCls}
+              <select id="matrix-item-objective" value={item.objective ?? ''} disabled={readOnly || writing} className={inputCls}
                 onChange={(e) => onPatch({ objective: (e.target.value || null) as MatrixObjective | null })}>
                 <option value="">—</option>
                 {MATRIX_OBJECTIVES.map((o) => <option key={o} value={o}>{MATRIX_OBJECTIVE_LABELS[o]}</option>)}
@@ -319,6 +321,12 @@ function ItemSheet({
           )}
 
           {text('title', 'Título', undefined, 'Ej. Llegó el pumpkin latte')}
+          {writing && !readOnly && (
+            <p role="status" className="text-[11px] text-fm-on-surface-variant">
+              La IA está redactando esta pieza: el objetivo, el copy, el guion, el estilo visual, los hashtags, el llamado a
+              la acción y la producción se desbloquean al terminar.
+            </p>
+          )}
           {text('copy', 'Copy', 4, 'Texto de la publicación')}
           {text('script', 'Guion', 6, 'Escenas, locución, textos en pantalla…')}
           {text('visual_style', 'Estilo visual', 2, 'Paleta, referencias, tono de imagen')}
@@ -326,7 +334,7 @@ function ItemSheet({
           {text('cta', 'Llamado a la acción', undefined, 'Ej. Ven a probarlo esta semana')}
 
           <label className="flex items-center gap-2 text-sm text-fm-on-surface">
-            <input type="checkbox" checked={item.needs_production} disabled={readOnly}
+            <input type="checkbox" checked={item.needs_production} disabled={readOnly || writing}
               onChange={(e) => onPatch({ needs_production: e.target.checked })} />
             Necesita producción (grabación / sesión)
           </label>

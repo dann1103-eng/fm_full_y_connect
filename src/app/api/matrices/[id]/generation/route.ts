@@ -5,6 +5,7 @@ import { getEffectiveUser } from '@/lib/auth/effective-user'
 import { canManageMatrices } from '@/lib/domain/permissions'
 import type { AiJobStatus, ContentMatrixItem, MatrixTopic } from '@/types/db'
 import type { GenerationPhase as Phase, GenerationProgress } from '@/lib/domain/matrix-generation'
+import { isBriefKeepingSkip } from '@/lib/domain/matrix-ai'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -44,9 +45,13 @@ type ChildJob = {
 
 const LIVE: AiJobStatus[] = ['pending', 'processing']
 
-/** Hijo que terminó `completed` sin escribir el brief (`result_json.written === false`). */
+/**
+ * Hijo que terminó `completed` sin escribir y **dejó la pieza sin texto** (`result_json.written === false`).
+ * `ya_redactada` y `editada_a_mano` también terminan sin escribir, pero la pieza tiene su brief (de la IA o
+ * de una persona): no son fallos y cuentan como hechos (`isBriefKeepingSkip`).
+ */
 function wroteNothing(c: ChildJob): boolean {
-  return c.status === 'completed' && c.result_json?.written === false
+  return c.status === 'completed' && c.result_json?.written === false && !isBriefKeepingSkip(c.result_json?.skipped)
 }
 
 /**
@@ -112,7 +117,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   // Los contadores son de los hijos DE ESE padre; los `matrix_item_write` sueltos (los de
   // "Regenerar") solo alimentan `writingItemIds`. Un hijo `completed` que no escribió (el
   // `respuesta_truncada` de un brief cortado por `max_tokens`) cuenta como fallido, no como hecho:
-  // la pieza quedó sin texto igual que con un `failed`.
+  // la pieza quedó sin texto igual que con un `failed`. Uno que se saltó una pieza que ya tenía brief
+  // (`ya_redactada`, `editada_a_mano`) cuenta como hecho: así "N de M" llega a M sin inventar fallos.
   const own = parent ? children.filter((c) => c.parent_job_id === parent.id) : []
   const done = own.filter((c) => c.status === 'completed' && !wroteNothing(c)).length
   const failed = own.filter((c) => c.status === 'failed' || wroteNothing(c)).length

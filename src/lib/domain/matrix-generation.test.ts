@@ -217,7 +217,7 @@ describe('generationReasonLabel', () => {
     const slugs = [
       'sin_plan_valido', 'cupo_cubierto', 'hijos_reencolados', 'matriz_no_borrador', 'sin_perfil_de_marca',
       'sin_tipos_activos', 'matriz_no_encontrada', 'pieza_no_existe', 'matriz_no_existe', 'matriz_cerrada',
-      'cliente_no_existe', 'respuesta_truncada',
+      'cliente_no_existe', 'respuesta_truncada', 'ya_redactada', 'editada_a_mano',
     ]
     for (const slug of slugs) {
       const label = generationReasonLabel(slug)

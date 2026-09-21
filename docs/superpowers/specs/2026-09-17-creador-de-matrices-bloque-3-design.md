@@ -146,6 +146,7 @@ Los dos índices cubren `processing` además de `pending` —la variante de 0126
 ### El hijo, paso a paso
 
 1. Lee la pieza y su matriz. **Si la pieza ya no existe, `skipped`** (no un throw: quemaría los tres intentos y aparecería en la lista de jobs fallidos por nada). Si la matriz está `closed`, `skipped`. Una pieza `blocked` sí se redacta: el brief no es ninguno de los campos congelados.
+   **Re-comprobación (corrección de la revisión final)**, antes de llamar al modelo y otra vez justo antes de escribir (`childWriteSkipReason`): un hijo puede esperar minutos al cron o a un rescate del watchdog. Si `ai_written_at` es posterior o igual al `created_at` del job, `skipped: 'ya_redactada'` (un intento anterior ya escribió; comparado como instante, no como string). Si el job viene del padre (`parent_job_id`) y la pieza ya no está sin redactar, `skipped: 'editada_a_mano'`: el padre la encoló vacía y alguien la completó mientras esperaba. Un "Regenerar" (sin padre) sí sobrescribe. Ninguno de los dos cuenta como fallo en el progreso.
 2. Llama a Anthropic con el bloque de sistema (perfil de marca + contexto de la matriz) marcado con `cache_control: { type: 'ephemeral' }`. **Sin prometer ahorro**: la caché efímera vive unos 5 minutos y tiene un mínimo de bloque que un perfil corto puede no alcanzar; si pega, bien.
 3. `sanitizeGeneratedBrief` (dominio puro) recorta cada campo.
 4. Actualiza la pieza y pone `ai_written_at`. **Si está `converted`, no toca `title`, `content_type`, `deadline`, `assigned_to` ni `estimated_time_minutes`.**

@@ -1,5 +1,6 @@
 import type { AiJobStatus, ContentMatrixItem, MatrixTopic } from '@/types/db'
 import { generationGate, isUnwritten, type ChildWorkItem, type UnwrittenCheckItem } from './matrix-ai'
+import { compareTimestamps, timestampMicros } from './timestamps'
 
 /**
  * Progreso de la generación con IA en el editor abierto (bloque 3) — dominio puro.
@@ -29,7 +30,7 @@ export interface GenerationProgress {
   phase: GenerationPhase
   /** Hijos de ese padre. Puede venir `writing` con `total: 0` (regeneración sin padre). */
   total: number
-  /** Hijos de ese padre que escribieron el brief. */
+  /** Hijos de ese padre que escribieron el brief, o que encontraron la pieza ya redactada (a mano o por la IA). */
   done: number
   /** Hijos de ese padre que no dejaron texto: `failed`, o `completed` sin escribir (`respuesta_truncada`). */
   failed: number
@@ -97,6 +98,10 @@ export const GENERATION_REASON_LABELS: Readonly<Record<string, string>> = {
   matriz_cerrada: 'La matriz está cerrada.',
   cliente_no_existe: 'No se encontró el cliente.',
   respuesta_truncada: 'La respuesta de la IA se cortó. Prueba «Regenerar» con instrucciones más breves.',
+  // Los dos con que el hijo deja la pieza CON su brief (`CHILD_SKIPS_KEEPING_BRIEF`): la ruta no los
+  // reporta como fallo, pero si alguno llegara a mostrarse no puede salir el slug crudo.
+  ya_redactada: 'La pieza ya estaba redactada: no se volvió a escribir.',
+  editada_a_mano: 'Alguien completó el brief a mano antes de que llegara la IA: se respetó lo escrito.',
 }
 
 export const GENERATION_REASON_FALLBACK = 'La generación terminó sin completar el trabajo.'
@@ -157,27 +162,8 @@ export function generateBlockReason(a: {
 
 // ── Marcas de tiempo ────────────────────────────────────────────────────────
 
-/**
- * `timestamptz` de PostgREST → microsegundos desde epoch, o `null` si es ilegible. `Date.parse` se
- * queda en milisegundos y Postgres guarda microsegundos: dos escrituras dentro del mismo milisegundo
- * serían "iguales" y una respuesta vieja pasaría por nueva.
- */
-export function timestampMicros(ts: string): number | null {
-  const ms = Date.parse(ts)
-  if (Number.isNaN(ms)) return null
-  // La fracción va justo después de los segundos (`:SS.ffffff`); Postgres recorta los ceros finales.
-  const frac = /:\d{2}\.(\d+)/.exec(ts)
-  const micros = frac ? Number(`${frac[1]}000000`.slice(0, 6)) : 0
-  return Math.floor(ms / 1000) * 1_000_000 + micros
-}
-
-/** Negativo si `a` es anterior a `b`, 0 si son iguales, positivo si es posterior. Ilegible = el más viejo. */
-export function compareTimestamps(a: string, b: string): number {
-  const x = timestampMicros(a)
-  const y = timestampMicros(b)
-  if (x === null || y === null) return x === y ? 0 : x === null ? -1 : 1
-  return x - y
-}
+// Viven en `timestamps.ts` (también las usa el hijo en `matrix-ai.ts`); se re-exportan para el editor.
+export { compareTimestamps, timestampMicros }
 
 /** El `updated_at` más reciente: siembra la primera marca de agua con las filas del render del servidor. */
 export function maxUpdatedAt(rows: readonly { updated_at: string }[]): string | null {

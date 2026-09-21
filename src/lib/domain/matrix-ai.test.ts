@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { missingByType, sanitizeGeneratedPlan, sanitizeGeneratedBrief, briefOutcome, assignDeadlines, pendingChildWork, generationGate, isUnwritten, BRIEF_TEXT_FIELDS, MATRIX_QUOTA_COVERED, DEFAULT_ESTIMATE_MINUTES } from './matrix-ai'
+import { missingByType, sanitizeGeneratedPlan, sanitizeGeneratedBrief, briefOutcome, assignDeadlines, pendingChildWork, generationGate, isUnwritten, BRIEF_TEXT_FIELDS, childWriteSkipReason, isBriefKeepingSkip, MATRIX_QUOTA_COVERED, DEFAULT_ESTIMATE_MINUTES } from './matrix-ai'
 import type { ChildWorkItem, PlanContext } from './matrix-ai'
 import { computeMatrixUsage, resolveMatrixLimits, MATRIX_TEXT_LIMITS, MATRIX_ESTIMATE_MAX_MINUTES } from './matrix'
 import type { MatrixLimits } from './matrix'
@@ -533,6 +533,71 @@ describe('generationGate', () => {
     expect(generationGate(0, items, jobs).ok).toBe(true)
     expect(pendingChildWork(items, [...jobs, job('c', 'failed')])).toEqual([])
     expect(generationGate(0, items, [...jobs, job('c', 'failed')]).ok).toBe(false)
+  })
+})
+
+// ── childWriteSkipReason ────────────────────────────────────────────────────
+
+describe('childWriteSkipReason', () => {
+  const CREATED = '2026-09-20T12:00:00.500000+00:00'
+
+  it('un job rescatado que ya había escrito → ya_redactada (venga del padre o de "Regenerar")', () => {
+    const item = brief('a', { copy: 'Texto de la IA', ai_written_at: '2026-09-20T12:00:20.000Z' })
+    expect(childWriteSkipReason({ item, jobCreatedAt: CREATED, fromParent: true })).toBe('ya_redactada')
+    expect(childWriteSkipReason({ item, jobCreatedAt: CREATED, fromParent: false })).toBe('ya_redactada')
+  })
+
+  it('ai_written_at igual al created_at del job cuenta como ya redactada', () => {
+    const item = brief('a', { ai_written_at: CREATED })
+    expect(childWriteSkipReason({ item, jobCreatedAt: CREATED, fromParent: false })).toBe('ya_redactada')
+  })
+
+  it('compara instantes, no strings: …Z en milisegundos frente a +00:00 en microsegundos', () => {
+    // 12:00:00.500 (JS) es ANTERIOR a 12:00:00.500001 (Postgres) aunque "…500Z" > "…500001+…" como string.
+    const before = brief('a', { copy: 'x', ai_written_at: '2026-09-20T12:00:00.500Z' })
+    expect(childWriteSkipReason({ item: before, jobCreatedAt: '2026-09-20T12:00:00.500001+00:00', fromParent: false })).toBeNull()
+    // 12:00:00Z es anterior a 12:00:00.5; como string "…00Z" > "…00.5…".
+    const earlier = brief('a', { copy: 'x', ai_written_at: '2026-09-20T12:00:00Z' })
+    expect(childWriteSkipReason({ item: earlier, jobCreatedAt: CREATED, fromParent: false })).toBeNull()
+    // Otra zona horaria, mismo instante que CREATED.
+    const sameInstant = brief('a', { copy: 'x', ai_written_at: '2026-09-20T06:00:00.5-06:00' })
+    expect(childWriteSkipReason({ item: sameInstant, jobCreatedAt: CREATED, fromParent: false })).toBe('ya_redactada')
+  })
+
+  it('"Regenerar" (sin padre) sobre una pieza redactada antes sí escribe: es lo que se pidió', () => {
+    const aiBefore = brief('a', { copy: 'Versión anterior', ai_written_at: '2026-09-19T08:00:00+00:00' })
+    expect(childWriteSkipReason({ item: aiBefore, jobCreatedAt: CREATED, fromParent: false })).toBeNull()
+    const handWritten = brief('a', { script: 'Guion a mano' })
+    expect(childWriteSkipReason({ item: handWritten, jobCreatedAt: CREATED, fromParent: false })).toBeNull()
+  })
+
+  it('hijo del padre sobre una pieza que sigue sin redactar → escribe', () => {
+    expect(childWriteSkipReason({ item: brief('a'), jobCreatedAt: CREATED, fromParent: true })).toBeNull()
+    expect(childWriteSkipReason({ item: brief('a', { copy: '  ' }), jobCreatedAt: CREATED, fromParent: true })).toBeNull()
+  })
+
+  it('hijo del padre sobre una pieza que alguien completó a mano mientras esperaba → editada_a_mano', () => {
+    expect(childWriteSkipReason({ item: brief('a', { script: 'Guion escrito a mano' }), jobCreatedAt: CREATED, fromParent: true }))
+      .toBe('editada_a_mano')
+    expect(childWriteSkipReason({ item: brief('a', { hashtags: '#marca' }), jobCreatedAt: CREATED, fromParent: true }))
+      .toBe('editada_a_mano')
+  })
+
+  it('hijo del padre sobre una pieza que la IA redactó antes de que naciera el job → ya_redactada, no "a mano"', () => {
+    const item = brief('a', { copy: 'De un "Regenerar" anterior', ai_written_at: '2026-09-20T11:59:00+00:00' })
+    expect(childWriteSkipReason({ item, jobCreatedAt: CREATED, fromParent: true })).toBe('ya_redactada')
+  })
+})
+
+describe('isBriefKeepingSkip', () => {
+  it('los dos motivos con que el hijo deja la pieza con su brief no son fallos', () => {
+    expect(isBriefKeepingSkip('ya_redactada')).toBe(true)
+    expect(isBriefKeepingSkip('editada_a_mano')).toBe(true)
+  })
+  it('el resto sí deja la pieza sin texto', () => {
+    for (const r of ['respuesta_truncada', 'pieza_no_existe', 'sin_perfil_de_marca', 'matriz_cerrada', null, undefined, 3]) {
+      expect(isBriefKeepingSkip(r)).toBe(false)
+    }
   })
 })
 

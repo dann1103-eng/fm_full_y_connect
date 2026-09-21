@@ -10,6 +10,7 @@ import {
   truncateCodePoints,
 } from './matrix'
 import { TIPPABLE_CONTENT_TYPES } from './plans'
+import { compareTimestamps } from './timestamps'
 
 /**
  * Generación de matrices con IA (bloque 3) — dominio puro.
@@ -321,11 +322,57 @@ export function pendingChildWork(items: readonly ChildWorkItem[], jobs: readonly
  * alguien escribe 5 guiones a mano, pulsa "Generar con IA" para llenar las otras 10, y sus 5 guiones se
  * reescriben.
  *
- * Es la ÚNICA definición: la usan el padre (`pendingChildWork`), la compuerta (`generationGate`) y el
- * editor (`isUnwrittenItem` en `matrix-generation.ts`).
+ * Es la ÚNICA definición: la usan el padre (`pendingChildWork`), la compuerta (`generationGate`), el hijo
+ * antes de llamar al modelo (`childWriteSkipReason`) y el editor (`isUnwrittenItem` en `matrix-generation.ts`).
  */
 export function isUnwritten(i: UnwrittenCheckItem): boolean {
   return !i.ai_written_at && BRIEF_TEXT_FIELDS.every((f) => !(i[f] ?? '').trim())
+}
+
+// ── La re-comprobación del hijo ─────────────────────────────────────────────
+
+/**
+ * Motivos con que el hijo termina sin escribir **dejando la pieza con su brief**:
+ *
+ * - `ya_redactada` — la IA ya la escribió: un intento anterior de este mismo job (rescatado por el watchdog
+ *   de 0124 después de escribir y antes de cerrar) o, para un hijo del padre, un "Regenerar" que llegó antes.
+ * - `editada_a_mano` — un hijo del padre encontró que alguien completó el brief a mano mientras esperaba.
+ *
+ * No son fallos: la ruta de progreso los cuenta como hechos y la pieza no se marca "No se pudo redactar".
+ */
+export const CHILD_SKIPS_KEEPING_BRIEF = ['ya_redactada', 'editada_a_mano'] as const
+export type ChildWriteSkip = (typeof CHILD_SKIPS_KEEPING_BRIEF)[number]
+
+/** `true` si el `skipped` de un hijo es uno de los que dejan la pieza con su brief (entrada no confiable). */
+export function isBriefKeepingSkip(reason: unknown): boolean {
+  return typeof reason === 'string' && (CHILD_SKIPS_KEEPING_BRIEF as readonly string[]).includes(reason)
+}
+
+/**
+ * Si el hijo debe saltarse la pieza en vez de redactarla. Lo corre **antes de llamar al modelo** (y otra vez
+ * justo antes de escribir): un hijo puede esperar minutos al cron del minuto o a un rescate del watchdog, y
+ * en ese rato alguien pudo escribir en la pieza.
+ *
+ * - `ai_written_at >= created_at` del job → `ya_redactada`: escribió un intento anterior de este mismo job
+ *   (lo rescató el watchdog después de escribir). Vale también para "Regenerar": no se paga dos veces.
+ *   Se compara con `compareTimestamps` y nunca como strings: `ai_written_at` sale de un `toISOString()`
+ *   (`…Z`, milisegundos) y `created_at` de Postgres (`+00:00`, microsegundos).
+ * - Hijo **del padre** (`parent_job_id`) sobre una pieza que ya no está sin redactar (`isUnwritten`) →
+ *   `editada_a_mano` (o `ya_redactada` si la redactó la IA antes de que naciera el job). El padre la encoló
+ *   porque estaba vacía; si ya no lo está, pisarla borraría lo que alguien escribió.
+ * - Un "Regenerar" (sin padre) **sí** sobrescribe: es exactamente lo que el usuario pidió.
+ */
+export function childWriteSkipReason(a: {
+  item: UnwrittenCheckItem
+  /** `created_at` del job (`ai_jobs`). */
+  jobCreatedAt: string
+  /** El job lo encoló el padre (`parent_job_id` no nulo), no un "Regenerar". */
+  fromParent: boolean
+}): ChildWriteSkip | null {
+  const { item } = a
+  if (item.ai_written_at && compareTimestamps(item.ai_written_at, a.jobCreatedAt) >= 0) return 'ya_redactada'
+  if (a.fromParent && !isUnwritten(item)) return item.ai_written_at ? 'ya_redactada' : 'editada_a_mano'
+  return null
 }
 
 // ── La compuerta de "Generar con IA" ────────────────────────────────────────
