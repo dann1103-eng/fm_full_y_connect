@@ -4,12 +4,15 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getEffectiveUser } from '@/lib/auth/effective-user'
 import { canManageMatrices } from '@/lib/domain/permissions'
 import type { AiJobStatus, ContentMatrixItem, MatrixTopic } from '@/types/db'
+import type { GenerationPhase as Phase, GenerationProgress } from '@/lib/domain/matrix-generation'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 /**
- * Progreso de la generación con IA de una matriz (bloque 3).
+ * Progreso de la generación con IA de una matriz (bloque 3). La forma de la respuesta
+ * (`GenerationProgress`) vive en `src/lib/domain/matrix-generation.ts`, junto a la fusión que hace el
+ * editor con ella.
  *
  * Route handler y no server action porque el sondeo necesita **cancelar la petición anterior** y una
  * server action no acepta `AbortSignal`.
@@ -22,44 +25,29 @@ export const dynamic = 'force-dynamic'
  * Dos clientes a propósito: `ai_jobs` con el **admin client** (su única policy de `select` es
  * `is_admin()` y un supervisor no la pasa) y las tablas de matrices con el **cliente de sesión**,
  * cuya RLS ya es de admin/supervisor.
+ *
+ * `watermark` —el `updated_at` de la última fila devuelta (vienen ordenadas ascendente) o el `since`
+ * recibido si no vino ninguna— **lo calcula el servidor a propósito**: el padre inserta las piezas en
+ * una sola sentencia, así que todas comparten el `updated_at` de la transacción, y un `since` derivado
+ * del reloj del navegador puede caer en medio de ese lote por desfase con el de Postgres; esas filas
+ * no se retrasarían, se perderían para siempre.
  */
-type Phase = 'planning' | 'writing' | 'idle' | 'failed'
-
-interface GenerationProgress {
-  phase: Phase
-  total: number
-  done: number
-  failed: number
-  /** Piezas con un hijo vivo: incluye las de "Regenerar" sueltas, que no tienen padre. */
-  writingItemIds: string[]
-  /** Piezas cuyo hijo MÁS RECIENTE terminó `failed`: la fila puede decir por qué en vez de callarse. */
-  failedItemIds: string[]
-  error: string | null
-  /** `sin_plan_valido` y compañía, del `result_json` del padre: terminar en silencio parecería éxito. */
-  reason: string | null
-  topics: MatrixTopic[] | null
-  /** Solo las filas con `updated_at > since`: la matriz entera cada 3 s serían ~150 kB por sondeo. */
-  items: ContentMatrixItem[]
-  /**
-   * Marca de agua para el sondeo siguiente: el `updated_at` de la última fila devuelta (vienen
-   * ordenadas ascendente) o el `since` recibido si no vino ninguna.
-   *
-   * **La calcula el servidor a propósito.** El padre inserta las piezas en una sola sentencia, así
-   * que todas comparten el `updated_at` de la transacción; un `since` derivado del reloj del
-   * navegador puede caer en medio de ese lote por desfase con el de Postgres y esas filas no se
-   * retrasarían: se perderían para siempre.
-   */
-  watermark: string | null
-}
 
 type ChildJob = {
   status: AiJobStatus
   parent_job_id: string | null
   content_matrix_item_id: string | null
   created_at: string
+  error_text: string | null
+  result_json: { written?: unknown; skipped?: unknown } | null
 }
 
 const LIVE: AiJobStatus[] = ['pending', 'processing']
+
+/** Hijo que terminó `completed` sin escribir el brief (`result_json.written === false`). */
+function wroteNothing(c: ChildJob): boolean {
+  return c.status === 'completed' && c.result_json?.written === false
+}
 
 /**
  * ISO-8601 estricto. `Date.parse` acepta `2026` y hasta `Sep 17 2026`, que PostgREST rechaza con un
@@ -80,7 +68,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { data: matrix, error: matrixError } = await supabase
     .from('content_matrices')
-    .select('id, topics_json')
+    // `updated_at` viaja como `matrixUpdatedAt`: sin él el editor no distingue una respuesta vieja
+    // de una nueva y un sondeo que leyó antes de que el padre escribiera los temas los borraría.
+    .select('id, topics_json, updated_at')
     .eq('id', id)
     .maybeSingle()
   if (matrixError) {
@@ -110,7 +100,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { data: childRows, error: childrenError } = await admin
     .from('ai_jobs')
-    .select('status, parent_job_id, content_matrix_item_id, created_at')
+    .select('status, parent_job_id, content_matrix_item_id, created_at, error_text, result_json')
     .eq('job_type', 'matrix_item_write')
     .eq('content_matrix_id', id)
   if (childrenError) {
@@ -120,10 +110,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const children = (childRows ?? []) as ChildJob[]
 
   // Los contadores son de los hijos DE ESE padre; los `matrix_item_write` sueltos (los de
-  // "Regenerar") solo alimentan `writingItemIds`.
+  // "Regenerar") solo alimentan `writingItemIds`. Un hijo `completed` que no escribió (el
+  // `respuesta_truncada` de un brief cortado por `max_tokens`) cuenta como fallido, no como hecho:
+  // la pieza quedó sin texto igual que con un `failed`.
   const own = parent ? children.filter((c) => c.parent_job_id === parent.id) : []
-  const done = own.filter((c) => c.status === 'completed').length
-  const failed = own.filter((c) => c.status === 'failed').length
+  const done = own.filter((c) => c.status === 'completed' && !wroteNothing(c)).length
+  const failed = own.filter((c) => c.status === 'failed' || wroteNothing(c)).length
 
   const writingItemIds = children
     .filter((c) => LIVE.includes(c.status) && c.content_matrix_item_id)
@@ -137,7 +129,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const prev = latestByItem.get(c.content_matrix_item_id)
     if (!prev || prev.created_at < c.created_at) latestByItem.set(c.content_matrix_item_id, c)
   }
-  const failedItemIds = [...latestByItem.entries()].filter(([, c]) => c.status === 'failed').map(([itemId]) => itemId)
+  // El último hijo de cada pieza viaja entero (id + estado): es justo lo que `generationGate` necesita
+  // y el editor la llama con él, así el botón y `generateMatrix` deciden con la MISMA función. Con el
+  // último basta: "tiene algún hijo" es lo mismo, y solo el último puede estar vivo (índice único).
+  const itemJobs = [...latestByItem.entries()].map(([itemId, c]) => ({ itemId, status: c.status }))
+  // Sin redactar con motivo: el último hijo falló, o terminó sin escribir (`skipped`, p. ej.
+  // `respuesta_truncada`). La fila dice por qué en vez de apagar el "Redactando…" en silencio.
+  const failedItems = [...latestByItem.entries()]
+    .filter(([, c]) => c.status === 'failed' || wroteNothing(c))
+    .map(([itemId, c]) => ({
+      itemId,
+      reason: c.status === 'completed' && typeof c.result_json?.skipped === 'string' ? c.result_json.skipped : null,
+      error: c.status === 'failed' ? (c.error_text ?? null) : null,
+    }))
 
   // `failed` es un estado propio porque un padre fallido no está ni `pending` ni `processing`: sin él
   // el editor mostraría "terminado" ante un fallo. El sondeo sigue vivo mientras haya un hijo vivo,
@@ -176,10 +180,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     done,
     failed,
     writingItemIds,
-    failedItemIds,
+    itemJobs,
+    failedItems,
     error: parent?.status === 'failed' ? (parent.error_text ?? null) : null,
     reason,
     topics: (matrix.topics_json ?? null) as MatrixTopic[] | null,
+    matrixUpdatedAt: matrix.updated_at ?? null,
     items: rows,
     // Ordenadas por `updated_at` ascendente: la última es el máximo.
     watermark: rows.length > 0 ? rows[rows.length - 1].updated_at : since,

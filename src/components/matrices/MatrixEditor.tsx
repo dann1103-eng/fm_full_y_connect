@@ -18,6 +18,11 @@ import { MatrixItemsTable } from './MatrixItemsTable'
 import { ITEM_TEXT_KEYS, MatrixItemSheet, type FailedItemDrafts, type ItemTextKey } from './MatrixItemSheet'
 import { DuplicateMatrixDialog } from './DuplicateMatrixDialog'
 import { forgetLinkError, readLinkError, rememberLinkError } from './matrixLinkError'
+import { useMatrixGeneration } from '@/hooks/useMatrixGeneration'
+import {
+  applyItemMerges, maxUpdatedAt, mergePolledItem, mergePolledTopics, newestItem, sameTopics,
+  type GenerationProgress, type ItemMerge,
+} from '@/lib/domain/matrix-generation'
 
 type MatrixPatch = Parameters<typeof updateMatrix>[1]
 type MatrixTextKey = 'title' | 'notes'
@@ -30,6 +35,10 @@ type PatchResult = 'saved' | 'failed' | 'superseded'
 
 const UNEXPECTED_ERROR = 'No se pudo completar la acción. Revisa tu conexión e intenta de nuevo.'
 const STATUS_FIELDS: readonly (keyof ContentMatrix)[] = ['status', 'approved_by', 'approved_at', 'closed_at', 'updated_at']
+/** Campos que cambian "Convertir ahora" y "Volver a planificar" (la primera no devuelve la fila). */
+const CONVERSION_FIELDS: readonly (keyof ContentMatrixItem)[] = ['status', 'requirement_id', 'blocked_reason', 'blocked_at', 'converted_at']
+/** Llave del guardado de temas: quitar un tema suelta en el servidor el `topic` de sus piezas. */
+const TOPICS_FIELD = 'matrix:topics_json'
 
 /** Copia de `src` solo con las llaves indicadas. */
 function pickKeys<T extends object>(src: T, keys: readonly (keyof T)[]): Partial<T> {
@@ -94,6 +103,23 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
   // aplicar su respuesta o revertirlo.
   const saveSeq = useRef(0)
   const latestSeqByField = useRef(new Map<string, number>())
+
+  // ── Sondeo de la generación con IA (bloque 3): lo que la fusión necesita saber ──
+  // Guardados EN VUELO por campo: +1 al empezar, -1 al terminar. `latestSeqByField` no sirve para esto:
+  // guarda la última secuencia INICIADA y nunca se limpia, así que no sabe qué sigue en vuelo.
+  const inFlightByField = useRef(new Map<string, number>())
+  // Último cambio local de cada campo (al empezar y al terminar cada guardado, conversión o cambio de
+  // temas). Una respuesta del sondeo enviada ANTES de ese cambio no puede tocar el campo.
+  const localSeq = useRef(0)
+  const lastLocalChange = useRef(new Map<string, number>())
+  // Lápidas: piezas borradas en este editor. Un sondeo enviado antes del borrado no las resucita.
+  const deletedItemIds = useRef(new Set<string>())
+  // Espejo de `failedItemDrafts` para la fusión, que corre fuera del render.
+  const failedItemDraftsRef = useRef(failedItemDrafts)
+  useEffect(() => { failedItemDraftsRef.current = failedItemDrafts }, [failedItemDrafts])
+  // Primera marca de agua: el `updated_at` más reciente de las filas del servidor. Sin ella la primera
+  // consulta traería la matriz entera (~150 kB con guiones largos).
+  const [initialSince] = useState(() => maxUpdatedAt(data.items))
 
   // Motivo real del vínculo fallido al crear o duplicar (lo guardó quien navegó hasta aquí). Se lee después
   // de montar y no en un inicializador de useState: el servidor no tiene sessionStorage, así que leerlo en
@@ -184,19 +210,54 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
     try { return await runAction(fn) } finally { setAdding(false) }
   }
 
+  /** Marca esos campos como cambiados localmente ahora (ver `lastLocalChange`). */
+  function touchFields(fields: readonly string[]) {
+    for (const f of fields) {
+      localSeq.current += 1
+      lastLocalChange.current.set(f, localSeq.current)
+    }
+  }
+
   /**
-   * Registra un guardado de los campos dados y devuelve una función que, al terminar, dice cuáles siguen siendo
-   * el guardado más reciente de su campo. Hoy Next 16 ejecuta las server functions de un cliente en serie (es un
-   * detalle de implementación, no un contrato), así que las respuestas llegan en orden; esta guarda cubre el caso
-   * en que eso cambie: una respuesta vieja nunca pisa ni revierte un guardado más nuevo del mismo campo.
+   * Registra un cambio local EN VUELO sobre esos campos y devuelve la función que lo cierra. Se llama en un
+   * `finally`: un contador colgado dejaría el campo bloqueado para el sondeo mientras dure el editor.
    */
-  function beginFieldSave(fields: readonly string[]): () => string[] {
+  function beginLocalChange(fields: readonly string[]): () => void {
+    touchFields(fields)
+    for (const f of fields) inFlightByField.current.set(f, (inFlightByField.current.get(f) ?? 0) + 1)
+    let ended = false
+    return () => {
+      if (ended) return
+      ended = true
+      touchFields(fields)
+      for (const f of fields) {
+        const n = (inFlightByField.current.get(f) ?? 0) - 1
+        if (n > 0) inFlightByField.current.set(f, n)
+        else inFlightByField.current.delete(f)
+      }
+    }
+  }
+
+  /**
+   * Registra un guardado de los campos dados. `stillLatest`, al terminar, dice cuáles siguen siendo el guardado
+   * más reciente de su campo. Hoy Next 16 ejecuta las server functions de un cliente en serie (es un detalle de
+   * implementación, no un contrato), así que las respuestas llegan en orden; esta guarda cubre el caso en que eso
+   * cambie: una respuesta vieja nunca pisa ni revierte un guardado más nuevo del mismo campo.
+   *
+   * `end` cierra el contador de guardados en vuelo (bloque 3). Es el único punto por el que pasan todos los
+   * guardados por campo, así que es el único sitio donde el sondeo puede enterarse de qué no debe tocar.
+   */
+  function beginFieldSave(fields: readonly string[]): { stillLatest: () => string[]; end: () => void } {
+    const end = beginLocalChange(fields)
     const tokens = fields.map((f) => {
       saveSeq.current += 1
       latestSeqByField.current.set(f, saveSeq.current)
       return [f, saveSeq.current] as const
     })
-    return () => tokens.filter(([f, seq]) => latestSeqByField.current.get(f) === seq).map(([f]) => f)
+    return {
+      stillLatest: () => tokens.filter(([f, seq]) => latestSeqByField.current.get(f) === seq).map(([f]) => f),
+      end,
+    }
   }
 
   function fieldSaveFailed(message: string, fields: string[]) {
@@ -213,19 +274,48 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
     setError((e) => (e && e.fields.length > 0 ? null : e))
   }
 
+  /**
+   * Al soltar los borradores fallidos, esos campos vuelven a mostrar la versión confirmada. Sin sondeo no cambia
+   * nada (tras un fallo el campo ya quedó en la confirmada); con sondeo, la confirmada pudo avanzar —la IA redactó
+   * ese campo— mientras la fusión dejaba la pantalla quieta por el borrador.
+   */
+  function resyncFromConfirmed(drafts: Record<string, FailedItemDrafts>) {
+    const back = new Map<string, Partial<ContentMatrixItem>>()
+    for (const [id, d] of Object.entries(drafts)) {
+      const confirmed = confirmedItems.current.get(id)
+      if (confirmed) back.set(id, pickKeys<ContentMatrixItem>(confirmed, Object.keys(d) as ItemTextKey[]))
+    }
+    if (back.size === 0) return
+    setItems((list) => {
+      let changed = false
+      const next = list.map((i) => {
+        const b = back.get(i.id)
+        if (!b || (Object.keys(b) as ItemTextKey[]).every((k) => i[k] === b[k])) return i
+        changed = true
+        return { ...i, ...b }
+      })
+      return changed ? next : list
+    })
+  }
+
   // ── Matriz ──
 
   /** Guardado optimista de campos de la matriz. `texts`: texto escrito por el usuario, a conservar si falla. */
   async function patchMatrix(patch: MatrixPatch, next: Partial<ContentMatrix>, texts: FailedMatrixDrafts = {}): Promise<PatchResult> {
     const keys = Object.keys(next) as (keyof ContentMatrix)[]
     const fieldOf = (k: string) => `matrix:${k}`
-    const stillLatest = beginFieldSave(keys.map(fieldOf))
+    const save = beginFieldSave(keys.map(fieldOf))
     const textKeys = Object.keys(texts) as MatrixTextKey[]
     setMatrix((m) => ({ ...m, ...next }))
     if (textKeys.length > 0) setFailedMatrixDrafts((f) => withoutMatrixDrafts(f, textKeys))
 
-    const r = await call(() => updateMatrix(matrixId, patch))
-    const latestFields = stillLatest()
+    let r: Awaited<ReturnType<typeof updateMatrix>> | ActionErr
+    try {
+      r = await call(() => updateMatrix(matrixId, patch))
+    } finally {
+      save.end()
+    }
+    const latestFields = save.stillLatest()
     const latestKeys = keys.filter((k) => latestFields.includes(fieldOf(k)))
 
     if (!r.ok) {
@@ -278,6 +368,8 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
     // Cerrada: los campos quedan de solo lectura, así que un reintento ya no es posible. Se limpian los
     // borradores fallidos que quedaran pendientes para no mostrar "cambios sin guardar" imposibles de resolver.
     if (to === 'closed') {
+      // El ref y no el estado de la closure: pudieron fallar más guardados mientras esperaba la acción.
+      resyncFromConfirmed(failedItemDraftsRef.current)
       setFailedItemDrafts({})
       setFailedMatrixDrafts({})
       clearFieldErrors()
@@ -292,6 +384,7 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
    */
   function discardUnsavedChanges() {
     if (!confirm('¿Descartar los cambios que no se pudieron guardar?')) return
+    resyncFromConfirmed(failedItemDrafts)
     setFailedItemDrafts({})
     setFailedMatrixDrafts({})
     clearFieldErrors()
@@ -333,9 +426,18 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
     if (adding) return
     const r = await runAdding(() => addItem(matrixId, type))
     if (!r.ok) { setError({ message: r.error, fields: [] }); return }
-    confirmedItems.current.set(r.item.id, r.item)
-    setItems((list) => [...list, r.item])
+    addConfirmedItem(r.item)
     setSelectedId(r.item.id)
+  }
+
+  /**
+   * Pieza nueva que devolvió una acción (agregar o duplicar). El sondeo pudo haberla traído ANTES que la
+   * respuesta de la acción: agregarla a ciegas la duplicaría en la tabla.
+   */
+  function addConfirmedItem(item: ContentMatrixItem) {
+    const row = newestItem(item, confirmedItems.current.get(item.id))
+    confirmedItems.current.set(row.id, row)
+    setItems((list) => (list.some((i) => i.id === row.id) ? list : [...list, row]))
   }
 
   /** Guardado por campo de una pieza (ver comentario del componente). */
@@ -343,13 +445,18 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
     const keys = Object.keys(patch) as (keyof ItemPatch)[]
     if (keys.length === 0) return
     const fieldOf = (k: string) => `item:${itemId}:${k}`
-    const stillLatest = beginFieldSave(keys.map(fieldOf))
+    const save = beginFieldSave(keys.map(fieldOf))
     const textKeys = keys.filter(isItemTextKey)
     setItems((list) => list.map((i) => (i.id === itemId ? { ...i, ...patch } : i)))
     if (textKeys.length > 0) setFailedItemDrafts((fd) => withoutItemDrafts(fd, itemId, textKeys))
 
-    const r = await call(() => updateItem(itemId, patch))
-    const latestFields = stillLatest()
+    let r: Awaited<ReturnType<typeof updateItem>> | ActionErr
+    try {
+      r = await call(() => updateItem(itemId, patch))
+    } finally {
+      save.end()
+    }
+    const latestFields = save.stillLatest()
     const latestKeys = keys.filter((k) => latestFields.includes(fieldOf(k)))
 
     if (!r.ok) {
@@ -382,17 +489,21 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
     if (adding) return
     const r = await runAdding(() => duplicateItem(itemId))
     if (!r.ok) { setError({ message: r.error, fields: [] }); return }
-    confirmedItems.current.set(r.item.id, r.item)
-    setItems((list) => [...list, r.item])
+    addConfirmedItem(r.item)
   }
 
   async function onDeleteItem(itemId: string) {
     const shown = items.find((i) => i.id === itemId)
     if (!shown || !confirm('¿Eliminar esta pieza?')) return
+    // Lápida ANTES de quitarla: un sondeo en vuelo (enviado antes del borrado) la traería de vuelta.
+    deletedItemIds.current.add(itemId)
     setItems((list) => list.filter((i) => i.id !== itemId))
     if (selectedId === itemId) setSelectedId(null)
     const r = await runAction(() => deleteItem(itemId))
     if (!r.ok) {
+      // El borrado falló y la pieza vuelve: con la lápida puesta, el sondeo la ignoraría para siempre (la IA
+      // redactaría en la base y la pantalla no se enteraría, o no volvería si se hubiera caído de la lista).
+      deletedItemIds.current.delete(itemId)
       const back = confirmedItems.current.get(itemId) ?? shown
       setItems((list) => (list.some((i) => i.id === itemId) ? list : [...list, back]))
       setError({ message: r.error, fields: [] })
@@ -403,6 +514,10 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
   }
 
   // ── Conversión ──
+
+  function conversionFields(itemId: string): string[] {
+    return CONVERSION_FIELDS.map((k) => `item:${itemId}:${k}`)
+  }
 
   /** Aplica a una pieza los campos que la conversión cambió, en estado y en la versión confirmada. */
   function applyItemFields(itemId: string, fields: Partial<ContentMatrixItem>) {
@@ -423,7 +538,15 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
   async function onConvertNow(itemId: string) {
     if (busyItemId) return
     setBusyItemId(itemId)
-    const r = await runAction(() => convertItemNow(itemId))
+    // La acción no devuelve la fila (ni su `updated_at`): sin este candado, un sondeo que leyó antes de la
+    // conversión y llega después la desharía en pantalla.
+    const endLocal = beginLocalChange(conversionFields(itemId))
+    let r: Awaited<ReturnType<typeof convertItemNow>> | ActionErr
+    try {
+      r = await runAction(() => convertItemNow(itemId))
+    } finally {
+      endLocal()
+    }
     setBusyItemId(null)
     if (!r.ok) { setError({ message: r.error, fields: [] }); return }
 
@@ -456,13 +579,76 @@ export function MatrixEditor({ data }: { data: MatrixEditorData }) {
   async function onReplan(itemId: string) {
     if (busyItemId) return
     setBusyItemId(itemId)
-    const r = await runAction(() => replanItem(itemId))
+    const endLocal = beginLocalChange(conversionFields(itemId))
+    let r: Awaited<ReturnType<typeof replanItem>> | ActionErr
+    try {
+      r = await runAction(() => replanItem(itemId))
+    } finally {
+      endLocal()
+    }
     setBusyItemId(null)
     if (!r.ok) { setError({ message: r.error, fields: [] }); return }
     confirmedItems.current.set(r.item.id, r.item)
     setItems((list) => list.map((i) => (i.id === r.item.id ? r.item : i)))
     setVoidedItemIds((ids) => ids.filter((id) => id !== itemId))
   }
+
+  // ── Generación con IA (bloque 3) ──
+
+  /**
+   * Fusiona una respuesta del sondeo sin pisar lo que el usuario está escribiendo. Corre fuera del render y solo
+   * lee refs (y setters estables), así que da igual de qué render sea la closure. Las reglas:
+   *
+   * - pieza desconocida → se agrega, salvo que esté en las lápidas (borrada aquí);
+   * - pieza conocida → la pantalla recibe solo los campos sin guardado en vuelo, sin borrador fallido y sin un
+   *   cambio local posterior al envío de la consulta (`mergePolledItem`);
+   * - toda fila aceptada va también a `confirmedItems`: es el destino del rollback. Si una pieza generada no
+   *   estuviera ahí, un guardado fallido no revertiría nada y la pantalla quedaría por delante de la base; si
+   *   se quedara la fila vieja, el siguiente fallo revertiría en pantalla el texto que escribió la IA;
+   * - los temas van a `matrix` y a `confirmedMatrix`. Sin esto la barra seguiría con la lista vieja, y el
+   *   siguiente cambio de temas mandaría a `updateMatrix` una lista SIN los de la IA: el servidor los borraría
+   *   y soltaría el `topic` de todas las piezas generadas.
+   */
+  function applyGeneration(p: GenerationProgress, seqAtRequest: number) {
+    const changedAfterRequest = (f: string) => (lastLocalChange.current.get(f) ?? 0) > seqAtRequest
+    const inFlight = (f: string) => (inFlightByField.current.get(f) ?? 0) > 0
+    const topicsStale = changedAfterRequest(TOPICS_FIELD)
+    const topicsBusy = inFlight(TOPICS_FIELD)
+    const failed = failedItemDraftsRef.current
+
+    const merges: ItemMerge[] = []
+    for (const polled of p.items) {
+      if (deletedItemIds.current.has(polled.id)) continue
+      const field = (k: string) => `item:${polled.id}:${k}`
+      const drafts = failed[polled.id] as Partial<Record<string, string>> | undefined
+      const m = mergePolledItem(polled, confirmedItems.current.get(polled.id), {
+        // Quitar un tema suelta en el servidor el `topic` de las piezas que lo usaban (`onTopics`): mientras
+        // ese guardado vuela, o si terminó después de enviarse la consulta, el `topic` de toda pieza espera.
+        stale: (k) => changedAfterRequest(field(k)) || (k === 'topic' && topicsStale),
+        screen: (k) => inFlight(field(k)) || drafts?.[k] !== undefined || (k === 'topic' && topicsBusy),
+      })
+      confirmedItems.current.set(polled.id, m.confirmed)
+      merges.push(m)
+    }
+    if (merges.length > 0) setItems((list) => applyItemMerges(list, merges))
+
+    if (!topicsStale) {
+      const t = mergePolledTopics(p, confirmedMatrix.current)
+      if (t) {
+        confirmedMatrix.current = { ...confirmedMatrix.current, topics_json: t.topics, updated_at: t.updatedAt }
+        if (!topicsBusy) setMatrix((m) => (sameTopics(m.topics_json, t.topics) ? m : { ...m, topics_json: t.topics }))
+      }
+    }
+  }
+
+  // Consulta al montar (matriz no cerrada) y sondeo mientras haya generación viva. La interfaz (botón, franja,
+  // estado por pieza) llega en la tarea siguiente; aquí solo se fusiona.
+  useMatrixGeneration(matrixId, {
+    enabled: matrix.status !== 'closed',
+    initialSince,
+    captureSeq: () => localSeq.current,
+    onUpdate: applyGeneration,
+  })
 
   const topicUsage = (name: string) => items.filter((i) => i.topic === name).length
   const sheetError = selected && error && error.fields.some((f) => f.startsWith(`item:${selected.id}:`)) ? error.message : null
