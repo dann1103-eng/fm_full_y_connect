@@ -295,7 +295,8 @@ async function enqueueChildren(
  * Los temas finales de la matriz. Si se los pedimos al modelo, se releen **justo antes de escribir** y
  * no se escribe nada si el usuario agregó los suyos mientras el modelo pensaba (no hay idiom de
  * PostgREST para "solo si sigue siendo `[]`" que el repo use; el índice de un único padre activo hace
- * la ventana pequeña).
+ * la ventana pequeña). El update además exige `status = 'draft'`: tampoco se escribe si la matriz se
+ * aprobó en esa ventana.
  */
 async function resolveTopics(
   admin: Admin,
@@ -315,14 +316,20 @@ async function resolveTopics(
     return { topics: [], written: false }
   }
 
-  const { error: updateError } = await admin
+  const { data: updated, error: updateError } = await admin
     .from('content_matrices')
     .update({ topics_json: proposed })
     .eq('id', matrixId)
+    // La matriz pudo aprobarse mientras el modelo pensaba: sin esto los temas se escribirían en una
+    // matriz aprobada antes de que la comprobación fresca del paso 6 se dé cuenta y salte.
+    .eq('status', 'draft')
+    .select('id')
   if (updateError) {
     console.error('[matrix_generate] no se pudieron guardar los temas', updateError.message)
     return { topics: [], written: false }
   }
+  // Cero filas: dejó de estar en borrador (o se borró). No se escribió nada y el paso 6 va a saltar.
+  if (!updated || updated.length === 0) return { topics: [], written: false }
   return { topics: proposed, written: true }
 }
 
