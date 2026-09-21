@@ -9,11 +9,16 @@ import {
   isIsoDate, MATRIX_CONTENT_TYPES, MATRIX_ESTIMATE_MAX_MINUTES, MATRIX_MAX_ASSIGNEES, MATRIX_OBJECTIVES,
   MATRIX_OBJECTIVE_LABELS, MATRIX_TEXT_LIMITS, type ItemPatch,
 } from '@/lib/domain/matrix'
+import { MATRIX_INSTRUCTIONS_MAX } from '@/lib/domain/matrix-ai'
+import { failedItemLabel, type FailedItem } from '@/lib/domain/matrix-generation'
 
 export type ItemTextKey = 'title' | 'copy' | 'script' | 'visual_style' | 'hashtags' | 'cta'
 export const ITEM_TEXT_KEYS: readonly ItemTextKey[] = ['title', 'copy', 'script', 'visual_style', 'hashtags', 'cta']
 /** Texto que el usuario intentó guardar y falló, por campo. */
 export type FailedItemDrafts = Partial<Record<ItemTextKey, string>>
+
+/** El `error_text` de un job fallido puede ser una traza larga del SDK: el panel muestra el principio. */
+const ERROR_DETAIL_MAX = 300
 
 /** Tope de horas del estimado, derivado del tope en minutos (7 días → 168 h). */
 const EST_MAX_HOURS = Math.floor(MATRIX_ESTIMATE_MAX_MINUTES / 60)
@@ -32,6 +37,16 @@ interface Props {
   failedDrafts: FailedItemDrafts | undefined
   onClose: () => void
   onPatch: (patch: ItemPatch) => void
+  /** Perfil de marca usable del cliente; `null` si no se pudo comprobar. */
+  aiAvailable: boolean | null
+  /** Esta pieza tiene un hijo de IA vivo. */
+  writing: boolean
+  /** El último hijo de esta pieza no dejó texto (con el motivo), o `null`. */
+  failure: FailedItem | null
+  /** La acción "Regenerar" de esta pieza se está encolando. */
+  regenerating: boolean
+  /** Encola la redacción; devuelve el error a mostrar o `null`. */
+  onRegenerate: (instructions: string) => Promise<string | null>
 }
 
 const inputBase = 'w-full rounded-xl border bg-fm-background px-3 py-2 text-sm text-fm-on-surface disabled:opacity-60'
@@ -58,11 +73,17 @@ function withoutKeys(d: Drafts, keys: readonly (keyof Drafts)[]): Drafts {
   return next
 }
 
-function ItemSheet({ item, topics, period, assignableUsers, readOnly, error, failedDrafts, onClose, onPatch }: Omit<Props, 'item'> & { item: ContentMatrixItem }) {
+function ItemSheet({
+  item, topics, period, assignableUsers, readOnly, error, failedDrafts, onClose, onPatch,
+  aiAvailable, writing, failure, regenerating, onRegenerate,
+}: Omit<Props, 'item'> & { item: ContentMatrixItem }) {
   // Borradores solo de los campos que se están editando. Al perder foco se guardan y se descartan; lo mostrado
   // sale entonces del texto fallido (si el último guardado de ese campo falló) o de `item` (optimista o confirmado).
   const [drafts, setDrafts] = useState<Drafts>({})
   const [dateError, setDateError] = useState<string | null>(null)
+  // Instrucciones de "Regenerar": solo de esta pieza y de esta vez (el cuerpo se remonta al cambiar de pieza).
+  const [instructions, setInstructions] = useState('')
+  const [regenError, setRegenError] = useState<string | null>(null)
 
   // Bloqueo por campo: una matriz cerrada congela todo; una pieza ya convertida congela SOLO lo que se
   // copió al requerimiento (título, tipo, fecha, responsable y estimado — `updateItem` rechaza esos cinco),
@@ -152,14 +173,32 @@ function ItemSheet({ item, topics, period, assignableUsers, readOnly, error, fai
     onClose()
   }
 
+  // Deshabilitado con el motivo a la vista, no escondido.
+  const regenBlocked = readOnly
+    ? 'La matriz está cerrada.'
+    : aiAvailable === null
+      ? 'No se pudo comprobar el perfil de marca del cliente.'
+      : !aiAvailable
+        ? 'Este cliente no tiene perfil de marca.'
+        : writing ? 'Esta pieza se está redactando: el brief se actualiza solo al terminar.' : null
+
+  async function regenerate() {
+    setRegenError(null)
+    const err = await onRegenerate(instructions)
+    if (err) setRegenError(err)
+    else setInstructions('')
+  }
+
   const text = (key: ItemTextKey, label: string, rows?: number, placeholder?: string) => {
     const id = `matrix-item-${key}`
     const failed = failedDrafts?.[key]
     const common = {
       id,
       value: shownText(key),
-      // El título es lo único de este bloque que además se congela al convertir (se copió al requerimiento).
-      disabled: key === 'title' ? frozen : readOnly,
+      // El título es lo único de este bloque que además se congela al convertir (se copió al requerimiento),
+      // y lo único que la IA no reescribe. El resto se bloquea mientras la IA redacta la pieza, salvo el
+      // campo que se está editando en ese momento: se suelta al salir de él, después de guardarlo.
+      disabled: key === 'title' ? frozen : readOnly || (writing && drafts[key] === undefined),
       placeholder,
       maxLength: MATRIX_TEXT_LIMITS[key],
       'aria-invalid': failed !== undefined || undefined,
@@ -223,7 +262,7 @@ function ItemSheet({ item, topics, period, assignableUsers, readOnly, error, fai
             </div>
             <div>
               <label htmlFor="matrix-item-objective" className={labelCls}>Objetivo</label>
-              <select id="matrix-item-objective" value={item.objective ?? ''} disabled={readOnly} className={inputCls}
+              <select id="matrix-item-objective" value={item.objective ?? ''} disabled={readOnly || writing} className={inputCls}
                 onChange={(e) => onPatch({ objective: (e.target.value || null) as MatrixObjective | null })}>
                 <option value="">—</option>
                 {MATRIX_OBJECTIVES.map((o) => <option key={o} value={o}>{MATRIX_OBJECTIVE_LABELS[o]}</option>)}
@@ -282,6 +321,12 @@ function ItemSheet({ item, topics, period, assignableUsers, readOnly, error, fai
           )}
 
           {text('title', 'Título', undefined, 'Ej. Llegó el pumpkin latte')}
+          {writing && !readOnly && (
+            <p role="status" className="text-[11px] text-fm-on-surface-variant">
+              La IA está redactando esta pieza: el objetivo, el copy, el guion, el estilo visual, los hashtags, el llamado a
+              la acción y la producción se desbloquean al terminar.
+            </p>
+          )}
           {text('copy', 'Copy', 4, 'Texto de la publicación')}
           {text('script', 'Guion', 6, 'Escenas, locución, textos en pantalla…')}
           {text('visual_style', 'Estilo visual', 2, 'Paleta, referencias, tono de imagen')}
@@ -289,10 +334,55 @@ function ItemSheet({ item, topics, period, assignableUsers, readOnly, error, fai
           {text('cta', 'Llamado a la acción', undefined, 'Ej. Ven a probarlo esta semana')}
 
           <label className="flex items-center gap-2 text-sm text-fm-on-surface">
-            <input type="checkbox" checked={item.needs_production} disabled={readOnly}
+            <input type="checkbox" checked={item.needs_production} disabled={readOnly || writing}
               onChange={(e) => onPatch({ needs_production: e.target.checked })} />
             Necesita producción (grabación / sesión)
           </label>
+
+          <section aria-labelledby="matrix-item-ai-title" className="rounded-xl border border-fm-surface-container-high p-3 space-y-2">
+            <h3 id="matrix-item-ai-title" className="flex items-center gap-1 text-[11px] uppercase tracking-wider text-fm-on-surface-variant">
+              <span className="material-symbols-outlined text-[14px] text-fm-primary" aria-hidden="true">auto_awesome</span>
+              Redactar con IA
+            </h3>
+            <p id="matrix-item-ai-hint" className="text-[11px] text-fm-on-surface-variant">
+              Reescribe copy, guion, estilo visual, hashtags, llamado a la acción, objetivo y producción. El título, el tema,
+              la fecha, el responsable y el estimado no se tocan.
+            </p>
+            <div>
+              <label htmlFor="matrix-item-ai-instructions" className={labelCls}>Instrucciones (opcional)</label>
+              <textarea id="matrix-item-ai-instructions" rows={2} value={instructions} maxLength={MATRIX_INSTRUCTIONS_MAX}
+                disabled={readOnly} className={inputCls} placeholder="Ej. más corto y con humor, mencionar la promo 2x1"
+                aria-describedby="matrix-item-ai-hint matrix-item-ai-count"
+                onChange={(e) => setInstructions(e.target.value)} />
+              <p id="matrix-item-ai-count" className="mt-1 text-right text-[11px] tabular-nums text-fm-on-surface-variant">
+                {instructions.length}/{MATRIX_INSTRUCTIONS_MAX}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" onClick={() => void regenerate()} disabled={regenBlocked !== null || regenerating}
+                aria-describedby={regenBlocked ? 'matrix-item-ai-reason' : undefined}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold border border-fm-primary/40 text-fm-primary hover:bg-fm-primary/5 transition-colors disabled:opacity-50">
+                <span className={`material-symbols-outlined text-[16px] ${writing ? 'animate-spin' : ''}`} aria-hidden="true">
+                  {writing ? 'progress_activity' : 'auto_awesome'}
+                </span>
+                {writing ? 'Redactando…' : regenerating ? 'Encolando…' : 'Regenerar'}
+              </button>
+              {regenBlocked && (
+                <span id="matrix-item-ai-reason" className="text-[11px] text-fm-on-surface-variant">{regenBlocked}</span>
+              )}
+            </div>
+            {failure && !writing && (
+              <p className="text-[11px] text-fm-error">
+                Última redacción: {failedItemLabel(failure)}
+                {failure.error && (
+                  <span className="block text-fm-on-surface-variant break-words">
+                    Detalle: {failure.error.length > ERROR_DETAIL_MAX ? `${failure.error.slice(0, ERROR_DETAIL_MAX - 1)}…` : failure.error}
+                  </span>
+                )}
+              </p>
+            )}
+            {regenError && <p role="alert" className="text-[11px] text-fm-error">{regenError}</p>}
+          </section>
         </div>
       </SheetContent>
     </Sheet>

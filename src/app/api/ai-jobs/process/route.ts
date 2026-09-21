@@ -15,7 +15,18 @@ import { runJobs } from '@/lib/ai/runner'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+/**
+ * 180 s, con `RUNNER_BUDGET_MS = 45_000` de `runJobs` como corte para RECLAMAR: un job reclamado a los
+ * 44,9 s tiene que poder terminar. Un hijo de matriz tarda 10–20 s y un padre con un plan grande 40–80 s de
+ * modelo; con 60 s la plataforma los mataba a media llamada, y si era el último intento el job quedaba
+ * `processing` para siempre (el watchdog de 0124 no rescata intentos agotados).
+ *
+ * **No más de 180**: `claim_ai_job` fija `locked_at` al reclamar y el watchdog de 0124 rescata a los
+ * 5 min (300 s). Una función que corriera cerca de 300 s con un job reclamado al principio vería ese job
+ * reclamado OTRA vez por otra invocación mientras sigue vivo: doble llamada al modelo o doble mensaje de
+ * WhatsApp. 180 deja dos minutos de margen aun con un job reclamado en el segundo 0.
+ */
+export const maxDuration = 180
 
 function isAuthorized(request: Request): boolean {
   const url = new URL(request.url)

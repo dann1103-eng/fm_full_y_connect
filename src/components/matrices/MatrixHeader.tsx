@@ -53,6 +53,16 @@ interface Props {
   onDuplicate: () => void
   onDelete: () => void
   onRetryLink: () => void
+  /**
+   * "Generar con IA" (solo en borrador): motivo por el que está deshabilitado, o `null` si se puede. Se
+   * muestra a la vista y va enlazado al botón con `aria-describedby`: deshabilitado, no escondido.
+   */
+  generateBlockedReason: string | null
+  /** El motivo es la falta de perfil de marca: se ofrece el enlace al perfil del cliente. */
+  generateNeedsProfile: boolean
+  /** La acción de encolar está en curso: evita el doble clic. */
+  generating: boolean
+  onGenerate: () => void
 }
 
 function problemsSummary(problems: ApprovalProblem[]): string {
@@ -182,6 +192,14 @@ export function MatrixHeader(p: Props) {
 
       <div className="flex flex-wrap gap-2">
         {p.matrix.status === 'draft' && (
+          <button type="button" onClick={p.onGenerate} disabled={p.generating || p.generateBlockedReason !== null}
+            aria-describedby={p.generateBlockedReason ? 'matrix-generate-reason' : undefined}
+            className={`${btn} inline-flex items-center gap-1 border-fm-primary/40 text-fm-primary hover:bg-fm-primary/5`}>
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">auto_awesome</span>
+            {p.generating ? 'Iniciando…' : 'Generar con IA'}
+          </button>
+        )}
+        {p.matrix.status === 'draft' && (
           <button type="button" onClick={() => p.onStatus('approved')} disabled={p.busy}
             className={`${btn} bg-fm-primary text-white border-fm-primary hover:bg-fm-primary-dim`}>Aprobar matriz</button>
         )}
@@ -201,6 +219,17 @@ export function MatrixHeader(p: Props) {
             className={`${btn} border-fm-error/40 text-fm-error hover:bg-fm-error/5 ml-auto`}>Eliminar</button>
         )}
       </div>
+      {p.matrix.status === 'draft' && p.generateBlockedReason && (
+        <p id="matrix-generate-reason" className="-mt-2 text-[11px] text-fm-on-surface-variant">
+          {p.generateBlockedReason}
+          {p.generateNeedsProfile && (
+            <>
+              {' '}
+              <Link href={`/clients/${p.client.id}`} className="font-semibold text-fm-primary underline">Completar el perfil de marca</Link>
+            </>
+          )}
+        </p>
+      )}
     </section>
   )
 }

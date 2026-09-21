@@ -28,6 +28,13 @@ const JOB_TYPE_LABELS: Record<string, string> = {
   invoice_due_reminder: 'Recordatorio de factura',
 }
 
+/**
+ * Solo los tipos de este panel. Sin el filtro, una generación de matriz con límite de tasa mete 15+ filas
+ * `matrix_item_write` y empuja fuera de las 20 los recordatorios de factura fallidos, que son justo lo que
+ * este panel existe para mostrar. Los fallos de matrices ya se ven en el editor de la matriz.
+ */
+const PANEL_JOB_TYPES = Object.keys(JOB_TYPE_LABELS)
+
 export async function WaBotFailedJobs() {
   const admin = createWaAdminClient()
   const { data, error } = await admin
@@ -36,6 +43,7 @@ export async function WaBotFailedJobs() {
       'id, job_type, attempts, max_attempts, error_text, created_at, finished_at, clients:client_id ( name ), invoices:invoice_id ( invoice_number )',
     )
     .eq('status', 'failed')
+    .in('job_type', PANEL_JOB_TYPES)
     .order('created_at', { ascending: false })
     .limit(20)
 

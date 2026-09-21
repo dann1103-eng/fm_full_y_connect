@@ -1,0 +1,622 @@
+import { describe, it, expect } from 'vitest'
+import { missingByType, sanitizeGeneratedPlan, sanitizeGeneratedBrief, briefOutcome, assignDeadlines, pendingChildWork, generationGate, isUnwritten, BRIEF_TEXT_FIELDS, childWriteSkipReason, isBriefKeepingSkip, MATRIX_QUOTA_COVERED, DEFAULT_ESTIMATE_MINUTES } from './matrix-ai'
+import type { ChildWorkItem, PlanContext } from './matrix-ai'
+import { computeMatrixUsage, resolveMatrixLimits, MATRIX_TEXT_LIMITS, MATRIX_ESTIMATE_MAX_MINUTES } from './matrix'
+import type { MatrixLimits } from './matrix'
+import type { BillingCycle, ContentType, MatrixTopic, Plan, Requirement, WeeklyDistribution } from '@/types/db'
+
+// ── Fixtures compartidas con matrix.test.ts ─────────────────────────────────
+
+const PLAN_LIMITS = { historias: 4, estaticos: 4, videos_cortos: 2, reels: 2, shorts: 4, producciones: 1, reuniones: 1, matrices_contenido: 1 }
+const plan = { id: 'p1', limits_json: PLAN_LIMITS, unified_content_limit: null } as unknown as Plan
+
+function cycleWith(extra: Partial<BillingCycle>): BillingCycle {
+  return {
+    id: 'c1', limits_snapshot_json: PLAN_LIMITS, rollover_from_previous_json: null,
+    content_limits_override_json: null, ...extra,
+  } as unknown as BillingCycle
+}
+function req(content_type: Requirement['content_type'], extra: Partial<Requirement> = {}): Requirement {
+  return { id: Math.random().toString(), content_type, voided: false, carried_over: false, includes_story: false, consumption_overrides_json: null, ...extra } as unknown as Requirement
+}
+
+type UItem = { id: string; content_type: ContentType; deadline: string; created_at: string; status: 'planned' | 'converted' | 'blocked' }
+function item(id: string, content_type: ContentType, deadline: string, status: UItem['status'] = 'planned'): UItem {
+  return { id, content_type, deadline, created_at: `2026-09-01T00:00:${id.padStart(2, '0')}Z`, status }
+}
+
+const baseML: MatrixLimits = {
+  limits: { historia: 2, estatico: 4, video_corto: 1, reel: 0, short: 0, produccion: 0, reunion: 0, matriz_contenido: 1 },
+  cycleTotals: { historia: 0, estatico: 1, video_corto: 0, reel: 0, short: 0, produccion: 0, reunion: 0, matriz_contenido: 0 },
+  credits: {}, remainingCredits: {}, unifiedPool: null, estimated: false,
+}
+
+describe('missingByType', () => {
+  it('plan normal: descuenta lo del ciclo y lo ya planificado, por tipo', () => {
+    const items = [item('1', 'estatico', '2026-10-17'), item('2', 'historia', '2026-10-18')]
+    const usage = computeMatrixUsage(items, baseML)
+    const r = missingByType(baseML, usage)
+    // estatico: limite 4, 1 del ciclo + 1 planificada → faltan 2
+    expect(r.missing.estatico).toBe(2)
+    // historia: limite 2, 1 planificada → falta 1
+    expect(r.missing.historia).toBe(1)
+    expect(r.missing.video_corto).toBe(1)
+    expect(r.poolRemaining).toBeNull()
+    expect(r.total).toBe(4)
+  })
+
+  it('usa los créditos EFECTIVOS, no los disponibles', () => {
+    // Ciclo con 4 reels registrados, uno de ellos pagado con crédito: `credits.reel` (efectivos) = 2,
+    // `remainingCredits.reel` (disponibles, los del chip) = 1. Con los disponibles faltaría 1 pieza;
+    // con los efectivos faltan 2. Calcado del caso de matrix.test.ts.
+    const ml = resolveMatrixLimits({
+      cycle: cycleWith({ content_limits_override_json: { reel: 4 } }),
+      plan,
+      credits: { reel: 1 },
+      cycleRequirements: [req('reel'), req('reel'), req('reel'), req('reel', { paid_from_credit_id: 'credit-1' })],
+    })
+    expect(ml.credits.reel).toBe(2)
+    expect(ml.remainingCredits.reel).toBe(1)
+    const usage = computeMatrixUsage([], ml)
+    expect(usage.byType.reel).toMatchObject({ used: 4, limit: 4, credits: 2, availableCredits: 1 })
+
+    const r = missingByType(ml, usage)
+    expect(r.missing.reel).toBe(2)
+  })
+
+  it('con pool unificado devuelve el total del pool y CERO historias', () => {
+    // `historia` entra en activeTypes por tener créditos, pero bajo pool su límite es 0 y una historia
+    // nacería fuera de plan y sin semana asignada: la regla es explícita, no derivada de limits.historia.
+    const ml: MatrixLimits = {
+      ...baseML,
+      limits: { ...baseML.limits, historia: 0, estatico: 0, video_corto: 0, reel: 0, short: 0 },
+      cycleTotals: { ...baseML.cycleTotals, estatico: 2 },
+      credits: { historia: 3 },
+      remainingCredits: { historia: 3 },
+      unifiedPool: 10,
+    }
+    const usage = computeMatrixUsage([item('1', 'reel', '2026-10-17')], ml)
+    expect(usage.activeTypes).toContain('historia')
+
+    const r = missingByType(ml, usage)
+    // pool: 10 de límite + 3 créditos (los de historia suman al pool en computeMatrixUsage) − 3 usadas
+    expect(r.poolRemaining).toBe(usage.pool!.limit + usage.pool!.credits - usage.pool!.used)
+    expect(r.missing.historia).toBe(0)
+    expect(r.total).toBe(r.poolRemaining)
+    expect(r.missing.estatico).toBe(r.poolRemaining)
+    expect(r.missing.reel).toBe(r.poolRemaining)
+  })
+
+  it('nunca propone tipos fuera de activeTypes', () => {
+    const usage = computeMatrixUsage([], baseML)
+    expect(usage.activeTypes).toEqual(['historia', 'estatico', 'video_corto'])
+    const r = missingByType(baseML, usage)
+    expect(Object.keys(r.missing).sort()).toEqual(['estatico', 'historia', 'video_corto'])
+    expect(r.missing.reel).toBeUndefined()
+    expect(r.missing.produccion).toBeUndefined()
+  })
+
+  it('matriz llena: todo en cero', () => {
+    const items = [
+      item('1', 'estatico', '2026-10-17'), item('2', 'estatico', '2026-10-18'), item('3', 'estatico', '2026-10-19'),
+      item('4', 'historia', '2026-10-20'), item('5', 'historia', '2026-10-21'),
+      item('6', 'video_corto', '2026-10-22'),
+    ]
+    const usage = computeMatrixUsage(items, baseML)
+    const r = missingByType(baseML, usage)
+    expect(r.total).toBe(0)
+    expect(Object.values(r.missing).every((n) => n === 0)).toBe(true)
+  })
+
+  it('pool ya cubierto: total 0, sin negativos', () => {
+    const ml: MatrixLimits = { ...baseML, limits: { ...baseML.limits, historia: 0, estatico: 0, video_corto: 0 }, cycleTotals: { ...baseML.cycleTotals, estatico: 5 }, unifiedPool: 2 }
+    const usage = computeMatrixUsage([], ml)
+    const r = missingByType(ml, usage)
+    expect(r.poolRemaining).toBe(0)
+    expect(r.total).toBe(0)
+  })
+})
+
+// ── sanitizeGeneratedPlan ───────────────────────────────────────────────────
+
+const topics: MatrixTopic[] = [{ name: 'Lanzamiento' }, { name: 'Testimonios' }]
+
+function ctxWith(extra: Partial<PlanContext> = {}): PlanContext {
+  return {
+    activeTypes: ['estatico', 'reel', 'historia'],
+    missing: { estatico: 2, reel: 1, historia: 1 },
+    poolRemaining: null,
+    topics,
+    ...extra,
+  }
+}
+
+function piece(extra: Record<string, unknown> = {}) {
+  return { content_type: 'estatico', title: 'Pieza', topic_index: 0, objective: 'venta', needs_production: false, estimated_time_minutes: 60, ...extra }
+}
+
+describe('sanitizeGeneratedPlan', () => {
+  it('descarta tipos que no se planifican en la matriz', () => {
+    const r = sanitizeGeneratedPlan([piece({ content_type: 'produccion' }), piece({ content_type: 'reunion' }), piece({ content_type: 'matriz_contenido' }), piece()], ctxWith())
+    expect(r).toHaveLength(1)
+    expect(r[0].content_type).toBe('estatico')
+  })
+
+  it('descarta tipos inactivos en el plan del cliente', () => {
+    const r = sanitizeGeneratedPlan([piece({ content_type: 'short' }), piece({ content_type: 'video_corto' })], ctxWith())
+    expect(r).toEqual([])
+  })
+
+  it('recorta por tipo al faltante', () => {
+    const raw = [piece(), piece(), piece(), piece({ content_type: 'reel' }), piece({ content_type: 'reel' })]
+    const r = sanitizeGeneratedPlan(raw, ctxWith())
+    expect(r.filter((p) => p.content_type === 'estatico')).toHaveLength(2)
+    expect(r.filter((p) => p.content_type === 'reel')).toHaveLength(1)
+  })
+
+  it('bajo pool recorta también el TOTAL, no solo por tipo', () => {
+    // Bajo pool el tope por tipo es el pool entero para los cuatro tippables: sin el corte del total,
+    // 4 tipos × 3 = 12 piezas donde solo caben 3.
+    const ctx = ctxWith({
+      activeTypes: ['estatico', 'video_corto', 'reel', 'short'],
+      missing: { estatico: 3, video_corto: 3, reel: 3, short: 3 },
+      poolRemaining: 3,
+    })
+    const raw = [
+      piece({ content_type: 'estatico' }), piece({ content_type: 'estatico' }), piece({ content_type: 'estatico' }),
+      piece({ content_type: 'reel' }), piece({ content_type: 'reel' }), piece({ content_type: 'reel' }),
+      piece({ content_type: 'short' }), piece({ content_type: 'short' }), piece({ content_type: 'short' }),
+      piece({ content_type: 'video_corto' }), piece({ content_type: 'video_corto' }), piece({ content_type: 'video_corto' }),
+    ]
+    expect(sanitizeGeneratedPlan(raw, ctx)).toHaveLength(3)
+  })
+
+  it('descarta el objetivo inventado pero conserva la pieza', () => {
+    const r = sanitizeGeneratedPlan([piece({ objective: 'engagement' }), piece({ objective: null }), piece({ objective: 'educacion' })], ctxWith({ missing: { estatico: 5 } }))
+    expect(r).toHaveLength(3)
+    expect(r[0].objective).toBeNull()
+    expect(r[1].objective).toBeNull()
+    expect(r[2].objective).toBe('educacion')
+  })
+
+  it('descarta piezas sin título o con solo espacios', () => {
+    const r = sanitizeGeneratedPlan([piece({ title: '' }), piece({ title: '   ' }), piece({ title: 42 }), piece({ title: '  Con título  ' })], ctxWith({ missing: { estatico: 5 } }))
+    expect(r).toHaveLength(1)
+    expect(r[0].title).toBe('Con título')
+  })
+
+  it('recorta el título al tope de la base', () => {
+    const r = sanitizeGeneratedPlan([piece({ title: 'a'.repeat(MATRIX_TEXT_LIMITS.title + 50) })], ctxWith())
+    expect(Array.from(r[0].title).length).toBeLessThanOrEqual(MATRIX_TEXT_LIMITS.title)
+  })
+
+  it('índice de tema fuera de rango → pieza sin tema, no descartada', () => {
+    const r = sanitizeGeneratedPlan(
+      [piece({ topic_index: 9 }), piece({ topic_index: -1 }), piece({ topic_index: 'Lanzamiento' }), piece({ topic_index: 1 })],
+      ctxWith({ missing: { estatico: 5 } }),
+    )
+    expect(r).toHaveLength(4)
+    expect(r[0].topicIndex).toBeNull()
+    expect(r[1].topicIndex).toBeNull()
+    expect(r[2].topicIndex).toBeNull()
+    expect(r[3].topicIndex).toBe(1)
+  })
+
+  it('sin temas en la matriz, todo índice queda en null', () => {
+    const r = sanitizeGeneratedPlan([piece({ topic_index: 0 })], ctxWith({ topics: [] }))
+    expect(r[0].topicIndex).toBeNull()
+  })
+
+  it('acota el estimado absurdo a 1..10080', () => {
+    const r = sanitizeGeneratedPlan(
+      [piece({ estimated_time_minutes: 0 }), piece({ estimated_time_minutes: -5 }), piece({ estimated_time_minutes: 999999 }), piece({ estimated_time_minutes: 'mucho' }), piece({ estimated_time_minutes: 45.7 })],
+      ctxWith({ missing: { estatico: 9 } }),
+    )
+    expect(r[0].estimated_time_minutes).toBe(1)
+    expect(r[1].estimated_time_minutes).toBe(1)
+    expect(r[2].estimated_time_minutes).toBe(MATRIX_ESTIMATE_MAX_MINUTES)
+    expect(r[3].estimated_time_minutes).toBe(DEFAULT_ESTIMATE_MINUTES)
+    expect(r[4].estimated_time_minutes).toBe(46)
+  })
+
+  it('needs_production que no es booleano → false', () => {
+    const r = sanitizeGeneratedPlan([piece({ needs_production: 'sí' }), piece({ needs_production: true })], ctxWith({ missing: { estatico: 5 } }))
+    expect(r[0].needs_production).toBe(false)
+    expect(r[1].needs_production).toBe(true)
+  })
+
+  it('entrada que no es un array → lista vacía', () => {
+    expect(sanitizeGeneratedPlan(null, ctxWith())).toEqual([])
+    expect(sanitizeGeneratedPlan(undefined, ctxWith())).toEqual([])
+    expect(sanitizeGeneratedPlan({ pieces: [piece()] }, ctxWith())).toEqual([])
+    expect(sanitizeGeneratedPlan('[]', ctxWith())).toEqual([])
+    expect(sanitizeGeneratedPlan([null, 3, 'x'], ctxWith())).toEqual([])
+  })
+})
+
+// ── sanitizeGeneratedBrief ──────────────────────────────────────────────────
+
+describe('sanitizeGeneratedBrief', () => {
+  it('recorta cada campo a su tope cortando en el último espacio', () => {
+    const long = ('palabra '.repeat(400)).trim() // 3199 caracteres
+    const r = sanitizeGeneratedBrief({ visual_style: long })
+    const out = r.visual_style as string
+    expect(Array.from(out).length).toBeLessThanOrEqual(MATRIX_TEXT_LIMITS.visual_style)
+    expect(out.endsWith('palabra')).toBe(true)
+    expect(out).not.toMatch(/palabr$/)
+  })
+
+  it('recorta por code points sin partir emojis', () => {
+    const emojis = '🎉'.repeat(MATRIX_TEXT_LIMITS.cta + 100)
+    const out = sanitizeGeneratedBrief({ cta: emojis }).cta as string
+    expect(Array.from(out).length).toBe(MATRIX_TEXT_LIMITS.cta)
+    expect(out).toBe('🎉'.repeat(MATRIX_TEXT_LIMITS.cta))
+    // Sin mitades de par sustituto sueltas
+    expect([...out].every((c) => c === '🎉')).toBe(true)
+  })
+
+  it('corta en el último espacio también con emojis de por medio', () => {
+    const chunk = '🎉🎉🎉 '
+    const out = sanitizeGeneratedBrief({ cta: chunk.repeat(1000) }).cta as string
+    expect(Array.from(out).length).toBeLessThanOrEqual(MATRIX_TEXT_LIMITS.cta)
+    expect(out.endsWith('🎉')).toBe(true)
+    expect([...out].every((c) => c === '🎉' || c === ' ')).toBe(true)
+  })
+
+  it('campos ausentes o que no son string se omiten (no se escriben como "undefined")', () => {
+    const r = sanitizeGeneratedBrief({ copy: 'Hola', script: 42, visual_style: null, cta: undefined })
+    expect(r).toEqual({ copy: 'Hola' })
+    expect('script' in r).toBe(false)
+    expect('visual_style' in r).toBe(false)
+    expect('cta' in r).toBe(false)
+  })
+
+  it('hashtags y CTA vacíos son válidos: limpian el campo', () => {
+    const r = sanitizeGeneratedBrief({ hashtags: '', cta: '   ' })
+    expect(r.hashtags).toBeNull()
+    expect(r.cta).toBeNull()
+  })
+
+  it('objetivo válido se conserva, inventado se omite', () => {
+    expect(sanitizeGeneratedBrief({ objective: 'comunidad' }).objective).toBe('comunidad')
+    expect('objective' in sanitizeGeneratedBrief({ objective: 'viral' })).toBe(false)
+  })
+
+  it('needs_production solo si es booleano', () => {
+    expect(sanitizeGeneratedBrief({ needs_production: true }).needs_production).toBe(true)
+    expect('needs_production' in sanitizeGeneratedBrief({ needs_production: 'sí' })).toBe(false)
+  })
+
+  it('DESCARTA toda clave que no sea del brief', () => {
+    // Sin esto, una pieza ya convertida perdería sus campos congelados si el modelo los inventa.
+    const r = sanitizeGeneratedBrief({
+      copy: 'Texto',
+      title: 'Título nuevo',
+      content_type: 'reel',
+      deadline: '2026-12-31',
+      status: 'planned',
+      assigned_to: ['00000000-0000-0000-0000-000000000000'],
+      estimated_time_minutes: 30,
+      id: 'otro-id',
+      matrix_id: 'otra-matriz',
+      requirement_id: 'req',
+      ai_written_at: '2026-01-01T00:00:00Z',
+      topic: 'Tema inventado',
+    })
+    expect(Object.keys(r)).toEqual(['copy'])
+  })
+
+  it('entrada que no es un objeto → parche vacío', () => {
+    expect(sanitizeGeneratedBrief(null)).toEqual({})
+    expect(sanitizeGeneratedBrief('copy')).toEqual({})
+    expect(sanitizeGeneratedBrief([{ copy: 'x' }])).toEqual({})
+  })
+})
+
+// ── assignDeadlines ─────────────────────────────────────────────────────────
+
+describe('assignDeadlines', () => {
+  const period = { periodStart: '2026-10-15', periodEnd: '2026-11-14', maxWeek: 4 as const }
+  const poolDist: WeeklyDistribution = {
+    S1: { estatico: 2, video_corto: 2, reel: 2, short: 2 },
+    S2: { estatico: 2, video_corto: 2, reel: 2, short: 2 },
+    S3: { estatico: 2, video_corto: 2, reel: 2, short: 2 },
+    S4: { estatico: 2, video_corto: 2, reel: 2, short: 2 },
+  }
+  const shared: ContentType[] = ['estatico', 'video_corto', 'reel', 'short']
+
+  function gen(content_type: ContentType) {
+    return { content_type, title: 'T', topicIndex: null, objective: null, needs_production: false, estimated_time_minutes: 60 }
+  }
+
+  it('con la matriz ya poblada y bajo pool: ve lo existente y reparte el presupuesto compartido', () => {
+    // La S1 ya está llena con dos piezas de tipos DISTINTOS: bajo pool comparten presupuesto, así que
+    // ninguna de las nuevas puede caer en S1 aunque su propio tipo no tenga nada esa semana.
+    const existing = [
+      { content_type: 'reel' as ContentType, deadline: '2026-10-16' },
+      { content_type: 'estatico' as ContentType, deadline: '2026-10-17' },
+    ]
+    const r = assignDeadlines([gen('estatico'), gen('short'), gen('video_corto'), gen('reel')], {
+      existingItems: existing, distribution: poolDist, ...period, sharedTypes: shared, today: '2026-10-15',
+    })
+    expect(r.map((p) => p.deadline)).toEqual(['2026-10-24', '2026-10-24', '2026-10-31', '2026-10-31'])
+  })
+
+  it('sin las piezas existentes como semilla se amontonarían en la semana 1 (contraste)', () => {
+    const r = assignDeadlines([gen('estatico'), gen('short'), gen('video_corto')], {
+      existingItems: [], distribution: poolDist, ...period, sharedTypes: shared, today: '2026-10-15',
+    })
+    expect(r.map((p) => p.deadline)).toEqual(['2026-10-17', '2026-10-17', '2026-10-24'])
+  })
+
+  it('sin pool cada tipo consume su propio presupuesto semanal', () => {
+    const dist: WeeklyDistribution = { S1: { estatico: 1, historia: 1 }, S2: { estatico: 1, historia: 1 }, S3: {}, S4: {} }
+    const r = assignDeadlines([gen('estatico'), gen('historia'), gen('estatico')], {
+      existingItems: [], distribution: dist, ...period, today: '2026-10-15',
+    })
+    expect(r.map((p) => p.deadline)).toEqual(['2026-10-17', '2026-10-17', '2026-10-24'])
+  })
+
+  it('respeta el período y nunca propone una fecha anterior a hoy', () => {
+    const r = assignDeadlines([gen('estatico'), gen('estatico'), gen('estatico')], {
+      existingItems: [], distribution: poolDist, ...period, sharedTypes: shared, today: '2026-11-02',
+    })
+    for (const p of r) {
+      expect(p.deadline >= '2026-11-02').toBe(true)
+      expect(p.deadline >= period.periodStart).toBe(true)
+      expect(p.deadline <= period.periodEnd).toBe(true)
+    }
+  })
+
+  it('conserva el resto de los campos de la pieza', () => {
+    const r = assignDeadlines([{ ...gen('estatico'), title: 'Mi pieza', topicIndex: 1 }], {
+      existingItems: [], distribution: poolDist, ...period, today: '2026-10-15',
+    })
+    expect(r[0]).toMatchObject({ title: 'Mi pieza', topicIndex: 1, content_type: 'estatico' })
+  })
+})
+
+// ── isUnwritten ─────────────────────────────────────────────────────────────
+
+/** Pieza con el brief vacío y sin `ai_written_at`, con lo que se le pise encima. */
+function brief(id: string, over: Partial<ChildWorkItem> = {}): ChildWorkItem {
+  return { id, ai_written_at: null, copy: null, script: null, visual_style: null, hashtags: null, cta: null, ...over }
+}
+
+describe('isUnwritten', () => {
+  it('sin ai_written_at y con los cinco campos del brief vacíos → sin redactar', () => {
+    expect(isUnwritten(brief('a'))).toBe(true)
+    // Los espacios y la cadena vacía cuentan como vacío.
+    expect(isUnwritten(brief('a', { copy: '   ', script: '', visual_style: '\n', hashtags: ' ', cta: '\t' }))).toBe(true)
+  })
+
+  it('cualquier campo del brief escrito a mano → ya no está sin redactar (no solo el copy)', () => {
+    for (const f of BRIEF_TEXT_FIELDS) {
+      expect(isUnwritten(brief('a', { [f]: 'Escrito a mano' }))).toBe(false)
+    }
+  })
+
+  it('solo guion: una pieza con el guion escrito a mano y sin copy NO está sin redactar', () => {
+    expect(isUnwritten(brief('a', { script: 'Escena 1: la barra, luz de mañana.' }))).toBe(false)
+  })
+
+  it('solo hashtags: una pieza con los hashtags a mano y sin copy NO está sin redactar', () => {
+    expect(isUnwritten(brief('a', { hashtags: '#cafe #otono' }))).toBe(false)
+  })
+
+  it('la IA ya la redactó → no, aunque el usuario haya vaciado el brief', () => {
+    expect(isUnwritten(brief('a', { ai_written_at: '2026-09-17T10:00:00Z' }))).toBe(false)
+  })
+
+  it('el brief son exactamente los cinco campos de texto que escribe el hijo', () => {
+    expect([...BRIEF_TEXT_FIELDS]).toEqual(['copy', 'script', 'visual_style', 'hashtags', 'cta'])
+  })
+})
+
+// ── pendingChildWork ────────────────────────────────────────────────────────
+
+describe('pendingChildWork', () => {
+  const unwritten = brief('a')
+
+  it('pieza sin redactar y sin job → necesita hijo', () => {
+    expect(pendingChildWork([unwritten], [])).toEqual(['a'])
+  })
+
+  it('con job pending o processing → no', () => {
+    expect(pendingChildWork([unwritten], [{ content_matrix_item_id: 'a', status: 'pending' }])).toEqual([])
+    expect(pendingChildWork([unwritten], [{ content_matrix_item_id: 'a', status: 'processing' }])).toEqual([])
+  })
+
+  it('con job failed → no (no se reintenta solo)', () => {
+    expect(pendingChildWork([unwritten], [{ content_matrix_item_id: 'a', status: 'failed' }])).toEqual([])
+  })
+
+  it('con job completed → no', () => {
+    expect(pendingChildWork([unwritten], [{ content_matrix_item_id: 'a', status: 'completed' }])).toEqual([])
+  })
+
+  it('pieza ya redactada por la IA → no', () => {
+    expect(pendingChildWork([brief('a', { ai_written_at: '2026-09-17T10:00:00Z' })], [])).toEqual([])
+  })
+
+  it('pieza con copy escrito a mano → no', () => {
+    expect(pendingChildWork([brief('a', { copy: 'Escrito a mano' })], [])).toEqual([])
+    // Un copy de solo espacios sigue contando como vacío
+    expect(pendingChildWork([brief('a', { copy: '   ' })], [])).toEqual(['a'])
+  })
+
+  it('pieza con solo el guion escrito a mano → no: "Generar con IA" no rehace el trabajo de nadie', () => {
+    expect(pendingChildWork([brief('a', { script: 'Guion escrito a mano' })], [])).toEqual([])
+  })
+
+  it('pieza con solo hashtags escritos a mano → no', () => {
+    expect(pendingChildWork([brief('a', { hashtags: '#marca' })], [])).toEqual([])
+  })
+
+  it('cinco guiones a mano y diez piezas vacías → solo las diez vacías reciben hijo', () => {
+    const manual = Array.from({ length: 5 }, (_, i) => brief(`m${i}`, { script: `Guion ${i}` }))
+    const empty = Array.from({ length: 10 }, (_, i) => brief(`e${i}`))
+    expect(pendingChildWork([...manual, ...empty], [])).toEqual(empty.map((i) => i.id))
+  })
+
+  it('jobs de otras piezas o sin pieza no cuentan', () => {
+    const items = [unwritten, brief('b')]
+    const jobs = [{ content_matrix_item_id: 'b', status: 'pending' as const }, { content_matrix_item_id: null, status: 'pending' as const }]
+    expect(pendingChildWork(items, jobs)).toEqual(['a'])
+  })
+
+  it('conserva el orden de entrada de las piezas', () => {
+    const items = [
+      brief('x'),
+      brief('y', { ai_written_at: '2026-09-17T10:00:00Z' }),
+      brief('z', { copy: '' }),
+    ]
+    expect(pendingChildWork(items, [])).toEqual(['x', 'z'])
+  })
+})
+
+// ── generationGate ──────────────────────────────────────────────────────────
+
+describe('generationGate', () => {
+  const unwritten = (id: string) => brief(id)
+  const written = (id: string) => brief(id, { ai_written_at: '2026-09-17T10:00:00Z' })
+  const job = (id: string, status: 'pending' | 'processing' | 'completed' | 'failed') => ({ content_matrix_item_id: id, status })
+
+  it('con cupo faltante abre, aunque todo esté redactado', () => {
+    expect(generationGate(3, [written('a')], [])).toEqual({ ok: true })
+    expect(generationGate(1, [], [])).toEqual({ ok: true })
+  })
+
+  it('cupo cubierto con piezas sin redactar y sin ningún hijo → abre (matriz llenada a mano)', () => {
+    expect(generationGate(0, [written('a'), unwritten('b')], [])).toEqual({ ok: true })
+  })
+
+  it('basta una pieza sin hijo aunque otras ya lo tengan', () => {
+    expect(generationGate(0, [unwritten('a'), unwritten('b')], [job('a', 'failed')])).toEqual({ ok: true })
+  })
+
+  it('cupo cubierto y todo redactado → rechaza y lo dice', () => {
+    expect(generationGate(0, [written('a'), brief('b', { copy: 'A mano' })], [])).toEqual({
+      ok: false, error: 'La matriz ya cubre el cupo del plan y todas sus piezas están redactadas.',
+    })
+  })
+
+  it('cupo cubierto y piezas con solo guion o solo hashtags a mano → cuentan como redactadas', () => {
+    expect(generationGate(0, [brief('a', { script: 'A mano' }), brief('b', { hashtags: '#marca' })], [])).toEqual({
+      ok: false, error: 'La matriz ya cubre el cupo del plan y todas sus piezas están redactadas.',
+    })
+  })
+
+  it('matriz sin piezas y sin cupo → solo el mensaje del cupo', () => {
+    expect(generationGate(0, [], [])).toEqual({ ok: false, error: MATRIX_QUOTA_COVERED })
+  })
+
+  it('lo pendiente ya está en cola → rechaza con "en cola"', () => {
+    const r = generationGate(0, [written('a'), unwritten('b')], [job('b', 'pending')])
+    expect(r).toEqual({ ok: false, error: 'La matriz ya cubre el cupo del plan y sus piezas sin redactar ya están en cola.' })
+    expect(generationGate(0, [unwritten('b')], [job('b', 'failed'), job('b', 'processing')]).ok).toBe(false)
+  })
+
+  it('lo pendiente terminó sin texto (fallido o truncado) → rechaza y remite a "Regenerar"', () => {
+    const regenerar = 'La matriz ya cubre el cupo del plan. Las piezas que quedaron sin redactar se rehacen con "Regenerar".'
+    expect(generationGate(0, [unwritten('a')], [job('a', 'failed')])).toEqual({ ok: false, error: regenerar })
+    // `respuesta_truncada`: el hijo termina `completed` sin escribir.
+    expect(generationGate(0, [unwritten('a')], [job('a', 'completed')])).toEqual({ ok: false, error: regenerar })
+    // Mezcla de en cola y fallida: no todo está en cola, así que manda "Regenerar".
+    expect(generationGate(0, [unwritten('a'), unwritten('b')], [job('a', 'pending'), job('b', 'failed')])).toEqual({ ok: false, error: regenerar })
+  })
+
+  it('coincide con lo que el padre encolaría (pendingChildWork)', () => {
+    const items = [unwritten('a'), written('b'), unwritten('c')]
+    const jobs = [job('a', 'completed')]
+    expect(pendingChildWork(items, jobs)).toEqual(['c'])
+    expect(generationGate(0, items, jobs).ok).toBe(true)
+    expect(pendingChildWork(items, [...jobs, job('c', 'failed')])).toEqual([])
+    expect(generationGate(0, items, [...jobs, job('c', 'failed')]).ok).toBe(false)
+  })
+})
+
+// ── childWriteSkipReason ────────────────────────────────────────────────────
+
+describe('childWriteSkipReason', () => {
+  const CREATED = '2026-09-20T12:00:00.500000+00:00'
+
+  it('un job rescatado que ya había escrito → ya_redactada (venga del padre o de "Regenerar")', () => {
+    const item = brief('a', { copy: 'Texto de la IA', ai_written_at: '2026-09-20T12:00:20.000Z' })
+    expect(childWriteSkipReason({ item, jobCreatedAt: CREATED, fromParent: true })).toBe('ya_redactada')
+    expect(childWriteSkipReason({ item, jobCreatedAt: CREATED, fromParent: false })).toBe('ya_redactada')
+  })
+
+  it('ai_written_at igual al created_at del job cuenta como ya redactada', () => {
+    const item = brief('a', { ai_written_at: CREATED })
+    expect(childWriteSkipReason({ item, jobCreatedAt: CREATED, fromParent: false })).toBe('ya_redactada')
+  })
+
+  it('compara instantes, no strings: …Z en milisegundos frente a +00:00 en microsegundos', () => {
+    // 12:00:00.500 (JS) es ANTERIOR a 12:00:00.500001 (Postgres) aunque "…500Z" > "…500001+…" como string.
+    const before = brief('a', { copy: 'x', ai_written_at: '2026-09-20T12:00:00.500Z' })
+    expect(childWriteSkipReason({ item: before, jobCreatedAt: '2026-09-20T12:00:00.500001+00:00', fromParent: false })).toBeNull()
+    // 12:00:00Z es anterior a 12:00:00.5; como string "…00Z" > "…00.5…".
+    const earlier = brief('a', { copy: 'x', ai_written_at: '2026-09-20T12:00:00Z' })
+    expect(childWriteSkipReason({ item: earlier, jobCreatedAt: CREATED, fromParent: false })).toBeNull()
+    // Otra zona horaria, mismo instante que CREATED.
+    const sameInstant = brief('a', { copy: 'x', ai_written_at: '2026-09-20T06:00:00.5-06:00' })
+    expect(childWriteSkipReason({ item: sameInstant, jobCreatedAt: CREATED, fromParent: false })).toBe('ya_redactada')
+  })
+
+  it('"Regenerar" (sin padre) sobre una pieza redactada antes sí escribe: es lo que se pidió', () => {
+    const aiBefore = brief('a', { copy: 'Versión anterior', ai_written_at: '2026-09-19T08:00:00+00:00' })
+    expect(childWriteSkipReason({ item: aiBefore, jobCreatedAt: CREATED, fromParent: false })).toBeNull()
+    const handWritten = brief('a', { script: 'Guion a mano' })
+    expect(childWriteSkipReason({ item: handWritten, jobCreatedAt: CREATED, fromParent: false })).toBeNull()
+  })
+
+  it('hijo del padre sobre una pieza que sigue sin redactar → escribe', () => {
+    expect(childWriteSkipReason({ item: brief('a'), jobCreatedAt: CREATED, fromParent: true })).toBeNull()
+    expect(childWriteSkipReason({ item: brief('a', { copy: '  ' }), jobCreatedAt: CREATED, fromParent: true })).toBeNull()
+  })
+
+  it('hijo del padre sobre una pieza que alguien completó a mano mientras esperaba → editada_a_mano', () => {
+    expect(childWriteSkipReason({ item: brief('a', { script: 'Guion escrito a mano' }), jobCreatedAt: CREATED, fromParent: true }))
+      .toBe('editada_a_mano')
+    expect(childWriteSkipReason({ item: brief('a', { hashtags: '#marca' }), jobCreatedAt: CREATED, fromParent: true }))
+      .toBe('editada_a_mano')
+  })
+
+  it('hijo del padre sobre una pieza que la IA redactó antes de que naciera el job → ya_redactada, no "a mano"', () => {
+    const item = brief('a', { copy: 'De un "Regenerar" anterior', ai_written_at: '2026-09-20T11:59:00+00:00' })
+    expect(childWriteSkipReason({ item, jobCreatedAt: CREATED, fromParent: true })).toBe('ya_redactada')
+  })
+})
+
+describe('isBriefKeepingSkip', () => {
+  it('los dos motivos con que el hijo deja la pieza con su brief no son fallos', () => {
+    expect(isBriefKeepingSkip('ya_redactada')).toBe(true)
+    expect(isBriefKeepingSkip('editada_a_mano')).toBe(true)
+  })
+  it('el resto sí deja la pieza sin texto', () => {
+    for (const r of ['respuesta_truncada', 'pieza_no_existe', 'sin_perfil_de_marca', 'matriz_cerrada', null, undefined, 3]) {
+      expect(isBriefKeepingSkip(r)).toBe(false)
+    }
+  })
+})
+
+// ── briefOutcome ────────────────────────────────────────────────────────────
+
+describe('briefOutcome', () => {
+  it('respuesta truncada → truncada, aunque el brief traiga campos (no se escribe a medias)', () => {
+    expect(briefOutcome('max_tokens', 0)).toBe('truncada')
+    expect(briefOutcome('max_tokens', 3)).toBe('truncada')
+  })
+
+  it('sin truncar y sin campos usables → vacia (el runner reintenta)', () => {
+    expect(briefOutcome('tool_use', 0)).toBe('vacia')
+    expect(briefOutcome('end_turn', 0)).toBe('vacia')
+    expect(briefOutcome(null, 0)).toBe('vacia')
+  })
+
+  it('sin truncar y con campos → escribir', () => {
+    expect(briefOutcome('tool_use', 5)).toBe('escribir')
+    expect(briefOutcome('end_turn', 1)).toBe('escribir')
+  })
+})

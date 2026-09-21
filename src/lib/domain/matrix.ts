@@ -447,7 +447,7 @@ export const MATRIX_ESTIMATE_MAX_MINUTES = 10080
 /** Tope de responsables por pieza (mismo orden de magnitud que el equipo interno). */
 export const MATRIX_MAX_ASSIGNEES = 20
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export function validateItemPatch(
   patch: ItemPatch,
@@ -509,7 +509,7 @@ export const MATRIX_TEXT_LIMITS = {
 export const MAX_TOPICS = 20
 
 /** Recorta un string a lo sumo `max` code points (no UTF-16 units) — evita partir un emoji a la mitad. */
-function truncateCodePoints(s: string, max: number): string {
+export function truncateCodePoints(s: string, max: number): string {
   return Array.from(s).slice(0, max).join('')
 }
 

@@ -18,6 +18,9 @@ export type MatrixItemStatus = 'planned' | 'converted' | 'blocked'
 export type MatrixObjective = 'venta' | 'alcance' | 'educacion' | 'comunidad' | 'otro'
 export interface MatrixTopic { name: string; note?: string }
 
+/** Persona gramatical del perfil de marca (client_brand_profiles.person). */
+export type BrandPerson = 'voseo' | 'tuteo' | 'usted'
+
 export type ContentType =
   | 'historia'
   | 'estatico'
@@ -1295,6 +1298,8 @@ export interface Database {
           blocked_at: string | null
           assigned_to: string[] | null
           estimated_time_minutes: number | null
+          /** Momento en que la IA redactó el brief (bloque 3). Nulo = sin redactar por IA. */
+          ai_written_at: string | null
           created_at: string
           updated_at: string
         }
@@ -1319,6 +1324,7 @@ export interface Database {
           blocked_at?: string | null
           assigned_to?: string[] | null
           estimated_time_minutes?: number | null
+          ai_written_at?: string | null
         }
         Update: {
           content_type?: ContentType
@@ -1339,6 +1345,7 @@ export interface Database {
           blocked_at?: string | null
           assigned_to?: string[] | null
           estimated_time_minutes?: number | null
+          ai_written_at?: string | null
         }
         Relationships: [
           {
@@ -1353,6 +1360,62 @@ export interface Database {
             columns: ['requirement_id']
             isOneToOne: false
             referencedRelation: 'requirements'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      client_brand_profiles: {
+        Row: {
+          client_id: string
+          tone: string | null
+          person: BrandPerson | null
+          audience: string | null
+          value_proposition: string | null
+          offerings: string | null
+          avoid: string | null
+          base_hashtags: string[] | null
+          /** Array de strings (jsonb). El largo de cada copy lo valida la app, no la base. */
+          sample_copies: string[] | null
+          updated_by_user_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          tone?: string | null
+          person?: BrandPerson | null
+          audience?: string | null
+          value_proposition?: string | null
+          offerings?: string | null
+          avoid?: string | null
+          base_hashtags?: string[] | null
+          sample_copies?: string[] | null
+          updated_by_user_id?: string | null
+        }
+        Update: {
+          tone?: string | null
+          person?: BrandPerson | null
+          audience?: string | null
+          value_proposition?: string | null
+          offerings?: string | null
+          avoid?: string | null
+          base_hashtags?: string[] | null
+          sample_copies?: string[] | null
+          updated_by_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'client_brand_profiles_client_id_fkey'
+            columns: ['client_id']
+            isOneToOne: true
+            referencedRelation: 'clients'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'client_brand_profiles_updated_by_user_id_fkey'
+            columns: ['updated_by_user_id']
+            isOneToOne: false
+            referencedRelation: 'users'
             referencedColumns: ['id']
           }
         ]
@@ -2333,7 +2396,16 @@ export interface Database {
           attempts: number
           max_attempts: number
           cost_usd_cents: number | null
+          tokens_input: number | null
+          tokens_output: number | null
+          tokens_cached: number | null
           invoice_id: string | null
+          /** Conversación de WhatsApp (0091): dedupe de los jobs `whatsapp_reply`. */
+          wa_conversation_id: string | null
+          /** Matriz del job padre `matrix_generate` (0131). */
+          content_matrix_id: string | null
+          /** Pieza del job hijo `matrix_item_write` (0131). */
+          content_matrix_item_id: string | null
           locked_at: string | null
           locked_by: string | null
           scheduled_for: string
@@ -2356,7 +2428,13 @@ export interface Database {
           attempts?: number
           max_attempts?: number
           cost_usd_cents?: number | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+          tokens_cached?: number | null
           invoice_id?: string | null
+          wa_conversation_id?: string | null
+          content_matrix_id?: string | null
+          content_matrix_item_id?: string | null
           locked_at?: string | null
           locked_by?: string | null
           scheduled_for?: string
@@ -2378,7 +2456,13 @@ export interface Database {
           attempts?: number
           max_attempts?: number
           cost_usd_cents?: number | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+          tokens_cached?: number | null
           invoice_id?: string | null
+          wa_conversation_id?: string | null
+          content_matrix_id?: string | null
+          content_matrix_item_id?: string | null
           locked_at?: string | null
           locked_by?: string | null
           scheduled_for?: string
@@ -2472,6 +2556,7 @@ export type TimeEntry = Database['public']['Tables']['time_entries']['Row']
 export type AssignedTask = Database['public']['Tables']['assigned_tasks']['Row']
 export type ContentMatrix = Database['public']['Tables']['content_matrices']['Row']
 export type ContentMatrixItem = Database['public']['Tables']['content_matrix_items']['Row']
+export type ClientBrandProfile = Database['public']['Tables']['client_brand_profiles']['Row']
 export type Conversation = Database['public']['Tables']['conversations']['Row']
 export type ConversationMember = Database['public']['Tables']['conversation_members']['Row']
 export type Message = Database['public']['Tables']['messages']['Row']

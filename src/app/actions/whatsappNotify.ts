@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createWaAdminClient } from '@/lib/whatsapp/db'
+import { triggerJobRunner } from '@/lib/ai/trigger'
 
 /**
  * Encola una notificación por WhatsApp al cliente cuando un requerimiento
@@ -89,20 +90,7 @@ export async function enqueueReviewReadyNotification(requirementId: string): Pro
     } as never)
 
     // 5. Disparar runner de inmediato (fire-and-forget).
-    const secret = process.env.AI_JOBS_TRIGGER_SECRET
-    if (secret) {
-      const base =
-        process.env.NEXT_PUBLIC_SITE_URL ??
-        process.env.NEXT_PUBLIC_APP_URL ??
-        'https://www.fullefm.site'
-      void fetch(`${base}/api/ai-jobs/process?max=2&wait=0`, {
-        method: 'POST',
-        headers: { 'x-trigger-secret': secret, 'content-type': 'application/json' },
-        body: '{}',
-        cache: 'no-store',
-        keepalive: true,
-      }).catch(() => {})
-    }
+    void triggerJobRunner({ max: 2, waitMs: 0 })
   } catch (e) {
     console.warn('[enqueueReviewReadyNotification] non-fatal error', e)
   }

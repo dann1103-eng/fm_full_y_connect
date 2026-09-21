@@ -4,6 +4,9 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { whatsappReplyHandler } from './handlers/whatsappReply'
 import { whatsappTemplateHandler } from './handlers/whatsappTemplate'
 import { invoiceDueReminderHandler } from './handlers/invoiceDueReminder'
+import { matrixGenerateHandler } from './handlers/matrixGenerate'
+import { matrixItemWriteHandler } from './handlers/matrixItemWrite'
+import { sweepExhaustedZombies } from './zombies'
 import type { AiHandler, AiHandlerCtx, AiJobRow } from './types'
 
 /**
@@ -16,8 +19,22 @@ const HANDLERS: Record<string, AiHandler> = {
   // No lleva prefijo whatsapp_ a propósito: así el runner le pasa el cliente
   // TIPADO (invoices/clients) y el handler instancia el de wa_* por su cuenta.
   invoice_due_reminder: invoiceDueReminderHandler as AiHandler,
+  // Tampoco llevan prefijo whatsapp_: los dos jobs de matriz escriben en tablas tipadas con su
+  // propio admin client (bloque 3).
+  matrix_generate: matrixGenerateHandler as AiHandler,
+  matrix_item_write: matrixItemWriteHandler as AiHandler,
 }
 
+/**
+ * Los tipos que este runner sabe ejecutar. Viajan como `p_job_types` a `claim_ai_job`.
+ *
+ * **Efecto secundario de registrar un tipo nuevo aquí** (bloque 3): el watchdog de la migración 0124
+ * ordena los candidatos por `(status = 'processing') desc` ANTES que por `priority`, así que un job
+ * colgado —p. ej. un `matrix_generate` que murió a media llamada al modelo— se rescata antes que un
+ * `whatsapp_reply` recién encolado, incluso en el disparo de baja latencia del webhook. La prioridad 8
+ * de los jobs de matriz no protege de eso: la prioridad solo desempata dentro del mismo grupo.
+ * El arreglo (no rescatar colgados cuando `waitForUpcomingMs > 0`) queda fuera del alcance del bloque.
+ */
 const KNOWN_JOB_TYPES = Object.keys(HANDLERS)
 const WORKER_ID = `vercel-${process.env.VERCEL_REGION ?? 'local'}-${process.pid}`
 
@@ -94,21 +111,44 @@ async function failJob(supabase: SupabaseClient, job: AiJobRow, error: Error) {
 }
 
 /**
+ * Presupuesto de tiempo de una corrida: el corte para RECLAMAR, no para terminar.
+ *
+ * `maxDuration` es de la RUTA, no de cada job: sin esta guarda, `runJobs` encadena `maxJobs` trabajos
+ * sin mirar el reloj. Con jobs de WhatsApp de pocos segundos nunca dolió; con un brief completo de
+ * matriz, la plataforma mata la función a mitad de la llamada al modelo, el job queda `processing` con
+ * el intento ya consumido (`claim_ai_job` lo incrementa al reclamar) y solo se recupera cinco minutos
+ * después por el watchdog de 0124; tres veces y queda `failed` sin que nada estuviera mal.
+ *
+ * Solo se mira ANTES de reclamar, así que un job reclamado a los 44,9 s todavía corre entero: por eso el
+ * `maxDuration` de `/api/ai-jobs/process` es 180 y no 60 (un padre de matriz grande puede pasar de 40–80 s
+ * de modelo). Lo que aun así muera en su último intento lo recoge `sweepExhaustedZombies`.
+ */
+export const RUNNER_BUDGET_MS = 45_000
+
+/**
  * Procesa hasta `maxJobs` jobs elegibles (scheduled_for <= now).
  * Si el siguiente job está agendado dentro de los próximos `waitForUpcomingMs` ms,
  * espera y lo procesa también — esto da baja latencia al webhook que dispara
  * esta ruta inmediatamente después de encolar con un debounce de ~8s.
  *
- * Devuelve cuántos jobs fueron procesados (exitosos o no).
+ * Devuelve cuántos jobs fueron procesados (exitosos o no) y si se cortó por presupuesto de tiempo.
  */
 export async function runJobs(opts?: {
   maxJobs?: number
   waitForUpcomingMs?: number
-}): Promise<{ processed: number; details: Array<{ id: string; ok: boolean }> }> {
+}): Promise<{ processed: number; details: Array<{ id: string; ok: boolean }>; stoppedEarly: boolean }> {
+  // El reloj arranca AQUÍ, antes de la espera opcional: el cron llama con `wait=15000` y el
+  // `maxDuration` de la ruta cubre también esa espera.
+  const startedAt = Date.now()
   const maxJobs = opts?.maxJobs ?? 5
   const waitForUpcomingMs = opts?.waitForUpcomingMs ?? 0
   const supabase = createAdminClient()
   const waSupabase = createWaAdminClient()
+
+  // Antes de reclamar: marca `failed` los jobs que murieron `processing` en su último intento, que el
+  // watchdog de 0124 ya no rescata y que, con los índices únicos que cubren `processing` (0126, 0131),
+  // bloquean para siempre la matriz, la pieza o la factura. Nunca lanza; una lectura acotada por corrida.
+  await sweepExhaustedZombies(supabase)
 
   const details: Array<{ id: string; ok: boolean }> = []
 
@@ -130,7 +170,14 @@ export async function runJobs(opts?: {
     }
   }
 
+  let stoppedEarly = false
   for (let i = 0; i < maxJobs; i++) {
+    // Antes de RECLAMAR el siguiente: reclamarlo y no poder terminarlo es justo lo que deja jobs
+    // colgados en `processing` con un intento quemado.
+    if (Date.now() - startedAt > RUNNER_BUDGET_MS) {
+      stoppedEarly = true
+      break
+    }
     const job = await claimNext(supabase)
     if (!job) break
 
@@ -161,5 +208,5 @@ export async function runJobs(opts?: {
     }
   }
 
-  return { processed: details.length, details }
+  return { processed: details.length, details, stoppedEarly }
 }
