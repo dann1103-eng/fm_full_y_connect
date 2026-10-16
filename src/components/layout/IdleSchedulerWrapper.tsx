@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react'
 import { useUser } from '@/contexts/UserContext'
 import { useIdleScheduler } from '@/hooks/useIdleScheduler'
+import { needsPresenceCheck } from '@/lib/domain/permissions'
 import { StillOnlineDialog } from './StillOnlineDialog'
 
 /**
@@ -18,7 +19,8 @@ export function IdleSchedulerWrapper() {
     setDialogOpen(true)
   }, [])
 
-  const enabled = !!user && user.role !== 'client'
+  // Los agentes de IA (users.skip_idle_prompt) no ven el aviso: nadie lo contestaría y los sacaría.
+  const enabled = needsPresenceCheck(user)
   const { reschedule } = useIdleScheduler({
     enabled,
     onCheckpoint: handleCheckpoint,

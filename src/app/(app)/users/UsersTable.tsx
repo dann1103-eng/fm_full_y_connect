@@ -509,6 +509,7 @@ function CreateUserModal({ onClose, onCreated }: {
         default_assignee: false,
         current_session_id: null,
         notify_wa_window: false,
+        skip_idle_prompt: false,
         can_quote: false,
         can_request_dev: false,
         deactivated_at: null,

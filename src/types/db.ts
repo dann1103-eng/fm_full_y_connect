@@ -458,6 +458,7 @@ export interface Database {
           can_quote: boolean
           can_request_dev: boolean
           notify_wa_window: boolean
+          skip_idle_prompt: boolean
           deactivated_at: string | null
         }
         Insert: {
@@ -471,6 +472,7 @@ export interface Database {
           can_quote?: boolean
           can_request_dev?: boolean
           notify_wa_window?: boolean
+          skip_idle_prompt?: boolean
           deactivated_at?: string | null
         }
         Update: {
@@ -483,6 +485,7 @@ export interface Database {
           can_quote?: boolean
           can_request_dev?: boolean
           notify_wa_window?: boolean
+          skip_idle_prompt?: boolean
           deactivated_at?: string | null
         }
         Relationships: []

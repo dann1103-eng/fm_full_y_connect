@@ -23,3 +23,14 @@ export const isStaffRole = (role: UserRole | null | undefined): boolean =>
 
 export const canAccessPortal = (role: UserRole | null | undefined): boolean =>
   isClientRole(role)
+
+/**
+ * ¿Se le muestra el aviso "¿Sigues en línea?" (y se le cierra la sesión si no responde)?
+ * Aplica al staff humano. No aplica a clientes ni a usuarios con `skip_idle_prompt`
+ * (agentes de IA que operan el sistema desde un navegador sin nadie delante). Si la columna
+ * aún no existe en la base (migración 0132 sin aplicar), el valor llega `undefined` y el
+ * aviso se mantiene: el comportamiento anterior.
+ */
+export const needsPresenceCheck = (
+  user: { role: UserRole | null | undefined; skip_idle_prompt?: boolean | null } | null | undefined,
+): boolean => !!user && user.role !== 'client' && !user.skip_idle_prompt
