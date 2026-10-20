@@ -4,9 +4,22 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 
+export interface DeleteClientBillingSummary {
+  invoices: number
+  paidInvoices: number
+  quotes: number
+}
+
+/**
+ * Elimina al cliente y TODO lo suyo. Si tiene facturas o cotizaciones, también se borran
+ * (permanentemente), pero solo cuando el llamador confirma con `confirmBilling: true`: sin
+ * esa confirmación devuelve `{ billing }` con los conteos y no borra nada, para que la
+ * interfaz pueda mostrar exactamente qué se perdería.
+ */
 export async function deleteClient(
   clientId: string,
-): Promise<{ error?: string }> {
+  opts: { confirmBilling?: boolean } = {},
+): Promise<{ error?: string; billing?: DeleteClientBillingSummary }> {
   const supabase = await createClient()
 
   // Auth + admin check
@@ -20,31 +33,25 @@ export async function deleteClient(
 
   const admin = createAdminClient()
 
-  // ── Pre-check: bloqueantes que requieren limpieza manual ─────────────────
-  const { count: invoiceCount, error: invCountErr } = await admin
-    .from('invoices')
-    .select('id', { count: 'exact', head: true })
-    .eq('client_id', clientId)
-  if (invCountErr) {
-    return { error: `No se pudo verificar facturas: ${invCountErr.message}` }
-  }
-  if ((invoiceCount ?? 0) > 0) {
-    return {
-      error: `No se puede eliminar: el cliente tiene ${invoiceCount} factura(s). Elimínalas o anúlalas primero.`,
-    }
-  }
+  // ── Pre-check: facturación del cliente ───────────────────────────────────
+  // Antes bloqueaba la eliminación. Ahora se permite, pero con confirmación explícita: las
+  // facturas son documentos fiscales y se pierden para siempre (la numeración queda con huecos).
+  const [invCount, paidCount, quoteCount] = await Promise.all([
+    admin.from('invoices').select('id', { count: 'exact', head: true }).eq('client_id', clientId),
+    admin.from('invoices').select('id', { count: 'exact', head: true }).eq('client_id', clientId).eq('status', 'paid'),
+    admin.from('quotes').select('id', { count: 'exact', head: true }).eq('client_id', clientId),
+  ])
+  if (invCount.error) return { error: `No se pudo verificar facturas: ${invCount.error.message}` }
+  if (paidCount.error) return { error: `No se pudo verificar facturas: ${paidCount.error.message}` }
+  if (quoteCount.error) return { error: `No se pudo verificar cotizaciones: ${quoteCount.error.message}` }
 
-  const { count: quoteCount, error: qCountErr } = await admin
-    .from('quotes')
-    .select('id', { count: 'exact', head: true })
-    .eq('client_id', clientId)
-  if (qCountErr) {
-    return { error: `No se pudo verificar cotizaciones: ${qCountErr.message}` }
+  const billing: DeleteClientBillingSummary = {
+    invoices: invCount.count ?? 0,
+    paidInvoices: paidCount.count ?? 0,
+    quotes: quoteCount.count ?? 0,
   }
-  if ((quoteCount ?? 0) > 0) {
-    return {
-      error: `No se puede eliminar: el cliente tiene ${quoteCount} cotización(es). Elimínalas primero.`,
-    }
+  if ((billing.invoices > 0 || billing.quotes > 0) && !opts.confirmBilling) {
+    return { billing }
   }
 
   // ── 0. Limpiar usuarios de portal vinculados a este cliente ──────────────
@@ -150,6 +157,36 @@ export async function deleteClient(
     if (bcDelErr) {
       return { error: `Error al eliminar ciclos: ${bcDelErr.message}` }
     }
+  }
+
+  // ── 6b. Créditos, cotizaciones y facturas ────────────────────────────────
+  // Va al final, con todo lo demás ya borrado: si algo anterior falla, las facturas siguen intactas.
+  // Orden obligatorio: client_credits.source_invoice_id apunta a la factura sin ON DELETE, así que
+  // los créditos van primero (los requerimientos que los usaron ya se borraron en el paso 5).
+  // invoices.client_id y quotes.client_id son ON DELETE RESTRICT: hay que vaciarlos antes del cliente.
+  // invoice_items / quote_items caen en cascada; pagos n1co, jobs y conversiones quedan en null.
+  const { error: credDelErr } = await admin
+    .from('client_credits')
+    .delete()
+    .eq('client_id', clientId)
+  if (credDelErr) {
+    return { error: `Error al eliminar créditos: ${credDelErr.message}` }
+  }
+
+  const { error: quoteDelErr } = await admin
+    .from('quotes')
+    .delete()
+    .eq('client_id', clientId)
+  if (quoteDelErr) {
+    return { error: `Error al eliminar cotizaciones: ${quoteDelErr.message}` }
+  }
+
+  const { error: invDelErr } = await admin
+    .from('invoices')
+    .delete()
+    .eq('client_id', clientId)
+  if (invDelErr) {
+    return { error: `Error al eliminar facturas: ${invDelErr.message}` }
   }
 
   // ── 7. Borrar cliente ─────────────────────────────────────────────────────
