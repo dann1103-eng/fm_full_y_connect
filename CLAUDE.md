@@ -347,7 +347,7 @@ where bc_s.client_id = bc_c.client_id and bc_c.client_id = c.id
 ## Patrón: `.delete()` de Supabase NO lanza
 
 Las violaciones de FK (RESTRICT) **no producen excepción** — retornan `{ error }`. Hay que verificarlo siempre. Patrón aplicado en `deleteClient.ts`:
-1. Pre-check `invoices` y `quotes` (FK RESTRICT) → si count > 0, devolver `{ error: 'No se puede eliminar: el cliente tiene N factura(s)...' }`.
+1. Pre-check `invoices` y `quotes` (FK RESTRICT): si hay alguna y no llegó `confirmBilling: true`, devolver `{ billing: { invoices, paidInvoices, quotes } }` **sin borrar nada** (la UI muestra los conteos y pide una segunda confirmación). Con la confirmación se borran, en este orden y **al final**, ya borrado todo lo demás: `client_credits` (`source_invoice_id` apunta a la factura sin `ON DELETE`) → `quotes` → `invoices` → cliente. Se borran documentos fiscales de forma permanente y `invoice_number` (secuencia) queda con huecos.
 2. En cada `.delete()` posterior, checar `{ error }` y devolverlo.
 3. `redirect('/clients')` como última línea, solo si todo bien.
 `DeleteClientButton` recibe `{ error }` y lo muestra en banner rojo en lugar de cerrar el modal.
