@@ -255,6 +255,26 @@ export function InvoiceForm({ mode, initialClientId, initialCycleId }: BillingFo
       })
     }
 
+    // Paquete on-demand: mismo tamaño y precio que el plan on-demand (cupo compartido sin vencimiento).
+    // Al pagar la factura se materializa como saldo `content_pool` que cubre cualquier tipo tippable
+    // cuando el cliente agota el cupo de su plan mensual. Un grupo por plan on-demand activo.
+    const onDemandPlans = plans.filter((p) => p.unified_content_limit != null && p.no_expira)
+    if (onDemandPlans.length > 0) {
+      groups.push({
+        group: 'Paquete on-demand',
+        items: onDemandPlans.map((p) => {
+          const qty = p.unified_content_limit as number
+          return {
+            label: `Paquete on-demand — ${p.name} (${qty} contenidos)`,
+            description: `Paquete on-demand: ${qty} contenidos de cualquier tipo (estático, video corto, reel o short), sin vencimiento`,
+            unit_price: p.price_usd,
+            quantity: 1,
+            extrasMetadata: { kind: 'content_pool' as const, qty },
+          }
+        }),
+      })
+    }
+
     // Contenido extra estándar — cada item del catálogo lleva su `extrasMetadata`
     // para que al pagar la factura se materialice como crédito de contenido.
     const contentItems: CatalogItem[] = (Object.entries(EXTRA_CONTENT_PRICES) as [keyof typeof EXTRA_CONTENT_PRICES, number][])

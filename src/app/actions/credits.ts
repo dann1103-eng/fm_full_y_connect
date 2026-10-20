@@ -3,23 +3,31 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { consumeCredit, refundCredit, getAvailableContentCredits, getAvailableCambiosCredits } from '@/lib/domain/credits'
-import { CONTENT_TYPE_TO_CREDIT_KIND } from '@/types/db'
-import { requireUser } from '@/lib/auth/require-user'
+import {
+  consumeContentCredit,
+  creditKindsForContent,
+  refundCredit,
+  getAvailableContentCredits,
+  getAvailableCambiosCredits,
+  getAvailablePoolCredits,
+} from '@/lib/domain/credits'
+import { POOL_CREDIT_KIND } from '@/types/db'
+import { requireUser, requireAdmin } from '@/lib/auth/require-user'
 import type { ContentType } from '@/types/db'
 
 /**
- * Devuelve los créditos disponibles de un cliente (cambios + contenido).
+ * Devuelve los créditos disponibles de un cliente (cambios + contenido + paquete on-demand).
  * Usado por la UI del perfil del cliente para mostrar el saldo y por
  * el modal de creación para validar si un requerimiento puede consumir crédito.
  */
 export async function listClientCredits(clientId: string) {
   const { supabase } = await requireUser({ allowImpersonation: true })
-  const [content, cambios] = await Promise.all([
+  const [content, cambios, pool] = await Promise.all([
     getAvailableContentCredits(supabase, clientId),
     getAvailableCambiosCredits(supabase, clientId),
+    getAvailablePoolCredits(supabase, clientId),
   ])
-  return { content, cambios }
+  return { content, cambios, pool }
 }
 
 /**
@@ -55,10 +63,12 @@ export async function consumeContentCreditForRequirement(args: {
   const clientId = cycle?.client_id ?? null
   if (!clientId) return { ok: false, error: 'Ciclo del requerimiento no encontrado' }
 
-  const kind = CONTENT_TYPE_TO_CREDIT_KIND[args.contentType]
-  if (!kind) return { ok: false, error: 'Tipo de contenido no soporta créditos' }
+  if (creditKindsForContent(args.contentType).length === 0) {
+    return { ok: false, error: 'Tipo de contenido no soporta créditos' }
+  }
 
-  const creditId = await consumeCredit(admin, { clientId, kind })
+  // Primero el crédito específico del tipo; si no hay, el paquete on-demand.
+  const creditId = await consumeContentCredit(admin, { clientId, contentType: args.contentType })
   if (!creditId) return { ok: false, error: 'Sin créditos disponibles' }
 
   const { error: updErr } = await admin
@@ -107,4 +117,91 @@ export async function refundContentCreditForRequirement(args: {
   if (cycle?.client_id) revalidatePath(`/clients/${cycle.client_id}`)
 
   return { ok: true }
+}
+
+/**
+ * Ajuste manual del paquete on-demand de un cliente (solo admin).
+ *
+ * - `delta > 0`: agrega un saldo nuevo (una fila sin factura, con `granted_by` y la nota para auditoría).
+ * - `delta < 0`: quita saldo, del más antiguo al más nuevo, sin bajar de 0 ni tocar `qty_initial`.
+ *
+ * Para saldo que el cliente PAGA se factura (extras_metadata `content_pool`) y nace al cobrarse;
+ * esto es para regalos, cortesías y correcciones.
+ */
+export async function adjustContentPoolCredits(args: {
+  clientId: string
+  delta: number
+  notes?: string | null
+}): Promise<{ ok: true; remaining: number } | { ok: false; error: string }> {
+  let userId: string
+  try {
+    ;({ userId } = await requireAdmin())
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Sin permisos' }
+  }
+
+  const delta = args.delta
+  if (!Number.isInteger(delta) || delta === 0) {
+    return { ok: false, error: 'La cantidad debe ser un número entero distinto de cero.' }
+  }
+  if (Math.abs(delta) > 1000) {
+    return { ok: false, error: 'La cantidad máxima por ajuste es 1000.' }
+  }
+  const notes = (args.notes ?? '').trim().slice(0, 300) || null
+
+  const admin = createAdminClient()
+  const { data: client } = await admin.from('clients').select('id').eq('id', args.clientId).maybeSingle()
+  if (!client) return { ok: false, error: 'Cliente no encontrado.' }
+
+  if (delta > 0) {
+    const { error } = await admin.from('client_credits').insert({
+      client_id: args.clientId,
+      kind: POOL_CREDIT_KIND,
+      qty_initial: delta,
+      qty_remaining: delta,
+      unit_price_usd: 0,
+      source_invoice_id: null,
+      notes,
+      granted_by: userId,
+    })
+    if (error) return { ok: false, error: `No se pudo agregar el saldo: ${error.message}` }
+  } else {
+    let toRemove = -delta
+    const { data: rows, error: readErr } = await admin
+      .from('client_credits')
+      .select('id, qty_remaining')
+      .eq('client_id', args.clientId)
+      .eq('kind', POOL_CREDIT_KIND)
+      .gt('qty_remaining', 0)
+      .order('created_at', { ascending: true })
+    if (readErr) return { ok: false, error: `No se pudo leer el saldo: ${readErr.message}` }
+
+    const available = (rows ?? []).reduce((sum, r) => sum + (r.qty_remaining as number), 0)
+    if (available < toRemove) {
+      return { ok: false, error: `El cliente solo tiene ${available} disponible${available === 1 ? '' : 's'}.` }
+    }
+
+    for (const row of rows ?? []) {
+      if (toRemove <= 0) break
+      const remaining = row.qty_remaining as number
+      const take = Math.min(remaining, toRemove)
+      // Decremento condicional: si el saldo cambió mientras tanto (alguien registró un contenido),
+      // se corta en vez de pisarlo. Lo ya descontado queda aplicado; el mensaje lo avisa.
+      const { data: updated, error: updErr } = await admin
+        .from('client_credits')
+        .update({ qty_remaining: remaining - take })
+        .eq('id', row.id)
+        .eq('qty_remaining', remaining)
+        .select('id')
+        .maybeSingle()
+      if (updErr || !updated) {
+        return { ok: false, error: 'El saldo cambió mientras se ajustaba. Revisa el saldo actual y vuelve a intentar.' }
+      }
+      toRemove -= take
+    }
+  }
+
+  const remaining = await getAvailablePoolCredits(admin, args.clientId)
+  revalidatePath(`/clients/${args.clientId}`)
+  return { ok: true, remaining }
 }

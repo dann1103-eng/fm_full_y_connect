@@ -339,9 +339,14 @@ export default async function ClientDetailPage({
         </nav>
 
         {/* 0 — Créditos sin caducidad disponibles */}
-        {(credits.cambios > 0 || Object.values(credits.content).some((q) => (q ?? 0) > 0)) && (
-          <ClientCreditsCard cambios={credits.cambios} content={credits.content} />
-        )}
+        {/* Sin créditos solo se muestra para el admin (acceso a agregar el primer paquete). */}
+        <ClientCreditsCard
+          clientId={client.id}
+          cambios={credits.cambios}
+          content={credits.content}
+          pool={credits.pool}
+          canAdjust={isAdmin}
+        />
 
         {/* Período de gracia: visible para admin si el ciclo current está impago
             o ya tiene gracia. Permite otorgar/extender/anular. */}
@@ -363,6 +368,7 @@ export default async function ClientDetailPage({
             totals={totals}
             limits={limits}
             availableCredits={credits.content}
+            availablePoolCredits={credits.pool}
             currentUserId={effectiveId}
             daysLeft={daysLeft}
             isAdmin={isAdmin}

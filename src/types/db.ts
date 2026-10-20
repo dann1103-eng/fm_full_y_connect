@@ -58,6 +58,11 @@ export type CreditKind =
   | 'content_video_corto'
   | 'content_reel'
   | 'content_short'
+  /** Paquete on-demand: cubre cualquiera de los tipos tippables (ver TIPPABLE_CONTENT_TYPES). */
+  | 'content_pool'
+
+/** Crédito comodín del paquete on-demand. */
+export const POOL_CREDIT_KIND: CreditKind = 'content_pool'
 
 /** Mapping de ContentType vendible → CreditKind. */
 export const CONTENT_TYPE_TO_CREDIT_KIND: Partial<Record<ContentType, CreditKind>> = {
@@ -83,12 +88,14 @@ export interface ClientCredit {
   unit_price_usd: number
   source_invoice_id: string | null
   notes: string | null
+  granted_by: string | null
   created_at: string
   updated_at: string
 }
 
 export interface InvoiceExtrasMetadata {
-  kind: 'cambios' | 'content'
+  /** `content_pool` = paquete on-demand: N contenidos de cualquier tipo tippable (sin `content_type`). */
+  kind: 'cambios' | 'content' | 'content_pool'
   content_type?: ContentType
   qty: number
 }
@@ -2199,6 +2206,7 @@ export interface Database {
           unit_price_usd: number
           source_invoice_id: string | null
           notes: string | null
+          granted_by: string | null
           created_at: string
           updated_at: string
         }
@@ -2211,6 +2219,7 @@ export interface Database {
           unit_price_usd?: number
           source_invoice_id?: string | null
           notes?: string | null
+          granted_by?: string | null
         }
         Update: {
           qty_remaining?: number

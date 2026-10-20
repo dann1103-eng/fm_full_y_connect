@@ -15,7 +15,8 @@ import { createClient } from '@/lib/supabase/client'
 import type { ClientWithPlan, BillingCycle, ContentType, Priority } from '@/types/db'
 import { PRIORITY_LABELS, PRIORITY_COLORS } from '@/types/db'
 import { CONTENT_TYPES, CONTENT_TYPE_LABELS, TIPPABLE_CONTENT_TYPES } from '@/lib/domain/plans'
-import { canRegisterWithContext, canRegisterBreakdown, weekIndexInCycle, maxWeeksForPeriod } from '@/lib/domain/requirement'
+import { canRegisterWithContext, weekIndexInCycle, maxWeeksForPeriod } from '@/lib/domain/requirement'
+import { evaluateRegistration } from '@/lib/domain/credits'
 import { insertInitialPhaseLog } from '@/lib/domain/pipeline'
 import { consumeContentCreditForRequirement } from '@/app/actions/credits'
 
@@ -71,6 +72,8 @@ interface RequirementModalProps {
   limits: Record<ContentType, number>
   /** Créditos sin caducidad disponibles para el cliente, por content_type. Se suman al límite del ciclo al validar. */
   availableCredits?: Partial<Record<ContentType, number>>
+  /** Saldo del paquete on-demand: cubre cualquier tipo tippable cuando se agota el cupo del mes. */
+  availablePoolCredits?: number
   /** Cliente con plan "Licencia de Contenido Avanzada" — pool unificado entre tipos tippables.
    *  Cuando true, el modal valida contra el pool y oculta contadores individuales por tipo. */
   isUnifiedPool?: boolean
@@ -91,6 +94,7 @@ export function RequirementModal({
   totals,
   limits,
   availableCredits = {},
+  availablePoolCredits = 0,
   isUnifiedPool = false,
   poolUsage = null,
   isAdmin,
@@ -148,7 +152,9 @@ export function RequirementModal({
   }, {} as Record<ContentType, number>)
 
   // Tipos visibles: los que tengan límite del plan O créditos disponibles.
-  const activeTypes = CONTENT_TYPES.filter((t) => limitsWithCredits[t] > 0)
+  const activeTypes = CONTENT_TYPES.filter(
+    (t) => limitsWithCredits[t] > 0 || (availablePoolCredits > 0 && TIPPABLE_CONTENT_TYPES.includes(t)),
+  )
   const isSimpleType = selectedType === 'produccion' || selectedType === 'reunion'
   const isScheduledType = isSimpleType
   const STORY_APPLICABLE_TYPES: ContentType[] = ['estatico', 'video_corto', 'reel', 'short']
@@ -196,29 +202,29 @@ export function RequirementModal({
       return base
     })()
 
-    // Créditos sin caducidad amplían el límite efectivo: si tienes 3 shorts en créditos y el plan permite 5,
-    // el "techo" para validar este insert es 8.
-    const limitsWithCredits: Record<ContentType, number> = { ...limits }
-    for (const [type, qty] of Object.entries(availableCredits)) {
-      const t = type as ContentType
-      limitsWithCredits[t] = (limits[t] ?? 0) + (qty ?? 0)
-    }
-
-    // En pool unificado el blocker es el pool, no los límites por tipo.
-    let allowed: boolean
+    // Créditos sin caducidad y paquete on-demand amplían el cupo efectivo. La regla vive en
+    // evaluateRegistration (probada): con paquete en 0 es exactamente la regla anterior.
+    // El consumo personalizado del admin (overrides) nunca descuenta del paquete: un requerimiento
+    // solo puede pagarse con 1 crédito.
+    const verdict = evaluateRegistration({
+      breakdown: effectiveBreakdown,
+      totals,
+      limits,
+      typeCredits: availableCredits,
+      poolCredits: hasOverrides ? 0 : availablePoolCredits,
+      sharedPool: isUnifiedPool && poolUsage !== null ? poolUsage : null,
+      primaryType: selectedType,
+    })
+    const allowed = verdict.allowed
     let blockReason: string | null = null
-    if (isUnifiedPool && poolUsage !== null) {
-      const sum = TIPPABLE_CONTENT_TYPES.reduce((s, t) => s + (effectiveBreakdown[t] ?? 0), 0)
-      const overflows = poolUsage.used + sum > poolUsage.limit
-      allowed = !overflows
-      if (!allowed) {
+    if (!allowed) {
+      if (isUnifiedPool && poolUsage !== null) {
         blockReason = 'Paquete completo. Contrata otro paquete o anula un requerimiento existente.'
-      }
-    } else {
-      const breakdownCheck = canRegisterBreakdown(effectiveBreakdown, totals, limitsWithCredits)
-      allowed = breakdownCheck.ok
-      if (!allowed) {
-        const exceeded = breakdownCheck.exceeded
+      } else {
+        const breakdownTypes = Object.keys(effectiveBreakdown) as ContentType[]
+        const exceeded = breakdownTypes.find(
+          (t) => (totals[t] ?? 0) + (effectiveBreakdown[t] ?? 0) > (limits[t] ?? 0) + (availableCredits[t] ?? 0),
+        )
         const exceededLabel = exceeded ? CONTENT_TYPE_LABELS[exceeded] : 'el tipo seleccionado'
         blockReason = `Límite de ${exceededLabel} alcanzado. Solo un admin puede forzar un requerimiento extra.`
       }
@@ -337,8 +343,12 @@ export function RequirementModal({
     // Si este requerimiento excede el cupo del ciclo pero hay créditos disponibles para su content_type,
     // consumir un crédito y limpiar el flag over_limit. Si falla, anular el requerimiento.
     if (newRequirement?.id) {
-      const wouldOverflowCycle = (totals[selectedType] ?? 0) >= (limits[selectedType] ?? 0)
-      const creditsForType = availableCredits[selectedType] ?? 0
+      // Se paga con crédito si el contenido excede el cupo del mes y hay uno que lo cubra: primero el
+      // específico del tipo y luego el paquete on-demand (la acción del servidor decide el orden).
+      const wouldOverflowCycle = verdict.exceedsPlan
+      const creditsForType =
+        (availableCredits[selectedType] ?? 0) +
+        (!hasOverrides && TIPPABLE_CONTENT_TYPES.includes(selectedType) ? availablePoolCredits : 0)
       if (wouldOverflowCycle && creditsForType > 0) {
         const r = await consumeContentCreditForRequirement({
           requirementId: newRequirement.id,
@@ -391,21 +401,27 @@ export function RequirementModal({
         ? { [selectedType]: 1, historia: 1 }
         : { [selectedType]: 1 }
 
-  // En pool unificado: el blocker es el pool, no los límites individuales por tipo.
+  // Veredicto de pantalla: misma función que usa handleSubmit (plan + créditos por tipo + paquete).
+  const uiVerdict =
+    selectedType === null
+      ? null
+      : evaluateRegistration({
+          breakdown: effectiveBreakdown,
+          totals,
+          limits,
+          typeCredits: availableCredits,
+          poolCredits: hasActiveOverrides ? 0 : availablePoolCredits,
+          sharedPool: isUnifiedPool && poolUsage !== null ? poolUsage : null,
+          primaryType: selectedType,
+        })
   const tippableSumInBreakdown = TIPPABLE_CONTENT_TYPES.reduce(
     (s, t) => s + (effectiveBreakdown[t] ?? 0),
     0,
   )
-  const poolWouldOverflow =
-    isUnifiedPool && poolUsage !== null && poolUsage.used + tippableSumInBreakdown > poolUsage.limit
-
-  // Para el warning: en pool unificado dispara solo si el pool se llena.
-  // En plan normal, dispara si ni el plan ni los créditos pueden cubrir.
-  const selectedAtLimit =
-    selectedType !== null &&
-    (isUnifiedPool
-      ? poolWouldOverflow
-      : !canRegisterBreakdown(effectiveBreakdown, totals, limitsWithCredits).ok)
+  // En pool unificado el aviso se pone rojo solo si ni el cupo ni el paquete alcanzan.
+  const poolWouldOverflow = isUnifiedPool && poolUsage !== null && uiVerdict !== null && !uiVerdict.allowed
+  // Dispara el aviso de "cupo agotado" cuando ni el plan, ni los créditos, ni el paquete cubren.
+  const selectedAtLimit = selectedType !== null && uiVerdict !== null && !uiVerdict.allowed
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
@@ -436,6 +452,24 @@ export function RequirementModal({
             </div>
           )}
 
+          {/* Paquete on-demand — saldo que cubre excedentes del mes */}
+          {availablePoolCredits > 0 && (
+            <div className="rounded-xl bg-fm-primary/5 border border-fm-primary/20 p-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-fm-primary">
+                  Paquete on-demand
+                </p>
+                <p className="text-xs text-fm-on-surface-variant mt-0.5">
+                  Se descuenta solo cuando el contenido excede el cupo del mes.
+                </p>
+              </div>
+              <p className="text-xl font-black text-fm-on-surface tabular-nums whitespace-nowrap">
+                {availablePoolCredits}{' '}
+                <span className="text-xs font-medium text-fm-outline">disponibles</span>
+              </p>
+            </div>
+          )}
+
           {/* Type selector */}
           <div>
             <Label className="text-sm font-medium text-fm-on-surface mb-2 block">
@@ -447,7 +481,9 @@ export function RequirementModal({
                 const planLimit = limits[type] ?? 0
                 const credits = availableCredits[type] ?? 0
                 const totalAvailable = planLimit + credits
-                const atLimit = consumed >= totalAvailable
+                // El paquete on-demand cubre cualquier tipo tippable: no se muestra como agotado mientras haya saldo.
+                const poolCovers = availablePoolCredits > 0 && TIPPABLE_CONTENT_TYPES.includes(type)
+                const atLimit = consumed >= totalAvailable && !poolCovers
                 const isSelected = selectedType === type
                 const isTippableInPool = isUnifiedPool && TIPPABLE_CONTENT_TYPES.includes(type)
                 // Etiqueta del contador:
@@ -457,6 +493,8 @@ export function RequirementModal({
                 //   - Mixto: "consumido/limite (+N)"
                 const counterLabel = isTippableInPool
                   ? ''
+                  : planLimit === 0 && credits === 0 && poolCovers
+                    ? 'paquete'
                   : planLimit === 0 && credits > 0
                     ? `+${credits} crédito${credits === 1 ? '' : 's'}`
                     : credits > 0
@@ -465,7 +503,7 @@ export function RequirementModal({
 
                 // En pool unificado, el atLimit visual de tippables se basa en el pool global.
                 const visualAtLimit = isTippableInPool
-                  ? (poolUsage?.used ?? 0) >= (poolUsage?.limit ?? 0)
+                  ? (poolUsage?.used ?? 0) >= (poolUsage?.limit ?? 0) && !poolCovers
                   : atLimit
 
                 return (
@@ -494,6 +532,17 @@ export function RequirementModal({
               })}
             </div>
           </div>
+
+          {/* Excede el cupo del mes pero lo cubre el paquete on-demand */}
+          {uiVerdict?.usesPackage && !selectedAtLimit && (
+            <div className="bg-fm-primary/5 border border-fm-primary/20 rounded-xl p-3">
+              <p className="text-sm text-fm-primary font-medium">Se descontará del paquete on-demand</p>
+              <p className="text-xs text-fm-on-surface-variant mt-0.5">
+                Este contenido excede el cupo del mes. Se descontará {uiVerdict.packageUnits} del paquete
+                (quedarán {Math.max(0, availablePoolCredits - uiVerdict.packageUnits)}).
+              </p>
+            </div>
+          )}
 
           {/* At-limit warning */}
           {selectedAtLimit && (

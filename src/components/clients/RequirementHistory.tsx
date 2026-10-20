@@ -7,6 +7,7 @@ import type { Requirement, RequirementCambioLog, ContentType } from '@/types/db'
 import { CONTENT_TYPE_LABELS } from '@/lib/domain/plans'
 import { CONTENT_ICONS } from '@/lib/domain/content-icons'
 import { voidCambioLog, approveCambioLog, rejectCambioLog, addCambioLog } from '@/app/actions/cambioLogs'
+import { refundContentCreditForRequirement } from '@/app/actions/credits'
 
 const TYPE_ACTION: Record<ContentType, string> = {
   historia: 'Historia registrada',
@@ -141,6 +142,12 @@ export function RequirementHistory({
       voided_by_user_id: user?.id,
       voided_at: new Date().toISOString(),
     }).eq('id', requirementId)
+
+    // Si se pagó con un crédito (específico o del paquete on-demand), devolverlo: anular un
+    // contenido ya pagado no puede costarle el saldo al cliente. No-op si no usó crédito.
+    await refundContentCreditForRequirement({ requirementId }).catch((err) =>
+      console.error('No se pudo devolver el crédito al anular el requerimiento:', err),
+    )
 
     try {
       const { data: files } = await supabase.storage

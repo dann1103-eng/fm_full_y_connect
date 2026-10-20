@@ -93,6 +93,8 @@ interface RequirementPanelProps {
   limits: Record<ContentType, number>
   /** Créditos sin caducidad disponibles por content_type. Se suman al límite al validar. */
   availableCredits?: Partial<Record<ContentType, number>>
+  /** Saldo del paquete on-demand (cubre cualquier tipo tippable cuando se agota el cupo del mes). */
+  availablePoolCredits?: number
   /** UID del usuario logueado — necesario para mostrar timer en tarjetas de matriz_contenido. */
   currentUserId?: string
   daysLeft: number | null
@@ -122,6 +124,7 @@ export function RequirementPanel({
   totals,
   limits,
   availableCredits = {},
+  availablePoolCredits = 0,
   currentUserId,
   daysLeft,
   isAdmin,
@@ -202,7 +205,7 @@ export function RequirementPanel({
   const isUnifiedPool = poolUsage !== null
   const isContentExhausted = isUnifiedPool && poolUsage !== null && poolUsage.used >= poolUsage.limit
   // Si quedan créditos sin caducidad, el pool agotado no bloquea el registro.
-  const hasAnyCredits = Object.values(availableCredits).some((q) => (q ?? 0) > 0)
+  const hasAnyCredits = Object.values(availableCredits).some((q) => (q ?? 0) > 0) || availablePoolCredits > 0
   const blockRegistration = isContentExhausted && !hasAnyCredits
 
   async function handleRenewContentPackage() {
@@ -227,10 +230,14 @@ export function RequirementPanel({
   const activeTypes = isUnifiedPool
     ? CONTENT_TYPES.filter((t) =>
         TIPPABLE_CONTENT_TYPES.includes(t)
-          ? (poolUsage!.limit - poolUsage!.used) > 0 || (totals[t] ?? 0) > 0
+          ? (poolUsage!.limit - poolUsage!.used) > 0 || (totals[t] ?? 0) > 0 || availablePoolCredits > 0
           : effectiveLimitsMap[t] > 0
       )
-    : CONTENT_TYPES.filter((t) => (limits[t] ?? 0) + (availableCredits[t] ?? 0) > 0)
+    : CONTENT_TYPES.filter(
+        (t) =>
+          (limits[t] ?? 0) + (availableCredits[t] ?? 0) > 0 ||
+          (availablePoolCredits > 0 && TIPPABLE_CONTENT_TYPES.includes(t)),
+      )
   const pipelineTypes = activeTypes.filter((t) => !COUNTER_ONLY_TYPES.includes(t))
   const simpleTypes = activeTypes.filter((t) => SIMPLE_TYPES.includes(t))
   const hasMatriz = activeTypes.includes('matriz_contenido') && limits.matriz_contenido > 0
@@ -1011,6 +1018,7 @@ export function RequirementPanel({
         totals={totals}
         limits={effectiveLimitsMap}
         availableCredits={availableCredits}
+        availablePoolCredits={availablePoolCredits}
         isUnifiedPool={isUnifiedPool}
         poolUsage={poolUsage}
         isAdmin={isAdmin}

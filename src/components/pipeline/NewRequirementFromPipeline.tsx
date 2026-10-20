@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { RequirementModal } from '@/components/clients/RequirementModal'
+import { listClientCredits } from '@/app/actions/credits'
 import { CONTENT_TYPES, effectiveLimits, applyUnifiedPool, applyContentLimitsWithOverride, unifiedPoolUsage } from '@/lib/domain/plans'
 import type { ClientWithPlan, BillingCycle, ContentType } from '@/types/db'
 
@@ -28,6 +29,9 @@ export function NewRequirementFromPipeline({ clients, isAdmin, canAssign }: Prop
   const [limits, setLimits] = useState<Record<ContentType, number>>(emptyTotals())
   const [assignableUsers, setAssignableUsers] = useState<{ id: string; full_name: string; default_assignee?: boolean }[]>([])
   const [isUnifiedPool, setIsUnifiedPool] = useState(false)
+  // Créditos del cliente (por tipo + paquete on-demand). Antes este flujo no los cargaba y los ignoraba.
+  const [availableCredits, setAvailableCredits] = useState<Partial<Record<ContentType, number>>>({})
+  const [availablePoolCredits, setAvailablePoolCredits] = useState(0)
   const [poolUsage, setPoolUsage] = useState<{ used: number; limit: number } | null>(null)
 
   const q = search.trim().toLowerCase()
@@ -38,12 +42,14 @@ export function NewRequirementFromPipeline({ clients, isAdmin, canAssign }: Prop
     setStep('form')
     const supabase = createClient()
 
-    const [{ data: cl }, { data: cy }, { data: users }] = await Promise.all([
+    const [{ data: cl }, { data: cy }, { data: users }, credits] = await Promise.all([
       supabase.from('clients').select('*, plan:plans(*)').eq('id', clientId).single(),
       supabase.from('billing_cycles').select('*').eq('client_id', clientId).eq('status', 'current').single(),
       canAssign
         ? supabase.from('users').select('id, full_name, default_assignee').not('role', 'eq', 'client').order('full_name')
         : Promise.resolve({ data: [] }),
+      // Si falla (p. ej. migración sin aplicar) se sigue sin créditos: es lo que pasaba antes.
+      listClientCredits(clientId).catch(() => ({ content: {}, cambios: 0, pool: 0 })),
     ])
 
     if (!cl || !cy) {
@@ -85,6 +91,8 @@ export function NewRequirementFromPipeline({ clients, isAdmin, canAssign }: Prop
     setLimits(finalLimits)
     setIsUnifiedPool(pool !== null)
     setPoolUsage(pool)
+    setAvailableCredits(credits.content)
+    setAvailablePoolCredits(credits.pool)
     setAssignableUsers(
       (users ?? []).map((u) => ({ id: u.id, full_name: u.full_name, default_assignee: u.default_assignee ?? false }))
     )
@@ -99,6 +107,8 @@ export function NewRequirementFromPipeline({ clients, isAdmin, canAssign }: Prop
     setCycle(null)
     setIsUnifiedPool(false)
     setPoolUsage(null)
+    setAvailableCredits({})
+    setAvailablePoolCredits(0)
   }
 
   return (
@@ -189,6 +199,8 @@ export function NewRequirementFromPipeline({ clients, isAdmin, canAssign }: Prop
           cycle={cycle}
           totals={totals}
           limits={limits}
+          availableCredits={availableCredits}
+          availablePoolCredits={availablePoolCredits}
           isUnifiedPool={isUnifiedPool}
           poolUsage={poolUsage}
           isAdmin={isAdmin}

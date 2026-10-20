@@ -17,8 +17,102 @@ import type {
   CreditKind,
   InvoiceExtrasMetadata,
 } from '@/types/db'
-import { CONTENT_TYPE_TO_CREDIT_KIND, CREDIT_KIND_TO_CONTENT_TYPE } from '@/types/db'
+import { CONTENT_TYPE_TO_CREDIT_KIND, CREDIT_KIND_TO_CONTENT_TYPE, POOL_CREDIT_KIND } from '@/types/db'
+import { TIPPABLE_CONTENT_TYPES } from '@/lib/domain/plans'
 import { createAdminClient } from '@/lib/supabase/admin'
+
+/** Qué tipo de crédito materializa un paquete extra. null = metadata no soportada. */
+export function creditKindFromExtras(meta: InvoiceExtrasMetadata): CreditKind | null {
+  if (meta.kind === 'cambios') return 'cambios'
+  if (meta.kind === 'content_pool') return POOL_CREDIT_KIND
+  if (meta.kind === 'content' && meta.content_type) {
+    return CONTENT_TYPE_TO_CREDIT_KIND[meta.content_type] ?? null
+  }
+  return null
+}
+
+/**
+ * Tipos de crédito que pueden cubrir un contenido, EN ORDEN DE USO: primero el crédito específico
+ * del tipo (se compró a propósito para él) y luego el paquete on-demand, que cubre cualquier tipo
+ * tippable. Historias, producciones y reuniones no se cubren con créditos de contenido.
+ */
+export function creditKindsForContent(contentType: ContentType): CreditKind[] {
+  const kinds: CreditKind[] = []
+  const specific = CONTENT_TYPE_TO_CREDIT_KIND[contentType]
+  if (specific) kinds.push(specific)
+  if (TIPPABLE_CONTENT_TYPES.includes(contentType)) kinds.push(POOL_CREDIT_KIND)
+  return kinds
+}
+
+export interface RegistrationInput {
+  /** Consumo del requerimiento nuevo por tipo (base + historia si aplica, o los overrides del admin). */
+  breakdown: Partial<Record<ContentType, number>>
+  /** Consumo ya registrado en el ciclo, por tipo. */
+  totals: Partial<Record<ContentType, number>>
+  /** Límites del plan del ciclo, por tipo (sin créditos). */
+  limits: Partial<Record<ContentType, number>>
+  /** Créditos específicos por tipo (sin el paquete). */
+  typeCredits: Partial<Record<ContentType, number>>
+  /** Saldo del paquete on-demand. */
+  poolCredits: number
+  /** Plan de cupo compartido entre tipos tippables, o null en un plan normal. */
+  sharedPool: { used: number; limit: number } | null
+  /** Tipo principal del requerimiento (el que se paga con el crédito). */
+  primaryType: ContentType
+}
+
+export interface RegistrationVerdict {
+  /** Cabe sin forzar: con el plan, los créditos por tipo y/o el paquete on-demand. */
+  allowed: boolean
+  /** Para caber hace falta descontar del paquete on-demand. */
+  usesPackage: boolean
+  /** Unidades que cubriría el paquete (0 si no lo usa). */
+  packageUnits: number
+  /** El contenido principal excede el cupo del plan: debe pagarse con un crédito si hay. */
+  exceedsPlan: boolean
+}
+
+/**
+ * ¿Se puede registrar este requerimiento y con qué se paga lo que excede el cupo del mes?
+ * Función pura: la usa el formulario de requerimientos.
+ *
+ * Con `poolCredits = 0` reproduce exactamente la regla anterior (plan + créditos por tipo, o el
+ * cupo compartido). El paquete on-demand solo cubre excedentes de tipos tippables: una historia
+ * u otro tipo fuera de cupo sigue sin poder registrarse sin forzar.
+ */
+export function evaluateRegistration(input: RegistrationInput): RegistrationVerdict {
+  const pool = Math.max(0, input.poolCredits)
+
+  if (input.sharedPool) {
+    const sum = TIPPABLE_CONTENT_TYPES.reduce((s, t) => s + (input.breakdown[t] ?? 0), 0)
+    const overflow = Math.max(0, input.sharedPool.used + sum - input.sharedPool.limit)
+    const allowed = overflow <= pool
+    return {
+      allowed,
+      usesPackage: allowed && overflow > 0,
+      packageUnits: allowed ? overflow : 0,
+      exceedsPlan: overflow > 0,
+    }
+  }
+
+  let tippableOverflow = 0
+  let untippableOverflow = false
+  for (const [type, qty] of Object.entries(input.breakdown) as [ContentType, number | undefined][]) {
+    if (!qty || qty <= 0) continue
+    const effective = (input.limits[type] ?? 0) + (input.typeCredits[type] ?? 0)
+    const over = Math.max(0, (input.totals[type] ?? 0) + qty - effective)
+    if (over === 0) continue
+    if (TIPPABLE_CONTENT_TYPES.includes(type)) tippableOverflow += over
+    else untippableOverflow = true
+  }
+  const allowed = !untippableOverflow && tippableOverflow <= pool
+  return {
+    allowed,
+    usesPackage: allowed && tippableOverflow > 0,
+    packageUnits: allowed ? tippableOverflow : 0,
+    exceedsPlan: (input.totals[input.primaryType] ?? 0) + 1 > (input.limits[input.primaryType] ?? 0),
+  }
+}
 
 /**
  * Materializa los créditos correspondientes a una factura pagada.
@@ -41,12 +135,7 @@ export async function grantCreditsFromInvoice(
     return { ok: true, credits: [] } // No es un paquete extra; nada que materializar
   }
 
-  let kind: CreditKind | null = null
-  if (meta.kind === 'cambios') {
-    kind = 'cambios'
-  } else if (meta.kind === 'content' && meta.content_type) {
-    kind = CONTENT_TYPE_TO_CREDIT_KIND[meta.content_type] ?? null
-  }
+  const kind = creditKindFromExtras(meta)
   if (!kind) {
     return { ok: false, error: `Tipo de paquete no soportado: ${meta.kind}/${meta.content_type ?? '-'}` }
   }
@@ -105,6 +194,21 @@ export async function consumeCredit(
   return updated.id as string
 }
 
+/**
+ * Descuenta 1 crédito para pagar un contenido: primero uno específico del tipo y, si no hay,
+ * del paquete on-demand. Devuelve el id del crédito usado o null si no hay ninguno.
+ */
+export async function consumeContentCredit(
+  admin: SupabaseClient,
+  args: { clientId: string; contentType: ContentType },
+): Promise<string | null> {
+  for (const kind of creditKindsForContent(args.contentType)) {
+    const creditId = await consumeCredit(admin, { clientId: args.clientId, kind })
+    if (creditId) return creditId
+  }
+  return null
+}
+
 /** Devuelve +1 a un crédito específico (anulación). */
 export async function refundCredit(
   admin: SupabaseClient,
@@ -144,6 +248,20 @@ export async function getAvailableContentCredits(
     result[ct] = (result[ct] ?? 0) + row.qty_remaining
   }
   return result
+}
+
+/** Saldo del paquete on-demand del cliente (suma de sus créditos `content_pool` con saldo). */
+export async function getAvailablePoolCredits(
+  client: SupabaseClient,
+  clientId: string,
+): Promise<number> {
+  const { data } = await client
+    .from('client_credits')
+    .select('qty_remaining')
+    .eq('client_id', clientId)
+    .eq('kind', POOL_CREDIT_KIND)
+    .gt('qty_remaining', 0)
+  return (data ?? []).reduce((sum, r) => sum + (r.qty_remaining as number), 0)
 }
 
 /** Cuántos cambios extras (sin caducidad) tiene el cliente. */
